@@ -442,6 +442,7 @@
     const db = getFirestore(app);
     const provider = new GoogleAuthProvider();
     let currentUser = null;
+    let gameManager = null; // Declare gameManager in the higher scope
 
     // --- UI Elements for Auth ---
     const loadingStatus = document.getElementById('loadingStatus');
@@ -478,7 +479,7 @@
                 userName.textContent = user.displayName;
             }
             document.getElementById('addNewMapCard').classList.remove('hidden');
-            if (gameManager.state === 'HOME') {
+            if (gameManager && gameManager.state === 'HOME') {
                  gameManager.init();
             }
         } else {
@@ -576,23 +577,23 @@ document.addEventListener('DOMContentLoaded', () => {
             this.isKillSoundEnabled = true;
 
             const soundFiles = {
-                replication: 'https://firebasestorage.googleapis.com/v0/b/battle-simulation-42512.appspot.com/o/sounds%2F2%2B.mp3?alt=media&token=a74b3345-0d45-42d7-8326-805e3f4236e3',
-                arrowShoot: 'https://firebasestorage.googleapis.com/v0/b/battle-simulation-42512.appspot.com/o/sounds%2Farrow.mp3?alt=media&token=813b6329-a1b6-4537-8f5b-513697e8412e',
-                crackedWallBreak: 'https://firebasestorage.googleapis.com/v0/b/battle-simulation-42512.appspot.com/o/sounds%2Fboxcrash.mp3?alt=media&token=c27e0892-80ea-468a-9351-4e76c12c4620',
-                dualSwordHit: 'https://firebasestorage.googleapis.com/v0/b/battle-simulation-42512.appspot.com/o/sounds%2Fdouble%20sword.mp3?alt=media&token=4251f496-ec61-460f-90e8-07b9a557b445',
-                equip: 'https://firebasestorage.googleapis.com/v0/b/battle-simulation-42512.appspot.com/o/sounds%2Fequip.mp3?alt=media&token=7c1b181c-d781-4fb9-a035-e1150c765377',
-                fireball: 'https://firebasestorage.googleapis.com/v0/b/battle-simulation-42512.appspot.com/o/sounds%2Ffireball.mp3?alt=media&token=7372e353-066e-47f1-8ac1-f3b14d24a919',
-                heal: 'https://firebasestorage.googleapis.com/v0/b/battle-simulation-42512.appspot.com/o/sounds%2Fheal.mp3?alt=media&token=e16548a3-2c1b-4f76-8059-e91b6555b719',
-                unitDeath: 'https://firebasestorage.googleapis.com/v0/b/battle-simulation-42512.appspot.com/o/sounds%2Fkill.mp3?alt=media&token=98e57e93-9c86-4f40-8022-7936a282f9d8',
-                king: 'https://firebasestorage.googleapis.com/v0/b/battle-simulation-42512.appspot.com/o/sounds%2Fking.mp3?alt=media&token=963b6526-95f2-430b-b5d1-1378d3886d3b',
-                hadokenCast: 'https://firebasestorage.googleapis.com/v0/b/battle-simulation-42512.appspot.com/o/sounds%2Flong%20wind.mp3?alt=media&token=80f2d4e3-a417-48f0-b0b3-f6ca47a50892',
-                nexusDestruction: 'https://firebasestorage.googleapis.com/v0/b/battle-simulation-42512.appspot.com/o/sounds%2FNexus%20destruction.mp3?alt=media&token=be3484f1-39c2-4a00-983b-3131627c271e',
-                punch: 'https://firebasestorage.googleapis.com/v0/b/battle-simulation-42512.appspot.com/o/sounds%2Fpunch.mp3?alt=media&token=b3671cd6-6202-45e0-81f5-19a9a01e59c1',
-                shurikenShoot: 'https://firebasestorage.googleapis.com/v0/b/battle-simulation-42512.appspot.com/o/sounds%2Fshuriken.mp3?alt=media&token=8660e53a-c85e-4bb0-8041-026858e39281',
-                swordHit: 'https://firebasestorage.googleapis.com/v0/b/battle-simulation-42512.appspot.com/o/sounds%2Fsword.mp3?alt=media&token=46d6b5e0-5dd4-4c4f-9e7f-7123de218c50',
-                teleport: 'https://firebasestorage.googleapis.com/v0/b/battle-simulation-42512.appspot.com/o/sounds%2Fteleport.mp3?alt=media&token=e66f9175-9ab5-46c0-9a43-0857193b2161',
-                arrowHit: 'https://firebasestorage.googleapis.com/v0/b/battle-simulation-42512.appspot.com/o/sounds%2Farrow.mp3?alt=media&token=813b6329-a1b6-4537-8f5b-513697e8412e', 
-                hadokenHit: 'https://firebasestorage.googleapis.com/v0/b/battle-simulation-42512.appspot.com/o/sounds%2Fpunch.mp3?alt=media&token=b3671cd6-6202-45e0-81f5-19a9a01e59c1', 
+                replication: './sounds/2+.mp3',
+                arrowShoot: './sounds/arrow.mp3',
+                crackedWallBreak: './sounds/boxcrash.mp3',
+                dualSwordHit: './sounds/double sword.mp3',
+                equip: './sounds/equip.mp3',
+                fireball: './sounds/fireball.mp3',
+                heal: './sounds/heal.mp3',
+                unitDeath: './sounds/kill.mp3',
+                king: './sounds/king.mp3', // This will be handled in equipWeapon
+                hadokenCast: './sounds/long wind.mp3',
+                nexusDestruction: './sounds/Nexus destruction.mp3',
+                punch: './sounds/punch.mp3',
+                shurikenShoot: './sounds/shuriken.mp3',
+                swordHit: './sounds/sword.mp3',
+                teleport: './sounds/teleport.mp3',
+                arrowHit: './sounds/arrow.mp3', 
+                hadokenHit: './sounds/punch.mp3', 
             };
 
 
@@ -628,7 +629,7 @@ document.addEventListener('DOMContentLoaded', () => {
             } else {
                 player.load(player.buffer.url).then(() => {
                     if (!this.isMuted) player.start();
-                });
+                }).catch(e => console.error(`Error loading sound: ${sound}`, e));
             }
         }
 
@@ -1754,7 +1755,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 name: document.getElementById(`map-name-${this.currentMapId}`).textContent, // Get current name from UI
                 width: canvas.width,
                 height: canvas.height,
-                map: this.map,
+                map: JSON.stringify(this.map), // Serialize map grid
                 units: plainUnits,
                 weapons: plainWeapons,
                 nexuses: plainNexuses,
@@ -1860,8 +1861,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
             prevCtx.fillStyle = '#111827';
             prevCtx.fillRect(0, 0, previewCanvas.width, previewCanvas.height);
-
-            mapData.map.forEach((row, y) => {
+            
+            const mapGridData = (typeof mapData.map === 'string') ? JSON.parse(mapData.map) : mapData.map;
+            mapGridData.forEach((row, y) => {
                 row.forEach((tile, x) => {
                     switch(tile.type) {
                         case TILE.WALL: prevCtx.fillStyle = tile.color || COLORS.WALL; break;
@@ -1958,7 +1960,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     name: name,
                     width: width,
                     height: height,
-                    map: Array(Math.floor(height / GRID_SIZE)).fill().map(() => Array(Math.floor(width / GRID_SIZE)).fill({ type: TILE.FLOOR, color: COLORS.FLOOR })),
+                    map: JSON.stringify(Array(Math.floor(height / GRID_SIZE)).fill().map(() => Array(Math.floor(width / GRID_SIZE)).fill({ type: TILE.FLOOR, color: COLORS.FLOOR }))),
                     units: [], weapons: [], nexuses: [], growingFields: []
                 };
                 
@@ -2858,10 +2860,11 @@ document.addEventListener('DOMContentLoaded', () => {
             COLS = Math.floor(canvas.width / GRID_SIZE);
             ROWS = Math.floor(canvas.height / GRID_SIZE);
 
-            if (!mapData.map || !Array.isArray(mapData.map) || mapData.map.length === 0) {
-                this.map = Array(ROWS).fill().map(() => Array(COLS).fill({ type: TILE.FLOOR, color: COLORS.FLOOR }));
+            if (mapData.map && typeof mapData.map === 'string') {
+                this.map = JSON.parse(mapData.map); // Deserialize map grid
             } else {
-                this.map = JSON.parse(JSON.stringify(mapData.map));
+                // Fallback for old data or errors
+                this.map = Array(ROWS).fill().map(() => Array(COLS).fill({ type: TILE.FLOOR, color: COLORS.FLOOR }));
             }
             
             this.units = (mapData.units || []).map(u => Object.assign(new Unit(0,0), u));
@@ -2972,7 +2975,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     name: value.name,
                     width: value.width,
                     height: value.height,
-                    map: fullMap,
+                    map: JSON.stringify(fullMap), // Serialize map grid
                     units: value.units || [],
                     weapons: value.weapons || [],
                     nexuses: value.nexuses || [],
@@ -2983,9 +2986,13 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // --- 게임 시작 ---
-    const gameManager = new GameManager();
-    // gameManager.init() is called after Firebase auth is confirmed.
+    gameManager = new GameManager();
+    // gameManager.init() is now called from onAuthStateChanged or after DOMContentLoaded if user is already logged in.
+    if (currentUser) {
+        gameManager.init();
+    }
 });
 </script>
 </body>
 </html>
+
