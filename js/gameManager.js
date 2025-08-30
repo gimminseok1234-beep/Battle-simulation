@@ -67,6 +67,11 @@ export class GameManager {
         instance = this;
     }
 
+    // 다른 모듈에서 GameManager 인스턴스에 접근할 수 있도록 정적 메서드 추가
+    static getInstance() {
+        return instance;
+    }
+
     setCurrentUser(user) {
         this.currentUser = user;
     }
