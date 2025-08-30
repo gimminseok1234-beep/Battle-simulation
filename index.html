@@ -665,7 +665,7 @@
             }
             const audioManager = new AudioManager();
 
-            // --- 클래스 정의 (기존과 동일, 생략하지 않음) ---
+            // --- 클래스 정의 ---
            
             // 성장형 자기장 클래스
             class GrowingMagneticField {
@@ -992,6 +992,7 @@
                     this.pixelX = x * GRID_SIZE + GRID_SIZE / 2;
                     this.pixelY = y * GRID_SIZE + GRID_SIZE / 2;
                     this.type = type;
+                    this.isEquipped = false; // Add this flag
                 }
                 draw() {
                     const centerX = this.pixelX; const centerY = this.pixelY;
@@ -1157,13 +1158,11 @@
                 get detectionRange() { return this.baseDetectionRange + (this.weapon ? this.weapon.detectionRangeBonus || 0 : 0); }
                 get cooldownTime() { return this.baseCooldownTime + (this.weapon ? this.weapon.attackCooldownBonus || 0 : 0); }
 
-                equipWeapon(weapon, isClone = false) {
-                    this.weapon = weapon;
+                equipWeapon(weaponType, isClone = false) {
+                    this.weapon = gameManager.createWeapon(0, 0, weaponType);
                     audioManager.play('equip');
-                    if (weapon.type === 'crown' && !isClone) {
+                    if (this.weapon.type === 'crown' && !isClone) {
                         this.isKing = true;
-                        // Since king.mp3 might not exist, we won't play a special sound here
-                        // but the isKing status is set.
                     }
                     this.state = 'IDLE';
                 }
@@ -1396,7 +1395,7 @@
                     } else {
                         const enemyNexus = gameManager.nexuses.find(n => n.team !== this.team && !n.isDestroying);
                         const { item: closestEnemy, distance: enemyDist } = this.findClosest(enemies);
-                        const { item: targetWeapon, distance: weaponDist } = this.findClosest(weapons);
+                        const { item: targetWeapon, distance: weaponDist } = this.findClosest(weapons.filter(w => !w.isEquipped));
 
                         let targetEnemy = null;
                         if (closestEnemy && enemyDist <= this.detectionRange && gameManager.hasLineOfSight(this, closestEnemy)) {
@@ -1450,8 +1449,19 @@
                             }
                             break;
                         case 'SEEKING_HEAL_PACK':
-                        case 'SEEKING_WEAPON':
                             if (this.target) this.moveTarget = { x: this.target.pixelX, y: this.target.pixelY };
+                            break;
+                        case 'SEEKING_WEAPON':
+                            if (this.target) {
+                                const distance = Math.hypot(this.pixelX - this.target.pixelX, this.pixelY - this.target.pixelY);
+                                if (distance < GRID_SIZE * 0.8 && !this.target.isEquipped) {
+                                    this.equipWeapon(this.target.type);
+                                    this.target.isEquipped = true;
+                                    this.target = null;
+                                } else {
+                                    this.moveTarget = { x: this.target.pixelX, y: this.target.pixelY };
+                                }
+                            }
                             break;
                         case 'ATTACKING_NEXUS':
                         case 'AGGRESSIVE':
@@ -2410,8 +2420,7 @@
                         this.draw();
                         return;
                     }
-                    
-                    // --- BUG FIX: Corrected item existence check ---
+
                     const itemExists = this.units.some(u => u.gridX === x && u.gridY === y) || 
                                      this.weapons.some(w => w.gridX === x && w.gridY === y) || 
                                      this.nexuses.some(n => n.gridX === x && n.gridY === y);
@@ -2529,15 +2538,15 @@
 
                         if (!gameOver) {
                             const allRemainingTeams = new Set([...activeNexusTeams, ...activeUnitTeams]);
-                            if (allRemainingTeams.size === 1) {
+                            if (allRemainingTeams.size <= 1 && this.units.length > 1) { // Check for single remaining team
                                 const initialTeams = new Set(JSON.parse(this.initialNexusesState).map(n => n.team).concat(JSON.parse(this.initialUnitsState).map(u => u.team)));
                                 if (initialTeams.size > 1) {
                                     gameOver = true;
-                                    winner = allRemainingTeams.values().next().value;
+                                    winner = allRemainingTeams.size === 1 ? allRemainingTeams.values().next().value : null;
                                 }
-                            } else if (allRemainingTeams.size === 0) {
+                            } else if (this.units.length === 0 && activeNexusTeams.size <= 1) {
                                 gameOver = true;
-                                winner = null;
+                                winner = activeNexusTeams.size === 1 ? activeNexusTeams.values().next().value : null;
                             }
                         }
 
@@ -2612,7 +2621,6 @@
                    
                     const unitsBeforeUpdate = this.units.length;
 
-                    // --- PERFORMANCE OPTIMIZATION: Pre-group units by team ---
                     const unitsByTeam = {};
                     for (const unit of this.units) {
                         if (!unitsByTeam[unit.team]) {
@@ -2668,18 +2676,8 @@
                         }
                     }
 
-                    for (let i = this.units.length - 1; i >= 0; i--) {
-                        const unit = this.units[i];
-                        if (unit.weapon) continue;
-                        for (let j = this.weapons.length - 1; j >= 0; j--) {
-                            const weapon = this.weapons[j];
-                            if (Math.hypot(unit.pixelX - weapon.pixelX, unit.pixelY - weapon.pixelY) < GRID_SIZE * 0.8) {
-                                unit.equipWeapon(this.createWeapon(0, 0, weapon.type));
-                                this.weapons.splice(j, 1);
-                                break;
-                            }
-                        }
-                    }
+                    // --- PERFORMANCE OPTIMIZATION: Remove equipped weapons ---
+                    this.weapons = this.weapons.filter(w => !w.isEquipped);
 
                     this.effects.forEach(e => e.update());
                     this.effects = this.effects.filter(e => e.duration > 0);
@@ -2882,8 +2880,7 @@
                                 if (!isOccupied) {
                                     const newUnit = new Unit(newX, newY, spawner.team);
                                     if (cloneWeapon && spawner.weapon) {
-                                        const clonedWeapon = this.createWeapon(newX, newY, spawner.weapon.type);
-                                        newUnit.equipWeapon(clonedWeapon, true);
+                                        newUnit.equipWeapon(spawner.weapon.type, true);
                                     }
                                     this.units.push(newUnit);
                                     return;
