@@ -86,12 +86,10 @@
                         <button class="tool-btn w-full text-left p-2 rounded hover:bg-gray-700" data-tool="tile" data-type="HEAL_PACK">힐 팩</button>
                         <div class="flex items-center gap-1 mt-1">
                             <button class="tool-btn flex-grow text-left p-2 rounded hover:bg-gray-700" data-tool="growing_field">성장형 자기장</button>
-                            <button id="growingFieldSettingsBtn" class="p-1 rounded hover:bg-gray-600 hidden">⚙️</button>
-                        </div>
+                            <button id="growingFieldSettingsBtn" class="p-1 rounded hover:bg-gray-600">⚙️</button> </div>
                         <div class="flex items-center gap-1 mt-1">
                             <button class="tool-btn flex-grow text-left p-2 rounded hover:bg-gray-700" data-tool="auto_field">자동 자기장</button>
-                            <button id="autoFieldSettingsBtn" class="p-1 rounded hover:bg-gray-600 hidden">⚙️</button>
-                        </div>
+                            <button id="autoFieldSettingsBtn" class="p-1 rounded hover:bg-gray-600">⚙️</button> </div>
                         <div class="flex items-center gap-2 mt-2">
                             <button class="tool-btn w-full text-left p-2 rounded hover:bg-gray-700" data-tool="tile" data-type="REPLICATION_TILE">+N 복제</button>
                             <input type="number" id="replicationValue" value="2" class="p-1 rounded w-16 bg-gray-700 border-gray-600">
@@ -125,8 +123,7 @@
                         <button class="tool-btn w-full text-left p-2 rounded hover:bg-gray-700" data-tool="weapon" data-type="staff">지팡이</button>
                         <div class="flex items-center gap-1">
                             <button class="tool-btn flex-grow text-left p-2 rounded hover:bg-gray-700" data-tool="weapon" data-type="hadoken">장풍</button>
-                            <button id="hadokenSettingsBtn" class="p-1 rounded hover:bg-gray-600 hidden">⚙️</button>
-                        </div>
+                            <button id="hadokenSettingsBtn" class="p-1 rounded hover:bg-gray-600">⚙️</button> </div>
                         <button class="tool-btn w-full text-left p-2 rounded hover:bg-gray-700" data-tool="weapon" data-type="shuriken">표창</button>
                         <button class="tool-btn w-full text-left p-2 rounded hover:bg-gray-700" data-tool="weapon" data-type="crown">왕관</button>
                     </div>
@@ -144,12 +141,12 @@
         </div>
     </div>
     
-    <div id="newMapModal" class="modal-container">
+    <div id="newMapModal" class="modal-container hidden">
         <div class="modal-content">
             <h3 class="text-xl font-bold mb-4">새 맵 생성</h3>
             <input type="text" id="newMapName" placeholder="맵 이름" class="modal-input">
-            <input type="number" id="newMapWidth" placeholder="너비 (e.g., 600)" class="modal-input">
-            <input type="number" id="newMapHeight" placeholder="높이 (e.g., 900)" class="modal-input">
+            <input type="number" id="newMapWidth" placeholder="너비 (e.g., 60)" value="60" class="modal-input">
+            <input type="number" id="newMapHeight" placeholder="높이 (e.g., 90)" value="90" class="modal-input">
             <div class="modal-buttons">
                 <button id="confirmNewMapBtn" class="btn-confirm">생성</button>
                 <button id="cancelNewMapBtn" class="btn-cancel">취소</button>
@@ -157,7 +154,7 @@
         </div>
     </div>
     
-    <div id="renameMapModal" class="modal-container">
+    <div id="renameMapModal" class="modal-container hidden">
         <div class="modal-content">
             <h3 class="text-xl font-bold mb-4">맵 이름 변경</h3>
             <input type="text" id="renameMapInput" class="modal-input">
@@ -168,7 +165,7 @@
         </div>
     </div>
 
-    <div id="deleteConfirmModal" class="modal-container">
+    <div id="deleteConfirmModal" class="modal-container hidden">
         <div class="modal-content">
             <h3 class="text-xl font-bold mb-4">삭제 확인</h3>
             <p id="deleteConfirmText" class="mb-4"></p>
@@ -179,7 +176,7 @@
         </div>
     </div>
     
-    <div id="mapSettingsModal" class="modal-container">
+    <div id="mapSettingsModal" class="modal-container hidden">
         <div class="modal-content">
             <h3 class="text-xl font-bold mb-4">맵 크기 변경</h3>
             <div class="flex items-center gap-2 mb-4">
@@ -194,14 +191,14 @@
         </div>
     </div>
     
-    <div id="growingFieldModal" class="modal-container">
+    <div id="growingFieldModal" class="modal-container hidden">
         <div class="modal-content">
             <h3 class="text-xl font-bold mb-4">성장형 자기장 설정</h3>
             <label for="fieldDirection">방향:</label>
             <select id="fieldDirection" class="modal-input"><option value="DOWN">아래로</option><option value="UP">위로</option><option value="LEFT">왼쪽으로</option><option value="RIGHT">오른쪽으로</option></select>
-            <label for="fieldSpeed">속도 (초):</label>
+            <label for="fieldSpeed" class="mt-2">속도 (초):</label>
             <input type="number" id="fieldSpeed" value="4" class="modal-input">
-            <label for="fieldDelay">딜레이 (초):</label>
+            <label for="fieldDelay" class="mt-2">딜레이 (초):</label>
             <input type="number" id="fieldDelay" value="0" class="modal-input">
             <div class="modal-buttons">
                  <button id="growingFieldDefaultBtn" class="btn-default">기본값</button>
@@ -209,13 +206,12 @@
             </div>
         </div>
     </div>
-    <div id="autoFieldModal" class="modal-container">
+    <div id="autoFieldModal" class="modal-container hidden">
         <div class="modal-content">
             <h3 class="text-xl font-bold mb-4">자동 자기장 설정</h3>
-            <label class="flex items-center"><input type="checkbox" id="autoFieldActiveToggle"> 활성화</label>
-            <label for="autoFieldShrinkTime">축소 시간 (초):</label>
-            <input type="number" id="autoFieldShrinkTime" value="60" class="modal-input">
-            <label for="autoFieldSafeZoneSize">최종 안전구역 크기 (타일):</label>
+            <label class="flex items-center mb-2"><input type="checkbox" id="autoFieldActiveToggle" class="mr-2"> 활성화</label>
+            <label for="autoFieldShrinkTime">축소 시간 (분):</label>
+            <input type="number" id="autoFieldShrinkTime" value="60" class="modal-input"> <label for="autoFieldSafeZoneSize" class="mt-2">최종 안전구역 크기 (타일):</label>
             <input type="number" id="autoFieldSafeZoneSize" value="6" class="modal-input">
             <div class="modal-buttons">
                 <button id="autoFieldDefaultBtn" class="btn-default">기본값</button>
@@ -223,11 +219,11 @@
             </div>
         </div>
     </div>
-    <div id="hadokenModal" class="modal-container">
+    <div id="hadokenModal" class="modal-container hidden">
         <div class="modal-content">
             <h3 class="text-xl font-bold mb-4">장풍 넉백 설정</h3>
-            <input type="range" id="hadokenKnockback" min="0" max="50" value="15" class="w-full">
-            <span id="hadokenKnockbackValue">15</span>
+            <label for="hadokenKnockback">넉백 거리:</label> <input type="range" id="hadokenKnockback" min="0" max="50" value="15" class="w-full">
+            <span id="hadokenKnockbackValue" class="block text-center mt-1">15</span>
             <div class="modal-buttons">
                 <button id="hadokenDefaultBtn" class="btn-default">기본값</button>
                 <button id="closeHadokenModal" class="btn-confirm">확인</button>
