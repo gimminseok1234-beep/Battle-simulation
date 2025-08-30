@@ -1,68 +1,86 @@
-import { initializeApp } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-app.js";
-import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-auth.js";
-import { getFirestore, collection, addDoc, serverTimestamp, query, orderBy, limit, getDocs } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore.js";
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.9.0/firebase-app.js";
+import { getAuth, signInAnonymously, onAuthStateChanged, GoogleAuthProvider, signInWithPopup, signOut } from "https://www.gstatic.com/firebasejs/10.9.0/firebase-auth.js";
+import { getFirestore } from "https://www.gstatic.com/firebasejs/10.9.0/firebase-firestore.js";
 
-// 사용자가 제공한 Firebase 프로젝트 설정 값
+// Your web app's Firebase configuration
 const firebaseConfig = {
     apiKey: "AIzaSyDCB9bou34n3nKntyDbCIV-s3ccifgwI-k",
     authDomain: "battle-simulation-42512.firebaseapp.com",
     projectId: "battle-simulation-42512",
-    storageBucket: "battle-simulation-42512.appspot.com",
+    storageBucket: "battle-simulation-42512.firebasestorage.app", // .firebasestorage.app이 올바른 형식입니다.
     messagingSenderId: "705586780455",
     appId: "1:705586780455:web:9e485767a508082a0bb102"
 };
 
-// Firebase 앱 초기화
+// Firebase 앱 초기화 (앱에서 단 한 번만 실행)
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
+const provider = new GoogleAuthProvider();
 
-// 익명으로 로그인 처리
-signInAnonymously(auth)
-    .catch((error) => {
-        console.error("Firebase 익명 로그인 실패:", error);
+/**
+ * Google 계정으로 로그인 팝업을 띄웁니다.
+ */
+function signInWithGoogle() {
+    signInWithPopup(auth, provider)
+        .catch((error) => {
+            console.error("Google 로그인 실패:", error);
+        });
+}
+
+/**
+ * 현재 사용자를 로그아웃시킵니다.
+ */
+function logout() {
+    signOut(auth).catch((error) => {
+        console.error("로그아웃 실패:", error);
     });
+}
 
 /**
- * 점수를 Firebase에 저장하는 함수
- * @param {string} name - 사용자 이름
- * @param {number} score - 획득한 점수
+ * 인증 상태 변경을 감지하고 UI를 업데이트합니다.
+ * @param {User | null} user - 현재 로그인된 사용자 객체 또는 null
+ * @param {GameManager} gameManager - 게임 매니저 인스턴스
  */
-async function saveScore(name, score) {
-    try {
-        await addDoc(collection(db, "scores"), {
-            name: name,
-            score: score,
-            timestamp: serverTimestamp()
-        });
-        console.log("점수 저장 성공!");
-    } catch (error) {
-        console.error("점수 저장 중 오류 발생: ", error);
+function handleAuthStateChange(user, gameManager) {
+    const loadingStatus = document.getElementById('loadingStatus');
+    const googleLoginBtn = document.getElementById('googleLoginBtn');
+    const userDetails = document.getElementById('userDetails');
+    const addNewMapCard = document.getElementById('addNewMapCard');
+
+    loadingStatus.style.display = 'none';
+
+    if (user) {
+        // 사용자가 로그인한 경우
+        googleLoginBtn.classList.add('hidden');
+        userDetails.classList.remove('hidden');
+        addNewMapCard.classList.remove('hidden');
+        document.getElementById('userPhoto').src = user.photoURL;
+        document.getElementById('userName').textContent = user.displayName;
+
+        gameManager.setCurrentUser(user);
+        gameManager.init();
+    } else {
+        // 사용자가 로그아웃한 경우
+        googleLoginBtn.classList.remove('hidden');
+        userDetails.classList.add('hidden');
+        addNewMapCard.classList.add('hidden');
+        
+        const mapGrid = document.getElementById('mapGrid');
+        while (mapGrid.firstChild && mapGrid.firstChild !== addNewMapCard) {
+            mapGrid.removeChild(mapGrid.firstChild);
+        }
+        gameManager.setCurrentUser(null);
     }
 }
 
 /**
- * 상위 랭킹을 Firebase에서 불러오는 함수
- * @param {number} limitCount - 불러올 랭킹 수
- * @returns {Promise<Array>} - 랭킹 데이터 배열
+ * 인증 관련 UI 이벤트 리스너를 설정합니다.
  */
-async function getHighScores(limitCount = 10) {
-    const scoresRef = collection(db, "scores");
-    // 점수(score)를 기준으로 내림차순 정렬하고, timestamp를 기준으로도 내림차순 정렬하여 최신 점수가 위로 오게 함
-    const q = query(scoresRef, orderBy("score", "desc"), orderBy("timestamp", "desc"), limit(limitCount));
-    
-    try {
-        const querySnapshot = await getDocs(q);
-        const highScores = [];
-        querySnapshot.forEach((doc) => {
-            highScores.push(doc.data());
-        });
-        return highScores;
-    } catch (error) {
-        console.error("랭킹 불러오기 중 오류 발생: ", error);
-        return [];
-    }
+function setupAuthEventListeners() {
+    document.getElementById('googleLoginBtn').addEventListener('click', signInWithGoogle);
+    document.getElementById('logoutBtn').addEventListener('click', logout);
 }
 
-// 다른 모듈에서 사용할 수 있도록 함수들을 export
-export { auth, saveScore, getHighScores };
+// 다른 모듈에서 사용할 수 있도록 export
+export { auth, db, onAuthStateChanged, handleAuthStateChange, setupAuthEventListeners };
