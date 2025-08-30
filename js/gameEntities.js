@@ -1,6 +1,5 @@
 import { TILE, TEAM, COLORS, GRID_SIZE } from './constants.js';
-import { audioManager } from './audioManager.js';
-import { gameManager } from './main.js'; // gameManager instance access
+import { GameManager } from './gameManager.js'; // GameManager 클래스만 import
 
 // 성장형 자기장 클래스
 export class GrowingMagneticField {
@@ -31,6 +30,9 @@ export class GrowingMagneticField {
     }
 
     draw(ctx) {
+        const gameManager = GameManager.getInstance(); // GameManager 인스턴스 가져오기
+        if (!gameManager) return;
+
         const startX = this.gridX * GRID_SIZE;
         const startY = this.gridY * GRID_SIZE;
         const totalWidth = this.width * GRID_SIZE;
@@ -98,11 +100,12 @@ export class Nexus {
     takeDamage(damage) {
         if (this.isDestroying) return;
         this.hp -= damage;
+        const gameManager = GameManager.getInstance();
         if (this.hp <= 0) {
             this.hp = 0;
             this.isDestroying = true;
             this.createExplosion();
-            audioManager.play('nexusDestruction');
+            if (gameManager) gameManager.audioManager.play('nexusDestruction');
         }
     }
     createExplosion() {
@@ -165,6 +168,7 @@ export class Nexus {
 // 발사체 클래스
 export class Projectile {
     constructor(owner, target, type = 'arrow') {
+        const gameManager = GameManager.getInstance();
         this.owner = owner; this.pixelX = owner.pixelX; this.pixelY = owner.pixelY;
         this.type = type;
         
@@ -184,6 +188,9 @@ export class Projectile {
         this.rotationAngle = 0;
     }
     update() {
+        const gameManager = GameManager.getInstance();
+        if (!gameManager) return;
+        
         if (this.type === 'hadoken') {
             this.trail.push({x: this.pixelX, y: this.pixelY});
             if (this.trail.length > 10) this.trail.shift();
@@ -285,7 +292,12 @@ export class AreaEffect {
         this.pixelX = x; this.pixelY = y; this.type = type;
         this.duration = 30; this.maxRadius = GRID_SIZE * 2.5; this.currentRadius = 0;
     }
-    update() { this.duration -= gameManager.gameSpeed; this.currentRadius = this.maxRadius * (1 - (this.duration / 30)); }
+    update() {
+        const gameManager = GameManager.getInstance();
+        if (!gameManager) return;
+        this.duration -= gameManager.gameSpeed;
+        this.currentRadius = this.maxRadius * (1 - (this.duration / 30));
+    }
     draw(ctx) {
         if (this.type === 'fire_pillar') {
             const opacity = this.duration / 30;
@@ -303,7 +315,11 @@ export class Effect {
         this.x = x; this.y = y; this.type = type; this.target = target;
         this.duration = 20; this.angle = Math.random() * Math.PI * 2;
     }
-    update() { this.duration -= gameManager.gameSpeed; }
+    update() {
+        const gameManager = GameManager.getInstance();
+        if (!gameManager) return;
+        this.duration -= gameManager.gameSpeed;
+    }
     draw(ctx) {
         if (this.type === 'slash' || this.type === 'dual_sword_slash') {
             ctx.save();
@@ -472,6 +488,9 @@ export class Unit {
     }
     
     get speed() {
+        const gameManager = GameManager.getInstance();
+        if (!gameManager) return this.baseSpeed;
+
         let speedModifier = 0;
         if (this.isInMagneticField) speedModifier = -0.7;
 
@@ -495,8 +514,11 @@ export class Unit {
     get cooldownTime() { return this.baseCooldownTime + (this.weapon ? this.weapon.attackCooldownBonus || 0 : 0); }
 
     equipWeapon(weaponType, isClone = false) {
+        const gameManager = GameManager.getInstance();
+        if (!gameManager) return;
+
         this.weapon = gameManager.createWeapon(0, 0, weaponType);
-        audioManager.play('equip');
+        gameManager.audioManager.play('equip');
         if (this.weapon.type === 'crown' && !isClone) {
             this.isKing = true;
         }
@@ -513,6 +535,9 @@ export class Unit {
     }
     
     applyPhysics() {
+        const gameManager = GameManager.getInstance();
+        if (!gameManager) return;
+        
         let nextX = this.pixelX + this.knockbackX * gameManager.gameSpeed;
         let nextY = this.pixelY + this.knockbackY * gameManager.gameSpeed;
         
@@ -542,6 +567,9 @@ export class Unit {
 
     move() {
         if (!this.moveTarget || this.isCasting) return;
+        const gameManager = GameManager.getInstance();
+        if (!gameManager) return;
+        
         const dx = this.moveTarget.x - this.pixelX, dy = this.moveTarget.y - this.pixelY;
         const distance = Math.hypot(dx, dy);
         const currentSpeed = this.speed * gameManager.gameSpeed;
@@ -580,15 +608,17 @@ export class Unit {
 
     attack(target) {
         if (!target || this.attackCooldown > 0) return;
+        const gameManager = GameManager.getInstance();
+        if (!gameManager) return;
         
         const currentAttackPower = this.attackPower;
 
         if (this.weapon && this.weapon.type === 'staff') {
             this.isCasting = true; this.castingProgress = 0; this.castTargetPos = { x: target.pixelX, y: target.pixelY }; this.target = target;
-            audioManager.play('fireball');
+            gameManager.audioManager.play('fireball');
         } else if (this.weapon && this.weapon.type === 'hadoken') {
              this.isCasting = true; this.castingProgress = 0; this.castTargetPos = { x: target.pixelX, y: target.pixelY }; this.target = target;
-             audioManager.play('hadokenCast');
+             gameManager.audioManager.play('hadokenCast');
         } else {
             this.attackCooldown = this.cooldownTime;
             const targetGridX = Math.floor(target.pixelX / GRID_SIZE);
@@ -601,20 +631,20 @@ export class Unit {
             } else if (target instanceof Unit || target instanceof Nexus) {
                 if (this.weapon && this.weapon.type === 'sword') {
                     target.takeDamage(currentAttackPower); gameManager.createEffect('slash', this.pixelX, this.pixelY, target);
-                    audioManager.play('swordHit');
+                    gameManager.audioManager.play('swordHit');
                 } else if (this.weapon && this.weapon.type === 'bow') {
                     gameManager.createProjectile(this, target, 'arrow');
-                    audioManager.play('arrowShoot');
+                    gameManager.audioManager.play('arrowShoot');
                 } else if (this.weapon && this.weapon.type === 'dual_swords') {
                     target.takeDamage(currentAttackPower); gameManager.createEffect('dual_sword_slash', this.pixelX, this.pixelY, target);
-                    audioManager.play('dualSwordHit');
+                    gameManager.audioManager.play('dualSwordHit');
                 } else if (this.weapon && this.weapon.type === 'shuriken') {
                      gameManager.createProjectile(this, target, 'shuriken');
-                     audioManager.play('shurikenShoot');
+                     gameManager.audioManager.play('shurikenShoot');
                 }
                 else {
                     target.takeDamage(currentAttackPower);
-                    audioManager.play('punch');
+                    gameManager.audioManager.play('punch');
                 }
             }
         }
@@ -635,6 +665,9 @@ export class Unit {
     }
 
     update(enemies, weapons, projectiles) {
+        const gameManager = GameManager.getInstance();
+        if (!gameManager) return;
+
         if (this.attackCooldown > 0) this.attackCooldown -= gameManager.gameSpeed;
         if (this.teleportCooldown > 0) this.teleportCooldown -= gameManager.gameSpeed;
         if (this.alertedCounter > 0) this.alertedCounter -= gameManager.gameSpeed;
@@ -700,7 +733,7 @@ export class Unit {
             if (currentTile.type === TILE.HEAL_PACK) {
                 this.hp = 100;
                 gameManager.map[currentGridY][currentGridX] = { type: TILE.FLOOR, color: gameManager.currentFloorColor };
-                audioManager.play('heal');
+                gameManager.audioManager.play('heal');
             }
             if (currentTile.type === TILE.TELEPORTER && this.teleportCooldown <= 0) {
                 const teleporters = gameManager.getTilesOfType(TILE.TELEPORTER);
@@ -710,7 +743,7 @@ export class Unit {
                         this.pixelX = otherTeleporter.x * GRID_SIZE + GRID_SIZE / 2;
                         this.pixelY = otherTeleporter.y * GRID_SIZE + GRID_SIZE / 2;
                         this.teleportCooldown = 120;
-                        audioManager.play('teleport');
+                        gameManager.audioManager.play('teleport');
                     }
                 }
             }
@@ -719,7 +752,7 @@ export class Unit {
                     gameManager.spawnUnit(this, true);
                 }
                 gameManager.map[currentGridY][currentGridX] = { type: TILE.FLOOR, color: gameManager.currentFloorColor };
-                audioManager.play('replication');
+                gameManager.audioManager.play('replication');
             }
         }
 
@@ -819,6 +852,9 @@ export class Unit {
     }
 
     draw(ctx) {
+        const gameManager = GameManager.getInstance();
+        if (!gameManager) return;
+        
         switch(this.team) {
             case TEAM.A: ctx.fillStyle = COLORS.TEAM_A; break;
             case TEAM.B: ctx.fillStyle = COLORS.TEAM_B; break;
