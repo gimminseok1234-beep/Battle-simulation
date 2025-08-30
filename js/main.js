@@ -1,31 +1,16 @@
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.9.0/firebase-app.js";
-import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.9.0/firebase-auth.js";
-import { getFirestore } from "https://www.gstatic.com/firebasejs/10.9.0/firebase-firestore.js";
-import { setupAuth, handleAuthStateChange } from './firebase.js';
+import { auth, db, onAuthStateChanged, handleAuthStateChange, setupAuthEventListeners } from './firebase.js';
 import { GameManager } from './gameManager.js';
 
-// Your web app's Firebase configuration
-const firebaseConfig = {
-    apiKey: "AIzaSyDCB9bou34n3nKntyDbCIV-s3ccifgwI-k",
-    authDomain: "battle-simulation-42512.firebaseapp.com",
-    projectId: "battle-simulation-42512",
-    storageBucket: "battle-simulation-42512.firebasestorage.app",
-    messagingSenderId: "705586780455",
-    appId: "1:705586780455:web:9e485767a508082a0bb102"
-};
+// GameManager 인스턴스를 생성하고 전역에서 접근 가능하도록 설정
+const gameManager = new GameManager(db);
 
-// Initialize Firebase
-const app = initializeApp(firebaseConfig);
-const auth = getAuth(app);
-const db = getFirestore(app);
-
-let gameManager = null;
-
+// DOM이 로드되면 초기화 로직 실행
 document.addEventListener('DOMContentLoaded', () => {
-    gameManager = new GameManager(db);
-    setupAuth(auth);
+    // 인증 UI 이벤트 리스너 설정
+    setupAuthEventListeners();
     
+    // 인증 상태 변경 감지
     onAuthStateChanged(auth, (user) => {
-        handleAuthStateChange(user, gameManager, auth);
+        handleAuthStateChange(user, gameManager);
     });
 });
