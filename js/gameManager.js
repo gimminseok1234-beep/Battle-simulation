@@ -1,14 +1,11 @@
+// js/gameManager.js
+
 import { getFirestore, collection, doc, getDoc, getDocs, setDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/10.9.0/firebase-firestore.js";
 import { Unit, Weapon, Nexus, Projectile, AreaEffect, Effect, GrowingMagneticField } from './gameEntities.js';
 import { TILE, TEAM, COLORS, GRID_SIZE } from './constants.js';
 
-let instance = null;
-
 export class GameManager {
     constructor(db, audioManager) {
-        if (instance) {
-            return instance;
-        }
         this.db = db;
         this.audioManager = audioManager;
         this.currentUser = null;
@@ -62,8 +59,6 @@ export class GameManager {
         this.hadokenKnockback = 15;
         this.initialNexusCount = 0;
         this.winnerTeam = null;
-
-        instance = this;
     }
 
     setCurrentUser(user) {
