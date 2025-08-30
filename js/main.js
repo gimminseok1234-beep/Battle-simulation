@@ -7,20 +7,10 @@ import { setupAuth, handleAuthStateChange } from './firebase.js';
 import { GameManager } from './gameManager.js';
 import { AudioManager } from "./audioManager.js";
 
-// Your web app's Firebase configuration
-const firebaseConfig = {
-    apiKey: "AIzaSyDCB9bou34n3nKntyDbCIV-s3ccifgwI-k",
-    authDomain: "battle-simulation-42512.firebaseapp.com",
-    projectId: "battle-simulation-42512",
-    storageBucket: "battle-simulation-42512.firebasestorage.app",
-    messagingSenderId: "705586780455",
-    appId: "1:705586780455:web:9e485767a508082a0bb102"
-};
-
 // --- 전역 인스턴스 ---
 // 다른 파일에서 import하여 사용할 수 있도록 export 합니다.
 export const audioManager = new AudioManager();
-export let gameManager = null;
+export let gameManager = null; // gameManager를 여기서 export 합니다.
 
 // --- 앱 초기화 ---
 document.addEventListener('DOMContentLoaded', () => {
