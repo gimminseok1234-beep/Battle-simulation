@@ -1,5 +1,5 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.9.0/firebase-app.js";
-import { getAuth, onAuthStateChanged, GoogleAuthProvider, signInWithPopup, signOut } from "https://www.gstatic.com/firebasejs/10.9.0/firebase-auth.js";
+import { getAuth, onAuthStateChanged, GoogleAuthProvider, signInWithPopup, signOut, signInAnonymously } from "https://www.gstatic.com/firebasejs/10.9.0/firebase-auth.js";
 import { getFirestore } from "https://www.gstatic.com/firebasejs/10.9.0/firebase-firestore.js";
 
 // Your web app's Firebase configuration
@@ -7,8 +7,7 @@ const firebaseConfig = {
     apiKey: "AIzaSyDCB9bou34n3nKntyDbCIV-s3ccifgwI-k",
     authDomain: "battle-simulation-42512.firebaseapp.com",
     projectId: "battle-simulation-42512",
-    // storageBucket 주소 형식을 '.appspot.com'으로 수정했습니다.
-    storageBucket: "battle-simulation-42512.appspot.com", 
+    storageBucket: "battle-simulation-42512.appspot.com",
     messagingSenderId: "705586780455",
     appId: "1:705586780455:web:9e485767a508082a0bb102"
 };
@@ -49,33 +48,33 @@ function handleAuthStateChange(user, gameManager) {
     const userDetails = document.getElementById('userDetails');
     const addNewMapCard = document.getElementById('addNewMapCard');
 
-    loadingStatus.style.display = 'none';
-
     if (user) {
-        // 사용자가 로그인한 경우
-        googleLoginBtn.classList.add('hidden');
-        userDetails.classList.remove('hidden');
-        addNewMapCard.classList.remove('hidden');
-        document.getElementById('userPhoto').src = user.photoURL;
-        document.getElementById('userName').textContent = user.displayName;
+        // 사용자가 로그인한 경우 (Google 또는 익명)
+        loadingStatus.style.display = 'none';
+        
+        if (user.isAnonymous) {
+            // 익명 사용자일 경우
+            googleLoginBtn.classList.remove('hidden');
+            userDetails.classList.add('hidden');
+        } else {
+            // Google 사용자일 경우
+            googleLoginBtn.classList.add('hidden');
+            userDetails.classList.remove('hidden');
+            document.getElementById('userPhoto').src = user.photoURL;
+            document.getElementById('userName').textContent = user.displayName;
+        }
 
+        addNewMapCard.classList.remove('hidden');
         gameManager.setCurrentUser(user);
         gameManager.init();
     } else {
-        // 사용자가 로그아웃한 경우
-        googleLoginBtn.classList.remove('hidden');
-        userDetails.classList.add('hidden');
-        addNewMapCard.classList.add('hidden');
-        
-        const mapGrid = document.getElementById('mapGrid');
-        const addNewMapCardElement = document.getElementById('addNewMapCard'); // addNewMapCard 참조를 변수로 저장
-        while (mapGrid.firstChild && mapGrid.firstChild !== addNewMapCardElement) {
-            mapGrid.removeChild(mapGrid.firstChild);
-        }
-        gameManager.setCurrentUser(null);
+        // 사용자가 로그아웃했거나, 아직 아무도 로그인하지 않은 경우
+        signInAnonymously(auth).catch((error) => {
+            console.error("익명 로그인 실패:", error);
+            loadingStatus.textContent = "인증에 실패했습니다. 새로고침 해주세요.";
+        });
     }
 }
-
 
 /**
  * 인증 관련 UI 이벤트 리스너를 설정합니다.
