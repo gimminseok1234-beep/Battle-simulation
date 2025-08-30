@@ -1395,7 +1395,6 @@
                         newState = 'FLEEING_FIELD';
                     } else {
                         const enemyNexus = gameManager.nexuses.find(n => n.team !== this.team && !n.isDestroying);
-                        // --- PERFORMANCE OPTIMIZATION START ---
                         const { item: closestEnemy, distance: enemyDist } = this.findClosest(enemies);
                         const { item: targetWeapon, distance: weaponDist } = this.findClosest(weapons);
 
@@ -1403,11 +1402,10 @@
                         if (closestEnemy && enemyDist <= this.detectionRange && gameManager.hasLineOfSight(this, closestEnemy)) {
                             targetEnemy = closestEnemy;
                         }
-                        // --- PERFORMANCE OPTIMIZATION END ---
 
-                        if (this.isKing && targetEnemy) { // 왕은 적이 보이면 도망
+                        if (this.isKing && targetEnemy) {
                             newState = 'FLEEING'; newTarget = targetEnemy;
-                        } else if (this.hp < 50) { // 체력이 낮으면 힐팩 탐색
+                        } else if (this.hp < 50) {
                             const healPacks = gameManager.getTilesOfType(TILE.HEAL_PACK);
                             if (healPacks.length > 0) {
                                 const healPackPositions = healPacks.map(pos => ({
@@ -1423,7 +1421,7 @@
                             }
                         }
                        
-                        if (newState === 'IDLE') { // 기본 상태일 때 목표 설정
+                        if (newState === 'IDLE') {
                             if (!this.weapon && targetWeapon && weaponDist <= this.detectionRange) {
                                 newState = 'SEEKING_WEAPON';
                                 newTarget = targetWeapon;
@@ -2203,7 +2201,6 @@
                         ...audioStream.getAudioTracks()
                     ]);
                     
-                    // --- VIDEO QUALITY ENHANCEMENT ---
                     const options = {
                         mimeType: 'video/webm; codecs=vp9,opus',
                         videoBitsPerSecond: 8000000 // 8 Mbps for high quality 1080p video
@@ -2214,7 +2211,6 @@
                     } catch (e) {
                         console.error('Error creating MediaRecorder:', e);
                         alert('녹화를 시작할 수 없습니다. 다른 코덱을 시도합니다.');
-                        // Fallback to default options if high-quality options fail
                         const fallbackOptions = { mimeType: 'video/webm' };
                         this.mediaRecorder = new MediaRecorder(combinedStream, fallbackOptions);
                     }
@@ -2231,7 +2227,6 @@
                         const blob = new Blob(this.recordedChunks, { type: 'video/mp4' }); // Blob type set to mp4
                         const url = URL.createObjectURL(blob);
                         
-                        // --- DOWNLOAD CONFIRMATION ---
                         if (confirm('녹화된 영상을 다운로드하시겠습니까?')) {
                             const a = document.createElement('a');
                             a.href = url;
@@ -2415,8 +2410,11 @@
                         this.draw();
                         return;
                     }
-
-                    const itemExists = this.units.some(u => u.gridX === x && u.gridY === y) || this.weapons.some(w => w.gridX !== x || w.gridY !== y) || this.nexuses.some(n => n.gridX !== x || n.gridY !== y);
+                    
+                    // --- BUG FIX: Corrected item existence check ---
+                    const itemExists = this.units.some(u => u.gridX === x && u.gridY === y) || 
+                                     this.weapons.some(w => w.gridX === x && w.gridY === y) || 
+                                     this.nexuses.some(n => n.gridX === x && n.gridY === y);
 
                     if (this.currentTool.tool === 'growing_field' && this.dragStartPos) {
                          const startX = Math.min(this.dragStartPos.gridX, x);
@@ -2613,7 +2611,23 @@
                     this.growingFields.forEach(field => field.update());
                    
                     const unitsBeforeUpdate = this.units.length;
-                    this.units.forEach(unit => unit.update(this.units.filter(u => u.team !== unit.team), this.weapons, this.projectiles));
+
+                    // --- PERFORMANCE OPTIMIZATION: Pre-group units by team ---
+                    const unitsByTeam = {};
+                    for (const unit of this.units) {
+                        if (!unitsByTeam[unit.team]) {
+                            unitsByTeam[unit.team] = [];
+                        }
+                        unitsByTeam[unit.team].push(unit);
+                    }
+                    const allTeamKeys = Object.keys(unitsByTeam);
+                    
+                    this.units.forEach(unit => {
+                        const enemyTeams = allTeamKeys.filter(key => key !== unit.team);
+                        const enemies = enemyTeams.flatMap(key => unitsByTeam[key]);
+                        unit.update(enemies, this.weapons, this.projectiles);
+                    });
+                    
                     this.units = this.units.filter(u => u.hp > 0);
                     if (this.units.length < unitsBeforeUpdate) {
                         audioManager.play('unitDeath');
