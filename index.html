@@ -64,18 +64,6 @@
         input[type="color"]::-webkit-color-swatch { border-radius: 6px; border: 1px solid #4b5563; }
         input[type="color"]::-moz-color-swatch { border-radius: 6px; border: 1px solid #4b5563; }
 
-        /* 녹화 버튼 및 상태 */
-        #recordBtn.recording {
-            background-color: #dc2626; /* Red-600 */
-        }
-        #recordBtn.recording:hover {
-            background-color: #b91c1c; /* Red-700 */
-        }
-        #gameCanvas.recording {
-            cursor: none;
-        }
-
-
         /* 모달 스타일 */
         .modal {
             display: none; position: fixed; z-index: 100; left: 0; top: 0;
@@ -165,10 +153,6 @@
             <div class="flex items-center gap-4 flex-wrap">
                  <button id="backToHomeBtn" class="bg-gray-600 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded">홈으로</button>
                  <button id="saveMapBtn" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded">저장</button>
-                 <button id="recordBtn" class="bg-pink-600 hover:bg-pink-700 text-white font-bold py-2 px-4 rounded flex items-center gap-2">
-                    <svg id="recordIcon" xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><circle cx="10" cy="10" r="7" /></svg>
-                    <span id="recordBtnText">녹화</span>
-                </button>
                  <div class="flex items-center gap-2">
                      <label for="actionCamToggle" class="relative inline-flex items-center cursor-pointer">
                          <input type="checkbox" id="actionCamToggle" class="sr-only peer">
@@ -535,7 +519,6 @@
             const backToHomeBtn = document.getElementById('backToHomeBtn');
             const saveMapBtn = document.getElementById('saveMapBtn');
             const muteBtn = document.getElementById('muteBtn');
-            const recordBtn = document.getElementById('recordBtn');
            
             const growingFieldSettingsBtn = document.getElementById('growingFieldSettingsBtn');
             const growingFieldModal = document.getElementById('growingFieldModal');
@@ -575,8 +558,6 @@
                     this.isInitialized = false;
                     this.isMuted = false;
                     this.isKillSoundEnabled = true;
-                    this.streamDestination = null;
-                    this.mainOutput = null;
 
                     const soundFiles = {
                         replication: './sounds/2+.mp3',
@@ -601,7 +582,7 @@
                     this.players = {};
                     for (const key in soundFiles) {
                         if (typeof soundFiles[key] === 'string' && soundFiles[key].length > 0) {
-                             this.players[key] = new Tone.Player(soundFiles[key]);
+                             this.players[key] = new Tone.Player(soundFiles[key]).toDestination();
                         }
                     }
                 }
@@ -610,25 +591,11 @@
                     if (this.isInitialized) return;
                     try {
                         await Tone.start();
-                        const audioContext = Tone.getContext().rawContext;
-                        this.streamDestination = audioContext.createMediaStreamDestination();
-                        this.mainOutput = new Tone.Gain().toDestination();
-                        this.mainOutput.connect(this.streamDestination);
-
-                        // Connect all players to the main output
-                        for (const key in this.players) {
-                            this.players[key].connect(this.mainOutput);
-                        }
-
                         this.isInitialized = true;
-                        console.log("Audio Initialized for recording.");
+                        console.log("Audio Initialized.");
                     } catch (e) {
                         console.error("Could not start audio context:", e);
                     }
-                }
-
-                getAudioStream() {
-                    return this.streamDestination ? this.streamDestination.stream : null;
                 }
 
                 play(sound) {
@@ -642,7 +609,6 @@
                     if (player.loaded) {
                         player.start();
                     } else {
-                         // Check if the URL is valid before attempting to load
                         if (player.buffer && player.buffer.url) {
                             player.load(player.buffer.url).then(() => {
                                 if (!this.isMuted) player.start();
@@ -992,9 +958,10 @@
                     this.pixelX = x * GRID_SIZE + GRID_SIZE / 2;
                     this.pixelY = y * GRID_SIZE + GRID_SIZE / 2;
                     this.type = type;
-                    this.isEquipped = false; // Add this flag
+                    this.isEquipped = false;
                 }
                 draw() {
+                    if (this.isEquipped) return;
                     const centerX = this.pixelX; const centerY = this.pixelY;
                     const scale = (this.type === 'crown') ? 1.0 : 0.8;
                     ctx.save(); ctx.translate(centerX, centerY); ctx.scale(scale, scale);
@@ -1720,9 +1687,6 @@
                     this.hadokenKnockback = 15;
                     this.initialNexusCount = 0;
                     this.winnerTeam = null;
-                    this.mediaRecorder = null;
-                    this.recordedChunks = [];
-                    this.isRecording = false;
                 }
 
                 init() {
@@ -1746,7 +1710,7 @@
                     this.currentMapId = mapId;
                     homeScreen.style.display = 'none';
                     editorScreen.style.display = 'flex';
-                    await audioManager.init(); // 오디오 컨텍스트 시작
+                    await audioManager.init();
 
                     const killSoundPref = localStorage.getItem('arenaKillSoundEnabled');
                     if (killSoundPref !== null) {
@@ -1763,11 +1727,6 @@
                     if (!currentUser) return [];
                     const mapsColRef = collection(db, "maps", currentUser.uid, "userMaps");
                     const mapSnapshot = await getDocs(mapsColRef);
-                    if (mapSnapshot.empty) {
-                        await this.createDefaultMapsInFirestore();
-                        const newSnapshot = await getDocs(mapsColRef);
-                        return newSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                    }
                     return mapSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
                 }
 
@@ -1991,7 +1950,7 @@
                        
                         const newMapId = `map_${Date.now()}`;
                         const newMapData = {
-                            id: newMapId, // ID를 데이터에 포함시켜 나중에 쉽게 참조
+                            id: newMapId,
                             name: name,
                             width: width,
                             height: height,
@@ -2017,7 +1976,6 @@
                     backToHomeBtn.addEventListener('click', () => this.showHomeScreen());
                     saveMapBtn.addEventListener('click', () => this.saveCurrentMap());
                     muteBtn.addEventListener('click', () => audioManager.toggleMute());
-                    recordBtn.addEventListener('click', () => this.toggleRecording());
                     mapSettingsBtn.addEventListener('click', () => {
                         widthInput.value = canvas.width;
                         heightInput.value = canvas.height;
@@ -2183,101 +2141,6 @@
                         this.draw();
                     });
                 }
-
-                // --- 녹화 관련 기능 ---
-                toggleRecording() {
-                    if (this.isRecording) {
-                        this.stopRecording();
-                    } else {
-                        this.startRecording();
-                    }
-                }
-
-                startRecording() {
-                    if (!('MediaRecorder' in window)) {
-                        alert('이 브라우저는 녹화 기능을 지원하지 않습니다.');
-                        return;
-                    }
-
-                    const canvasStream = canvas.captureStream(60); // 60fps로 캡처
-                    const audioStream = audioManager.getAudioStream();
-                    if (!audioStream) {
-                        alert('오디오를 캡처할 수 없습니다. 시뮬레이션 화면을 클릭하여 오디오를 활성화해주세요.');
-                        return;
-                    }
-
-                    const combinedStream = new MediaStream([
-                        ...canvasStream.getVideoTracks(),
-                        ...audioStream.getAudioTracks()
-                    ]);
-                    
-                    const options = {
-                        mimeType: 'video/webm; codecs=vp9,opus',
-                        videoBitsPerSecond: 8000000 // 8 Mbps for high quality 1080p video
-                    };
-
-                    try {
-                        this.mediaRecorder = new MediaRecorder(combinedStream, options);
-                    } catch (e) {
-                        console.error('Error creating MediaRecorder:', e);
-                        alert('녹화를 시작할 수 없습니다. 다른 코덱을 시도합니다.');
-                        const fallbackOptions = { mimeType: 'video/webm' };
-                        this.mediaRecorder = new MediaRecorder(combinedStream, fallbackOptions);
-                    }
-
-                    this.recordedChunks = [];
-
-                    this.mediaRecorder.ondataavailable = (event) => {
-                        if (event.data.size > 0) {
-                            this.recordedChunks.push(event.data);
-                        }
-                    };
-
-                    this.mediaRecorder.onstop = () => {
-                        const blob = new Blob(this.recordedChunks, { type: 'video/mp4' }); // Blob type set to mp4
-                        const url = URL.createObjectURL(blob);
-                        
-                        if (confirm('녹화된 영상을 다운로드하시겠습니까?')) {
-                            const a = document.createElement('a');
-                            a.href = url;
-                            a.download = `simulation-recording-${Date.now()}.mp4`; // File extension changed to mp4
-                            document.body.appendChild(a);
-                            a.click();
-                            window.URL.revokeObjectURL(url);
-                            document.body.removeChild(a);
-                        } else {
-                            window.URL.revokeObjectURL(url);
-                        }
-                    };
-
-                    this.mediaRecorder.start();
-                    this.isRecording = true;
-                    this.updateRecordButtonUI();
-                }
-
-                stopRecording() {
-                    if (this.mediaRecorder && this.mediaRecorder.state === 'recording') {
-                        this.mediaRecorder.stop();
-                    }
-                    this.isRecording = false;
-                    this.updateRecordButtonUI();
-                }
-
-                updateRecordButtonUI() {
-                    const recordBtnText = document.getElementById('recordBtnText');
-                    const recordIcon = document.getElementById('recordIcon');
-                    canvas.classList.toggle('recording', this.isRecording);
-                    recordBtn.classList.toggle('recording', this.isRecording);
-                   
-                    if (this.isRecording) {
-                        recordBtnText.textContent = '중지';
-                        recordIcon.innerHTML = `<path fill-rule="evenodd" d="M5 5a1 1 0 011-1h8a1 1 0 011 1v8a1 1 0 01-1 1H6a1 1 0 01-1-1V5z" clip-rule="evenodd" />`; // Square icon
-                    } else {
-                        recordBtnText.textContent = '녹화';
-                        recordIcon.innerHTML = `<circle cx="10" cy="10" r="7" />`; // Circle icon
-                    }
-                }
-
 
                 resizeCanvas(width, height) {
                     canvas.width = width;
@@ -2538,7 +2401,7 @@
 
                         if (!gameOver) {
                             const allRemainingTeams = new Set([...activeNexusTeams, ...activeUnitTeams]);
-                            if (allRemainingTeams.size <= 1 && this.units.length > 1) { // Check for single remaining team
+                             if (allRemainingTeams.size <= 1 && (this.units.length > 0 || this.nexuses.length > 0) ) {
                                 const initialTeams = new Set(JSON.parse(this.initialNexusesState).map(n => n.team).concat(JSON.parse(this.initialUnitsState).map(u => u.team)));
                                 if (initialTeams.size > 1) {
                                     gameOver = true;
@@ -2676,7 +2539,6 @@
                         }
                     }
 
-                    // --- PERFORMANCE OPTIMIZATION: Remove equipped weapons ---
                     this.weapons = this.weapons.filter(w => !w.isEquipped);
 
                     this.effects.forEach(e => e.update());
@@ -3042,90 +2904,10 @@
                     this.resetActionCam(true);
                     this.draw();
                 }
-               
-                async createDefaultMapsInFirestore() {
-                    if (!currentUser) return;
-                    const defaultMapsData = this.getDefaultMapsData();
-                    const batch = writeBatch(db);
-
-                    defaultMapsData.forEach(mapData => {
-                        const mapDocRef = doc(db, "maps", currentUser.uid, "userMaps", mapData.id);
-                        batch.set(mapDocRef, mapData);
-                    });
-
-                    await batch.commit();
-                }
-
-                getDefaultMapsData() {
-                    const defaultMapsData = {
-                        protectTheKing: {
-                            name: "왕을 지켜라!", width: 600, height: 1000,
-                            units: [ { gridX: 14, gridY: 5, team: 'A' }, { gridX: 12, gridY: 6, team: 'A' }, { gridX: 16, gridY: 6, team: 'A' }, { gridX: 14, gridY: 41, team: 'B' }, { gridX: 12, gridY: 40, team: 'B' }, { gridX: 16, gridY: 40, team: 'B' } ],
-                            weapons: [ { gridX: 14, gridY: 10, type: 'crown' }, { gridX: 14, gridY: 36, type: 'crown' }, { gridX: 7, gridY: 23, type: 'sword' }, { gridX: 21, gridY: 23, type: 'sword' } ],
-                            tiles: [ ...Array.from({length: 13}, (_, i) => ({x: 8+i, y: 6, type: 'CRACKED_WALL'})), ...Array.from({length: 13}, (_, i) => ({x: 8+i, y: 14, type: 'CRACKED_WALL'})), ...Array.from({length: 7}, (_, i) => ({x: 8, y: 7+i, type: 'CRACKED_WALL'})), ...Array.from({length: 7}, (_, i) => ({x: 20, y: 7+i, type: 'CRACKED_WALL'})), ...Array.from({length: 13}, (_, i) => ({x: 8+i, y: 32, type: 'CRACKED_WALL'})), ...Array.from({length: 13}, (_, i) => ({x: 8+i, y: 40, type: 'CRACKED_WALL'})), ...Array.from({length: 7}, (_, i) => ({x: 8, y: 33+i, type: 'CRACKED_WALL'})), ...Array.from({length: 7}, (_, i) => ({x: 20, y: 33+i, type: 'CRACKED_WALL'})), { x: 14, y: 23, type: 'HEAL_PACK' }, { x: 14, y: 24, type: 'HEAL_PACK' }, { x: 13, y: 23, type: 'HEAL_PACK' }, { x: 15, y: 23, type: 'HEAL_PACK' }, { x: 2, y: 23, type: 'WALL' }, { x: 3, y: 23, type: 'WALL' }, { x: 25, y: 23, type: 'WALL' }, { x: 26, y: 23, type: 'WALL' } ]
-                        },
-                        replicationFactory: {
-                            name: "복제 공장", width: 600, height: 1000,
-                            units: [ { gridX: 14, gridY: 4, team: 'A' }, { gridX: 12, gridY: 5, team: 'A' }, { gridX: 16, gridY: 5, team: 'A' }, { gridX: 14, gridY: 42, team: 'B' }, { gridX: 12, gridY: 41, team: 'B' }, { gridX: 16, gridY: 41, team: 'B' } ],
-                            weapons: [ { gridX: 14, gridY: 12, type: 'staff' }, { gridX: 14, gridY: 34, type: 'bow' } ],
-                            tiles: [ ...Array.from({length: 15}, (_,i) => ({x: 7+i, y: 18, type: 'WALL'})), ...Array.from({length: 15}, (_,i) => ({x: 7+i, y: 28, type: 'WALL'})), ...Array.from({length: 9}, (_,i) => ({x: 7, y: 19+i, type: 'WALL'})), ...Array.from({length: 9}, (_,i) => ({x: 21, y: 19+i, type: 'WALL'})), { x: 13, y: 22, type: 'REPLICATION_TILE', value: 3 }, { x: 14, y: 22, type: 'REPLICATION_TILE', value: 3 }, { x: 15, y: 22, type: 'REPLICATION_TILE', value: 3 }, { x: 13, y: 23, type: 'REPLICATION_TILE', value: 3 }, { x: 14, y: 23, type: 'REPLICATION_TILE', value: 5 }, { x: 15, y: 23, type: 'REPLICATION_TILE', value: 3 }, { x: 13, y: 24, type: 'REPLICATION_TILE', value: 3 }, { x: 14, y: 24, type: 'REPLICATION_TILE', value: 3 }, { x: 15, y: 24, type: 'REPLICATION_TILE', value: 3 }, { x: 14, y: 18, type: 'FLOOR' }, { x: 14, y: 28, type: 'FLOOR' } ]
-                        },
-                        teleporterTrap: {
-                            name: "함정 전송", width: 600, height: 1000,
-                            units: [ { gridX: 14, gridY: 40, team: 'A' }, { gridX: 15, gridY: 40, team: 'B' } ],
-                            weapons: [ {gridX: 13, gridY: 5, type: 'dual_swords'}, {gridX: 15, gridY: 5, type: 'staff'} ],
-                            tiles: [ ...Array.from({length: 8}, (_,i) => ({x: i+10, y: 2, type: 'WALL'})), ...Array.from({length: 8}, (_,i) => ({x: i+10, y: 9, type: 'WALL'})), ...Array.from({length: 6}, (_,i) => ({x: 10, y: i+3, type: 'WALL'})), ...Array.from({length: 6}, (_,i) => ({x: 17, y: i+3, type: 'WALL'})), { x: 14, y: 25, type: 'TELEPORTER' }, { x: 14, y: 6, type: 'TELEPORTER' }, ...Array.from({length: 10}, (_,i) => ({x: 10+i, y: 20, type: 'LAVA'})), ...Array.from({length: 10}, (_,i) => ({x: 10+i, y: 30, type: 'LAVA'})), ...Array.from({length: 10}, (_,i) => ({x: 10, y: 20+i, type: 'LAVA'})), ...Array.from({length: 11}, (_,i) => ({x: 20, y: 20+i, type: 'LAVA'})), { x: 14, y: 38, type: 'WALL' }, { x: 14, y: 37, type: 'WALL' } ]
-                        },
-                        altarOfLava: {
-                            name: "용암의 제단", width: 600, height: 1000,
-                            nexuses: [{ gridX: 14, gridY: 23, team: 'A' }, { gridX: 15, gridY: 23, team: 'B' }],
-                            units: [ { gridX: 14, gridY: 4, team: 'A' }, { gridX: 12, gridY: 5, team: 'A' }, { gridX: 16, gridY: 5, team: 'A' }, { gridX: 14, gridY: 42, team: 'B' }, { gridX: 12, gridY: 41, team: 'B' }, { gridX: 16, gridY: 41, team: 'B' } ],
-                            weapons: [ { gridX: 12, gridY: 23, type: 'sword' }, { gridX: 17, gridY: 23, type: 'sword' } ],
-                            tiles: [ ...Array.from({length: 20}, (_,i) => ({x: 5+i, y: 15, type: 'LAVA'})), ...Array.from({length: 20}, (_,i) => ({x: 5+i, y: 31, type: 'LAVA'})), ...Array.from({length: 15}, (_,i) => ({x: 5, y: 16+i, type: 'LAVA'})), ...Array.from({length: 15}, (_,i) => ({x: 24, y: 16+i, type: 'LAVA'})), ...Array.from({length: 28}, (_,i) => ({x: 14, y: 10+i, type: 'FLOOR'})), ...Array.from({length: 28}, (_,i) => ({x: 15, y: 10+i, type: 'FLOOR'})), ]
-                        },
-                        lastBastion: {
-                            name: "최후의 보루", width: 600, height: 1000,
-                            units: [ { gridX: 5, gridY: 5, team: 'A' }, { gridX: 6, gridY: 5, team: 'A' }, { gridX: 5, gridY: 6, team: 'A' }, { gridX: 23, gridY: 41, team: 'B' }, { gridX: 22, gridY: 41, team: 'B' }, { gridX: 23, gridY: 40, team: 'B' } ],
-                            weapons: [ { gridX: 14, gridY: 18, type: 'sword'}, { gridX: 14, gridY: 28, type: 'sword'}, { gridX: 10, gridY: 23, type: 'dual_swords'}, { gridX: 18, gridY: 23, type: 'dual_swords'} ],
-                            tiles: [ { x: 14, y: 23, type: 'HEAL_PACK' }, ...Array.from({length: 5}, (_,i)=>({x:12+i, y:20, type:'CRACKED_WALL'})), ...Array.from({length: 5}, (_,i)=>({x:12+i, y:26, type:'CRACKED_WALL'})), ...Array.from({length: 5}, (_,i)=>({x:11, y:21+i, type:'CRACKED_WALL'})), ...Array.from({length: 5}, (_,i)=>({x:17, y:21+i, type:'CRACKED_WALL'})), ...Array.from({length: 11}, (_,i)=>({x:9+i, y:17, type:'CRACKED_WALL'})), ...Array.from({length: 11}, (_,i)=>({x:9+i, y:29, type:'CRACKED_WALL'})), ...Array.from({length: 11}, (_,i)=>({x:8, y:18+i, type:'CRACKED_WALL'})), ...Array.from({length: 11}, (_,i)=>({x:20, y:18+i, type:'CRACKED_WALL'})), ]
-                        }
-                    };
-
-                    return Object.entries(defaultMapsData).map(([key, value]) => {
-                        const cols = Math.floor(value.width / GRID_SIZE);
-                        const rows = Math.floor(value.height / GRID_SIZE);
-                        const fullMap = Array(rows).fill().map(() => Array(cols).fill({ type: TILE.FLOOR, color: COLORS.FLOOR }));
-                       
-                        (value.tiles || []).forEach(tileInfo => {
-                            if (tileInfo.x < cols && tileInfo.y < rows) {
-                                const tileType = TILE[tileInfo.type];
-                                fullMap[tileInfo.y][tileInfo.x] = {
-                                    type: tileType,
-                                    hp: tileType === TILE.CRACKED_WALL ? 50 : undefined,
-                                    color: tileType === TILE.WALL ? COLORS.WALL : (tileType === TILE.FLOOR ? COLORS.FLOOR : undefined),
-                                    replicationValue: tileType === TILE.REPLICATION_TILE ? tileInfo.value || 2 : undefined
-                                };
-                            }
-                        });
-
-                        return {
-                            id: `default_${key}`,
-                            name: value.name,
-                            width: value.width,
-                            height: value.height,
-                            map: JSON.stringify(fullMap), // Serialize map grid
-                            units: value.units || [],
-                            weapons: value.weapons || [],
-                            nexuses: value.nexuses || [],
-                            growingFields: value.growingFields || []
-                        };
-                    });
-                }
             }
 
             // --- 게임 시작 ---
             gameManager = new GameManager();
-            // gameManager.init() is now called from onAuthStateChanged or after DOMContentLoaded if user is already logged in.
             if (currentUser) {
                 gameManager.init();
             }
