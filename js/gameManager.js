@@ -590,6 +590,38 @@ export class GameManager {
         });
     }
 
+    // ====================================================================
+    // ===== 수정된 부분 (START) ==========================================
+    // ====================================================================
+    // 누락되었던 resetActionCam 함수를 추가합니다.
+    resetActionCam(isInstant = true) {
+        const targetX = this.canvas.width / 2;
+        const targetY = this.canvas.height / 2;
+        const targetScale = 1;
+
+        // isInstant가 true이면 즉시 카메라 위치를 리셋하고, false이면 부드럽게 이동합니다.
+        if (isInstant) {
+            this.actionCam.current = { x: targetX, y: targetY, scale: targetScale };
+            this.actionCam.target = { x: targetX, y: targetY, scale: targetScale };
+            this.actionCam.isAnimating = false;
+        } else {
+            this.actionCam.target = { x: targetX, y: targetY, scale: targetScale };
+            this.actionCam.isAnimating = true;
+            // 애니메이션 루프가 돌고 있지 않다면 시작시킵니다.
+            if (this.state !== 'SIMULATE' && !this.animationFrameId) {
+                this.gameLoop();
+            }
+        }
+        
+        // 즉시 리셋이고, 게임 루프가 돌지 않을 때 한 번 그려주어 변경사항을 바로 반영합니다.
+        if (isInstant && !this.animationFrameId) {
+            this.draw();
+        }
+    }
+    // ====================================================================
+    // ===== 수정된 부분 (END) ============================================
+    // ====================================================================
+
     resizeCanvas(width, height) {
         this.canvas.width = width;
         this.canvas.height = height;
@@ -600,10 +632,8 @@ export class GameManager {
         
         this.resetMap();
         
-        this.actionCam.current.x = this.canvas.width / 2;
-        this.actionCam.current.y = this.canvas.height / 2;
-        this.actionCam.target.x = this.canvas.width / 2;
-        this.actionCam.target.y = this.canvas.height / 2;
+        // resetActionCam 함수가 생겼으므로, 이제 카메라 초기화는 resetMap 내부에서 처리됩니다.
+        // 따라서 여기 있던 중복 코드는 필요 없습니다.
     }
 
     resetMap() {
@@ -623,7 +653,7 @@ export class GameManager {
         document.getElementById('simPlayBtn').classList.add('hidden');
         document.getElementById('simStartBtn').disabled = false;
         document.getElementById('toolbox').style.pointerEvents = 'auto';
-        this.resetActionCam(true);
+        this.resetActionCam(true); // 이제 이 함수가 정상적으로 호출됩니다.
         this.draw();
     }
     
@@ -1047,7 +1077,7 @@ export class GameManager {
                 if(tile.type === TILE.LAVA) {
                     const flicker = Math.sin(this.animationFrameCounter * 0.1 + x + y) * 10 + 10;
                     this.ctx.fillStyle = `rgba(255, 255, 0, 0.3)`;
-                    this.ctx.beginPath(); ctx.arc(x * GRID_SIZE + 10, y * GRID_SIZE + 10, flicker / 4, 0, Math.PI * 2); ctx.fill();
+                    this.ctx.beginPath(); this.ctx.arc(x * GRID_SIZE + 10, y * GRID_SIZE + 10, flicker / 4, 0, Math.PI * 2); this.ctx.fill();
                 }
                 if(tile.type === TILE.CRACKED_WALL) {
                     this.ctx.strokeStyle = 'rgba(0,0,0,0.7)'; this.ctx.lineWidth = 1.5;
@@ -1269,15 +1299,8 @@ export class GameManager {
         }
 
         this.currentMapName = mapData.name;
-        // ====================================================================
-        // ===== 수정된 부분 (START) ==========================================
-        // ====================================================================
-        // 맵 데이터에 크기 정보가 없을 경우를 대비해 기본값을 설정하여 맵이 잘리는 오류를 방지합니다.
         this.canvas.width = mapData.width || 600;
         this.canvas.height = mapData.height || 900;
-        // ====================================================================
-        // ===== 수정된 부분 (END) ============================================
-        // ====================================================================
         document.getElementById('widthInput').value = this.canvas.width;
         document.getElementById('heightInput').value = this.canvas.height;
         this.COLS = Math.floor(this.canvas.width / GRID_SIZE);
@@ -1335,7 +1358,7 @@ export class GameManager {
         document.getElementById('simPlayBtn').classList.add('hidden');
         document.getElementById('simStartBtn').disabled = false;
         document.getElementById('toolbox').style.pointerEvents = 'auto';
-        this.resetActionCam(true);
+        this.resetActionCam(true); // 이제 이 함수가 정상적으로 호출됩니다.
         this.draw();
     }
 }
