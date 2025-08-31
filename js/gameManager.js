@@ -114,8 +114,8 @@ export class GameManager {
         if (!toolbox) return;
         
         toolbox.innerHTML = `
-            <div class="category-header" data-target="category-basic-tiles">기본 타일</div>
-            <div id="category-basic-tiles" class="category-content">
+            <div class="category-header collapsed" data-target="category-basic-tiles">기본 타일</div>
+            <div id="category-basic-tiles" class="category-content collapsed">
                 <button class="tool-btn selected" data-tool="tile" data-type="FLOOR">바닥</button>
                 <input type="color" id="floorColorPicker" value="${this.currentFloorColor}" class="w-full h-8 p-1 rounded my-1">
                 <button class="tool-btn" data-tool="tile" data-type="WALL">벽</button>
@@ -171,7 +171,7 @@ export class GameManager {
                 <button class="tool-btn" data-tool="nexus" data-team="C">초록 넥서스</button>
                 <button class="tool-btn" data-tool="nexus" data-team="D">노랑 넥서스</button>
             </div>
-
+            
             <div class="category-header bg-slate-800 collapsed" data-target="category-utils">기타</div>
             <div id="category-utils" class="category-content collapsed">
                  <button class="tool-btn" data-tool="erase">지우개</button>
@@ -448,7 +448,6 @@ export class GameManager {
         // Editor screen
         document.getElementById('backToHomeBtn').addEventListener('click', () => this.showHomeScreen());
         document.getElementById('saveMapBtn').addEventListener('click', () => this.saveCurrentMap());
-        document.getElementById('muteBtn').addEventListener('click', () => this.audioManager.toggleMute());
         document.getElementById('mapSettingsBtn').addEventListener('click', () => {
             document.getElementById('widthInput').value = this.canvas.width;
             document.getElementById('heightInput').value = this.canvas.height;
@@ -457,6 +456,8 @@ export class GameManager {
         document.getElementById('killSoundToggle').addEventListener('change', (e) => {
             this.audioManager.toggleKillSound(e.target.checked);
         });
+         document.getElementById('muteBtn').addEventListener('click', () => this.audioManager.toggleMute());
+
 
         this.canvas.addEventListener('mousedown', (e) => {
             if (this.isActionCam) {
