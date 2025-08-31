@@ -66,7 +66,11 @@ export class GameManager {
         this.audioManager = new AudioManager();
         instance = this;
     }
-	
+
+    /**
+     * GameManager의 싱글톤 인스턴스를 반환합니다.
+     * @returns {GameManager}
+     */
     static getInstance() {
         return instance;
     }
