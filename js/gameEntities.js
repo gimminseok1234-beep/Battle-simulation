@@ -259,8 +259,8 @@ export class Projectile {
             ctx.rotate(this.rotationAngle);
             const scale = 0.6;
             ctx.scale(scale, scale);
-            ctx.fillStyle = '#4a5568';
-            ctx.strokeStyle = 'black';
+            ctx.fillStyle = '#9ca3af'; 
+            ctx.strokeStyle = '#4b5563'; 
             ctx.lineWidth = 2 / scale;
 
             ctx.beginPath();
@@ -276,7 +276,7 @@ export class Projectile {
             ctx.fill();
             ctx.stroke();
 
-            ctx.fillStyle = '#6b7280';
+            ctx.fillStyle = '#d1d5db'; 
             ctx.beginPath();
             ctx.arc(0, 0, GRID_SIZE * 0.2, 0, Math.PI * 2);
             ctx.fill();
@@ -390,7 +390,7 @@ export class Weapon {
             const drawCurvedSword = (rotation) => {
                 ctx.save();
                 ctx.rotate(rotation);
-                ctx.fillStyle = '#374151';
+                ctx.fillStyle = '#6b7280';
                 ctx.fillRect(-GRID_SIZE * 0.1, GRID_SIZE * 0.3, GRID_SIZE * 0.2, GRID_SIZE * 0.3);
                 ctx.strokeRect(-GRID_SIZE * 0.1, GRID_SIZE * 0.3, GRID_SIZE * 0.2, GRID_SIZE * 0.3);
                 ctx.beginPath();
@@ -398,7 +398,7 @@ export class Weapon {
                 ctx.lineTo(GRID_SIZE * 0.3, GRID_SIZE * 0.2); ctx.lineTo(-GRID_SIZE * 0.3, GRID_SIZE * 0.2);
                 ctx.closePath(); ctx.fill(); ctx.stroke();
                 const bladeGradient = ctx.createLinearGradient(0, -GRID_SIZE, 0, 0);
-                bladeGradient.addColorStop(0, '#f3f4f6'); bladeGradient.addColorStop(0.5, '#9ca3af'); bladeGradient.addColorStop(1, '#4b5563');
+                bladeGradient.addColorStop(0, '#f3f4f6'); bladeGradient.addColorStop(0.5, '#9ca3af'); bladeGradient.addColorStop(1, '#d1d5db');
                 ctx.fillStyle = bladeGradient;
                 ctx.beginPath();
                 ctx.moveTo(0, GRID_SIZE * 0.2);
@@ -430,8 +430,8 @@ export class Weapon {
             ctx.stroke();
         } else if (this.type === 'shuriken') {
             ctx.rotate(Math.PI / 4);
-            ctx.fillStyle = '#4a5568';
-            ctx.strokeStyle = 'black';
+            ctx.fillStyle = '#9ca3af';
+            ctx.strokeStyle = '#4b5563';
             ctx.lineWidth = 2 / scale;
 
             ctx.beginPath();
@@ -447,7 +447,7 @@ export class Weapon {
             ctx.fill();
             ctx.stroke();
 
-            ctx.fillStyle = '#6b7280';
+            ctx.fillStyle = '#d1d5db';
             ctx.beginPath();
             ctx.arc(0, 0, GRID_SIZE * 0.2, 0, Math.PI * 2);
             ctx.fill();
