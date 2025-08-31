@@ -119,32 +119,23 @@ body {
     transition: transform 0.2s;
 }
 
-/* ▼▼▼▼▼ [수정됨] 닫혔을 때 화살표 방향 수정 ▼▼▼▼▼ */
 .category-header.collapsed::after {
     content: '▶';
-    transform: rotate(0deg); /* 회전 없이 오른쪽 화살표로 변경 */
+    transform: rotate(0deg);
 }
-/* ▲▲▲▲▲ [수정됨] 닫혔을 때 화살표 방향 수정 ▲▲▲▲▲ */
-
 
 .category-content {
-    max-height: 500px; /* 충분한 높이 */
+    max-height: 500px; /* 펼쳐질 때의 최대 높이 (충분히 큰 값) */
     overflow: hidden;
-    transition: max-height 0.3s ease-out;
-    padding-left: 0.5rem;
-    border-left: 2px solid #4b5563; /* Indent effect */
-    margin-bottom: 0.5rem;
+    transition: max-height 0.3s ease-in-out;
 }
 
 .category-content.collapsed {
     max-height: 0;
-    margin-bottom: 0;
-    border-left: none;
-    padding-left: 0;
 }
 
 .tool-btn {
-    display: block; /* 버튼들이 세로로 정렬되도록 */
+    display: block; 
     width: 100%;
     text-align: left;
     padding: 0.5rem 0.75rem;
@@ -152,8 +143,8 @@ body {
     background-color: #374151; /* bg-gray-700 */
     color: #e5e7eb;
     transition: background-color 0.2s;
-    margin-bottom: 0.25rem; /* 버튼 간 간격 */
-    border: 2px solid transparent; /* 선택 테두리를 위한 공간 확보 */
+    margin-bottom: 0.25rem; 
+    border: 2px solid transparent; 
 }
 
 .tool-btn:hover {
@@ -161,10 +152,6 @@ body {
 }
 
 .tool-btn.selected {
-    border-color: #3b82f6; /* bg-blue-500 */
+    border-color: #3b82f6; 
     box-shadow: 0 0 5px #3b82f6;
 }
-
-/* ▼▼▼▼▼ [수정됨] 팀별 배경색 지정 CSS 규칙 삭제 ▼▼▼▼▼ */
-/* .tool-btn.team-a { ... } 등 모두 삭제 */
-/* ▲▲▲▲▲ [수정됨] 팀별 배경색 지정 CSS 규칙 삭제 ▲▲▲▲▲ */
