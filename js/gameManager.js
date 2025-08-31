@@ -1,4 +1,4 @@
-import { getFirestore, collection, doc, getDoc, getDocs, setDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/10.9.0/firebase-auth.js";
+import { getFirestore, collection, doc, getDoc, getDocs, setDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/10.9.0/firebase-firestore.js";
 import { AudioManager } from './audioManager.js';
 import { Unit, Weapon, Nexus, Projectile, AreaEffect, Effect, GrowingMagneticField } from './gameEntities.js';
 import { TILE, TEAM, COLORS, GRID_SIZE } from './constants.js';
@@ -56,7 +56,7 @@ export class GameManager {
             isActive: false,
             safeZoneSize: 6,
             simulationTime: 0,
-            totalShrinkTime: 60 * 60,
+            totalShrinkTime: 60 * 60, // 60분
             currentBounds: { minX: 0, maxX: 0, minY: 0, maxY: 0 }
         };
         this.hadokenKnockback = 15;
@@ -65,10 +65,6 @@ export class GameManager {
 
         this.audioManager = new AudioManager();
         instance = this;
-    }
-    
-    setDb(dbInstance) {
-        this.db = dbInstance;
     }
 
     setCurrentUser(user) {
