@@ -1,1046 +1,1354 @@
+import { getFirestore, collection, doc, getDoc, getDocs, setDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/10.9.0/firebase-firestore.js";
+import { AudioManager } from './audioManager.js';
+import { Unit, Weapon, Nexus, Projectile, AreaEffect, Effect, GrowingMagneticField } from './gameEntities.js';
 import { TILE, TEAM, COLORS, GRID_SIZE } from './constants.js';
-import { GameManager } from './gameManager.js'; // GameManager 클래스만 import
 
-// 성장형 자기장 클래스
-export class GrowingMagneticField {
-    constructor(id, x, y, width, height, settings) {
-        this.id = id;
-        this.gridX = x; this.gridY = y;
-        this.width = width; this.height = height;
+let instance = null;
+
+export class GameManager {
+    constructor(db) {
+        if (instance) {
+            return instance;
+        }
+        this.db = db;
+        this.currentUser = null;
+
+        this.canvas = document.getElementById('gameCanvas');
+        this.ctx = this.canvas.getContext('2d');
+        this.COLS = 0;
+        this.ROWS = 0;
         
-        this.direction = settings.direction;
-        this.totalFrames = settings.speed * 60;
-        this.delay = settings.delay * 60;
-        
-        this.delayTimer = 0;
-        this.animationTimer = 0;
-        this.progress = 0;
+        this.state = 'HOME';
+        this.currentMapId = null;
+        this.currentMapName = null;
+        this.map = [];
+        this.units = [];
+        this.weapons = [];
+        this.nexuses = [];
+        this.effects = [];
+        this.projectiles = [];
+        this.areaEffects = [];
+        this.growingFields = [];
+        this.currentTool = { tool: 'tile', type: 'FLOOR' };
+        this.isPainting = false;
+        this.dragStartPos = null;
+        this.initialUnitsState = [];
+        this.initialWeaponsState = [];
+        this.initialNexusesState = [];
+        this.initialMapState = [];
+        this.initialGrowingFieldsState = [];
+        this.initialAutoFieldState = {};
+        this.animationFrameId = null;
+        this.animationFrameCounter = 0;
+        this.gameSpeed = 1;
+        this.currentWallColor = COLORS.WALL;
+        this.currentFloorColor = COLORS.FLOOR;
+        this.replicationValue = 2;
+        this.isActionCam = false;
+        this.actionCam = {
+            current: { x: 0, y: 0, scale: 1 },
+            target: { x: 0, y: 0, scale: 1 },
+            isAnimating: false
+        };
+        this.growingFieldSettings = {
+            direction: 'DOWN', speed: 4, delay: 0
+        };
+        this.autoMagneticField = {
+            isActive: false,
+            safeZoneSize: 6,
+            simulationTime: 0,
+            totalShrinkTime: 60 * 60,
+            currentBounds: { minX: 0, maxX: 0, minY: 0, maxY: 0 }
+        };
+        this.hadokenKnockback = 15;
+        this.initialNexusCount = 0;
+        this.winnerTeam = null;
+
+        this.audioManager = new AudioManager();
+        instance = this;
     }
 
-    update() {
-        if (this.delayTimer < this.delay) {
-            this.delayTimer++;
-            return;
-        }
-        if (this.animationTimer < this.totalFrames) {
-            this.animationTimer++;
-        }
-        const linearProgress = this.animationTimer / this.totalFrames;
-        this.progress = -(Math.cos(Math.PI * linearProgress) - 1) / 2;
+    static getInstance() {
+        return instance;
     }
 
-    draw(ctx) {
-        const gameManager = GameManager.getInstance(); // GameManager 인스턴스 가져오기
-        if (!gameManager) return;
+    setCurrentUser(user) {
+        this.currentUser = user;
+    }
 
-        const startX = this.gridX * GRID_SIZE;
-        const startY = this.gridY * GRID_SIZE;
-        const totalWidth = this.width * GRID_SIZE;
-        const totalHeight = this.height * GRID_SIZE;
+    init() {
+        if (!this.currentUser) return;
+        this.createToolboxUI();
+        this.setupEventListeners();
+        this.showHomeScreen();
+    }
+   
+    showHomeScreen() {
+        this.state = 'HOME';
+        this.currentMapId = null;
+        this.currentMapName = null;
+        document.getElementById('homeScreen').style.display = 'flex';
+        document.getElementById('editorScreen').style.display = 'none';
+        this.renderMapCards();
+    }
+
+    async showEditorScreen(mapId) {
+        this.state = 'EDIT';
+        this.currentMapId = mapId;
+        document.getElementById('homeScreen').style.display = 'none';
+        document.getElementById('editorScreen').style.display = 'flex';
+        await this.audioManager.init();
+
+        const killSoundPref = localStorage.getItem('arenaKillSoundEnabled');
+        if (killSoundPref !== null) {
+            const isEnabled = killSoundPref === 'true';
+            document.getElementById('killSoundToggle').checked = isEnabled;
+            this.audioManager.toggleKillSound(isEnabled);
+        }
+
+        await this.loadMapForEditing(mapId);
+    }
+    
+    createToolboxUI() {
+        const toolbox = document.getElementById('toolbox');
+        if (!toolbox) return;
         
-        if (gameManager.state === 'EDIT') {
-            ctx.fillStyle = 'rgba(168, 85, 247, 0.2)';
-            ctx.fillRect(startX, startY, totalWidth, totalHeight);
-            ctx.strokeStyle = 'rgba(168, 85, 247, 0.6)';
-            ctx.strokeRect(startX, startY, totalWidth, totalHeight);
+        toolbox.innerHTML = `
+            <div class="category-header collapsed" data-target="category-basic-tiles">기본 타일</div>
+            <div id="category-basic-tiles" class="category-content collapsed">
+                <button class="tool-btn selected" data-tool="tile" data-type="FLOOR">바닥</button>
+                <input type="color" id="floorColorPicker" value="${this.currentFloorColor}" class="w-full h-8 p-1 rounded my-1">
+                <button class="tool-btn" data-tool="tile" data-type="WALL">벽</button>
+                <input type="color" id="wallColorPicker" value="${this.currentWallColor}" class="w-full h-8 p-1 rounded my-1">
+            </div>
 
-            const centerX = startX + totalWidth / 2;
-            const centerY = startY + totalHeight / 2;
+            <div class="category-header collapsed" data-target="category-special-tiles">특수 타일</div>
+            <div id="category-special-tiles" class="category-content collapsed">
+                <button class="tool-btn" data-tool="tile" data-type="LAVA">용암</button>
+                <button class="tool-btn" data-tool="tile" data-type="CRACKED_WALL">부서지는 벽</button>
+                <button class="tool-btn" data-tool="tile" data-type="HEAL_PACK">회복 팩</button>
+                <button class="tool-btn" data-tool="tile" data-type="TELEPORTER">텔레포터</button>
+                <div class="flex items-center gap-2 mt-1">
+                    <button class="tool-btn flex-grow" data-tool="tile" data-type="REPLICATION_TILE">+N 복제</button>
+                    <input type="number" id="replicationValue" value="${this.replicationValue}" min="1" class="modal-input w-16">
+                </div>
+                <div class="flex items-center gap-1 mt-1">
+                    <button class="tool-btn flex-grow" data-tool="growing_field">성장형 자기장</button>
+                    <button id="growingFieldSettingsBtn" class="p-2 rounded hover:bg-gray-600">⚙️</button>
+                </div>
+                <div class="flex items-center gap-1 mt-1">
+                    <button class="tool-btn flex-grow" data-tool="auto_field">자동 자기장</button>
+                    <button id="autoFieldSettingsBtn" class="p-2 rounded hover:bg-gray-600">⚙️</button>
+                </div>
+            </div>
+
+            <div class="category-header collapsed" data-target="category-units">유닛</div>
+            <div id="category-units" class="category-content collapsed">
+                <button class="tool-btn" data-tool="unit" data-team="A">빨강 유닛</button>
+                <button class="tool-btn" data-tool="unit" data-team="B">파랑 유닛</button>
+                <button class="tool-btn" data-tool="unit" data-team="C">초록 유닛</button>
+                <button class="tool-btn" data-tool="unit" data-team="D">노랑 유닛</button>
+            </div>
             
-            ctx.save();
-            ctx.translate(centerX, centerY);
+            <div class="category-header collapsed" data-target="category-weapons">무기</div>
+            <div id="category-weapons" class="category-content collapsed">
+                <button class="tool-btn" data-tool="weapon" data-type="sword">검</button>
+                <button class="tool-btn" data-tool="weapon" data-type="bow">활</button>
+                <button class="tool-btn" data-tool="weapon" data-type="dual_swords">쌍검</button>
+                <button class="tool-btn" data-tool="weapon" data-type="staff">스태프</button>
+                <div class="flex items-center gap-1">
+                    <button class="tool-btn flex-grow" data-tool="weapon" data-type="hadoken">장풍</button>
+                    <button id="hadokenSettingsBtn" class="p-2 rounded hover:bg-gray-600">⚙️</button>
+                </div>
+                <button class="tool-btn" data-tool="weapon" data-type="shuriken">표창</button>
+                <button class="tool-btn" data-tool="weapon" data-type="crown">왕관</button>
+            </div>
+
+            <div class="category-header collapsed" data-target="category-nexus">넥서스</div>
+            <div id="category-nexus" class="category-content collapsed">
+                <button class="tool-btn" data-tool="nexus" data-team="A">빨강 넥서스</button>
+                <button class="tool-btn" data-tool="nexus" data-team="B">파랑 넥서스</button>
+                <button class="tool-btn" data-tool="nexus" data-team="C">초록 넥서스</button>
+                <button class="tool-btn" data-tool="nexus" data-team="D">노랑 넥서스</button>
+            </div>
             
-            let angle = 0;
-            switch(this.direction) {
-                case 'RIGHT': angle = 0; break;
-                case 'LEFT':  angle = Math.PI; break;
-                case 'DOWN':  angle = Math.PI / 2; break;
-                case 'UP':    angle = -Math.PI / 2; break;
+            <div class="category-header bg-slate-800 collapsed" data-target="category-utils">기타</div>
+            <div id="category-utils" class="category-content collapsed">
+                 <button class="tool-btn" data-tool="erase">지우개</button>
+            </div>
+        `;
+    }
+    
+    async getAllMaps() {
+        if (!this.currentUser) return [];
+        const mapsColRef = collection(this.db, "maps", this.currentUser.uid, "userMaps");
+        const mapSnapshot = await getDocs(mapsColRef);
+        return mapSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    }
+
+    async getMapById(mapId) {
+        if (!this.currentUser) return null;
+        const mapDocRef = doc(this.db, "maps", this.currentUser.uid, "userMaps", mapId);
+        const mapSnap = await getDoc(mapDocRef);
+        return mapSnap.exists() ? { id: mapSnap.id, ...mapSnap.data() } : null;
+    }
+
+    async saveCurrentMap() {
+        if (!this.currentMapId || !this.currentUser || !this.currentMapName) return;
+
+        const plainUnits = this.units.map(u => ({...u, weapon: u.weapon ? {type: u.weapon.type, ...u.weapon} : null}));
+        const plainWeapons = this.weapons.map(w => ({...w}));
+        const plainNexuses = this.nexuses.map(n => ({...n}));
+        const plainGrowingFields = this.growingFields.map(f => ({...f}));
+
+        const mapData = {
+            name: this.currentMapName,
+            width: this.canvas.width,
+            height: this.canvas.height,
+            map: JSON.stringify(this.map),
+            units: plainUnits,
+            weapons: plainWeapons,
+            nexuses: plainNexuses,
+            growingFields: plainGrowingFields,
+            autoMagneticField: this.autoMagneticField,
+            hadokenKnockback: this.hadokenKnockback,
+        };
+
+        const mapDocRef = doc(this.db, "maps", this.currentUser.uid, "userMaps", this.currentMapId);
+        try {
+            await setDoc(mapDocRef, mapData, { merge: true });
+            alert('맵이 Firebase에 저장되었습니다!');
+        } catch (error) {
+            console.error("Error saving map to Firebase: ", error);
+            alert('맵 저장에 실패했습니다.');
+        }
+    }
+
+    async renderMapCards() {
+        document.getElementById('loadingStatus').textContent = "맵 목록을 불러오는 중...";
+        const maps = await this.getAllMaps();
+        document.getElementById('loadingStatus').style.display = 'none';
+        
+        const mapGrid = document.getElementById('mapGrid');
+        const addNewMapCard = document.getElementById('addNewMapCard');
+        while (mapGrid.firstChild && mapGrid.firstChild !== addNewMapCard) {
+            mapGrid.removeChild(mapGrid.firstChild);
+        }
+
+        maps.forEach(mapData => {
+            const card = document.createElement('div');
+            card.className = 'relative group bg-gray-800 rounded-lg overflow-hidden flex flex-col cursor-pointer shadow-lg hover:shadow-indigo-500/30 transition-shadow duration-300';
+            card.addEventListener('click', (e) => {
+                if (!e.target.closest('.map-menu-button')) {
+                    this.showEditorScreen(mapData.id);
+                }
+            });
+
+            const previewCanvas = document.createElement('canvas');
+            previewCanvas.className = 'w-full aspect-[3/4] object-cover';
+            
+            const infoDiv = document.createElement('div');
+            infoDiv.className = 'p-3 flex-grow flex items-center justify-between';
+            const nameP = document.createElement('p');
+            nameP.className = 'font-bold text-white truncate';
+            nameP.id = `map-name-${mapData.id}`;
+            nameP.textContent = mapData.name;
+            infoDiv.appendChild(nameP);
+
+            const menuButton = document.createElement('button');
+            menuButton.className = 'map-menu-button absolute top-2 right-2 p-1.5 rounded-full bg-gray-900/50 hover:bg-gray-700/70 opacity-0 group-hover:opacity-100 transition-opacity';
+            menuButton.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-gray-300" viewBox="0 0 20 20" fill="currentColor"><path d="M10 6a2 2 0 110-4 2 2 0 010 4zM10 12a2 2 0 110-4 2 2 0 010 4zM10 18a2 2 0 110-4 2 2 0 010 4z" /></svg>`;
+            
+            const menu = document.createElement('div');
+            menu.className = 'map-menu hidden absolute top-10 right-2 z-10 bg-gray-700 p-2 rounded-md shadow-lg w-32';
+            const renameBtn = document.createElement('button');
+            renameBtn.className = 'w-full text-left px-3 py-1.5 text-sm rounded hover:bg-gray-600';
+            renameBtn.textContent = '이름 변경';
+            renameBtn.onclick = () => {
+                menu.style.display = 'none';
+                this.openRenameModal(mapData.id, mapData.name);
+            };
+            const deleteBtn = document.createElement('button');
+            deleteBtn.className = 'w-full text-left px-3 py-1.5 text-sm text-red-400 rounded hover:bg-gray-600';
+            deleteBtn.textContent = '삭제';
+            deleteBtn.onclick = () => {
+                menu.style.display = 'none';
+                this.openDeleteConfirmModal(mapData.id, mapData.name);
+            };
+            menu.append(renameBtn, deleteBtn);
+
+            menuButton.addEventListener('click', (e) => {
+                e.stopPropagation();
+                document.querySelectorAll('.map-menu').forEach(m => {
+                    if (m !== menu) m.style.display = 'none';
+                });
+                menu.style.display = menu.style.display === 'block' ? 'none' : 'block';
+            });
+
+            card.append(previewCanvas, infoDiv, menuButton, menu);
+            mapGrid.insertBefore(card, addNewMapCard);
+
+            this.drawMapPreview(previewCanvas, mapData);
+        });
+
+        document.addEventListener('click', (e) => {
+             if (!e.target.closest('.map-menu-button')) {
+                document.querySelectorAll('.map-menu').forEach(menu => {
+                     menu.style.display = 'none';
+                });
             }
-            ctx.rotate(angle);
-
-            const arrowLength = Math.min(totalWidth, totalHeight) * 0.4;
-            const headSize = Math.min(arrowLength * 0.5, GRID_SIZE * 1.5);
-            const bodyWidth = headSize * 0.4;
-
-            ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
-            ctx.strokeStyle = 'rgba(255, 255, 255, 0.6)';
-            ctx.lineWidth = 2;
-
-            ctx.beginPath();
-            ctx.moveTo(-arrowLength / 2, -bodyWidth / 2);
-            ctx.lineTo(arrowLength / 2 - headSize, -bodyWidth / 2);
-            ctx.lineTo(arrowLength / 2 - headSize, -headSize / 2);
-            ctx.lineTo(arrowLength / 2, 0);
-            ctx.lineTo(arrowLength / 2 - headSize, headSize / 2);
-            ctx.lineTo(arrowLength / 2 - headSize, bodyWidth / 2);
-            ctx.lineTo(-arrowLength / 2, bodyWidth / 2);
-            ctx.closePath();
-            ctx.fill();
-            ctx.stroke();
-
-            ctx.restore();
-        }
+        }, true);
     }
-}
+
+    drawMapPreview(previewCanvas, mapData) {
+        const prevCtx = previewCanvas.getContext('2d');
+        const mapWidth = mapData.width;
+        const mapHeight = mapData.height;
+        
+        const cardWidth = previewCanvas.parentElement.clientWidth || 200;
+        previewCanvas.width = cardWidth;
+        previewCanvas.height = cardWidth * (mapHeight / mapWidth);
 
 
-// 넥서스 클래스
-export class Nexus {
-    constructor(x, y, team) {
-        this.gridX = x; this.gridY = y;
-        this.pixelX = x * GRID_SIZE + GRID_SIZE / 2;
-        this.pixelY = y * GRID_SIZE + GRID_SIZE / 2;
-        this.team = team;
-        this.hp = 500;
-        this.maxHp = 500;
-        this.isDestroying = false;
-        this.explosionParticles = [];
-    }
-    takeDamage(damage) {
-        if (this.isDestroying) return;
-        this.hp -= damage;
-        const gameManager = GameManager.getInstance();
-        if (this.hp <= 0) {
-            this.hp = 0;
-            this.isDestroying = true;
-            this.createExplosion();
-            if (gameManager) gameManager.audioManager.play('nexusDestruction');
-        }
-    }
-    createExplosion() {
-        for (let i = 0; i < 60; i++) {
-            this.explosionParticles.push({
-                x: this.pixelX, y: this.pixelY,
-                angle: Math.random() * Math.PI * 2,
-                speed: Math.random() * 6 + 2,
-                radius: Math.random() * 5 + 2,
-                lifespan: 80,
-                color: ['#ffcc00', '#ff9900', '#ff6600', '#666666', '#ef4444'][Math.floor(Math.random() * 5)]
+        const pixelSizeX = previewCanvas.width / (mapWidth / GRID_SIZE);
+        const pixelSizeY = previewCanvas.height / (mapHeight / GRID_SIZE);
+
+        prevCtx.fillStyle = '#111827';
+        prevCtx.fillRect(0, 0, previewCanvas.width, previewCanvas.height);
+        
+        const mapGridData = (typeof mapData.map === 'string') ? JSON.parse(mapData.map) : mapData.map;
+        if (mapGridData) {
+            mapGridData.forEach((row, y) => {
+                row.forEach((tile, x) => {
+                    switch(tile.type) {
+                        case TILE.WALL: prevCtx.fillStyle = tile.color || COLORS.WALL; break;
+                        case TILE.FLOOR: prevCtx.fillStyle = tile.color || COLORS.FLOOR; break;
+                        case TILE.LAVA: prevCtx.fillStyle = COLORS.LAVA; break;
+                        case TILE.CRACKED_WALL: prevCtx.fillStyle = COLORS.CRACKED_WALL; break;
+                        case TILE.HEAL_PACK: prevCtx.fillStyle = COLORS.HEAL_PACK; break;
+                        case TILE.REPLICATION_TILE: prevCtx.fillStyle = COLORS.REPLICATION_TILE; break;
+                        case TILE.TELEPORTER: prevCtx.fillStyle = COLORS.TELEPORTER; break;
+                        default: prevCtx.fillStyle = COLORS.FLOOR; break;
+                    }
+                    prevCtx.fillRect(x * pixelSizeX, y * pixelSizeY, pixelSizeX + 0.5, pixelSizeY + 0.5);
+                });
             });
         }
-    }
-    update() {
-        if (!this.isDestroying) return;
-        this.explosionParticles.forEach(p => {
-            p.x += Math.cos(p.angle) * p.speed;
-            p.y += Math.sin(p.angle) * p.speed;
-            p.lifespan -= 1;
-            p.speed *= 0.97;
-        });
-        this.explosionParticles = this.explosionParticles.filter(p => p.lifespan > 0);
-    }
-    draw(ctx) {
-        if (this.isDestroying) {
-            this.drawExplosion(ctx);
-        } else {
-            ctx.save();
-            ctx.translate(this.pixelX, this.pixelY);
-            switch(this.team) {
-                case TEAM.A: ctx.fillStyle = COLORS.TEAM_A; break;
-                case TEAM.B: ctx.fillStyle = COLORS.TEAM_B; break;
-                case TEAM.C: ctx.fillStyle = COLORS.TEAM_C; break;
-                case TEAM.D: ctx.fillStyle = COLORS.TEAM_D; break;
-            }
-            ctx.strokeStyle = 'black'; ctx.lineWidth = 2;
-            ctx.beginPath();
-            ctx.moveTo(0, -GRID_SIZE * 0.8); ctx.lineTo(GRID_SIZE * 0.7, 0);
-            ctx.lineTo(0, GRID_SIZE * 0.8); ctx.lineTo(-GRID_SIZE * 0.7, 0);
-            ctx.closePath(); ctx.fill(); ctx.stroke();
-            const hpBarWidth = GRID_SIZE * 1.5;
-            const hpBarX = -hpBarWidth / 2;
-            const hpBarY = -GRID_SIZE * 1.2;
-            ctx.fillStyle = '#111827'; ctx.fillRect(hpBarX, hpBarY, hpBarWidth, 8);
-            ctx.fillStyle = '#facc15'; ctx.fillRect(hpBarX, hpBarY, hpBarWidth * (this.hp / this.maxHp), 8);
-            ctx.restore();
-        }
-    }
-    drawExplosion(ctx) {
-        this.explosionParticles.forEach(p => {
-            ctx.globalAlpha = p.lifespan / 80;
-            ctx.fillStyle = p.color;
-            ctx.beginPath(); ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2); ctx.fill();
-        });
-        ctx.globalAlpha = 1.0;
-    }
-}
-
-// 발사체 클래스
-export class Projectile {
-    constructor(owner, target, type = 'arrow') {
-        const gameManager = GameManager.getInstance();
-        this.owner = owner; this.pixelX = owner.pixelX; this.pixelY = owner.pixelY;
-        this.type = type;
         
-        if (type === 'hadoken') this.speed = 4;
-        else if (type === 'shuriken') this.speed = 2;
-        else this.speed = 6;
-
-        this.damage = owner.attackPower;
-        this.knockback = (type === 'hadoken') ? gameManager.hadokenKnockback : 0;
-        const inaccuracy = (type === 'shuriken') ? 0 : GRID_SIZE * 0.8;
-        const targetX = target.pixelX + (Math.random() - 0.5) * inaccuracy;
-        const targetY = target.pixelY + (Math.random() - 0.5) * inaccuracy;
-        const dx = targetX - this.pixelX; const dy = targetY - this.pixelY;
-        this.angle = Math.atan2(dy, dx);
-        this.destroyed = false;
-        this.trail = [];
-        this.rotationAngle = 0;
-    }
-    update() {
-        const gameManager = GameManager.getInstance();
-        if (!gameManager) return;
-        
-        if (this.type === 'hadoken') {
-            this.trail.push({x: this.pixelX, y: this.pixelY});
-            if (this.trail.length > 10) this.trail.shift();
-        }
-        if (this.type === 'shuriken') {
-            this.rotationAngle += 0.4 * gameManager.gameSpeed;
-        }
-
-        const nextX = this.pixelX + Math.cos(this.angle) * gameManager.gameSpeed * this.speed;
-        const nextY = this.pixelY + Math.sin(this.angle) * gameManager.gameSpeed * this.speed;
-        const gridX = Math.floor(nextX / GRID_SIZE);
-        const gridY = Math.floor(nextY / GRID_SIZE);
-
-        if (gridY >= 0 && gridY < gameManager.ROWS && gridX >= 0 && gridX < gameManager.COLS) {
-            const tile = gameManager.map[gridY][gridX];
-            if (tile.type === TILE.WALL || tile.type === TILE.CRACKED_WALL) {
-                if (tile.type === TILE.CRACKED_WALL) {
-                    gameManager.damageTile(gridX, gridY, this.damage);
+        const drawItem = (item, colorOverride = null) => {
+            let color;
+            if (colorOverride) {
+                color = colorOverride;
+            } else {
+                switch(item.team) {
+                    case TEAM.A: color = COLORS.TEAM_A; break;
+                    case TEAM.B: color = COLORS.TEAM_B; break;
+                    case TEAM.C: color = COLORS.TEAM_C; break;
+                    case TEAM.D: color = COLORS.TEAM_D; break;
+                    default: color = '#9ca3af'; break;
                 }
-                this.destroyed = true;
-                return;
             }
-        }
-        this.pixelX = nextX; this.pixelY = nextY;
+            prevCtx.fillStyle = color;
+            prevCtx.beginPath();
+            prevCtx.arc(
+                item.gridX * pixelSizeX + pixelSizeX / 2, 
+                item.gridY * pixelSizeY + pixelSizeY / 2, 
+                Math.min(pixelSizeX, pixelSizeY) / 1.8, 
+                0, 2 * Math.PI
+            );
+            prevCtx.fill();
+        };
+
+        (mapData.nexuses || []).forEach(item => drawItem(item));
+        (mapData.units || []).forEach(item => drawItem(item));
+        (mapData.weapons || []).forEach(item => drawItem(item, '#eab308'));
     }
-    draw(ctx) {
-        if (this.type === 'arrow') {
-            ctx.save(); ctx.translate(this.pixelX, this.pixelY); ctx.rotate(this.angle);
-            ctx.fillStyle = '#a16207';
-            ctx.fillRect(-GRID_SIZE * 0.6, -1, GRID_SIZE * 0.6, 2);
-            ctx.strokeRect(-GRID_SIZE * 0.6, -1, GRID_SIZE * 0.6, 2);
-            ctx.fillStyle = '#e5e7eb';
-            ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(-4, -3); ctx.lineTo(-4, 3); ctx.closePath(); ctx.fill();
-            ctx.fillStyle = '#d1d5db';
-            ctx.beginPath();
-            ctx.moveTo(-GRID_SIZE * 0.6, -1); ctx.lineTo(-GRID_SIZE * 0.7, -3);
-            ctx.lineTo(-GRID_SIZE * 0.5, -1); ctx.closePath();
-            ctx.fill()
-            ctx.beginPath();
-            ctx.moveTo(-GRID_SIZE * 0.6, 1); ctx.lineTo(-GRID_SIZE * 0.7, 3);
-            ctx.lineTo(-GRID_SIZE * 0.5, 1); ctx.closePath();
-            ctx.fill()
-            ctx.restore();
-        } else if (this.type === 'hadoken') {
-            // Draw trail
-            for (let i = 0; i < this.trail.length; i++) {
-                const pos = this.trail[i];
-                const alpha = (i / this.trail.length) * 0.5;
-                ctx.fillStyle = `rgba(139, 92, 246, ${alpha})`;
-                ctx.beginPath();
-                ctx.arc(pos.x, pos.y, (GRID_SIZE / 2) * (i / this.trail.length), 0, Math.PI * 2);
-                ctx.fill();
+    
+    openRenameModal(mapId, currentName) {
+        const input = document.getElementById('renameMapInput');
+        const renameMapModal = document.getElementById('renameMapModal');
+        input.value = currentName;
+        renameMapModal.classList.add('show-modal');
+        
+        document.getElementById('confirmRenameBtn').onclick = async () => {
+            const newName = input.value.trim();
+            if (newName && this.currentUser) {
+                const mapDocRef = doc(this.db, "maps", this.currentUser.uid, "userMaps", mapId);
+                try {
+                    await setDoc(mapDocRef, { name: newName }, { merge: true });
+                    document.getElementById(`map-name-${mapId}`).textContent = newName;
+                } catch (error) {
+                    console.error("Error renaming map: ", error);
+                }
+                renameMapModal.classList.remove('show-modal');
             }
-            // Draw main projectile
-            ctx.fillStyle = '#c4b5fd';
-            ctx.beginPath();
-            ctx.arc(this.pixelX, this.pixelY, GRID_SIZE / 2, 0, Math.PI * 2);
-            ctx.fill();
-            ctx.fillStyle = '#8b5cf6';
-            ctx.beginPath();
-            ctx.arc(this.pixelX, this.pixelY, GRID_SIZE / 3, 0, Math.PI * 2);
-            ctx.fill();
-        } else if (this.type === 'shuriken') {
-            ctx.save();
-            ctx.translate(this.pixelX, this.pixelY);
-            ctx.rotate(this.rotationAngle);
-            const scale = 0.6;
-            ctx.scale(scale, scale);
-            ctx.fillStyle = '#9ca3af'; 
-            ctx.strokeStyle = '#4b5563'; 
-            ctx.lineWidth = 2 / scale;
+        };
+    }
 
-            ctx.beginPath();
-            ctx.moveTo(0, -GRID_SIZE * 0.8);
-            ctx.lineTo(GRID_SIZE * 0.2, -GRID_SIZE * 0.2);
-            ctx.lineTo(GRID_SIZE * 0.8, 0);
-            ctx.lineTo(GRID_SIZE * 0.2, GRID_SIZE * 0.2);
-            ctx.lineTo(0, GRID_SIZE * 0.8);
-            ctx.lineTo(-GRID_SIZE * 0.2, GRID_SIZE * 0.2);
-            ctx.lineTo(-GRID_SIZE * 0.8, 0);
-            ctx.lineTo(-GRID_SIZE * 0.2, -GRID_SIZE * 0.2);
-            ctx.closePath();
-            ctx.fill();
-            ctx.stroke();
+    openDeleteConfirmModal(mapId, mapName) {
+        const deleteConfirmModal = document.getElementById('deleteConfirmModal');
+        document.getElementById('deleteConfirmText').textContent = `'${mapName}' 맵을 정말 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.`;
+        deleteConfirmModal.classList.add('show-modal');
 
-            ctx.fillStyle = '#d1d5db'; 
-            ctx.beginPath();
-            ctx.arc(0, 0, GRID_SIZE * 0.2, 0, Math.PI * 2);
-            ctx.fill();
-            ctx.stroke();
-            ctx.restore();
-        }
+        document.getElementById('confirmDeleteBtn').onclick = async () => {
+            if (!this.currentUser) return;
+            const mapDocRef = doc(this.db, "maps", this.currentUser.uid, "userMaps", mapId);
+            try {
+                await deleteDoc(mapDocRef);
+                this.renderMapCards();
+            } catch (error) {
+                console.error("Error deleting map: ", error);
+            }
+            deleteConfirmModal.classList.remove('show-modal');
+        };
     }
-}
+    
+    setupEventListeners() {
+        // Modal buttons
+        document.getElementById('cancelNewMapBtn').addEventListener('click', () => document.getElementById('newMapModal').classList.remove('show-modal'));
+        document.getElementById('cancelRenameBtn').addEventListener('click', () => document.getElementById('renameMapModal').classList.remove('show-modal'));
+        document.getElementById('cancelDeleteBtn').addEventListener('click', () => document.getElementById('deleteConfirmModal').classList.remove('show-modal'));
+        document.getElementById('closeMapSettingsModal').addEventListener('click', () => document.getElementById('mapSettingsModal').classList.remove('show-modal'));
 
-// 광역 효과 클래스
-export class AreaEffect {
-    constructor(x, y, type) {
-        this.pixelX = x; this.pixelY = y; this.type = type;
-        this.duration = 30; this.maxRadius = GRID_SIZE * 2.5; this.currentRadius = 0;
-    }
-    update() {
-        const gameManager = GameManager.getInstance();
-        if (!gameManager) return;
-        this.duration -= gameManager.gameSpeed;
-        this.currentRadius = this.maxRadius * (1 - (this.duration / 30));
-    }
-    draw(ctx) {
-        if (this.type === 'fire_pillar') {
-            const opacity = this.duration / 30;
-            ctx.fillStyle = `rgba(255, 165, 0, ${opacity * 0.5})`;
-            ctx.beginPath(); ctx.arc(this.pixelX, this.pixelY, this.currentRadius, 0, Math.PI * 2); ctx.fill();
-            ctx.fillStyle = `rgba(255, 69, 0, ${opacity * 0.7})`;
-            ctx.beginPath(); ctx.arc(this.pixelX, this.pixelY, this.currentRadius * 0.6, 0, Math.PI * 2); ctx.fill();
-        }
-    }
-}
+        // Home screen
+        document.getElementById('addNewMapCard').addEventListener('click', () => {
+            document.getElementById('newMapName').value = '';
+            document.getElementById('newMapWidth').value = '600';
+            document.getElementById('newMapHeight').value = '900';
+            document.getElementById('newMapModal').classList.add('show-modal');
+        });
 
-// 시각 효과 클래스
-export class Effect {
-    constructor(x, y, type, target) {
-        this.x = x; this.y = y; this.type = type; this.target = target;
-        this.duration = 20; this.angle = Math.random() * Math.PI * 2;
-    }
-    update() {
-        const gameManager = GameManager.getInstance();
-        if (!gameManager) return;
-        this.duration -= gameManager.gameSpeed;
-    }
-    draw(ctx) {
-        if (this.type === 'slash' || this.type === 'dual_sword_slash') {
-            ctx.save();
-            ctx.translate(this.target.pixelX, this.target.pixelY);
-            ctx.rotate(this.angle);
-            ctx.strokeStyle = `rgba(220, 38, 38, ${this.duration / 20})`;
-            ctx.lineWidth = this.type === 'slash' ? 3 : 2;
-            const arcSize = this.type === 'slash' ? GRID_SIZE : GRID_SIZE * 0.7;
-            ctx.beginPath();
-            ctx.arc(0, 0, arcSize, -0.5, 0.5);
-            ctx.stroke();
-            ctx.restore();
-        }
-    }
-}
-
-// 무기 클래스
-export class Weapon {
-    constructor(x, y, type) {
-        this.gridX = x; this.gridY = y;
-        this.pixelX = x * GRID_SIZE + GRID_SIZE / 2;
-        this.pixelY = y * GRID_SIZE + GRID_SIZE / 2;
-        this.type = type;
-        this.isEquipped = false;
-    }
-    draw(ctx) {
-        if (this.isEquipped) return;
-        const centerX = this.pixelX; const centerY = this.pixelY;
-        const scale = (this.type === 'crown') ? 1.0 : 0.8;
-        ctx.save(); ctx.translate(centerX, centerY); ctx.scale(scale, scale);
-        ctx.strokeStyle = 'black'; ctx.lineWidth = 1 / scale;
-
-        if (this.type === 'sword') {
-            ctx.rotate(Math.PI / 4);
-            const bladeGradient = ctx.createLinearGradient(0, -GRID_SIZE, 0, 0);
-            bladeGradient.addColorStop(0, '#f3f4f6'); bladeGradient.addColorStop(1, '#9ca3af');
-            ctx.fillStyle = bladeGradient;
-            ctx.beginPath();
-            ctx.moveTo(-2, GRID_SIZE * 0.3); ctx.lineTo(-2, -GRID_SIZE * 1.0);
-            ctx.lineTo(0, -GRID_SIZE * 1.2); ctx.lineTo(2, -GRID_SIZE * 1.0);
-            ctx.lineTo(2, GRID_SIZE * 0.3);
-            ctx.closePath(); ctx.fill(); ctx.stroke();
-            ctx.fillStyle = '#374151';
-            ctx.beginPath();
-            ctx.moveTo(-GRID_SIZE * 0.4, GRID_SIZE * 0.3); ctx.lineTo(GRID_SIZE * 0.4, GRID_SIZE * 0.3);
-            ctx.lineTo(GRID_SIZE * 0.5, GRID_SIZE * 0.3 + 3); ctx.lineTo(-GRID_SIZE * 0.5, GRID_SIZE * 0.3 + 3);
-            ctx.closePath(); ctx.fill(); ctx.stroke();
-            ctx.fillStyle = '#1f2937';
-            ctx.fillRect(-1.5, GRID_SIZE * 0.3 + 3, 3, GRID_SIZE * 0.3); ctx.strokeRect(-1.5, GRID_SIZE * 0.3 + 3, 3, GRID_SIZE * 0.3);
-        } else if (this.type === 'bow') {
-            ctx.rotate(Math.PI / 4);
-            ctx.fillStyle = '#f3f4f6';
-            ctx.fillRect(-GRID_SIZE * 0.7, -1, GRID_SIZE * 1.2, 2);
-            ctx.strokeRect(-GRID_SIZE * 0.7, -1, GRID_SIZE * 1.2, 2);
-            ctx.fillStyle = '#e5e7eb';
-            ctx.beginPath(); ctx.moveTo(GRID_SIZE * 0.5, 0); ctx.lineTo(GRID_SIZE * 0.3, -3); ctx.lineTo(GRID_SIZE * 0.3, 3); ctx.closePath(); ctx.fill();
-            ctx.fillStyle = '#d1d5db';
-            ctx.beginPath(); ctx.moveTo(-GRID_SIZE * 0.6, -1); ctx.lineTo(-GRID_SIZE * 0.7, -4); ctx.lineTo(-GRID_SIZE * 0.5, -1); ctx.closePath(); ctx.fill()
-            ctx.beginPath(); ctx.moveTo(-GRID_SIZE * 0.6, 1); ctx.lineTo(-GRID_SIZE * 0.7, 4); ctx.lineTo(-GRID_SIZE * 0.5, 1); ctx.closePath(); ctx.fill()
-            ctx.strokeStyle = 'black'; ctx.lineWidth = 6 / scale; ctx.beginPath(); ctx.arc(0, 0, GRID_SIZE * 0.8, -Math.PI / 2.2, Math.PI / 2.2); ctx.stroke();
-            ctx.strokeStyle = '#854d0e'; ctx.lineWidth = 4 / scale; ctx.beginPath(); ctx.arc(0, 0, GRID_SIZE * 0.8, -Math.PI / 2.2, Math.PI / 2.2); ctx.stroke();
-            ctx.strokeStyle = '#e5e7eb'; ctx.lineWidth = 1.5 / scale; ctx.beginPath();
-            const arcRadius = GRID_SIZE * 0.8, arcAngle = Math.PI / 2.2;
-            ctx.moveTo(Math.cos(-arcAngle) * arcRadius, Math.sin(-arcAngle) * arcRadius);
-            ctx.lineTo(-GRID_SIZE * 0.4, 0);
-            ctx.lineTo(Math.cos(arcAngle) * arcRadius, Math.sin(arcAngle) * arcRadius); ctx.stroke();
-        } else if (this.type === 'dual_swords') {
-            const drawCurvedSword = (rotation) => {
-                ctx.save();
-                ctx.rotate(rotation);
-                ctx.fillStyle = '#6b7280';
-                ctx.fillRect(-GRID_SIZE * 0.1, GRID_SIZE * 0.3, GRID_SIZE * 0.2, GRID_SIZE * 0.3);
-                ctx.strokeRect(-GRID_SIZE * 0.1, GRID_SIZE * 0.3, GRID_SIZE * 0.2, GRID_SIZE * 0.3);
-                ctx.beginPath();
-                ctx.moveTo(-GRID_SIZE * 0.3, GRID_SIZE * 0.3); ctx.lineTo(GRID_SIZE * 0.3, GRID_SIZE * 0.3);
-                ctx.lineTo(GRID_SIZE * 0.3, GRID_SIZE * 0.2); ctx.lineTo(-GRID_SIZE * 0.3, GRID_SIZE * 0.2);
-                ctx.closePath(); ctx.fill(); ctx.stroke();
-                const bladeGradient = ctx.createLinearGradient(0, -GRID_SIZE, 0, 0);
-                bladeGradient.addColorStop(0, '#f3f4f6'); bladeGradient.addColorStop(0.5, '#9ca3af'); bladeGradient.addColorStop(1, '#d1d5db');
-                ctx.fillStyle = bladeGradient;
-                ctx.beginPath();
-                ctx.moveTo(0, GRID_SIZE * 0.2);
-                ctx.quadraticCurveTo(GRID_SIZE * 0.5, -GRID_SIZE * 0.4, 0, -GRID_SIZE * 0.9);
-                ctx.quadraticCurveTo(-GRID_SIZE * 0.1, -GRID_SIZE * 0.4, 0, GRID_SIZE * 0.2);
-                ctx.closePath(); ctx.fill(); ctx.stroke();
-                ctx.restore();
+        document.getElementById('confirmNewMapBtn').addEventListener('click', async () => {
+            if (!this.currentUser) return;
+            const name = document.getElementById('newMapName').value.trim() || '새로운 맵';
+            const width = parseInt(document.getElementById('newMapWidth').value) || 600;
+            const height = parseInt(document.getElementById('newMapHeight').value) || 900;
+            
+            const newMapId = `map_${Date.now()}`;
+            const newMapData = {
+                id: newMapId,
+                name: name,
+                width: width,
+                height: height,
+                map: JSON.stringify(Array(Math.floor(height / GRID_SIZE)).fill().map(() => Array(Math.floor(width / GRID_SIZE)).fill({ type: TILE.FLOOR, color: COLORS.FLOOR }))),
+                units: [], weapons: [], nexuses: [], growingFields: []
             };
-            drawCurvedSword(-Math.PI / 4);
-            drawCurvedSword(Math.PI / 4);
-        } else if (this.type === 'staff') {
-            ctx.rotate(Math.PI / 4);
-            ctx.fillStyle = '#a16207'; ctx.fillRect(-2, -GRID_SIZE * 0.6, 4, GRID_SIZE * 1.2); ctx.strokeRect(-2, -GRID_SIZE * 0.6, 4, GRID_SIZE * 1.2);
-            ctx.fillStyle = '#a855f7'; ctx.beginPath(); ctx.arc(0, -GRID_SIZE * 0.7, GRID_SIZE * 0.25, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
-        } else if (this.type === 'hadoken') {
-            ctx.rotate(Math.PI / 4);
-            const grad = ctx.createRadialGradient(0, 0, 1, 0, 0, GRID_SIZE * 1.2);
-            grad.addColorStop(0, '#bfdbfe');
-            grad.addColorStop(0.6, '#3b82f6');
-            grad.addColorStop(1, '#1e40af');
-            ctx.fillStyle = grad;
-            ctx.strokeStyle = 'black';
-            ctx.lineWidth = 1.5 / scale;
-            ctx.beginPath();
-            ctx.arc(-GRID_SIZE * 0.2, 0, GRID_SIZE * 0.6, Math.PI / 2, -Math.PI / 2, false);
-            ctx.lineTo(GRID_SIZE * 0.8, 0);
-            ctx.closePath();
-            ctx.fill();
-            ctx.stroke();
-        } else if (this.type === 'shuriken') {
-            ctx.rotate(Math.PI / 4);
-            ctx.fillStyle = '#9ca3af';
-            ctx.strokeStyle = 'black'; // 테두리 검은색으로 수정
-            ctx.lineWidth = 2 / scale;
-
-            ctx.beginPath();
-            ctx.moveTo(0, -GRID_SIZE * 0.8);
-            ctx.lineTo(GRID_SIZE * 0.2, -GRID_SIZE * 0.2);
-            ctx.lineTo(GRID_SIZE * 0.8, 0);
-            ctx.lineTo(GRID_SIZE * 0.2, GRID_SIZE * 0.2);
-            ctx.lineTo(0, GRID_SIZE * 0.8);
-            ctx.lineTo(-GRID_SIZE * 0.2, GRID_SIZE * 0.2);
-            ctx.lineTo(-GRID_SIZE * 0.8, 0);
-            ctx.lineTo(-GRID_SIZE * 0.2, -GRID_SIZE * 0.2);
-            ctx.closePath();
-            ctx.fill();
-            ctx.stroke();
-
-            ctx.fillStyle = '#d1d5db';
-            ctx.beginPath();
-            ctx.arc(0, 0, GRID_SIZE * 0.2, 0, Math.PI * 2);
-            ctx.fill();
-            ctx.stroke();
-        } else if (this.type === 'crown') {
-            ctx.fillStyle = '#facc15';
-            ctx.beginPath();
-            ctx.moveTo(-GRID_SIZE * 0.6, -GRID_SIZE * 0.25); ctx.lineTo(-GRID_SIZE * 0.6, GRID_SIZE * 0.35);
-            ctx.lineTo(GRID_SIZE * 0.6, GRID_SIZE * 0.35); ctx.lineTo(GRID_SIZE * 0.6, -GRID_SIZE * 0.25);
-            ctx.lineTo(GRID_SIZE * 0.3, 0); ctx.lineTo(0, -GRID_SIZE * 0.25);
-            ctx.lineTo(-GRID_SIZE * 0.3, 0); ctx.closePath();
-            ctx.fill(); ctx.stroke();
-        }
-        ctx.restore();
-    }
-}
-
-// 유닛 클래스
-export class Unit {
-    constructor(x, y, team) {
-        this.gridX = x; this.gridY = y;
-        this.pixelX = x * GRID_SIZE + GRID_SIZE / 2;
-        this.pixelY = y * GRID_SIZE + GRID_SIZE / 2;
-        this.team = team; this.hp = 100;
-        this.baseSpeed = 1.0; this.facingAngle = Math.random() * Math.PI * 2;
-        this.baseAttackPower = 5; this.baseAttackRange = 1.5 * GRID_SIZE;
-        this.baseDetectionRange = 6 * GRID_SIZE;
-        this.attackCooldown = 0; this.baseCooldownTime = 80;
-        this.state = 'IDLE'; this.alertedCounter = 0;
-        this.weapon = null; this.target = null; this.moveTarget = null;
-        this.isCasting = false; this.castingProgress = 0; this.castTargetPos = null;
-        this.castDuration = 120; // 2초
-        this.teleportCooldown = 0;
-        this.isKing = false; this.spawnCooldown = 0; this.spawnInterval = 420;
-        this.knockbackX = 0; this.knockbackY = 0;
-        this.isInMagneticField = false;
-        this.evasionCooldown = 0; // 표창 유닛 회피 쿨다운
-    }
-    
-    get speed() {
-        const gameManager = GameManager.getInstance();
-        if (!gameManager) return this.baseSpeed;
-
-        let speedModifier = 0;
-        if (this.isInMagneticField) speedModifier = -0.7;
-
-        const gridX = Math.floor(this.pixelX / GRID_SIZE);
-        const gridY = Math.floor(this.pixelY / GRID_SIZE);
-        if (gridY >= 0 && gridY < gameManager.ROWS && gridX >= 0 && gridX < gameManager.COLS) {
-            const tile = gameManager.map[gridY][gridX];
-            if (tile.type === TILE.LAVA) speedModifier = -0.5;
-        }
-        
-        let combatSpeedBoost = 0;
-        if (this.weapon && this.weapon.type === 'dual_swords' && (this.state === 'AGGRESSIVE' || this.state === 'ATTACKING_NEXUS')) {
-            combatSpeedBoost = 0.5;
-        }
-        const finalSpeed = (this.baseSpeed + (this.weapon ? this.weapon.speedBonus || 0 : 0) + combatSpeedBoost) + speedModifier;
-        return Math.max(0.1, finalSpeed); // 최소 속도 보장
-    }
-    get attackPower() { return this.baseAttackPower + (this.weapon ? this.weapon.attackPowerBonus || 0 : 0); }
-    get attackRange() { return this.baseAttackRange + (this.weapon ? this.weapon.attackRangeBonus || 0 : 0); }
-    get detectionRange() { return this.baseDetectionRange + (this.weapon ? this.weapon.detectionRangeBonus || 0 : 0); }
-    get cooldownTime() { return this.baseCooldownTime + (this.weapon ? this.weapon.attackCooldownBonus || 0 : 0); }
-
-    equipWeapon(weaponType, isClone = false) {
-        const gameManager = GameManager.getInstance();
-        if (!gameManager) return;
-
-        this.weapon = gameManager.createWeapon(0, 0, weaponType);
-        gameManager.audioManager.play('equip');
-        if (this.weapon.type === 'crown' && !isClone) {
-            this.isKing = true;
-        }
-        this.state = 'IDLE';
-    }
-
-    findClosest(items) {
-        let closestItem = null, minDistance = Infinity;
-        for (const item of items) {
-            const distance = Math.hypot(this.pixelX - item.pixelX, this.pixelY - item.pixelY);
-            if (distance < minDistance) { minDistance = distance; closestItem = item; }
-        }
-        return {item: closestItem, distance: minDistance};
-    }
-    
-    applyPhysics() {
-        const gameManager = GameManager.getInstance();
-        if (!gameManager) return;
-        
-        let nextX = this.pixelX + this.knockbackX * gameManager.gameSpeed;
-        let nextY = this.pixelY + this.knockbackY * gameManager.gameSpeed;
-        
-        const nextGridX_kb = Math.floor(nextX / GRID_SIZE);
-        const nextGridY_kb = Math.floor(nextY / GRID_SIZE);
-        if (nextGridY_kb >= 0 && nextGridY_kb < gameManager.ROWS && nextGridX_kb >= 0 && nextGridX_kb < gameManager.COLS) {
-            const collidedTile = gameManager.map[nextGridY_kb][nextGridX_kb];
-             if (collidedTile.type === TILE.WALL || collidedTile.type === TILE.CRACKED_WALL) {
-                nextX = this.pixelX;
-                nextY = this.pixelY;
-                this.knockbackX = 0;
-                this.knockbackY = 0;
+            
+            const newMapDocRef = doc(this.db, "maps", this.currentUser.uid, "userMaps", newMapId);
+            try {
+                await setDoc(newMapDocRef, newMapData);
+                document.getElementById('newMapModal').classList.remove('show-modal');
+                this.showEditorScreen(newMapId);
+            } catch(error) {
+                console.error("Error creating new map: ", error);
             }
-        }
+        });
 
-        nextX = Math.max(0, Math.min(gameManager.canvas.width, nextX));
-        nextY = Math.max(0, Math.min(gameManager.canvas.height, nextY));
+        // Editor screen
+        document.getElementById('backToHomeBtn').addEventListener('click', () => this.showHomeScreen());
+        document.getElementById('saveMapBtn').addEventListener('click', () => this.saveCurrentMap());
+        document.getElementById('mapSettingsBtn').addEventListener('click', () => {
+            document.getElementById('widthInput').value = this.canvas.width;
+            document.getElementById('heightInput').value = this.canvas.height;
+            document.getElementById('mapSettingsModal').classList.add('show-modal');
+        });
+        document.getElementById('killSoundToggle').addEventListener('change', (e) => {
+            this.audioManager.toggleKillSound(e.target.checked);
+        });
+         document.getElementById('muteBtn').addEventListener('click', () => this.audioManager.toggleMute());
 
-        this.pixelX = nextX;
-        this.pixelY = nextY;
 
-        this.knockbackX *= 0.9;
-        this.knockbackY *= 0.9;
-        if (Math.abs(this.knockbackX) < 0.1) this.knockbackX = 0;
-        if (Math.abs(this.knockbackY) < 0.1) this.knockbackY = 0;
-    }
-
-    move() {
-        if (!this.moveTarget || this.isCasting) return;
-        const gameManager = GameManager.getInstance();
-        if (!gameManager) return;
-        
-        const dx = this.moveTarget.x - this.pixelX, dy = this.moveTarget.y - this.pixelY;
-        const distance = Math.hypot(dx, dy);
-        const currentSpeed = this.speed * gameManager.gameSpeed;
-        if (distance < currentSpeed) {
-            this.pixelX = this.moveTarget.x; this.pixelY = this.moveTarget.y;
-            this.moveTarget = null; return;
-        }
-        const angle = Math.atan2(dy, dx);
-        const nextPixelX = this.pixelX + Math.cos(angle) * currentSpeed;
-        const nextPixelY = this.pixelY + Math.sin(angle) * currentSpeed;
-        const nextGridX = Math.floor(nextPixelX / GRID_SIZE);
-        const nextGridY = Math.floor(nextPixelY / GRID_SIZE);
-
-        if (nextGridY >= 0 && nextGridY < gameManager.ROWS && nextGridX >= 0 && nextGridX < gameManager.COLS) {
-            const collidedTile = gameManager.map[nextGridY][nextGridX];
-            if (collidedTile.type === TILE.WALL || collidedTile.type === TILE.CRACKED_WALL) {
-                if (collidedTile.type === TILE.CRACKED_WALL) {
-                    gameManager.damageTile(nextGridX, nextGridY, 999);
+        this.canvas.addEventListener('mousedown', (e) => {
+            if (this.isActionCam) {
+                if (this.actionCam.isAnimating) return;
+                const pos = this.getMousePos(e);
+                if (this.actionCam.target.scale === 1) {
+                    this.actionCam.target.x = pos.pixelX;
+                    this.actionCam.target.y = pos.pixelY;
+                    this.actionCam.target.scale = 1.8;
+                } else {
+                    this.actionCam.target.x = this.canvas.width / 2;
+                    this.actionCam.target.y = this.canvas.height / 2;
+                    this.actionCam.target.scale = 1;
                 }
-                const bounceAngle = this.facingAngle + Math.PI;
-                this.pixelX += Math.cos(bounceAngle) * 2;
-                this.pixelY += Math.sin(bounceAngle) * 2;
-                this.moveTarget = null;
+                this.actionCam.isAnimating = true;
+                if (this.state !== 'SIMULATE' && !this.animationFrameId) this.gameLoop();
                 return;
             }
-        } else {
-            const bounceAngle = this.facingAngle + Math.PI;
-            this.pixelX += Math.cos(bounceAngle) * 2;
-            this.pixelY += Math.sin(bounceAngle) * 2;
-            this.moveTarget = null;
-            return;
-        }
+            if (this.state === 'EDIT') {
+                const pos = this.getMousePos(e);
+                this.isPainting = true;
+                if (this.currentTool.tool === 'growing_field') this.dragStartPos = pos;
+                else this.applyTool(pos);
+            }
+        });
+        this.canvas.addEventListener('mouseup', (e) => {
+            if (this.state === 'EDIT' && this.currentTool.tool === 'growing_field' && this.dragStartPos) {
+                this.applyTool(this.getMousePos(e));
+            }
+            this.isPainting = false;
+            this.dragStartPos = null;
+        });
+        this.canvas.addEventListener('mousemove', (e) => {
+            if (this.isPainting && this.state === 'EDIT' && this.currentTool.tool !== 'growing_field') {
+                this.applyTool(this.getMousePos(e));
+            }
+            if (this.state === 'EDIT' && this.dragStartPos) this.draw(e);
+        });
+        this.canvas.addEventListener('mouseleave', () => {
+            this.isPainting = false;
+            this.dragStartPos = null;
+            this.draw();
+        });
+
+        document.getElementById('simStartBtn').addEventListener('click', () => this.startSimulation());
+        document.getElementById('simPauseBtn').addEventListener('click', () => this.pauseSimulation());
+        document.getElementById('simPlayBtn').addEventListener('click', () => this.playSimulation());
+        document.getElementById('simPlacementResetBtn').addEventListener('click', () => this.resetPlacement());
+        document.getElementById('simResetBtn').addEventListener('click', () => this.resetMap());
+        document.getElementById('resizeBtn').addEventListener('click', () => {
+            this.resizeCanvas(parseInt(document.getElementById('widthInput').value), parseInt(document.getElementById('heightInput').value));
+            document.getElementById('mapSettingsModal').classList.remove('show-modal');
+        });
+        document.getElementById('actionCamToggle').addEventListener('change', (e) => {
+            this.isActionCam = e.target.checked;
+            if (!this.isActionCam) this.resetActionCam(false);
+        });
         
-        this.facingAngle = angle; this.pixelX = nextPixelX; this.pixelY = nextPixelY;
+        document.getElementById('toolbox').addEventListener('click', (e) => {
+            const target = e.target;
+            const toolButton = target.closest('.tool-btn');
+            const categoryHeader = target.closest('.category-header');
+            
+            if (toolButton) {
+                this.selectTool(toolButton);
+            } else if (target.id === 'growingFieldSettingsBtn' || target.parentElement.id === 'growingFieldSettingsBtn') {
+                document.getElementById('fieldDirection').value = this.growingFieldSettings.direction;
+                document.getElementById('fieldSpeed').value = this.growingFieldSettings.speed;
+                document.getElementById('fieldDelay').value = this.growingFieldSettings.delay;
+                document.getElementById('growingFieldModal').classList.add('show-modal');
+            } else if (target.id === 'autoFieldSettingsBtn' || target.parentElement.id === 'autoFieldSettingsBtn') {
+                 document.getElementById('autoFieldActiveToggle').checked = this.autoMagneticField.isActive;
+                document.getElementById('autoFieldShrinkTime').value = this.autoMagneticField.totalShrinkTime / 60;
+                document.getElementById('autoFieldSafeZoneSize').value = this.autoMagneticField.safeZoneSize;
+                document.getElementById('autoFieldModal').classList.add('show-modal');
+            } else if (target.id === 'hadokenSettingsBtn' || target.parentElement.id === 'hadokenSettingsBtn') {
+                document.getElementById('hadokenKnockback').value = this.hadokenKnockback;
+                document.getElementById('hadokenKnockbackValue').textContent = this.hadokenKnockback;
+                document.getElementById('hadokenModal').classList.add('show-modal');
+            } else if (categoryHeader) {
+                const content = categoryHeader.nextElementSibling;
+                categoryHeader.classList.toggle('collapsed');
+                content.classList.toggle('collapsed');
+            }
+        });
+        
+        document.getElementById('closeGrowingFieldModal').addEventListener('click', () => {
+            this.growingFieldSettings.direction = document.getElementById('fieldDirection').value;
+            this.growingFieldSettings.speed = parseFloat(document.getElementById('fieldSpeed').value);
+            this.growingFieldSettings.delay = parseInt(document.getElementById('fieldDelay').value);
+            document.getElementById('growingFieldModal').classList.remove('show-modal');
+        });
+        document.getElementById('growingFieldDefaultBtn').addEventListener('click', () => {
+            this.growingFieldSettings = { direction: 'DOWN', speed: 4, delay: 0 };
+            document.getElementById('fieldDirection').value = this.growingFieldSettings.direction;
+            document.getElementById('fieldSpeed').value = this.growingFieldSettings.speed;
+            document.getElementById('fieldDelay').value = this.growingFieldSettings.delay;
+        });
+
+        document.getElementById('closeAutoFieldModal').addEventListener('click', () => {
+            this.autoMagneticField.isActive = document.getElementById('autoFieldActiveToggle').checked;
+            this.autoMagneticField.totalShrinkTime = parseFloat(document.getElementById('autoFieldShrinkTime').value) * 60;
+            this.autoMagneticField.safeZoneSize = parseInt(document.getElementById('autoFieldSafeZoneSize').value);
+            document.getElementById('autoFieldModal').classList.remove('show-modal');
+        });
+        document.getElementById('autoFieldDefaultBtn').addEventListener('click', () => {
+            this.autoMagneticField = { isActive: false, totalShrinkTime: 60 * 60, safeZoneSize: 6, simulationTime: 0, currentBounds: { minX: 0, maxX: 0, minY: 0, maxY: 0 } };
+            document.getElementById('autoFieldActiveToggle').checked = this.autoMagneticField.isActive;
+            document.getElementById('autoFieldShrinkTime').value = this.autoMagneticField.totalShrinkTime / 60;
+            document.getElementById('autoFieldSafeZoneSize').value = this.autoMagneticField.safeZoneSize;
+        });
+        
+        document.getElementById('closeHadokenModal').addEventListener('click', () => document.getElementById('hadokenModal').classList.remove('show-modal'));
+        document.getElementById('hadokenKnockback').addEventListener('input', (e) => {
+            this.hadokenKnockback = parseInt(e.target.value);
+            document.getElementById('hadokenKnockbackValue').textContent = this.hadokenKnockback;
+        });
+        document.getElementById('hadokenDefaultBtn').addEventListener('click', () => {
+            this.hadokenKnockback = 15;
+            document.getElementById('hadokenKnockback').value = this.hadokenKnockback;
+            document.getElementById('hadokenKnockbackValue').textContent = this.hadokenKnockback;
+        });
+
+        document.getElementById('toolbox').addEventListener('input', (e) => {
+            if (e.target.id === 'replicationValue') this.replicationValue = parseInt(e.target.value) || 1;
+            else if (e.target.id === 'wallColorPicker') {
+                this.currentWallColor = e.target.value; this.draw();
+            } else if (e.target.id === 'floorColorPicker') {
+                this.currentFloorColor = e.target.value; this.draw();
+            }
+        });
     }
 
-    attack(target) {
-        if (!target || this.attackCooldown > 0) return;
-        const gameManager = GameManager.getInstance();
-        if (!gameManager) return;
+    resizeCanvas(width, height) {
+        this.canvas.width = width;
+        this.canvas.height = height;
+        document.getElementById('widthInput').value = width;
+        document.getElementById('heightInput').value = height;
+        this.COLS = Math.floor(this.canvas.width / GRID_SIZE);
+        this.ROWS = Math.floor(this.canvas.height / GRID_SIZE);
         
-        const currentAttackPower = this.attackPower;
+        this.resetMap();
+        
+        this.actionCam.current.x = this.canvas.width / 2;
+        this.actionCam.current.y = this.canvas.height / 2;
+        this.actionCam.target.x = this.canvas.width / 2;
+        this.actionCam.target.y = this.canvas.height / 2;
+    }
 
-        if (this.weapon && this.weapon.type === 'staff') {
-            this.isCasting = true; this.castingProgress = 0; this.castTargetPos = { x: target.pixelX, y: target.pixelY }; this.target = target;
-            gameManager.audioManager.play('fireball');
-        } else if (this.weapon && this.weapon.type === 'hadoken') {
-             this.isCasting = true; this.castingProgress = 0; this.castTargetPos = { x: target.pixelX, y: target.pixelY }; this.target = target;
-             gameManager.audioManager.play('hadokenCast');
-        } else {
-            this.attackCooldown = this.cooldownTime;
-            const targetGridX = Math.floor(target.pixelX / GRID_SIZE);
-            const targetGridY = Math.floor(target.pixelY / GRID_SIZE);
-            if(targetGridY < 0 || targetGridY >= gameManager.ROWS || targetGridX < 0 || targetGridX >= gameManager.COLS) return;
-            const tile = gameManager.map[targetGridY][targetGridX];
+    resetMap() {
+        cancelAnimationFrame(this.animationFrameId);
+        this.animationFrameId = null;
+        this.state = 'EDIT';
+        this.map = Array(this.ROWS).fill().map(() => Array(this.COLS).fill().map(() => ({ type: TILE.FLOOR, color: this.currentFloorColor })));
+        this.units = []; this.weapons = []; this.nexuses = []; this.growingFields = [];
+        this.effects = []; this.projectiles = []; this.areaEffects = [];
+        this.initialUnitsState = []; this.initialWeaponsState = [];
+        this.initialNexusesState = []; this.initialMapState = [];
+        this.initialGrowingFieldsState = [];
+        this.initialAutoFieldState = {};
+        document.getElementById('statusText').textContent = "에디터 모드";
+        document.getElementById('simStartBtn').classList.remove('hidden');
+        document.getElementById('simPauseBtn').classList.add('hidden');
+        document.getElementById('simPlayBtn').classList.add('hidden');
+        document.getElementById('simStartBtn').disabled = false;
+        document.getElementById('toolbox').style.pointerEvents = 'auto';
+        this.resetActionCam(true);
+        this.draw();
+    }
+    
+    startSimulation() {
+        if (this.state !== 'EDIT') return;
+        this.initialUnitsState = JSON.stringify(this.units.map(u => ({...u, weapon: u.weapon ? {type: u.weapon.type} : null})));
+        this.initialWeaponsState = JSON.stringify(this.weapons.map(w => ({...w})));
+        this.initialNexusesState = JSON.stringify(this.nexuses.map(n => ({...n})));
+        this.initialMapState = JSON.stringify(this.map);
+        this.initialGrowingFieldsState = JSON.stringify(this.growingFields.map(f => ({...f})));
+        this.initialAutoFieldState = JSON.stringify(this.autoMagneticField);
+        this.initialNexusCount = this.nexuses.length;
+        this.winnerTeam = null;
+
+        this.state = 'SIMULATE';
+        document.getElementById('statusText').textContent = "시뮬레이션 진행 중...";
+        document.getElementById('simStartBtn').classList.add('hidden');
+        document.getElementById('simPauseBtn').classList.remove('hidden');
+        document.getElementById('simPlayBtn').classList.add('hidden');
+        document.getElementById('toolbox').style.pointerEvents = 'none';
+        this.gameLoop();
+    }
+
+    resetPlacement() {
+        if (this.initialUnitsState.length === 0) {
+            console.warn("배치 초기화를 하려면 먼저 시뮬레이션을 한 번 시작해야 합니다.");
+            return;
+        }
+
+        cancelAnimationFrame(this.animationFrameId);
+        this.animationFrameId = null;
+        this.state = 'EDIT';
+        this.units = JSON.parse(this.initialUnitsState).map(u => Object.assign(new Unit(0,0), u));
+        this.weapons = JSON.parse(this.initialWeaponsState).map(w => Object.assign(new Weapon(0,0), w));
+        this.nexuses = JSON.parse(this.initialNexusesState).map(n => Object.assign(new Nexus(0,0), n));
+        this.map = JSON.parse(this.initialMapState);
+        this.growingFields = JSON.parse(this.initialGrowingFieldsState).map(fieldData => {
+             const settings = {
+                 direction: fieldData.direction,
+                 speed: fieldData.totalFrames / 60,
+                 delay: fieldData.delay / 60,
+             };
+            return new GrowingMagneticField(fieldData.id, fieldData.gridX, fieldData.gridY, fieldData.width, fieldData.height, settings);
+        });
+        this.autoMagneticField = JSON.parse(this.initialAutoFieldState);
+        this.effects = []; this.projectiles = []; this.areaEffects = [];
+        document.getElementById('statusText').textContent = "에디터 모드";
+        document.getElementById('simStartBtn').classList.remove('hidden');
+        document.getElementById('simPauseBtn').classList.add('hidden');
+        document.getElementById('simPlayBtn').classList.add('hidden');
+        document.getElementById('simStartBtn').disabled = false;
+        document.getElementById('toolbox').style.pointerEvents = 'auto';
+        this.resetActionCam(true);
+        this.draw();
+    }
+    
+    selectTool(button) {
+        const { tool, team, type } = button.dataset;
+
+        document.querySelectorAll('#toolbox .tool-btn').forEach(btn => btn.classList.remove('selected'));
+        button.classList.add('selected');
+
+        this.currentTool = { tool, team, type };
+    }
+
+    getMousePos(e) {
+         const rect = this.canvas.getBoundingClientRect();
+         const transform = this.ctx.getTransform();
+         const invTransform = transform.inverse();
+
+         const canvasX = e.clientX - rect.left;
+         const canvasY = e.clientY - rect.top;
+
+         const worldX = canvasX * invTransform.a + canvasY * invTransform.c + invTransform.e;
+         const worldY = canvasX * invTransform.b + canvasY * invTransform.d + invTransform.f;
+        
+         return {
+             pixelX: worldX,
+             pixelY: worldY,
+             gridX: Math.floor(worldX / GRID_SIZE),
+             gridY: Math.floor(worldY / GRID_SIZE)
+         };
+    }
+
+    applyTool(pos) {
+        const {gridX: x, gridY: y} = pos;
+        if (x < 0 || x >= this.COLS || y < 0 || y >= this.ROWS) return;
+        
+        if (this.currentTool.tool === 'erase') {
+            this.map[y][x] = { type: TILE.FLOOR, color: this.currentFloorColor };
+            this.units = this.units.filter(u => u.gridX !== x || u.gridY !== y);
+            this.weapons = this.weapons.filter(w => w.gridX !== x || w.gridY !== y);
+            this.nexuses = this.nexuses.filter(n => n.gridX !== x || n.gridY !== y);
+            this.growingFields = this.growingFields.filter(zone => !(x >= zone.gridX && x < zone.gridX + zone.width && y >= zone.gridY && y < zone.gridY + zone.height));
+            this.draw();
+            return;
+        }
+
+        const itemExists = this.units.some(u => u.gridX === x && u.gridY === y) || 
+                         this.weapons.some(w => w.gridX === x && w.gridY === y) || 
+                         this.nexuses.some(n => n.gridX === x && n.gridY === y);
+
+        if (this.currentTool.tool === 'growing_field' && this.dragStartPos) {
+             const startX = Math.min(this.dragStartPos.gridX, x);
+             const startY = Math.min(this.dragStartPos.gridY, y);
+             const endX = Math.max(this.dragStartPos.gridX, x);
+             const endY = Math.max(this.dragStartPos.gridY, y);
+             const width = endX - startX + 1;
+             const height = endY - startY + 1;
+             
+             const newZone = new GrowingMagneticField(Date.now(), startX, startY, width, height, {...this.growingFieldSettings});
+             this.growingFields.push(newZone);
+             this.dragStartPos = null;
+        } else if (this.currentTool.tool === 'tile') {
+            if (itemExists) return;
+            const tileType = TILE[this.currentTool.type];
+            if (tileType === TILE.TELEPORTER && this.getTilesOfType(TILE.TELEPORTER).length >= 2) { return; }
+            this.map[y][x] = {
+                type: tileType,
+                hp: tileType === TILE.CRACKED_WALL ? 50 : undefined,
+                color: tileType === TILE.WALL ? this.currentWallColor : (tileType === TILE.FLOOR ? this.currentFloorColor : undefined),
+                replicationValue: tileType === TILE.REPLICATION_TILE ? this.replicationValue : undefined
+            };
+        } else if (this.currentTool.tool === 'unit' && !itemExists) {
+            this.units.push(new Unit(x, y, this.currentTool.team));
+        } else if (this.currentTool.tool === 'weapon' && !itemExists) {
+            const weapon = this.createWeapon(x, y, this.currentTool.type);
+            this.weapons.push(weapon);
+        } else if (this.currentTool.tool === 'nexus' && !itemExists) {
+            if (this.nexuses.some(n => n.team === this.currentTool.team)) { return; }
+            this.nexuses.push(new Nexus(x, y, this.currentTool.team));
+        }
+        this.draw();
+    }
+
+    startSimulation() {
+        if (this.state !== 'EDIT') return;
+        this.initialUnitsState = JSON.stringify(this.units.map(u => ({...u, weapon: u.weapon ? {type: u.weapon.type} : null})));
+        this.initialWeaponsState = JSON.stringify(this.weapons.map(w => ({...w})));
+        this.initialNexusesState = JSON.stringify(this.nexuses.map(n => ({...n})));
+        this.initialMapState = JSON.stringify(this.map);
+        this.initialGrowingFieldsState = JSON.stringify(this.growingFields.map(f => ({...f})));
+        this.initialAutoFieldState = JSON.stringify(this.autoMagneticField);
+        this.initialNexusCount = this.nexuses.length;
+        this.winnerTeam = null;
+
+        this.state = 'SIMULATE';
+        document.getElementById('statusText').textContent = "시뮬레이션 진행 중...";
+        document.getElementById('simStartBtn').classList.add('hidden');
+        document.getElementById('simPauseBtn').classList.remove('hidden');
+        document.getElementById('simPlayBtn').classList.add('hidden');
+        document.getElementById('toolbox').style.pointerEvents = 'none';
+        this.gameLoop();
+    }
+
+    pauseSimulation() {
+        if (this.state !== 'SIMULATE') return;
+        this.state = 'PAUSED';
+        document.getElementById('statusText').textContent = "일시정지됨";
+        document.getElementById('simPauseBtn').classList.add('hidden');
+        document.getElementById('simPlayBtn').classList.remove('hidden');
+    }
+
+    playSimulation() {
+        if (this.state !== 'PAUSED') return;
+        this.state = 'SIMULATE';
+        document.getElementById('statusText').textContent = "시뮬레이션 진행 중...";
+        document.getElementById('simPauseBtn').classList.remove('hidden');
+        document.getElementById('simPlayBtn').classList.add('hidden');
+        this.gameLoop();
+    }
+
+    gameLoop() {
+        this.animationFrameCounter++;
+        
+        if (this.actionCam.isAnimating) {
+            const cam = this.actionCam;
+            const ease = 0.15; 
+            cam.current.x += (cam.target.x - cam.current.x) * ease;
+            cam.current.y += (cam.target.y - cam.current.y) * ease;
+            cam.current.scale += (cam.target.scale - cam.current.scale) * ease;
+
+            if (Math.abs(cam.current.scale - cam.target.scale) < 0.001 && Math.abs(cam.current.x - cam.target.x) < 0.1) {
+                cam.current = { ...cam.target };
+                cam.isAnimating = false;
+            }
+        }
+
+        if (this.state === 'SIMULATE' || this.state === 'ENDING') {
+            this.update();
+        }
+        
+        this.draw();
+        
+        if (this.state === 'SIMULATE') {
+            const activeNexuses = this.nexuses.filter(n => !n.isDestroying);
+            const activeNexusTeams = new Set(activeNexuses.map(n => n.team));
+            const activeUnitTeams = new Set(this.units.map(u => u.team));
             
-            if (tile.type === TILE.CRACKED_WALL) {
-                gameManager.damageTile(targetGridX, targetGridY, currentAttackPower);
-            } else if (target instanceof Unit || target instanceof Nexus) {
-                if (this.weapon && this.weapon.type === 'sword') {
-                    target.takeDamage(currentAttackPower); gameManager.createEffect('slash', this.pixelX, this.pixelY, target);
-                    gameManager.audioManager.play('swordHit');
-                } else if (this.weapon && this.weapon.type === 'bow') {
-                    gameManager.createProjectile(this, target, 'arrow');
-                    gameManager.audioManager.play('arrowShoot');
-                } else if (this.weapon && this.weapon.type === 'dual_swords') {
-                    target.takeDamage(currentAttackPower); gameManager.createEffect('dual_sword_slash', this.pixelX, this.pixelY, target);
-                    gameManager.audioManager.play('dualSwordHit');
-                } else if (this.weapon && this.weapon.type === 'shuriken') {
-                     gameManager.createProjectile(this, target, 'shuriken');
-                     gameManager.audioManager.play('shurikenShoot');
+            let gameOver = false;
+            let winner = null;
+
+            if (this.initialNexusCount >= 2) {
+                if (activeNexusTeams.size === 1) {
+                    gameOver = true;
+                    winner = activeNexusTeams.values().next().value;
+                } else if (activeNexusTeams.size === 0) {
+                    gameOver = true; 
+                    winner = null; 
                 }
+            } else if (this.initialNexusCount === 1) {
+                if (activeNexusTeams.size === 0) {
+                    gameOver = true;
+                    winner = activeUnitTeams.size > 0 ? activeUnitTeams.values().next().value : null;
+                }
+            }
+
+            if (!gameOver) {
+                const allRemainingTeams = new Set([...activeNexusTeams, ...activeUnitTeams]);
+                if (allRemainingTeams.size <= 1) {
+                    const initialTeams = new Set(JSON.parse(this.initialNexusesState).map(n => n.team).concat(JSON.parse(this.initialUnitsState).map(u => u.team)));
+                    if (initialTeams.size > 1) {
+                        gameOver = true;
+                        winner = allRemainingTeams.size === 1 ? allRemainingTeams.values().next().value : null;
+                    }
+                }
+            }
+
+            if (gameOver) {
+                this.state = 'ENDING';
+                this.winnerTeam = winner;
+            }
+        } else if (this.state === 'ENDING') {
+            const explosionsFinished = this.nexuses.every(n => !n.isDestroying || n.explosionParticles.length === 0);
+            if (explosionsFinished) {
+                this.state = 'DONE';
+                let winnerName = "무승부";
+                if(this.winnerTeam) {
+                    switch(this.winnerTeam) {
+                        case TEAM.A: winnerName = "빨강 팀"; break;
+                        case TEAM.B: winnerName = "파랑 팀"; break;
+                        case TEAM.C: winnerName = "초록 팀"; break;
+                        case TEAM.D: winnerName = "노랑 팀"; break;
+                    }
+                    document.getElementById('statusText').textContent = `${winnerName} 승리!`;
+                } else {
+                    document.getElementById('statusText').textContent = "무승부!";
+                }
+                document.getElementById('simPauseBtn').classList.add('hidden');
+                document.getElementById('simPlayBtn').classList.add('hidden');
+                this.resetActionCam(false);
+            }
+        }
+
+        if ((this.state === 'DONE' || this.state === 'PAUSED') && !this.actionCam.isAnimating) {
+            cancelAnimationFrame(this.animationFrameId);
+            this.animationFrameId = null;
+        } else {
+            this.animationFrameId = requestAnimationFrame(() => this.gameLoop());
+        }
+    }
+
+    update() {
+        if (this.state === 'PAUSED' || this.state === 'DONE') return;
+
+        if (this.state === 'ENDING') {
+            this.nexuses.forEach(n => n.update());
+            this.projectiles.forEach(p => p.update());
+            this.projectiles = this.projectiles.filter(p => !p.destroyed);
+            return;
+        }
+
+        this.gameSpeed = 1;
+
+        if (this.autoMagneticField.isActive) {
+            this.autoMagneticField.simulationTime++;
+            const progress = Math.min(1, this.autoMagneticField.simulationTime / this.autoMagneticField.totalShrinkTime);
+            
+            const finalWidth = this.autoMagneticField.safeZoneSize;
+            const finalHeight = this.autoMagneticField.safeZoneSize;
+            
+            const finalMinX = (this.COLS - finalWidth) / 2;
+            const finalMaxX = (this.COLS + finalWidth) / 2;
+            const finalMinY = (this.ROWS - finalHeight) / 2;
+            const finalMaxY = (this.ROWS + finalHeight) / 2;
+
+            this.autoMagneticField.currentBounds.minX = 0 + (finalMinX - 0) * progress;
+            this.autoMagneticField.currentBounds.maxX = this.COLS - (this.COLS - finalMaxX) * progress;
+            this.autoMagneticField.currentBounds.minY = 0 + (finalMinY - 0) * progress;
+            this.autoMagneticField.currentBounds.maxY = this.ROWS - (this.ROWS - finalMaxY) * progress;
+        }
+        
+        this.growingFields.forEach(field => field.update());
+        
+        const unitsBeforeUpdate = this.units.length;
+
+        const unitsByTeam = {};
+        for (const unit of this.units) {
+            if (!unitsByTeam[unit.team]) {
+                unitsByTeam[unit.team] = [];
+            }
+            unitsByTeam[unit.team].push(unit);
+        }
+        const allTeamKeys = Object.keys(unitsByTeam);
+        
+        this.units.forEach(unit => {
+            const enemyTeams = allTeamKeys.filter(key => key !== unit.team);
+            const enemies = enemyTeams.flatMap(key => unitsByTeam[key]);
+            unit.update(enemies, this.weapons, this.projectiles);
+        });
+        
+        this.units = this.units.filter(u => u.hp > 0);
+        if (this.units.length < unitsBeforeUpdate) {
+            this.audioManager.play('unitDeath');
+        }
+        
+        this.nexuses.forEach(n => n.update());
+
+        this.projectiles.forEach(p => p.update());
+        this.projectiles = this.projectiles.filter(p => !p.destroyed);
+
+        for (let i = this.projectiles.length - 1; i >= 0; i--) {
+            const p = this.projectiles[i]; let hit = false;
+            for (const unit of this.units) {
+                if (p.owner.team !== unit.team && Math.hypot(p.pixelX - unit.pixelX, p.pixelY - unit.pixelY) < GRID_SIZE / 2) {
+                    const effectInfo = {
+                        interrupt: p.type === 'hadoken',
+                        force: p.knockback,
+                        angle: p.angle
+                    };
+                    unit.takeDamage(p.damage, effectInfo);
+                    if (p.type === 'arrow') this.audioManager.play('arrowHit');
+                    if (p.type === 'hadoken') this.audioManager.play('hadokenHit');
+                    hit = true;
+                    break;
+                }
+            }
+            if (!hit) {
+                for (const nexus of this.nexuses) {
+                    if (p.owner.team !== nexus.team && Math.hypot(p.pixelX - nexus.pixelX, p.pixelY - nexus.pixelY) < GRID_SIZE) {
+                        nexus.takeDamage(p.damage);
+                        hit = true;
+                        break;
+                    }
+                }
+            }
+            if (hit || p.pixelX < 0 || p.pixelX > this.canvas.width || p.pixelY < 0 || p.pixelY > this.canvas.height) {
+                this.projectiles.splice(i, 1);
+            }
+        }
+
+        this.weapons = this.weapons.filter(w => !w.isEquipped);
+
+        this.effects.forEach(e => e.update());
+        this.effects = this.effects.filter(e => e.duration > 0);
+        this.areaEffects.forEach(e => e.update());
+        this.areaEffects = this.areaEffects.filter(e => e.duration > 0);
+    }
+    
+    draw(mouseEvent = null) {
+        this.ctx.save();
+        this.ctx.fillStyle = '#1f2937';
+        this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+
+        const cam = this.actionCam;
+        this.ctx.translate(this.canvas.width / 2, this.canvas.height / 2);
+        this.ctx.scale(cam.current.scale, cam.current.scale);
+        this.ctx.translate(-cam.current.x, -cam.current.y);
+
+        this.drawMap();
+        
+        if (this.state === 'SIMULATE' || this.state === 'PAUSED' || this.state === 'ENDING') {
+            if (this.autoMagneticField.isActive) {
+                this.ctx.fillStyle = `rgba(168, 85, 247, 0.2)`;
+                const b = this.autoMagneticField.currentBounds;
+                this.ctx.fillRect(0, 0, b.minX * GRID_SIZE, this.canvas.height);
+                this.ctx.fillRect(b.maxX * GRID_SIZE, 0, this.canvas.width - b.maxX * GRID_SIZE, this.canvas.height);
+                this.ctx.fillRect(b.minX * GRID_SIZE, 0, (b.maxX - b.minX) * GRID_SIZE, b.minY * GRID_SIZE);
+                this.ctx.fillRect(b.minX * GRID_SIZE, b.maxY * GRID_SIZE, (b.maxX - b.minX) * GRID_SIZE, this.canvas.height - b.maxY * GRID_SIZE);
+            }
+
+            this.growingFields.forEach(field => {
+                if (field.delayTimer < field.delay) return;
+                this.ctx.fillStyle = `rgba(168, 85, 247, 0.2)`;
+                const startX = field.gridX * GRID_SIZE;
+                const startY = field.gridY * GRID_SIZE;
+                const totalWidth = field.width * GRID_SIZE;
+                const totalHeight = field.height * GRID_SIZE;
+
+                if (field.direction === 'DOWN') this.ctx.fillRect(startX, startY, totalWidth, totalHeight * field.progress);
+                else if (field.direction === 'UP') this.ctx.fillRect(startX, startY + totalHeight * (1 - field.progress), totalWidth, totalHeight * field.progress);
+                else if (field.direction === 'RIGHT') this.ctx.fillRect(startX, startY, totalWidth * field.progress, totalHeight);
+                else if (field.direction === 'LEFT') this.ctx.fillRect(startX + totalWidth * (1 - field.progress), startY, totalWidth * field.progress, totalHeight);
+            });
+        }
+        
+        this.growingFields.forEach(w => w.draw(this.ctx));
+        this.weapons.forEach(w => w.draw(this.ctx));
+        this.nexuses.forEach(n => n.draw(this.ctx));
+        this.projectiles.forEach(p => p.draw(this.ctx));
+        this.units.forEach(u => u.draw(this.ctx));
+        this.effects.forEach(e => e.draw(this.ctx));
+        this.areaEffects.forEach(e => e.draw(this.ctx));
+
+        if (this.state === 'EDIT' && this.currentTool.tool === 'growing_field' && this.dragStartPos && this.isPainting && mouseEvent) {
+            const currentPos = this.getMousePos(mouseEvent);
+            const x = Math.min(this.dragStartPos.gridX, currentPos.gridX) * GRID_SIZE;
+            const y = Math.min(this.dragStartPos.gridY, currentPos.gridY) * GRID_SIZE;
+            const width = (Math.abs(this.dragStartPos.gridX - currentPos.gridX) + 1) * GRID_SIZE;
+            const height = (Math.abs(this.dragStartPos.gridY - currentPos.gridY) + 1) * GRID_SIZE;
+            
+            this.ctx.fillStyle = 'rgba(168, 85, 247, 0.3)';
+            this.ctx.fillRect(x, y, width, height);
+            this.ctx.strokeStyle = 'rgba(168, 85, 247, 0.7)';
+            this.ctx.strokeRect(x, y, width, height);
+        }
+
+        this.ctx.restore();
+    }
+
+    drawMap() {
+        for (let y = 0; y < this.ROWS; y++) {
+            for (let x = 0; x < this.COLS; x++) {
+                if (!this.map || !this.map[y] || !this.map[y][x]) continue;
+                const tile = this.map[y][x];
+                
+                if (tile.type === TILE.WALL) {
+                    this.ctx.fillStyle = tile.color || COLORS.WALL;
+                } else if (tile.type === TILE.FLOOR) {
+                    this.ctx.fillStyle = tile.color || COLORS.FLOOR;
+                } else if (tile.type === TILE.LAVA) this.ctx.fillStyle = COLORS.LAVA;
+                else if (tile.type === TILE.CRACKED_WALL) this.ctx.fillStyle = COLORS.CRACKED_WALL;
+                else if (tile.type === TILE.HEAL_PACK) this.ctx.fillStyle = COLORS.HEAL_PACK;
+                else if (tile.type === TILE.REPLICATION_TILE) this.ctx.fillStyle = COLORS.REPLICATION_TILE;
                 else {
-                    target.takeDamage(currentAttackPower);
-                    gameManager.audioManager.play('punch');
+                    this.ctx.fillStyle = COLORS.FLOOR;
+                }
+                
+                this.ctx.fillRect(x * GRID_SIZE, y * GRID_SIZE, GRID_SIZE, GRID_SIZE);
+
+                if(tile.type === TILE.LAVA) {
+                    const flicker = Math.sin(this.animationFrameCounter * 0.1 + x + y) * 10 + 10;
+                    this.ctx.fillStyle = `rgba(255, 255, 0, 0.3)`;
+                    this.ctx.beginPath(); ctx.arc(x * GRID_SIZE + 10, y * GRID_SIZE + 10, flicker / 4, 0, Math.PI * 2); ctx.fill();
+                }
+                if(tile.type === TILE.CRACKED_WALL) {
+                    this.ctx.strokeStyle = 'rgba(0,0,0,0.7)'; this.ctx.lineWidth = 1.5;
+                    this.ctx.beginPath();
+                    this.ctx.moveTo(x * GRID_SIZE + 4, y * GRID_SIZE + 4); this.ctx.lineTo(x * GRID_SIZE + 10, y * GRID_SIZE + 10);
+                    this.ctx.moveTo(x * GRID_SIZE + 10, y * GRID_SIZE + 10); this.ctx.lineTo(x * GRID_SIZE + 8, y * GRID_SIZE + 16);
+                    this.ctx.moveTo(x * GRID_SIZE + 16, y * GRID_SIZE + 5); this.ctx.lineTo(x * GRID_SIZE + 10, y * GRID_SIZE + 9);
+                    this.ctx.moveTo(x * GRID_SIZE + 10, y * GRID_SIZE + 9); this.ctx.lineTo(x * GRID_SIZE + 15, y * GRID_SIZE + 17);
+                    this.ctx.stroke();
+                }
+                 if(tile.type === TILE.TELEPORTER) {
+                    const angle = this.animationFrameCounter * 0.05;
+                    this.ctx.save();
+                    this.ctx.translate(x * GRID_SIZE + GRID_SIZE / 2, y * GRID_SIZE + GRID_SIZE / 2);
+                    this.ctx.rotate(angle);
+                    for (let i = 0; i < 6; i++) {
+                        this.ctx.fillStyle = i % 2 === 0 ? COLORS.TELEPORTER : '#4c1d95';
+                        this.ctx.beginPath(); this.ctx.moveTo(0, 0); this.ctx.lineTo(GRID_SIZE * 0.5, 0);
+                        this.ctx.arc(0, 0, GRID_SIZE * 0.5, 0, Math.PI / 3); this.ctx.closePath();
+                        this.ctx.fill(); this.ctx.rotate(Math.PI / 3);
+                    }
+                    this.ctx.restore();
+                }
+                if(tile.type === TILE.HEAL_PACK) {
+                    this.ctx.fillStyle = 'white';
+                    const plusWidth = 4;
+                    const plusLength = GRID_SIZE - 8;
+                    this.ctx.fillRect(x * GRID_SIZE + (GRID_SIZE - plusWidth) / 2, y * GRID_SIZE + 4, plusWidth, plusLength);
+                    this.ctx.fillRect(x * GRID_SIZE + 4, y * GRID_SIZE + (GRID_SIZE - plusWidth) / 2, plusLength, plusWidth);
+                }
+                if(tile.type === TILE.REPLICATION_TILE) {
+                    this.ctx.fillStyle = 'black'; this.ctx.font = 'bold 12px Arial'; this.ctx.textAlign = 'center';
+                    this.ctx.fillText(`+${tile.replicationValue}`, x * GRID_SIZE + 10, y * GRID_SIZE + 14);
+                }
+
+                if (this.state === 'EDIT') {
+                    this.ctx.strokeStyle = COLORS.GRID;
+                    this.ctx.strokeRect(x * GRID_SIZE, y * GRID_SIZE, GRID_SIZE, GRID_SIZE);
                 }
             }
         }
     }
+    
+    hasLineOfSight(startUnit, endTarget) {
+        let x1 = Math.floor(startUnit.pixelX / GRID_SIZE);
+        let y1 = Math.floor(startUnit.pixelY / GRID_SIZE);
+        const x2 = Math.floor(endTarget.pixelX / GRID_SIZE);
+        const y2 = Math.floor(endTarget.pixelY / GRID_SIZE);
+        const dx = Math.abs(x2 - x1), dy = Math.abs(y2 - y1);
+        const sx = (x1 < x2) ? 1 : -1, sy = (y1 < y2) ? 1 : -1;
+        let err = dx - dy;
 
-    takeDamage(damage, effectInfo = {}) {
-        this.hp -= damage;
-        if (effectInfo.interrupt) {
-             if (this.weapon?.type !== 'shuriken' || effectInfo.force > 0) {
-                 this.isCasting = false;
-                 this.castingProgress = 0;
-             }
+        while (true) {
+            if ((x1 === x2 && y1 === y2)) break;
+            const e2 = 2 * err;
+            if (e2 > -dy) { err -= dy; x1 += sx; }
+            if (e2 < dx) { err += dx; y1 += sy; }
+            if ((x1 === x2 && y1 === y2)) break;
+            if (y1 < 0 || y1 >= this.ROWS || x1 < 0 || x1 >= this.COLS) return false;
+            const tile = this.map[y1][x1];
+            if (tile.type === TILE.WALL || tile.type === TILE.CRACKED_WALL) {
+                return false;
+            }
         }
-        if (effectInfo.force && effectInfo.force > 0) {
-            this.knockbackX += Math.cos(effectInfo.angle) * effectInfo.force;
-            this.knockbackY += Math.sin(effectInfo.angle) * effectInfo.force;
-        }
+        return true;
     }
 
-    update(enemies, weapons, projectiles) {
-        const gameManager = GameManager.getInstance();
-        if (!gameManager) return;
+    createWeapon(x, y, type) {
+        const weapon = new Weapon(x, y, type);
+        if (type === 'sword') {
+            weapon.attackPowerBonus = 15;
+        } else if (type === 'bow') {
+            weapon.attackPowerBonus = 10;
+            weapon.attackRangeBonus = 5 * GRID_SIZE;
+            weapon.detectionRangeBonus = 4 * GRID_SIZE;
+        } else if (type === 'dual_swords') {
+            weapon.attackPowerBonus = 3;
+            weapon.speedBonus = 0.6;
+            weapon.attackCooldownBonus = -40;
+        } else if (type === 'staff') {
+            weapon.attackPowerBonus = 25;
+            weapon.attackRangeBonus = 6 * GRID_SIZE;
+            weapon.detectionRangeBonus = 2 * GRID_SIZE;
+        } else if (type === 'hadoken') {
+            weapon.attackPowerBonus = 20;
+            weapon.attackRangeBonus = 5 * GRID_SIZE;
+            weapon.detectionRangeBonus = 4 * GRID_SIZE;
+        } else if (type === 'shuriken') {
+            weapon.attackPowerBonus = 12;
+            weapon.speedBonus = 0.3;
+            weapon.attackCooldownBonus = 100;
+            weapon.attackRangeBonus = 5 * GRID_SIZE;
+            weapon.detectionRangeBonus = 4 * GRID_SIZE;
+        } else if (type === 'crown') {
+            weapon.attackPowerBonus = 5;
+        }
+        return weapon;
+    }
 
-        if (this.attackCooldown > 0) this.attackCooldown -= gameManager.gameSpeed;
-        if (this.teleportCooldown > 0) this.teleportCooldown -= gameManager.gameSpeed;
-        if (this.alertedCounter > 0) this.alertedCounter -= gameManager.gameSpeed;
-        if (this.isKing && this.spawnCooldown > 0) this.spawnCooldown -= gameManager.gameSpeed;
-        if (this.evasionCooldown > 0) this.evasionCooldown -= gameManager.gameSpeed;
-        
-        if (this.weapon && this.weapon.type === 'shuriken' && this.evasionCooldown <= 0) {
-            for (const p of projectiles) {
-                if (p.owner.team === this.team) continue;
-                const dist = Math.hypot(this.pixelX - p.pixelX, this.pixelY - p.pixelY);
-                if (dist < GRID_SIZE * 3) {
-                    const angleToUnit = Math.atan2(this.pixelY - p.pixelY, this.pixelX - p.pixelX);
-                    const angleDiff = Math.abs(angleToUnit - p.angle);
-                    if (angleDiff < Math.PI / 4 || angleDiff > Math.PI * 1.75) {
-                        if (Math.random() > 0.5) {
-                            const dodgeAngle = p.angle + (Math.PI / 2) * (Math.random() < 0.5 ? 1 : -1);
-                            const dodgeForce = 4;
-                            this.knockbackX += Math.cos(dodgeAngle) * dodgeForce;
-                            this.knockbackY += Math.sin(dodgeAngle) * dodgeForce;
-                            this.evasionCooldown = 30;
-                            break;
+    spawnUnit(spawner, cloneWeapon = false) {
+        for(let dx = -1; dx <= 1; dx++) {
+            for(let dy = -1; dy <= 1; dy++) {
+                if(dx === 0 && dy === 0) continue;
+                const newX = Math.floor(spawner.pixelX / GRID_SIZE) + dx;
+                const newY = Math.floor(spawner.pixelY / GRID_SIZE) + dy;
+                if (newY >= 0 && newY < this.ROWS && newX >= 0 && newX < this.COLS && this.map[newY][newX].type === TILE.FLOOR) {
+                    const isOccupied = this.units.some(u => u.gridX === newX && u.gridY === newY) || this.weapons.some(w => w.gridX === newX && w.gridY === newY) || this.nexuses.some(n => n.gridX === newX && n.gridY === newY);
+                    if (!isOccupied) {
+                        const newUnit = new Unit(newX, newY, spawner.team);
+                        if (cloneWeapon && spawner.weapon) {
+                            newUnit.equipWeapon(spawner.weapon.type, true);
                         }
+                        this.units.push(newUnit);
+                        return;
                     }
                 }
             }
         }
-        
-        this.applyPhysics();
-
-        const currentGridX = Math.floor(this.pixelX / GRID_SIZE);
-        const currentGridY = Math.floor(this.pixelY / GRID_SIZE);
-
-        this.isInMagneticField = gameManager.isPosInAnyField(currentGridX, currentGridY);
-        if(this.isInMagneticField) {
-            this.takeDamage(0.3 * gameManager.gameSpeed);
-        }
-
-        if (this.isCasting) {
-            this.castingProgress += gameManager.gameSpeed;
-            if (!this.target || this.target.hp <= 0) {
-                this.isCasting = false; this.castingProgress = 0; return;
+    }
+    
+    createEffect(type, x, y, target) { this.effects.push(new Effect(x, y, type, target)); }
+    createProjectile(owner, target, type) { this.projectiles.push(new Projectile(owner, target, type)); }
+    castAreaSpell(pos, type, damage, team) {
+        this.areaEffects.push(new AreaEffect(pos.x, pos.y, type));
+        this.units.forEach(unit => {
+            if (unit.team !== team && Math.hypot(unit.pixelX - pos.x, unit.pixelY - pos.y) < GRID_SIZE * 2.5) {
+                unit.takeDamage(damage);
             }
-            if (this.castingProgress >= this.castDuration) {
-                this.isCasting = false; this.castingProgress = 0;
-                this.attackCooldown = this.cooldownTime;
-                if (this.weapon.type === 'staff') {
-                    gameManager.castAreaSpell(this.castTargetPos, 'fire_pillar', this.attackPower, this.team);
-                } else if (this.weapon.type === 'hadoken') {
-                    gameManager.createProjectile(this, this.target, 'hadoken');
+        });
+        this.nexuses.forEach(nexus => {
+            if (nexus.team !== team && !nexus.isDestroying && Math.hypot(nexus.pixelX - pos.x, nexus.pixelY - pos.y) < GRID_SIZE * 2.5) {
+                nexus.takeDamage(damage);
+            }
+        });
+    }
+    damageTile(x, y, damage) {
+        if (y >= 0 && y < this.ROWS && x >= 0 && x < this.COLS) {
+            const tile = this.map[y][x];
+            if (tile.type === TILE.CRACKED_WALL) {
+                tile.hp -= damage;
+                if (tile.hp <= 0) {
+                    this.map[y][x] = { type: TILE.FLOOR, color: this.currentFloorColor };
+                    this.audioManager.play('crackedWallBreak');
                 }
             }
+        }
+    }
+    getTilesOfType(type) {
+        const tiles = [];
+        for (let y = 0; y < this.ROWS; y++) {
+            for (let x = 0; x < this.COLS; x++) {
+                if (this.map[y][x].type === type) {
+                    tiles.push({ x, y });
+                }
+            }
+        }
+        return tiles;
+    }
+
+    isPosInAnyField(gridX, gridY) {
+        if (this.autoMagneticField.isActive) {
+            const b = this.autoMagneticField.currentBounds;
+            if (gridX < b.minX || gridX >= b.maxX || gridY < b.minY || gridY >= b.maxY) {
+                return true;
+            }
+        }
+        for (const field of this.growingFields) {
+            if (field.delayTimer < field.delay) continue;
+
+            let isInside = false;
+            const currentProgress = field.progress;
+            const startX = field.gridX;
+            const startY = field.gridY;
+            const endX = field.gridX + field.width;
+            const endY = field.gridY + field.height;
+
+            if (gridX >= startX && gridX < endX && gridY >= startY && gridY < endY) {
+                if (field.direction === 'DOWN') {
+                    if (gridY < startY + field.height * currentProgress) isInside = true;
+                } else if (field.direction === 'UP') {
+                    if (gridY >= endY - field.height * currentProgress) isInside = true;
+                } else if (field.direction === 'RIGHT') {
+                    if (gridX < startX + field.width * currentProgress) isInside = true;
+                } else if (field.direction === 'LEFT') {
+                    if (gridX >= endX - field.width * currentProgress) isInside = true;
+                }
+            }
+            if (isInside) return true;
+        }
+        return false;
+    }
+
+    findClosestSafeSpot(pixelX, pixelY) {
+        let closestSpot = null;
+        let minDistance = Infinity;
+
+        for (let y = 0; y < this.ROWS; y++) {
+            for (let x = 0; x < this.COLS; x++) {
+                if (!this.isPosInAnyField(x, y)) {
+                    const targetPixelX = x * GRID_SIZE + GRID_SIZE / 2;
+                    const targetPixelY = y * GRID_SIZE + GRID_SIZE / 2;
+                    const distance = Math.hypot(pixelX - targetPixelX, pixelY - targetPixelY);
+                    if (distance < minDistance) {
+                        minDistance = distance;
+                        closestSpot = { x: targetPixelX, y: targetPixelY };
+                    }
+                }
+            }
+        }
+        return closestSpot || { x: this.canvas.width / 2, y: this.canvas.height / 2 };
+    }
+
+    async loadMapForEditing(mapId) {
+        const mapData = await this.getMapById(mapId);
+        if (!mapData) {
+            console.error("Map not found:", mapId);
+            this.showHomeScreen();
             return;
         }
 
-        if (this.isKing && this.spawnCooldown <= 0) {
-            gameManager.spawnUnit(this, false);
-            this.spawnCooldown = this.spawnInterval;
-        }
-        
-        if(currentGridY >= 0 && currentGridY < gameManager.ROWS && currentGridX >= 0 && currentGridX < gameManager.COLS) {
-            const currentTile = gameManager.map[currentGridY][currentGridX];
-            if (currentTile.type === TILE.LAVA) this.hp -= 0.2 * gameManager.gameSpeed;
-            if (currentTile.type === TILE.HEAL_PACK) {
-                this.hp = 100;
-                gameManager.map[currentGridY][currentGridX] = { type: TILE.FLOOR, color: gameManager.currentFloorColor };
-                gameManager.audioManager.play('heal');
-            }
-            if (currentTile.type === TILE.TELEPORTER && this.teleportCooldown <= 0) {
-                const teleporters = gameManager.getTilesOfType(TILE.TELEPORTER);
-                if (teleporters.length > 1) {
-                    const otherTeleporter = teleporters.find(t => t.x !== currentGridX || t.y !== currentGridY);
-                    if (otherTeleporter) {
-                        this.pixelX = otherTeleporter.x * GRID_SIZE + GRID_SIZE / 2;
-                        this.pixelY = otherTeleporter.y * GRID_SIZE + GRID_SIZE / 2;
-                        this.teleportCooldown = 120;
-                        gameManager.audioManager.play('teleport');
-                    }
-                }
-            }
-            if (currentTile.type === TILE.REPLICATION_TILE && !this.isKing) {
-                for(let i = 0; i < currentTile.replicationValue; i++) {
-                    gameManager.spawnUnit(this, true);
-                }
-                gameManager.map[currentGridY][currentGridX] = { type: TILE.FLOOR, color: gameManager.currentFloorColor };
-                gameManager.audioManager.play('replication');
-            }
-        }
+        this.currentMapName = mapData.name;
+        this.canvas.width = mapData.width;
+        this.canvas.height = mapData.height;
+        document.getElementById('widthInput').value = mapData.width;
+        document.getElementById('heightInput').value = mapData.height;
+        this.COLS = Math.floor(this.canvas.width / GRID_SIZE);
+        this.ROWS = Math.floor(this.canvas.height / GRID_SIZE);
 
-        let newState = 'IDLE';
-        let newTarget = null;
-        
-        if (this.isInMagneticField) {
-            newState = 'FLEEING_FIELD';
+        if (mapData.map && typeof mapData.map === 'string') {
+            let parsedMap = JSON.parse(mapData.map);
+            // 옛날 숫자 형식의 맵 데이터와 호환되도록 변환
+            if (parsedMap.length > 0 && typeof parsedMap[0][0] === 'number') {
+                const tileTypes = Object.keys(TILE);
+                this.map = parsedMap.map(row => row.map(tileId => ({ type: tileTypes[tileId] || 'FLOOR' })));
+            } else {
+                this.map = parsedMap;
+            }
         } else {
-            const enemyNexus = gameManager.nexuses.find(n => n.team !== this.team && !n.isDestroying);
-            const { item: closestEnemy, distance: enemyDist } = this.findClosest(enemies);
-            const { item: targetWeapon, distance: weaponDist } = this.findClosest(weapons.filter(w => !w.isEquipped));
-
-            let targetEnemy = null;
-            if (closestEnemy && enemyDist <= this.detectionRange && gameManager.hasLineOfSight(this, closestEnemy)) {
-                targetEnemy = closestEnemy;
-            }
-
-            if (this.isKing && targetEnemy) {
-                newState = 'FLEEING'; newTarget = targetEnemy;
-            } else if (this.hp < 50) {
-                const healPacks = gameManager.getTilesOfType(TILE.HEAL_PACK);
-                if (healPacks.length > 0) {
-                    const healPackPositions = healPacks.map(pos => ({
-                        gridX: pos.x, gridY: pos.y,
-                        pixelX: pos.x * GRID_SIZE + GRID_SIZE / 2,
-                        pixelY: pos.y * GRID_SIZE + GRID_SIZE / 2
-                    }));
-                    const { item: closestPack, distance: packDist } = this.findClosest(healPackPositions);
-                    if (closestPack && packDist < this.detectionRange * 1.5) {
-                        newState = 'SEEKING_HEAL_PACK';
-                        newTarget = closestPack;
-                    }
-                }
-            }
-            
-            if (newState === 'IDLE') {
-                if (!this.weapon && targetWeapon && weaponDist <= this.detectionRange) {
-                    newState = 'SEEKING_WEAPON';
-                    newTarget = targetWeapon;
-                } else if (targetEnemy) {
-                    newState = 'AGGRESSIVE';
-                    newTarget = targetEnemy;
-                } else if (enemyNexus && gameManager.hasLineOfSight(this, enemyNexus) && Math.hypot(this.pixelX - enemyNexus.pixelX, this.pixelY - enemyNexus.pixelY) <= this.detectionRange) {
-                    newState = 'ATTACKING_NEXUS';
-                    newTarget = enemyNexus;
-                }
-            }
-        }
-
-        if (this.state !== newState && newState !== 'IDLE' && newState !== 'FLEEING_FIELD') this.alertedCounter = 60;
-        this.state = newState;
-        this.target = newTarget;
-        
-        switch(this.state) {
-            case 'FLEEING_FIELD':
-                this.moveTarget = gameManager.findClosestSafeSpot(this.pixelX, this.pixelY);
-                break;
-            case 'FLEEING':
-                if (this.target) {
-                    const fleeAngle = Math.atan2(this.pixelY - this.target.pixelY, this.pixelX - this.target.pixelX);
-                    this.moveTarget = { x: this.pixelX + Math.cos(fleeAngle) * GRID_SIZE * 5, y: this.pixelY + Math.sin(fleeAngle) * GRID_SIZE * 5 };
-                }
-                break;
-            case 'SEEKING_HEAL_PACK':
-                if (this.target) this.moveTarget = { x: this.target.pixelX, y: this.target.pixelY };
-                break;
-            case 'SEEKING_WEAPON':
-                if (this.target) {
-                    const distance = Math.hypot(this.pixelX - this.target.pixelX, this.pixelY - this.target.pixelY);
-                    if (distance < GRID_SIZE * 0.8 && !this.target.isEquipped) {
-                        this.equipWeapon(this.target.type);
-                        this.target.isEquipped = true;
-                        this.target = null;
-                    } else {
-                        this.moveTarget = { x: this.target.pixelX, y: this.target.pixelY };
-                    }
-                }
-                break;
-            case 'ATTACKING_NEXUS':
-            case 'AGGRESSIVE':
-                if (this.target) {
-                    if (Math.hypot(this.pixelX - this.target.pixelX, this.pixelY - this.target.pixelY) <= this.attackRange) {
-                        this.moveTarget = null; this.attack(this.target);
-                        this.facingAngle = Math.atan2(this.target.pixelY - this.pixelY, this.target.pixelX - this.pixelX);
-                    } else { this.moveTarget = { x: this.target.pixelX, y: this.target.pixelY }; }
-                }
-                break;
-            case 'IDLE': default:
-                if (!this.moveTarget || Math.hypot(this.pixelX - this.moveTarget.x, this.pixelY - this.moveTarget.y) < GRID_SIZE) {
-                    const angle = Math.random() * Math.PI * 2;
-                    this.moveTarget = { x: this.pixelX + Math.cos(angle) * GRID_SIZE * 8, y: this.pixelY + Math.sin(angle) * GRID_SIZE * 8 };
-                }
-                break;
-        }
-        this.move();
-    }
-
-    draw(ctx) {
-        const gameManager = GameManager.getInstance();
-        if (!gameManager) return;
-        
-        switch(this.team) {
-            case TEAM.A: ctx.fillStyle = COLORS.TEAM_A; break;
-            case TEAM.B: ctx.fillStyle = COLORS.TEAM_B; break;
-            case TEAM.C: ctx.fillStyle = COLORS.TEAM_C; break;
-            case TEAM.D: ctx.fillStyle = COLORS.TEAM_D; break;
-        }
-        ctx.beginPath(); ctx.arc(this.pixelX, this.pixelY, GRID_SIZE / 2.5, 0, Math.PI * 2); ctx.fill();
-        ctx.strokeStyle = 'black'; ctx.lineWidth = 1; ctx.stroke();
-        
-        if (this.weapon && this.weapon.type === 'hadoken') {
-             ctx.save();
-             ctx.globalAlpha = 0.3 + Math.sin(gameManager.animationFrameCounter * 0.1) * 0.1;
-             ctx.fillStyle = '#a855f7';
-             ctx.beginPath();
-             ctx.arc(this.pixelX, this.pixelY, GRID_SIZE * 0.7, 0, Math.PI * 2);
-             ctx.fill();
-             ctx.restore();
-        }
-
-        if (this.weapon && this.weapon.type === 'dual_swords' && (this.state === 'AGGRESSIVE' || this.state === 'ATTACKING_NEXUS')) {
-            ctx.save();
-            ctx.globalAlpha = 0.3;
-            const backX = this.pixelX - Math.cos(this.facingAngle) * GRID_SIZE * 0.6;
-            const backY = this.pixelY - Math.sin(this.facingAngle) * GRID_SIZE * 0.6;
-            ctx.fillStyle = '#e5e7eb';
-            ctx.beginPath(); ctx.arc(backX, backY, GRID_SIZE / 3, 0, Math.PI * 2); ctx.fill();
-            ctx.globalAlpha = 0.2;
-            const backX2 = this.pixelX - Math.cos(this.facingAngle) * GRID_SIZE * 1.2;
-            const backY2 = this.pixelY - Math.sin(this.facingAngle) * GRID_SIZE * 1.2;
-            ctx.beginPath(); ctx.arc(backX2, backY2, GRID_SIZE / 3.5, 0, Math.PI * 2); ctx.fill();
-            ctx.restore();
-        }
-
-        if (this.isKing) {
-            ctx.save();
-            ctx.translate(this.pixelX, this.pixelY - GRID_SIZE * 0.5);
-            const scale = 1.2;
-            ctx.scale(scale, scale);
-            ctx.fillStyle = '#facc15'; ctx.strokeStyle = 'black'; ctx.lineWidth = 1 / scale;
-            ctx.beginPath();
-            ctx.moveTo(-GRID_SIZE * 0.4, -GRID_SIZE * 0.1); ctx.lineTo(-GRID_SIZE * 0.4, GRID_SIZE * 0.2);
-            ctx.lineTo(GRID_SIZE * 0.4, GRID_SIZE * 0.2); ctx.lineTo(GRID_SIZE * 0.4, -GRID_SIZE * 0.1);
-            ctx.lineTo(GRID_SIZE * 0.2, 0); ctx.lineTo(0, -GRID_SIZE * 0.1);
-            ctx.lineTo(-GRID_SIZE * 0.2, 0); ctx.closePath();
-            ctx.fill(); ctx.stroke();
-            ctx.restore();
-        }
-
-        if (this.weapon && !this.isKing) {
-            ctx.save(); ctx.translate(this.pixelX, this.pixelY);
-            ctx.rotate(this.facingAngle);
-
-            if (this.weapon.type === 'staff') {
-                ctx.translate(GRID_SIZE * 0.4, 0);
-                ctx.fillStyle = '#a16207'; ctx.fillRect(-1.5, -GRID_SIZE * 0.5, 3, GRID_SIZE * 1.0); ctx.strokeRect(-1.5, -GRID_SIZE * 0.5, 3, GRID_SIZE * 1.0);
-                ctx.fillStyle = '#a855f7'; ctx.beginPath(); ctx.arc(0, -GRID_SIZE * 0.6, GRID_SIZE * 0.2, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
-            } else if (this.weapon.type === 'hadoken') {
-                ctx.translate(GRID_SIZE * 0.5, 0);
-                const scale = 0.7;
-                ctx.scale(scale, scale);
-                const grad = ctx.createRadialGradient(0, 0, 1, 0, 0, GRID_SIZE * 1.2);
-                grad.addColorStop(0, '#bfdbfe');
-                grad.addColorStop(0.6, '#3b82f6');
-                grad.addColorStop(1, '#1e40af');
-                ctx.fillStyle = grad;
-                ctx.strokeStyle = 'black';
-                ctx.lineWidth = 1.5 / scale;
-                ctx.beginPath();
-                ctx.arc(GRID_SIZE * 0.2, 0, GRID_SIZE * 0.6, -Math.PI / 2, Math.PI / 2, false);
-                ctx.lineTo(-GRID_SIZE * 0.8, 0);
-                ctx.closePath();
-                ctx.fill();
-                ctx.stroke();
-            } else if (this.weapon.type === 'shuriken') {
-                ctx.translate(GRID_SIZE * 0.4, GRID_SIZE * 0.3);
-                const scale = 0.5;
-                ctx.scale(scale, scale);
-                ctx.rotate(gameManager.animationFrameCounter * 0.1);
-                ctx.fillStyle = '#4a5568';
-                ctx.strokeStyle = 'black';
-                ctx.lineWidth = 2 / scale;
-                ctx.beginPath();
-                ctx.moveTo(0, -GRID_SIZE * 0.8);
-                ctx.lineTo(GRID_SIZE * 0.2, -GRID_SIZE * 0.2);
-                ctx.lineTo(GRID_SIZE * 0.8, 0);
-                ctx.lineTo(GRID_SIZE * 0.2, GRID_SIZE * 0.2);
-                ctx.lineTo(0, GRID_SIZE * 0.8);
-                ctx.lineTo(-GRID_SIZE * 0.2, GRID_SIZE * 0.2);
-                ctx.lineTo(-GRID_SIZE * 0.8, 0);
-                ctx.lineTo(-GRID_SIZE * 0.2, -GRID_SIZE * 0.2);
-                ctx.closePath();
-                ctx.fill();
-                ctx.stroke();
-            } else if (this.weapon.type === 'sword') {
-                ctx.translate(GRID_SIZE * 0.5, 0);
-                const bladeGradient = ctx.createLinearGradient(0, -GRID_SIZE, 0, 0);
-                bladeGradient.addColorStop(0, '#f3f4f6'); bladeGradient.addColorStop(1, '#9ca3af');
-                ctx.fillStyle = bladeGradient;
-                ctx.beginPath();
-                ctx.moveTo(-2, GRID_SIZE * 0.3); ctx.lineTo(-2, -GRID_SIZE * 1.0);
-                ctx.lineTo(0, -GRID_SIZE * 1.2); ctx.lineTo(2, -GRID_SIZE * 1.0);
-                ctx.lineTo(2, GRID_SIZE * 0.3);
-                ctx.closePath(); ctx.fill(); ctx.stroke();
-                ctx.fillStyle = '#374151';
-                ctx.beginPath();
-                ctx.moveTo(-GRID_SIZE * 0.4, GRID_SIZE * 0.3); ctx.lineTo(GRID_SIZE * 0.4, GRID_SIZE * 0.3);
-                ctx.lineTo(GRID_SIZE * 0.5, GRID_SIZE * 0.3 + 3); ctx.lineTo(-GRID_SIZE * 0.5, GRID_SIZE * 0.3 + 3);
-                ctx.closePath(); ctx.fill(); ctx.stroke();
-                ctx.fillStyle = '#1f2937';
-                ctx.fillRect(-1.5, GRID_SIZE * 0.3 + 3, 3, GRID_SIZE * 0.3); ctx.strokeRect(-1.5, GRID_SIZE * 0.3 + 3, 3, GRID_SIZE * 0.3);
-            } else if (this.weapon.type === 'bow') {
-                ctx.translate(GRID_SIZE * 0.4, 0);
-                ctx.rotate(-Math.PI / 4);
-                const scale = 0.8;
-                ctx.scale(scale, scale);
-                ctx.fillStyle = '#f3f4f6';
-                ctx.fillRect(-GRID_SIZE * 0.7, -1, GRID_SIZE * 1.2, 2);
-                ctx.strokeRect(-GRID_SIZE * 0.7, -1, GRID_SIZE * 1.2, 2);
-                ctx.fillStyle = '#e5e7eb';
-                ctx.beginPath(); ctx.moveTo(GRID_SIZE * 0.5, 0); ctx.lineTo(GRID_SIZE * 0.3, -3); ctx.lineTo(GRID_SIZE * 0.3, 3); ctx.closePath(); ctx.fill();
-                ctx.fillStyle = '#d1d5db';
-                ctx.beginPath(); ctx.moveTo(-GRID_SIZE * 0.6, -1); ctx.lineTo(-GRID_SIZE * 0.7, -4); ctx.lineTo(-GRID_SIZE * 0.5, -1); ctx.closePath(); ctx.fill()
-                ctx.beginPath(); ctx.moveTo(-GRID_SIZE * 0.6, 1); ctx.lineTo(-GRID_SIZE * 0.7, 4); ctx.lineTo(-GRID_SIZE * 0.5, 1); ctx.closePath(); ctx.fill()
-                ctx.strokeStyle = 'black'; ctx.lineWidth = 6 / scale; ctx.beginPath(); ctx.arc(0, 0, GRID_SIZE * 0.8, -Math.PI / 2.2, Math.PI / 2.2); ctx.stroke();
-                ctx.strokeStyle = '#854d0e'; ctx.lineWidth = 4 / scale; ctx.beginPath(); ctx.arc(0, 0, GRID_SIZE * 0.8, -Math.PI / 2.2, Math.PI / 2.2); ctx.stroke();
-                ctx.strokeStyle = '#e5e7eb'; ctx.lineWidth = 1.5 / scale; ctx.beginPath();
-                const arcRadius = GRID_SIZE * 0.8, arcAngle = Math.PI / 2.2;
-                ctx.moveTo(Math.cos(-arcAngle) * arcRadius, Math.sin(-arcAngle) * arcRadius);
-                ctx.lineTo(-GRID_SIZE * 0.4, 0);
-                ctx.lineTo(Math.cos(arcAngle) * arcRadius, Math.sin(arcAngle) * arcRadius); ctx.stroke();
-            } else if (this.weapon.type === 'dual_swords') {
-                const drawEquippedCurvedSword = (isRightHand) => {
-                    ctx.save();
-                    const yOffset = isRightHand ? GRID_SIZE * 0.6 : -GRID_SIZE * 0.6;
-                    const rotation = isRightHand ? Math.PI / 8 : -Math.PI / 8;
-                    ctx.translate(GRID_SIZE * 0.1, yOffset);
-                    ctx.rotate(rotation);
-                    ctx.fillStyle = '#374151';
-                    ctx.fillRect(-GRID_SIZE * 0.05, 0, GRID_SIZE * 0.1, GRID_SIZE * 0.2);
-                    ctx.strokeRect(-GRID_SIZE * 0.05, 0, GRID_SIZE * 0.1, GRID_SIZE * 0.2);
-                    ctx.beginPath();
-                    ctx.moveTo(-GRID_SIZE * 0.2, 0); ctx.lineTo(GRID_SIZE * 0.2, 0);
-                    ctx.lineTo(GRID_SIZE * 0.2, -GRID_SIZE * 0.05); ctx.lineTo(-GRID_SIZE * 0.2, -GRID_SIZE * 0.05);
-                    ctx.closePath(); ctx.fill(); ctx.stroke();
-                    const bladeGradient = ctx.createLinearGradient(0, -GRID_SIZE*0.8, 0, 0);
-                    bladeGradient.addColorStop(0, '#f3f4f6'); bladeGradient.addColorStop(0.5, '#9ca3af'); bladeGradient.addColorStop(1, '#4b5563');
-                    ctx.fillStyle = bladeGradient;
-                    ctx.beginPath();
-                    ctx.moveTo(0, -GRID_SIZE * 0.05);
-                    ctx.quadraticCurveTo(GRID_SIZE * 0.4, -GRID_SIZE * 0.3, 0, -GRID_SIZE * 0.8);
-                    ctx.quadraticCurveTo(-GRID_SIZE * 0.1, -GRID_SIZE * 0.3, 0, -GRID_SIZE * 0.05);
-                    ctx.closePath(); ctx.fill(); ctx.stroke();
-                    ctx.restore();
-                };
-                drawEquippedCurvedSword(true);
-                drawEquippedCurvedSword(false);
-            }
-            ctx.restore();
+            this.map = Array(this.ROWS).fill().map(() => Array(this.COLS).fill({ type: TILE.FLOOR, color: COLORS.FLOOR }));
         }
         
-        const hpBarYOffset = this.isKing ? GRID_SIZE * 1.0 : GRID_SIZE * 0.8;
-        const hpBarWidth = GRID_SIZE * 0.8, hpBarX = this.pixelX - hpBarWidth / 2, hpBarY = this.pixelY - hpBarYOffset;
-        ctx.fillStyle = '#111827'; ctx.fillRect(hpBarX, hpBarY, hpBarWidth, 5);
-        ctx.fillStyle = '#10b981'; ctx.fillRect(hpBarX, hpBarY, hpBarWidth * (this.hp / 100), 5);
+        this.units = (mapData.units || []).map(u => Object.assign(new Unit(0,0), u));
+        this.weapons = (mapData.weapons || []).map(w => Object.assign(new Weapon(0,0), w));
+        this.nexuses = (mapData.nexuses || []).map(n => Object.assign(new Nexus(0,0), n));
+        this.growingFields = (mapData.growingFields || []).map(fieldData => {
+             const settings = {
+                 direction: fieldData.direction,
+                 speed: (fieldData.totalFrames / 60) || 4,
+                 delay: (fieldData.delay / 60) || 0,
+             };
+            return new GrowingMagneticField(fieldData.id, fieldData.gridX, fieldData.gridY, fieldData.width, fieldData.height, settings);
+        });
+
+        this.autoMagneticField = mapData.autoMagneticField || {
+            isActive: false,
+            safeZoneSize: 6,
+            simulationTime: 0,
+            totalShrinkTime: 60 * 60,
+            currentBounds: { minX: 0, maxX: 0, minY: 0, maxY: 0 }
+        };
+        this.hadokenKnockback = mapData.hadokenKnockback || 15;
         
-        const skillBarY = hpBarY - 6;
-        if (this.isCasting) {
-            ctx.fillStyle = '#450a0a';
-            ctx.fillRect(hpBarX, skillBarY, hpBarWidth, 4);
-            ctx.fillStyle = '#ef4444';
-            ctx.fillRect(hpBarX, skillBarY, hpBarWidth * (this.castingProgress / this.castDuration), 4);
-        } else if (this.weapon && this.weapon.type === 'shuriken' && this.attackCooldown > 0) {
-            ctx.fillStyle = '#450a0a';
-            ctx.fillRect(hpBarX, skillBarY, hpBarWidth, 4);
-            ctx.fillStyle = '#ef4444';
-            ctx.fillRect(hpBarX, skillBarY, hpBarWidth * ((this.cooldownTime - this.attackCooldown) / this.cooldownTime), 4);
-        } else if (this.isKing && this.spawnCooldown > 0) {
-            ctx.fillStyle = '#450a0a';
-            ctx.fillRect(hpBarX, skillBarY, hpBarWidth, 4);
-            ctx.fillStyle = '#ef4444';
-            ctx.fillRect(hpBarX, skillBarY, hpBarWidth * ((this.spawnInterval - this.spawnCooldown) / this.spawnInterval), 4);
-        }
-        
-        if (this.alertedCounter > 0 && !(this.weapon && this.weapon.type === 'shuriken') && this.state !== 'FLEEING_FIELD') {
-            ctx.fillStyle = 'yellow'; ctx.font = 'bold 20px Arial'; ctx.textAlign = 'center';
-            ctx.fillText(this.state === 'SEEKING_HEAL_PACK' ? '+' : '!', this.pixelX, this.pixelY - GRID_SIZE);
-        }
+        cancelAnimationFrame(this.animationFrameId);
+        this.animationFrameId = null;
+        this.state = 'EDIT';
+        this.effects = [];
+        this.projectiles = [];
+        this.areaEffects = [];
+        this.initialUnitsState = [];
+        this.initialWeaponsState = [];
+        this.initialNexusesState = [];
+        this.initialMapState = [];
+        this.initialGrowingFieldsState = [];
+        this.initialAutoFieldState = {};
+        document.getElementById('statusText').textContent = "에디터 모드";
+        document.getElementById('simStartBtn').classList.remove('hidden');
+        document.getElementById('simPauseBtn').classList.add('hidden');
+        document.getElementById('simPlayBtn').classList.add('hidden');
+        document.getElementById('simStartBtn').disabled = false;
+        document.getElementById('toolbox').style.pointerEvents = 'auto';
+        this.resetActionCam(true);
+        this.draw();
     }
 }
