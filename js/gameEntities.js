@@ -42,9 +42,6 @@ export class Unit extends GameObject {
         this.shurikenChargeTime = 80;
     }
     
-    // ====================================================================
-    // ===== 수정된 부분 (START) ==========================================
-    // ====================================================================
     update(enemies, weapons, projectiles) {
         if (this.isStunned) {
             this.stunTimer--;
@@ -120,14 +117,13 @@ export class Unit extends GameObject {
         this.handleTileEffects();
     }
     
-    // 유닛 겹침 방지를 위한 분리 로직 함수
     applySeparation() {
         const gameManager = GameManager.getInstance();
         const allUnits = gameManager.units;
         let separationX = 0;
         let separationY = 0;
         let neighborsCount = 0;
-        const desiredSeparation = (GRID_SIZE / 2) * 1.2; // 유닛 반지름의 1.2배
+        const desiredSeparation = (GRID_SIZE / 2) * 1.2; 
 
         for (const otherUnit of allUnits) {
             if (this === otherUnit) continue;
@@ -148,8 +144,7 @@ export class Unit extends GameObject {
         if (neighborsCount > 0) {
             separationX /= neighborsCount;
             separationY /= neighborsCount;
-
-            // 분리 힘을 현재 속도보다 약간 강하게 적용하여 밀어내도록 함
+            
             const separationForce = this.speed * 0.5;
             this.pixelX += separationX * separationForce;
             this.pixelY += separationY * separationForce;
@@ -167,14 +162,13 @@ export class Unit extends GameObject {
                             this.isCasting = true;
                             this.castDuration = this.weapon.type === 'hadoken' ? this.hadokenChargeTime : (this.weapon.type === 'staff' ? this.staffChargeTime : this.shurikenChargeTime);
                             this.castTimer = this.castDuration;
-                            // 스킬 시작 시점의 사운드 재생 코드를 제거!
                         }
                         break;
-                    default: // 근접 공격
+                    default: 
                         this.performMeleeAttack(target);
                         break;
                 }
-            } else { // 기본 근접 공격
+            } else { 
                 this.performMeleeAttack(target);
             }
         }
@@ -190,15 +184,11 @@ export class Unit extends GameObject {
                      const spellTargetPos = { x: target.pixelX, y: target.pixelY };
                      gameManager.castAreaSpell(spellTargetPos, this.weapon.type, this.attackPower, this.team);
                 } else {
-                    // 투사체 생성 시에만 GameManager를 통해 projectile을 생성
                     gameManager.createProjectile(this, target, this.weapon.type);
                 }
             }
         }
     }
-    // ====================================================================
-    // ===== 수정된 부분 (END) ============================================
-    // ====================================================================
     
     performMeleeAttack(target) {
         this.cooldownTimer = this.attackCooldown;
@@ -245,11 +235,10 @@ export class Unit extends GameObject {
                      if (tile.type === TILE.WALL || tile.type === TILE.CRACKED_WALL) {
                          this.takeDamage(35);
                          gameManager.damageTile(newGridX, newGridY, 35);
-                         // 튕겨나오기
                          this.pixelX -= Math.cos(effectInfo.angle) * knockbackForce * 1.2;
                          this.pixelY -= Math.sin(effectInfo.angle) * knockbackForce * 1.2;
                      }
-                 } else { // 맵 밖으로 밀려났을 때
+                 } else { 
                      this.takeDamage(50);
                      this.pixelX -= Math.cos(effectInfo.angle) * knockbackForce * 1.2;
                      this.pixelY -= Math.sin(effectInfo.angle) * knockbackForce * 1.2;
@@ -415,7 +404,6 @@ export class Unit extends GameObject {
     }
 }
 
-// ... (rest of the classes: Weapon, Nexus, Projectile, etc.) unchanged ...
 export class Weapon extends GameObject {
     constructor(gridX, gridY, type) {
         super(gridX, gridY);
@@ -507,7 +495,6 @@ export class Nexus extends GameObject {
             }
             ctx.fillRect(this.pixelX - GRID_SIZE, this.pixelY - GRID_SIZE, GRID_SIZE * 2, GRID_SIZE * 2);
 
-            // Draw HP bar
             ctx.fillStyle = '#4b5563';
             ctx.fillRect(this.pixelX - GRID_SIZE, this.pixelY - GRID_SIZE - 12, GRID_SIZE * 2, 8);
             ctx.fillStyle = '#22c55e';
@@ -522,7 +509,6 @@ export class Nexus extends GameObject {
         }
     }
 }
-
 
 export class Projectile extends GameObject {
     constructor(owner, target, type) {
@@ -642,14 +628,14 @@ export class GrowingMagneticField extends GameObject {
         this.width = width;
         this.height = height;
         this.direction = settings.direction || 'DOWN';
-        this.speed = settings.speed || 4; // 초당 GRID_SIZE 단위
-        this.delay = (settings.delay * 60) || 0; // 프레임 단위
+        this.speed = settings.speed || 4; 
+        this.delay = (settings.delay * 60) || 0;
         
         this.delayTimer = 0;
-        this.progress = 0; // 0 to 1
+        this.progress = 0;
         
         const distance = (this.direction === 'DOWN' || this.direction === 'UP') ? this.height : this.width;
-        this.totalFrames = (distance * GRID_SIZE / this.speed) * 60; // 초를 프레임으로
+        this.totalFrames = (distance * GRID_SIZE / this.speed) * 60;
     }
 
     update() {
@@ -676,7 +662,6 @@ export class GrowingMagneticField extends GameObject {
         ctx.strokeStyle = 'rgba(168, 85, 247, 0.5)';
         ctx.strokeRect(x, y, w, h);
         
-        // Draw direction arrows
         ctx.fillStyle = 'rgba(255, 255, 255, 0.7)';
         ctx.font = '16px Arial';
         ctx.textAlign = 'center';
