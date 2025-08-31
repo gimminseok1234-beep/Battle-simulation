@@ -64,89 +64,19 @@
         </div>
         <div class="flex items-start gap-4 w-full">
             <div id="toolbox" class="bg-gray-800 p-4 rounded-lg shadow-lg flex flex-col gap-1 w-64 overflow-y-auto" style="max-height: 80vh;">
-                <div>
-                    <h3 class="category-header bg-gray-700" data-target="category-basic-tiles">기본 타일</h3>
-                    <div id="category-basic-tiles" class="category-content">
-                        <div class="flex items-center justify-between gap-2 mb-1">
-                            <button class="tool-btn flex-grow text-left p-2 rounded hover:bg-gray-700" data-tool="tile" data-type="FLOOR">바닥</button>
-                            <input type="color" id="floorColorPicker" value="#374151" title="바닥 색상 선택">
-                        </div>
-                        <div class="flex items-center justify-between gap-2">
-                            <button class="tool-btn flex-grow text-left p-2 rounded hover:bg-gray-700" data-tool="tile" data-type="WALL">벽</button>
-                            <input type="color" id="wallColorPicker" value="#9ca3af" title="벽 색상 선택">
-                        </div>
-                    </div>
                 </div>
-                 <div>
-                    <h3 class="category-header bg-gray-700" data-target="category-special-tiles">특수 타일</h3>
-                    <div id="category-special-tiles" class="category-content">
-                        <button class="tool-btn w-full text-left p-2 rounded hover:bg-gray-700" data-tool="tile" data-type="CRACKED_WALL">금 간 벽</button>
-                        <button class="tool-btn w-full text-left p-2 rounded hover:bg-gray-700" data-tool="tile" data-type="LAVA">용암</button>
-                        <button class="tool-btn w-full text-left p-2 rounded hover:bg-gray-700" data-tool="tile" data-type="TELEPORTER">순간이동</button>
-                        <button class="tool-btn w-full text-left p-2 rounded hover:bg-gray-700" data-tool="tile" data-type="HEAL_PACK">힐 팩</button>
-                        <div class="flex items-center gap-1 mt-1">
-                            <button class="tool-btn flex-grow text-left p-2 rounded hover:bg-gray-700" data-tool="growing_field">성장형 자기장</button>
-                            <button id="growingFieldSettingsBtn" class="p-1 rounded hover:bg-gray-600">⚙️</button> </div>
-                        <div class="flex items-center gap-1 mt-1">
-                            <button class="tool-btn flex-grow text-left p-2 rounded hover:bg-gray-700" data-tool="auto_field">자동 자기장</button>
-                            <button id="autoFieldSettingsBtn" class="p-1 rounded hover:bg-gray-600">⚙️</button> </div>
-                        <div class="flex items-center gap-2 mt-2">
-                            <button class="tool-btn w-full text-left p-2 rounded hover:bg-gray-700" data-tool="tile" data-type="REPLICATION_TILE">+N 복제</button>
-                            <input type="number" id="replicationValue" value="2" class="p-1 rounded w-16 bg-gray-700 border-gray-600">
-                        </div>
-                    </div>
-                </div>
-                 <div>
-                    <h3 class="category-header bg-gray-700" data-target="category-structures">구조물</h3>
-                    <div id="category-structures" class="category-content">
-                        <button class="tool-btn team-a w-full text-left p-2 rounded hover:bg-red-900" data-tool="nexus" data-team="A">빨강 넥서스</button>
-                        <button class="tool-btn team-b w-full text-left p-2 rounded hover:bg-blue-900" data-tool="nexus" data-team="B">파랑 넥서스</button>
-                        <button class="tool-btn team-c w-full text-left p-2 rounded hover:bg-green-900" data-tool="nexus" data-team="C">초록 넥서스</button>
-                        <button class="tool-btn team-d w-full text-left p-2 rounded hover:bg-yellow-900" data-tool="nexus" data-team="D">노랑 넥서스</button>
-                    </div>
-                </div>
-                <div>
-                    <h3 class="category-header bg-gray-700" data-target="category-units">유닛</h3>
-                    <div id="category-units" class="category-content">
-                        <button class="tool-btn team-a w-full text-left p-2 rounded hover:bg-red-900" data-tool="unit" data-team="A">빨강 유닛</button>
-                        <button class="tool-btn team-b w-full text-left p-2 rounded hover:bg-blue-900" data-tool="unit" data-team="B">파랑 유닛</button>
-                        <button class="tool-btn team-c w-full text-left p-2 rounded hover:bg-green-900" data-tool="unit" data-team="C">초록 유닛</button>
-                        <button class="tool-btn team-d w-full text-left p-2 rounded hover:bg-yellow-900" data-tool="unit" data-team="D">노랑 유닛</button>
-                    </div>
-                </div>
-                <div>
-                    <h3 class="category-header bg-gray-700" data-target="category-objects">무기</h3>
-                    <div id="category-objects" class="category-content">
-                        <button class="tool-btn w-full text-left p-2 rounded hover:bg-gray-700" data-tool="weapon" data-type="sword">검</button>
-                        <button class="tool-btn w-full text-left p-2 rounded hover:bg-gray-700" data-tool="weapon" data-type="bow">활</button>
-                        <button class="tool-btn w-full text-left p-2 rounded hover:bg-gray-700" data-tool="weapon" data-type="dual_swords">쌍검</button>
-                        <button class="tool-btn w-full text-left p-2 rounded hover:bg-gray-700" data-tool="weapon" data-type="staff">지팡이</button>
-                        <div class="flex items-center gap-1">
-                            <button class="tool-btn flex-grow text-left p-2 rounded hover:bg-gray-700" data-tool="weapon" data-type="hadoken">장풍</button>
-                            <button id="hadokenSettingsBtn" class="p-1 rounded hover:bg-gray-600">⚙️</button> </div>
-                        <button class="tool-btn w-full text-left p-2 rounded hover:bg-gray-700" data-tool="weapon" data-type="shuriken">표창</button>
-                        <button class="tool-btn w-full text-left p-2 rounded hover:bg-gray-700" data-tool="weapon" data-type="crown">왕관</button>
-                    </div>
-                </div>
-                <div>
-                    <h3 class="category-header bg-gray-700" data-target="category-utils">기타</h3>
-                    <div id="category-utils" class="category-content">
-                         <button class="tool-btn w-full text-left p-2 rounded hover:bg-gray-700" data-tool="erase">지우개</button>
-                    </div>
-                </div>
-            </div>
             <div class="flex flex-col items-center flex-grow">
                 <canvas id="gameCanvas" class="border-2 border-gray-600 rounded-lg bg-gray-700"></canvas>
             </div>
         </div>
     </div>
-    
+
     <div id="newMapModal" class="modal-container hidden">
         <div class="modal-content">
             <h3 class="text-xl font-bold mb-4">새 맵 생성</h3>
             <input type="text" id="newMapName" placeholder="맵 이름" class="modal-input">
-            <input type="number" id="newMapWidth" placeholder="너비 (e.g., 60)" value="60" class="modal-input">
-            <input type="number" id="newMapHeight" placeholder="높이 (e.g., 90)" value="90" class="modal-input">
+            <input type="number" id="newMapWidth" placeholder="너비" value="600" class="modal-input">
+            <input type="number" id="newMapHeight" placeholder="높이" value="900" class="modal-input">
             <div class="modal-buttons">
                 <button id="confirmNewMapBtn" class="btn-confirm">생성</button>
                 <button id="cancelNewMapBtn" class="btn-cancel">취소</button>
@@ -211,7 +141,8 @@
             <h3 class="text-xl font-bold mb-4">자동 자기장 설정</h3>
             <label class="flex items-center mb-2"><input type="checkbox" id="autoFieldActiveToggle" class="mr-2"> 활성화</label>
             <label for="autoFieldShrinkTime">축소 시간 (분):</label>
-            <input type="number" id="autoFieldShrinkTime" value="60" class="modal-input"> <label for="autoFieldSafeZoneSize" class="mt-2">최종 안전구역 크기 (타일):</label>
+            <input type="number" id="autoFieldShrinkTime" value="1" class="modal-input">
+            <label for="autoFieldSafeZoneSize" class="mt-2">최종 안전구역 크기 (타일):</label>
             <input type="number" id="autoFieldSafeZoneSize" value="6" class="modal-input">
             <div class="modal-buttons">
                 <button id="autoFieldDefaultBtn" class="btn-default">기본값</button>
@@ -222,8 +153,8 @@
     <div id="hadokenModal" class="modal-container hidden">
         <div class="modal-content">
             <h3 class="text-xl font-bold mb-4">장풍 넉백 설정</h3>
-            <label for="hadokenKnockback">넉백 거리:</label> <input type="range" id="hadokenKnockback" min="0" max="50" value="15" class="w-full">
-            <span id="hadokenKnockbackValue" class="block text-center mt-1">15</span>
+            <label for="hadokenKnockback">넉백 거리: <span id="hadokenKnockbackValue">15</span></label>
+            <input type="range" id="hadokenKnockback" min="0" max="50" value="15" class="w-full">
             <div class="modal-buttons">
                 <button id="hadokenDefaultBtn" class="btn-default">기본값</button>
                 <button id="closeHadokenModal" class="btn-confirm">확인</button>
