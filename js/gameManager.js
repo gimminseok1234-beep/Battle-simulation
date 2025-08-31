@@ -108,16 +108,12 @@ export class GameManager {
         await this.loadMapForEditing(mapId);
     }
     
+    // ▼▼▼▼▼ [수정됨] 툴바 UI 생성 순서 원복 ▼▼▼▼▼
     createToolboxUI() {
         const toolbox = document.getElementById('toolbox');
         if (!toolbox) return;
         
         toolbox.innerHTML = `
-            <div class="category-header bg-slate-800" data-target="category-utils">기타</div>
-            <div id="category-utils" class="category-content">
-                <button class="tool-btn" data-tool="erase">지우개</button>
-            </div>
-
             <div class="category-header" data-target="category-basic-tiles">기본 타일</div>
             <div id="category-basic-tiles" class="category-content">
                 <button class="tool-btn selected" data-tool="tile" data-type="FLOOR">바닥</button>
@@ -140,10 +136,10 @@ export class GameManager {
 
             <div class="category-header collapsed" data-target="category-units">유닛</div>
             <div id="category-units" class="category-content collapsed">
-                <button class="tool-btn team-a" data-tool="unit" data-team="A">유닛 (A팀)</button>
-                <button class="tool-btn team-b" data-tool="unit" data-team="B">유닛 (B팀)</button>
-                <button class="tool-btn team-c" data-tool="unit" data-team="C">유닛 (C팀)</button>
-                <button class="tool-btn team-d" data-tool="unit" data-team="D">유닛 (D팀)</button>
+                <button class="tool-btn" data-tool="unit" data-team="A">유닛 (A팀)</button>
+                <button class="tool-btn" data-tool="unit" data-team="B">유닛 (B팀)</button>
+                <button class="tool-btn" data-tool="unit" data-team="C">유닛 (C팀)</button>
+                <button class="tool-btn" data-tool="unit" data-team="D">유닛 (D팀)</button>
             </div>
             
             <div class="category-header collapsed" data-target="category-weapons">무기</div>
@@ -162,10 +158,10 @@ export class GameManager {
 
             <div class="category-header collapsed" data-target="category-nexus">넥서스</div>
             <div id="category-nexus" class="category-content collapsed">
-                <button class="tool-btn team-a" data-tool="nexus" data-team="A">넥서스 (A팀)</button>
-                <button class="tool-btn team-b" data-tool="nexus" data-team="B">넥서스 (B팀)</button>
-                <button class="tool-btn team-c" data-tool="nexus" data-team="C">넥서스 (C팀)</button>
-                <button class="tool-btn team-d" data-tool="nexus" data-team="D">넥서스 (D팀)</button>
+                <button class="tool-btn" data-tool="nexus" data-team="A">넥서스 (A팀)</button>
+                <button class="tool-btn" data-tool="nexus" data-team="B">넥서스 (B팀)</button>
+                <button class="tool-btn" data-tool="nexus" data-team="C">넥서스 (C팀)</button>
+                <button class="tool-btn" data-tool="nexus" data-team="D">넥서스 (D팀)</button>
             </div>
 
             <div class="category-header collapsed" data-target="category-special">특수</div>
@@ -179,8 +175,15 @@ export class GameManager {
                     <button id="autoFieldSettingsBtn" class="p-2 rounded hover:bg-gray-600">⚙️</button>
                 </div>
             </div>
+
+            <div class="category-header bg-slate-800 collapsed" data-target="category-utils">기타</div>
+            <div id="category-utils" class="category-content collapsed">
+                 <button class="tool-btn" data-tool="erase">지우개</button>
+            </div>
         `;
     }
+    // ▲▲▲▲▲ [수정됨] 툴바 UI 생성 순서 원복 ▲▲▲▲▲
+
 
     async getAllMaps() {
         if (!this.currentUser) return [];
@@ -406,7 +409,6 @@ export class GameManager {
         };
     }
     
-    // ▼▼▼▼▼ [수정됨] 이벤트 리스너 설정 함수 ▼▼▼▼▼
     setupEventListeners() {
         // Modal buttons
         document.getElementById('cancelNewMapBtn').addEventListener('click', () => document.getElementById('newMapModal').classList.remove('show-modal'));
@@ -517,40 +519,37 @@ export class GameManager {
             this.isActionCam = e.target.checked;
             if (!this.isActionCam) this.resetActionCam(false);
         });
-
-        // ** Event Delegation for Toolbox **
+        
+        // ▼▼▼▼▼ [수정됨] 이벤트 위임을 사용하여 툴박스 전체 이벤트 처리 ▼▼▼▼▼
         document.getElementById('toolbox').addEventListener('click', (e) => {
             const target = e.target;
             const toolButton = target.closest('.tool-btn');
             const categoryHeader = target.closest('.category-header');
             
             if (toolButton) {
-                 // 설정 버튼 클릭 처리
-                if (target.id === 'growingFieldSettingsBtn' || target.parentElement.id === 'growingFieldSettingsBtn') {
-                    document.getElementById('fieldDirection').value = this.growingFieldSettings.direction;
-                    document.getElementById('fieldSpeed').value = this.growingFieldSettings.speed;
-                    document.getElementById('fieldDelay').value = this.growingFieldSettings.delay;
-                    document.getElementById('growingFieldModal').classList.add('show-modal');
-                } else if (target.id === 'autoFieldSettingsBtn' || target.parentElement.id === 'autoFieldSettingsBtn') {
-                     document.getElementById('autoFieldActiveToggle').checked = this.autoMagneticField.isActive;
-                    document.getElementById('autoFieldShrinkTime').value = this.autoMagneticField.totalShrinkTime / 60;
-                    document.getElementById('autoFieldSafeZoneSize').value = this.autoMagneticField.safeZoneSize;
-                    document.getElementById('autoFieldModal').classList.add('show-modal');
-                } else if (target.id === 'hadokenSettingsBtn' || target.parentElement.id === 'hadokenSettingsBtn') {
-                    document.getElementById('hadokenKnockback').value = this.hadokenKnockback;
-                    document.getElementById('hadokenKnockbackValue').textContent = this.hadokenKnockback;
-                    document.getElementById('hadokenModal').classList.add('show-modal');
-                } else {
-                    // 일반 툴 버튼 선택 처리
-                    this.selectTool(toolButton);
-                }
+                this.selectTool(toolButton);
+            } else if (target.id === 'growingFieldSettingsBtn' || target.parentElement.id === 'growingFieldSettingsBtn') {
+                document.getElementById('fieldDirection').value = this.growingFieldSettings.direction;
+                document.getElementById('fieldSpeed').value = this.growingFieldSettings.speed;
+                document.getElementById('fieldDelay').value = this.growingFieldSettings.delay;
+                document.getElementById('growingFieldModal').classList.add('show-modal');
+            } else if (target.id === 'autoFieldSettingsBtn' || target.parentElement.id === 'autoFieldSettingsBtn') {
+                document.getElementById('autoFieldActiveToggle').checked = this.autoMagneticField.isActive;
+                document.getElementById('autoFieldShrinkTime').value = this.autoMagneticField.totalShrinkTime / 60;
+                document.getElementById('autoFieldSafeZoneSize').value = this.autoMagneticField.safeZoneSize;
+                document.getElementById('autoFieldModal').classList.add('show-modal');
+            } else if (target.id === 'hadokenSettingsBtn' || target.parentElement.id === 'hadokenSettingsBtn') {
+                document.getElementById('hadokenKnockback').value = this.hadokenKnockback;
+                document.getElementById('hadokenKnockbackValue').textContent = this.hadokenKnockback;
+                document.getElementById('hadokenModal').classList.add('show-modal');
             } else if (categoryHeader) {
                 const content = categoryHeader.nextElementSibling;
                 categoryHeader.classList.toggle('collapsed');
                 content.classList.toggle('collapsed');
             }
         });
-
+        // ▲▲▲▲▲ [수정됨] 이벤트 위임을 사용하여 툴박스 전체 이벤트 처리 ▲▲▲▲▲
+        
         // Modal specific buttons
         document.getElementById('closeGrowingFieldModal').addEventListener('click', () => {
             this.growingFieldSettings.direction = document.getElementById('fieldDirection').value;
@@ -599,7 +598,6 @@ export class GameManager {
             }
         });
     }
-    // ▲▲▲▲▲ [수정됨] 이벤트 리스너 설정 함수 ▲▲▲▲▲
 
     resizeCanvas(width, height) {
         this.canvas.width = width;
@@ -692,19 +690,17 @@ export class GameManager {
         }
     }
     
-    // ▼▼▼▼▼ [수정됨] 툴 선택 로직 ▼▼▼▼▼
+    // ▼▼▼▼▼ [수정됨] 툴 선택 시 불필요한 클래스 추가 로직 제거 ▼▼▼▼▼
     selectTool(button) {
         const { tool, team, type } = button.dataset;
 
-        // 모든 버튼에서 'selected' 클래스 제거
         document.querySelectorAll('#toolbox .tool-btn').forEach(btn => btn.classList.remove('selected'));
-        
-        // 클릭한 버튼에만 'selected' 클래스 추가
         button.classList.add('selected');
 
         this.currentTool = { tool, team, type };
     }
-    // ▲▲▲▲▲ [수정됨] 툴 선택 로직 ▲▲▲▲▲
+    // ▲▲▲▲▲ [수정됨] 툴 선택 시 불필요한 클래스 추가 로직 제거 ▲▲▲▲▲
+
 
     getMousePos(e) {
          const rect = this.canvas.getBoundingClientRect();
