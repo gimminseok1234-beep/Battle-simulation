@@ -590,16 +590,11 @@ export class GameManager {
         });
     }
 
-    // ====================================================================
-    // ===== 수정된 부분 (START) ==========================================
-    // ====================================================================
-    // 누락되었던 resetActionCam 함수를 추가합니다.
     resetActionCam(isInstant = true) {
         const targetX = this.canvas.width / 2;
         const targetY = this.canvas.height / 2;
         const targetScale = 1;
 
-        // isInstant가 true이면 즉시 카메라 위치를 리셋하고, false이면 부드럽게 이동합니다.
         if (isInstant) {
             this.actionCam.current = { x: targetX, y: targetY, scale: targetScale };
             this.actionCam.target = { x: targetX, y: targetY, scale: targetScale };
@@ -607,20 +602,15 @@ export class GameManager {
         } else {
             this.actionCam.target = { x: targetX, y: targetY, scale: targetScale };
             this.actionCam.isAnimating = true;
-            // 애니메이션 루프가 돌고 있지 않다면 시작시킵니다.
             if (this.state !== 'SIMULATE' && !this.animationFrameId) {
                 this.gameLoop();
             }
         }
         
-        // 즉시 리셋이고, 게임 루프가 돌지 않을 때 한 번 그려주어 변경사항을 바로 반영합니다.
         if (isInstant && !this.animationFrameId) {
             this.draw();
         }
     }
-    // ====================================================================
-    // ===== 수정된 부분 (END) ============================================
-    // ====================================================================
 
     resizeCanvas(width, height) {
         this.canvas.width = width;
@@ -631,9 +621,6 @@ export class GameManager {
         this.ROWS = Math.floor(this.canvas.height / GRID_SIZE);
         
         this.resetMap();
-        
-        // resetActionCam 함수가 생겼으므로, 이제 카메라 초기화는 resetMap 내부에서 처리됩니다.
-        // 따라서 여기 있던 중복 코드는 필요 없습니다.
     }
 
     resetMap() {
@@ -653,7 +640,7 @@ export class GameManager {
         document.getElementById('simPlayBtn').classList.add('hidden');
         document.getElementById('simStartBtn').disabled = false;
         document.getElementById('toolbox').style.pointerEvents = 'auto';
-        this.resetActionCam(true); // 이제 이 함수가 정상적으로 호출됩니다.
+        this.resetActionCam(true);
         this.draw();
     }
     
@@ -1199,9 +1186,37 @@ export class GameManager {
     }
     
     createEffect(type, x, y, target) { this.effects.push(new Effect(x, y, type, target)); }
-    createProjectile(owner, target, type) { this.projectiles.push(new Projectile(owner, target, type)); }
+    
+    // ====================================================================
+    // ===== 수정된 부분 (START) ==========================================
+    // ====================================================================
+    // createProjectile 함수에 사운드 재생 로직을 추가합니다.
+    createProjectile(owner, target, type) { 
+        this.projectiles.push(new Projectile(owner, target, type)); 
+        
+        // 투사체 타입에 따라 적절한 사운드를 재생합니다.
+        switch(type) {
+            case 'bow':
+                this.audioManager.play('arrow');
+                break;
+            case 'hadoken':
+                this.audioManager.play('hadoken');
+                break;
+            case 'shuriken':
+                this.audioManager.play('shuriken');
+                break;
+            // 다른 투사체 타입이 추가되면 여기에 case를 추가할 수 있습니다.
+        }
+    }
+    // ====================================================================
+    // ===== 수정된 부분 (END) ============================================
+    // ====================================================================
+
     castAreaSpell(pos, type, damage, team) {
         this.areaEffects.push(new AreaEffect(pos.x, pos.y, type));
+        if (type === 'staff') {
+            this.audioManager.play('fireball');
+        }
         this.units.forEach(unit => {
             if (unit.team !== team && Math.hypot(unit.pixelX - pos.x, unit.pixelY - pos.y) < GRID_SIZE * 2.5) {
                 unit.takeDamage(damage);
@@ -1308,7 +1323,6 @@ export class GameManager {
 
         if (mapData.map && typeof mapData.map === 'string') {
             let parsedMap = JSON.parse(mapData.map);
-            // 옛날 숫자 형식의 맵 데이터와 호환되도록 변환
             if (parsedMap.length > 0 && typeof parsedMap[0][0] === 'number') {
                 const tileTypes = Object.keys(TILE);
                 this.map = parsedMap.map(row => row.map(tileId => ({ type: tileTypes[tileId] || 'FLOOR' })));
@@ -1358,7 +1372,7 @@ export class GameManager {
         document.getElementById('simPlayBtn').classList.add('hidden');
         document.getElementById('simStartBtn').disabled = false;
         document.getElementById('toolbox').style.pointerEvents = 'auto';
-        this.resetActionCam(true); // 이제 이 함수가 정상적으로 호출됩니다.
+        this.resetActionCam(true);
         this.draw();
     }
 }
