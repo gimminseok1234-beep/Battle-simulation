@@ -66,6 +66,10 @@ export class GameManager {
         this.audioManager = new AudioManager();
         instance = this;
     }
+	
+    static getInstance() {
+        return instance;
+    }
 
     setCurrentUser(user) {
         this.currentUser = user;
@@ -161,7 +165,7 @@ export class GameManager {
 
         maps.forEach(mapData => {
             const card = document.createElement('div');
-            card.className = 'map-card rounded-lg overflow-hidden flex flex-col cursor-pointer';
+            card.className = 'relative group bg-gray-800 rounded-lg overflow-hidden flex flex-col cursor-pointer shadow-lg hover:shadow-indigo-500/30 transition-shadow duration-300';
             card.addEventListener('click', (e) => {
                 if (!e.target.closest('.map-menu-button')) {
                     this.showEditorScreen(mapData.id);
@@ -169,10 +173,10 @@ export class GameManager {
             });
 
             const previewCanvas = document.createElement('canvas');
-            previewCanvas.className = 'map-preview-canvas';
+            previewCanvas.className = 'w-full aspect-[3/4] object-cover';
             
             const infoDiv = document.createElement('div');
-            infoDiv.className = 'p-3 flex-grow';
+            infoDiv.className = 'p-3 flex-grow flex items-center justify-between';
             const nameP = document.createElement('p');
             nameP.className = 'font-bold text-white truncate';
             nameP.id = `map-name-${mapData.id}`;
@@ -180,20 +184,20 @@ export class GameManager {
             infoDiv.appendChild(nameP);
 
             const menuButton = document.createElement('button');
-            menuButton.className = 'map-menu-button p-1 rounded-full hover:bg-gray-600';
+            menuButton.className = 'map-menu-button absolute top-2 right-2 p-1.5 rounded-full bg-gray-900/50 hover:bg-gray-700/70 opacity-0 group-hover:opacity-100 transition-opacity';
             menuButton.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-gray-300" viewBox="0 0 20 20" fill="currentColor"><path d="M10 6a2 2 0 110-4 2 2 0 010 4zM10 12a2 2 0 110-4 2 2 0 010 4zM10 18a2 2 0 110-4 2 2 0 010 4z" /></svg>`;
             
             const menu = document.createElement('div');
-            menu.className = 'map-menu p-2 rounded-md shadow-lg';
+            menu.className = 'map-menu hidden absolute top-10 right-2 z-10 bg-gray-700 p-2 rounded-md shadow-lg w-32';
             const renameBtn = document.createElement('button');
-            renameBtn.className = 'w-full text-left px-3 py-1.5 text-sm rounded hover:bg-gray-500';
+            renameBtn.className = 'w-full text-left px-3 py-1.5 text-sm rounded hover:bg-gray-600';
             renameBtn.textContent = '이름 변경';
             renameBtn.onclick = () => {
                 menu.style.display = 'none';
                 this.openRenameModal(mapData.id, mapData.name);
             };
             const deleteBtn = document.createElement('button');
-            deleteBtn.className = 'w-full text-left px-3 py-1.5 text-sm text-red-400 rounded hover:bg-gray-500';
+            deleteBtn.className = 'w-full text-left px-3 py-1.5 text-sm text-red-400 rounded hover:bg-gray-600';
             deleteBtn.textContent = '삭제';
             deleteBtn.onclick = () => {
                 menu.style.display = 'none';
@@ -203,6 +207,9 @@ export class GameManager {
 
             menuButton.addEventListener('click', (e) => {
                 e.stopPropagation();
+                document.querySelectorAll('.map-menu').forEach(m => {
+                    if (m !== menu) m.style.display = 'none';
+                });
                 menu.style.display = menu.style.display === 'block' ? 'none' : 'block';
             });
 
@@ -213,12 +220,12 @@ export class GameManager {
         });
 
         document.addEventListener('click', (e) => {
-            document.querySelectorAll('.map-menu').forEach(menu => {
-                if (!menu.previousElementSibling.contains(e.target)) {
-                    menu.style.display = 'none';
-                }
-            });
-        });
+             if (!e.target.closest('.map-menu-button')) {
+                document.querySelectorAll('.map-menu').forEach(menu => {
+                     menu.style.display = 'none';
+                });
+            }
+        }, true);
     }
 
     drawMapPreview(previewCanvas, mapData) {
@@ -226,8 +233,10 @@ export class GameManager {
         const mapWidth = mapData.width;
         const mapHeight = mapData.height;
         
-        previewCanvas.width = mapWidth / 5;
-        previewCanvas.height = mapHeight / 5;
+        const cardWidth = previewCanvas.parentElement.clientWidth || 200;
+        previewCanvas.width = cardWidth;
+        previewCanvas.height = cardWidth * (mapHeight / mapWidth);
+
 
         const pixelSizeX = previewCanvas.width / (mapWidth / GRID_SIZE);
         const pixelSizeY = previewCanvas.height / (mapHeight / GRID_SIZE);
@@ -236,21 +245,23 @@ export class GameManager {
         prevCtx.fillRect(0, 0, previewCanvas.width, previewCanvas.height);
         
         const mapGridData = (typeof mapData.map === 'string') ? JSON.parse(mapData.map) : mapData.map;
-        mapGridData.forEach((row, y) => {
-            row.forEach((tile, x) => {
-                switch(tile.type) {
-                    case TILE.WALL: prevCtx.fillStyle = tile.color || COLORS.WALL; break;
-                    case TILE.FLOOR: prevCtx.fillStyle = tile.color || COLORS.FLOOR; break;
-                    case TILE.LAVA: prevCtx.fillStyle = COLORS.LAVA; break;
-                    case TILE.CRACKED_WALL: prevCtx.fillStyle = COLORS.CRACKED_WALL; break;
-                    case TILE.HEAL_PACK: prevCtx.fillStyle = COLORS.HEAL_PACK; break;
-                    case TILE.REPLICATION_TILE: prevCtx.fillStyle = COLORS.REPLICATION_TILE; break;
-                    case TILE.TELEPORTER: prevCtx.fillStyle = COLORS.TELEPORTER; break;
-                    default: prevCtx.fillStyle = COLORS.FLOOR; break;
-                }
-                prevCtx.fillRect(x * pixelSizeX, y * pixelSizeY, pixelSizeX, pixelSizeY);
+        if (mapGridData) {
+            mapGridData.forEach((row, y) => {
+                row.forEach((tile, x) => {
+                    switch(tile.type) {
+                        case TILE.WALL: prevCtx.fillStyle = tile.color || COLORS.WALL; break;
+                        case TILE.FLOOR: prevCtx.fillStyle = tile.color || COLORS.FLOOR; break;
+                        case TILE.LAVA: prevCtx.fillStyle = COLORS.LAVA; break;
+                        case TILE.CRACKED_WALL: prevCtx.fillStyle = COLORS.CRACKED_WALL; break;
+                        case TILE.HEAL_PACK: prevCtx.fillStyle = COLORS.HEAL_PACK; break;
+                        case TILE.REPLICATION_TILE: prevCtx.fillStyle = COLORS.REPLICATION_TILE; break;
+                        case TILE.TELEPORTER: prevCtx.fillStyle = COLORS.TELEPORTER; break;
+                        default: prevCtx.fillStyle = COLORS.FLOOR; break;
+                    }
+                    prevCtx.fillRect(x * pixelSizeX, y * pixelSizeY, pixelSizeX + 0.5, pixelSizeY + 0.5);
+                });
             });
-        });
+        }
         
         const drawItem = (item, colorOverride = null) => {
             let color;
@@ -266,7 +277,14 @@ export class GameManager {
                 }
             }
             prevCtx.fillStyle = color;
-            prevCtx.fillRect(item.gridX * pixelSizeX, item.gridY * pixelSizeY, pixelSizeX, pixelSizeY);
+            prevCtx.beginPath();
+            prevCtx.arc(
+                item.gridX * pixelSizeX + pixelSizeX / 2, 
+                item.gridY * pixelSizeY + pixelSizeY / 2, 
+                Math.min(pixelSizeX, pixelSizeY) / 1.8, 
+                0, 2 * Math.PI
+            );
+            prevCtx.fill();
         };
 
         (mapData.nexuses || []).forEach(item => drawItem(item));
@@ -278,7 +296,7 @@ export class GameManager {
         const input = document.getElementById('renameMapInput');
         const renameMapModal = document.getElementById('renameMapModal');
         input.value = currentName;
-        renameMapModal.style.display = 'flex';
+        renameMapModal.classList.add('show-modal');
         
         document.getElementById('confirmRenameBtn').onclick = async () => {
             const newName = input.value.trim();
@@ -286,12 +304,11 @@ export class GameManager {
                 const mapDocRef = doc(this.db, "maps", this.currentUser.uid, "userMaps", mapId);
                 try {
                     await setDoc(mapDocRef, { name: newName }, { merge: true });
-                    this.currentMapName = newName; 
-                    this.renderMapCards();
+                    document.getElementById(`map-name-${mapId}`).textContent = newName;
                 } catch (error) {
                     console.error("Error renaming map: ", error);
                 }
-                renameMapModal.style.display = 'none';
+                renameMapModal.classList.remove('show-modal');
             }
         };
     }
@@ -299,7 +316,7 @@ export class GameManager {
     openDeleteConfirmModal(mapId, mapName) {
         const deleteConfirmModal = document.getElementById('deleteConfirmModal');
         document.getElementById('deleteConfirmText').textContent = `'${mapName}' 맵을 정말 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.`;
-        deleteConfirmModal.style.display = 'flex';
+        deleteConfirmModal.classList.add('show-modal');
 
         document.getElementById('confirmDeleteBtn').onclick = async () => {
             if (!this.currentUser) return;
@@ -310,23 +327,23 @@ export class GameManager {
             } catch (error) {
                 console.error("Error deleting map: ", error);
             }
-            deleteConfirmModal.style.display = 'none';
+            deleteConfirmModal.classList.remove('show-modal');
         };
     }
 
     setupEventListeners() {
         // Modal buttons
-        document.getElementById('cancelNewMapBtn').addEventListener('click', () => document.getElementById('newMapModal').style.display = 'none');
-        document.getElementById('cancelRenameBtn').addEventListener('click', () => document.getElementById('renameMapModal').style.display = 'none');
-        document.getElementById('cancelDeleteBtn').addEventListener('click', () => document.getElementById('deleteConfirmModal').style.display = 'none');
-        document.getElementById('closeMapSettingsModal').addEventListener('click', () => document.getElementById('mapSettingsModal').style.display = 'none');
+        document.getElementById('cancelNewMapBtn').addEventListener('click', () => document.getElementById('newMapModal').classList.remove('show-modal'));
+        document.getElementById('cancelRenameBtn').addEventListener('click', () => document.getElementById('renameMapModal').classList.remove('show-modal'));
+        document.getElementById('cancelDeleteBtn').addEventListener('click', () => document.getElementById('deleteConfirmModal').classList.remove('show-modal'));
+        document.getElementById('closeMapSettingsModal').addEventListener('click', () => document.getElementById('mapSettingsModal').classList.remove('show-modal'));
 
         // Home screen
         document.getElementById('addNewMapCard').addEventListener('click', () => {
             document.getElementById('newMapName').value = '';
             document.getElementById('newMapWidth').value = '600';
             document.getElementById('newMapHeight').value = '900';
-            document.getElementById('newMapModal').style.display = 'flex';
+            document.getElementById('newMapModal').classList.add('show-modal');
         });
 
         document.getElementById('confirmNewMapBtn').addEventListener('click', async () => {
@@ -348,7 +365,7 @@ export class GameManager {
             const newMapDocRef = doc(this.db, "maps", this.currentUser.uid, "userMaps", newMapId);
             try {
                 await setDoc(newMapDocRef, newMapData);
-                document.getElementById('newMapModal').style.display = 'none';
+                document.getElementById('newMapModal').classList.remove('show-modal');
                 this.showEditorScreen(newMapId);
             } catch(error) {
                 console.error("Error creating new map: ", error);
@@ -362,7 +379,7 @@ export class GameManager {
         document.getElementById('mapSettingsBtn').addEventListener('click', () => {
             document.getElementById('widthInput').value = this.canvas.width;
             document.getElementById('heightInput').value = this.canvas.height;
-            document.getElementById('mapSettingsModal').style.display = 'flex';
+            document.getElementById('mapSettingsModal').classList.add('show-modal');
         });
         document.getElementById('killSoundToggle').addEventListener('change', (e) => {
             this.audioManager.toggleKillSound(e.target.checked);
@@ -429,7 +446,7 @@ export class GameManager {
         document.getElementById('simResetBtn').addEventListener('click', () => this.resetMap());
         document.getElementById('resizeBtn').addEventListener('click', () => {
             this.resizeCanvas(parseInt(document.getElementById('widthInput').value), parseInt(document.getElementById('heightInput').value));
-            document.getElementById('mapSettingsModal').style.display = 'none';
+            document.getElementById('mapSettingsModal').classList.remove('show-modal');
         });
         document.getElementById('actionCamToggle').addEventListener('change', (e) => {
             this.isActionCam = e.target.checked;
@@ -438,18 +455,23 @@ export class GameManager {
             }
         });
 
-        // Tool settings modals
-        document.getElementById('growingFieldSettingsBtn').addEventListener('click', () => {
-            document.getElementById('fieldDirection').value = this.growingFieldSettings.direction;
-            document.getElementById('fieldSpeed').value = this.growingFieldSettings.speed;
-            document.getElementById('fieldDelay').value = this.growingFieldSettings.delay;
-            document.getElementById('growingFieldModal').style.display = 'flex';
-        });
-        document.getElementById('closeGrowingFieldModal').addEventListener('click', () => {
+        const setupModalEvents = (modalId, openBtnId, closeBtnId, confirmCallback) => {
+            const modal = document.getElementById(modalId);
+            if (openBtnId) {
+                document.getElementById(openBtnId).addEventListener('click', () => modal.classList.add('show-modal'));
+            }
+             if (closeBtnId) {
+                document.getElementById(closeBtnId).addEventListener('click', () => {
+                    if (confirmCallback) confirmCallback();
+                    modal.classList.remove('show-modal');
+                });
+            }
+        };
+
+        setupModalEvents('growingFieldModal', 'growingFieldSettingsBtn', 'closeGrowingFieldModal', () => {
             this.growingFieldSettings.direction = document.getElementById('fieldDirection').value;
             this.growingFieldSettings.speed = parseFloat(document.getElementById('fieldSpeed').value);
             this.growingFieldSettings.delay = parseInt(document.getElementById('fieldDelay').value);
-            document.getElementById('growingFieldModal').style.display = 'none';
         });
         document.getElementById('growingFieldDefaultBtn').addEventListener('click', () => {
             this.growingFieldSettings = { direction: 'DOWN', speed: 4, delay: 0 };
@@ -458,35 +480,19 @@ export class GameManager {
             document.getElementById('fieldDelay').value = this.growingFieldSettings.delay;
         });
 
-        document.getElementById('autoFieldSettingsBtn').addEventListener('click', () => {
-            document.getElementById('autoFieldActiveToggle').checked = this.autoMagneticField.isActive;
-            document.getElementById('autoFieldShrinkTime').value = this.autoMagneticField.totalShrinkTime / 60;
-            document.getElementById('autoFieldSafeZoneSize').value = this.autoMagneticField.safeZoneSize;
-            document.getElementById('autoFieldModal').style.display = 'flex';
-        });
-        document.getElementById('closeAutoFieldModal').addEventListener('click', () => {
+        setupModalEvents('autoFieldModal', 'autoFieldSettingsBtn', 'closeAutoFieldModal', () => {
             this.autoMagneticField.isActive = document.getElementById('autoFieldActiveToggle').checked;
             this.autoMagneticField.totalShrinkTime = parseFloat(document.getElementById('autoFieldShrinkTime').value) * 60;
             this.autoMagneticField.safeZoneSize = parseInt(document.getElementById('autoFieldSafeZoneSize').value);
-            document.getElementById('autoFieldModal').style.display = 'none';
         });
-        document.getElementById('autoFieldDefaultBtn').addEventListener('click', () => {
-            this.autoMagneticField.isActive = false;
-            this.autoMagneticField.totalShrinkTime = 60 * 60;
-            this.autoMagneticField.safeZoneSize = 6;
+         document.getElementById('autoFieldDefaultBtn').addEventListener('click', () => {
+            this.autoMagneticField = { isActive: false, totalShrinkTime: 60 * 60, safeZoneSize: 6, simulationTime: 0, currentBounds: { minX: 0, maxX: 0, minY: 0, maxY: 0 } };
             document.getElementById('autoFieldActiveToggle').checked = this.autoMagneticField.isActive;
             document.getElementById('autoFieldShrinkTime').value = this.autoMagneticField.totalShrinkTime / 60;
             document.getElementById('autoFieldSafeZoneSize').value = this.autoMagneticField.safeZoneSize;
         });
-        
-        document.getElementById('hadokenSettingsBtn').addEventListener('click', () => {
-            document.getElementById('hadokenKnockback').value = this.hadokenKnockback;
-            document.getElementById('hadokenKnockbackValue').textContent = this.hadokenKnockback;
-            document.getElementById('hadokenModal').style.display = 'flex';
-        });
-        document.getElementById('closeHadokenModal').addEventListener('click', () => {
-            document.getElementById('hadokenModal').style.display = 'none';
-        });
+
+        setupModalEvents('hadokenModal', 'hadokenSettingsBtn', 'closeHadokenModal');
         document.getElementById('hadokenKnockback').addEventListener('input', (e) => {
             this.hadokenKnockback = parseInt(e.target.value);
             document.getElementById('hadokenKnockbackValue').textContent = this.hadokenKnockback;
@@ -500,26 +506,34 @@ export class GameManager {
 
         document.querySelectorAll('.category-header').forEach(header => {
             header.addEventListener('click', () => {
-                const targetId = header.dataset.target;
-                const content = document.getElementById(targetId);
-                if (content.style.maxHeight) {
-                    content.style.maxHeight = null;
-                } else {
-                    content.style.maxHeight = content.scrollHeight + "px";
-                }
+                const content = header.nextElementSibling;
+                header.classList.toggle('collapsed');
+                content.classList.toggle('collapsed');
             });
         });
-        document.getElementById('replicationValue').addEventListener('change', (e) => {
-            this.replicationValue = parseInt(e.target.value) || 1;
-        });
-        document.getElementById('wallColorPicker').addEventListener('input', (e) => {
-            this.currentWallColor = e.target.value;
-            this.draw();
-        });
-        document.getElementById('floorColorPicker').addEventListener('input', (e) => {
-            this.currentFloorColor = e.target.value;
-            this.draw();
-        });
+        
+        const replicationInput = document.getElementById('replicationValue');
+        if (replicationInput) {
+            replicationInput.addEventListener('change', (e) => {
+                this.replicationValue = parseInt(e.target.value) || 1;
+            });
+        }
+        
+        const wallColorPicker = document.getElementById('wallColorPicker');
+        if(wallColorPicker) {
+            wallColorPicker.addEventListener('input', (e) => {
+                this.currentWallColor = e.target.value;
+                this.draw();
+            });
+        }
+        
+        const floorColorPicker = document.getElementById('floorColorPicker');
+        if (floorColorPicker) {
+            floorColorPicker.addEventListener('input', (e) => {
+                this.currentFloorColor = e.target.value;
+                this.draw();
+            });
+        }
     }
 
     resizeCanvas(width, height) {
@@ -616,19 +630,15 @@ export class GameManager {
     selectTool(e) {
         const button = e.target.closest('.tool-btn');
         if (!button) return;
-        document.querySelectorAll('.tool-btn').forEach(btn => btn.classList.remove('selected', 'team-a', 'team-b', 'team-c', 'team-d'));
+        document.querySelectorAll('.tool-btn.selected').forEach(btn => btn.classList.remove('selected'));
         
         const { tool, team, type } = button.dataset;
 
-        if(tool !== 'auto_field') { // 자동 자기장은 선택 상태를 유지하지 않음
+        if(tool !== 'auto_field' && tool !== 'growing_field') { 
             button.classList.add('selected');
-            if (team) button.classList.add(`team-${team.toLowerCase()}`);
         }
         
         this.currentTool = { tool, team, type };
-        document.getElementById('growingFieldSettingsBtn').style.display = (tool === 'growing_field') ? 'block' : 'none';
-        document.getElementById('autoFieldSettingsBtn').style.display = (tool === 'auto_field') ? 'block' : 'none';
-        document.getElementById('hadokenSettingsBtn').style.display = (tool === 'weapon' && type === 'hadoken') ? 'block' : 'none';
     }
 
     getMousePos(e) {
