@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>아레나 전투 시뮬레이터 (Firebase)</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.7.77/Tone.js"></script>
+    <link rel="stylesheet" href="css/styles.css">
+</head>
+<body class="bg-gray-900 text-gray-200 p-4">
+
+    <div id="homeScreen" class="flex flex-col items-center justify-center min-h-screen w-full">
+        <h1 class="text-4xl font-bold mb-4 text-center text-white">아레나 전투 시뮬레이터</h1>
+        <div id="userInfo" class="text-center mb-6 h-10">
+            <p id="loadingStatus" class="text-gray-400">Firebase 인증 중...</p>
+            <button id="googleLoginBtn" class="hidden bg-white text-black font-bold py-2 px-4 rounded-lg flex items-center justify-center mx-auto hover:bg-gray-200 transition">
+                <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" class="w-5 h-5 mr-2">
+                Google 계정으로 로그인
+            </button>
+            <div id="userDetails" class="hidden items-center justify-center">
+                <img id="userPhoto" class="w-8 h-8 rounded-full mr-2">
+                <span id="userName" class="text-white font-semibold"></span>
+                <button id="logoutBtn" class="ml-4 bg-red-600 hover:bg-red-700 text-white font-bold py-1 px-3 rounded">로그아웃</button>
+            </div>
+        </div>
+        <div id="mapGrid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-6 w-full max-w-7xl mx-auto">
+            <button id="addNewMapCard" class="flex flex-col items-center justify-center p-4 rounded-lg border-2 border-dashed border-gray-600 hover:bg-gray-800 hover:border-gray-500 transition-colors aspect-[3/4] hidden">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-12 w-12 text-gray-500 mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" /></svg>
+                <span class="text-gray-400 font-semibold">새 맵 추가</span>
+            </button>
+        </div>
+    </div>
+
+    <div id="editorScreen" class="hidden flex-col items-center gap-4 w-full max-w-7xl mx-auto">
+        <div id="toolbar" class="bg-gray-800 p-2 rounded-lg shadow-lg flex items-center justify-between gap-2 w-full flex-wrap">
+            <button id="backToHomeBtn" class="bg-gray-600 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded">홈으로</button>
+            <div class="flex items-center gap-2">
+                <button id="saveMapBtn" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded">맵 저장</button>
+                <button id="mapSettingsBtn" class="bg-gray-600 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded">맵 설정</button>
+            </div>
+            <div id="statusText" class="text-lg font-semibold flex-grow text-center">에디터 모드</div>
+            <div class="flex items-center gap-4">
+                 <div class="flex items-center">
+                    <label for="actionCamToggle" class="mr-2 font-semibold">액션캠</label>
+                    <input type="checkbox" id="actionCamToggle" class="form-checkbox h-5 w-5 text-purple-600 bg-gray-700 border-gray-600 rounded focus:ring-purple-500">
+                </div>
+            </div>
+            <div class="flex items-center gap-2">
+                <button id="simStartBtn" class="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded">시작</button>
+                <button id="simPauseBtn" class="bg-yellow-500 hover:bg-yellow-600 text-white font-bold py-2 px-4 rounded hidden">일시정지</button>
+                <button id="simPlayBtn" class="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded hidden">계속</button>
+                <button id="simPlacementResetBtn" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded">배치 초기화</button>
+                <button id="simResetBtn" class="bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded">완전 초기화</button>
+            </div>
+        </div>
+        <div class="flex items-start gap-4 w-full">
+            <div id="toolbox" class="bg-gray-800 p-4 rounded-lg shadow-lg flex flex-col gap-1 w-64 overflow-y-auto"></div>
+            <div class="flex flex-col items-center flex-grow">
+                <canvas id="gameCanvas" class="border-2 border-gray-600 rounded-lg bg-gray-700"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <div id="newMapModal" class="modal-container">
+        <div class="modal-content">
+            <h3 class="text-xl font-bold mb-4">새 맵 생성</h3>
+            <input type="text" id="newMapName" placeholder="맵 이름" class="modal-input">
+            <input type="number" id="newMapWidth" placeholder="너비" value="600" class="modal-input">
+            <input type="number" id="newMapHeight" placeholder="높이" value="900" class="modal-input">
+            <div class="modal-buttons">
+                <button id="confirmNewMapBtn" class="btn-confirm">생성</button>
+                <button id="cancelNewMapBtn" class="btn-cancel">취소</button>
+            </div>
+        </div>
+    </div>
+    
+    <div id="renameMapModal" class="modal-container">
+        <div class="modal-content">
+            <h3 class="text-xl font-bold mb-4">맵 이름 변경</h3>
+            <input type="text" id="renameMapInput" class="modal-input">
+            <div class="modal-buttons">
+                <button id="confirmRenameBtn" class="btn-confirm">변경</button>
+                <button id="cancelRenameBtn" class="btn-cancel">취소</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="deleteConfirmModal" class="modal-container">
+        <div class="modal-content">
+            <h3 class="text-xl font-bold mb-4">삭제 확인</h3>
+            <p id="deleteConfirmText" class="mb-4"></p>
+            <div class="modal-buttons">
+                <button id="confirmDeleteBtn" class="bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded">삭제</button>
+                <button id="cancelDeleteBtn" class="btn-cancel">취소</button>
+            </div>
+        </div>
+    </div>
+    
+    <div id="mapSettingsModal" class="modal-container">
+        <div class="modal-content">
+            <h3 class="text-xl font-bold mb-4">맵 설정</h3>
+            <div class="flex items-center gap-2 mb-4">
+                <input type="number" id="widthInput" class="modal-input w-full">
+                <span>x</span>
+                <input type="number" id="heightInput" class="modal-input w-full">
+            </div>
+            <div class="flex items-center justify-between mb-2">
+                <label for="killSoundToggle" class="font-semibold">킬 사운드</label>
+                <input type="checkbox" id="killSoundToggle" checked class="form-checkbox h-5 w-5 text-purple-600 bg-gray-700 border-gray-600 rounded focus:ring-purple-500">
+            </div>
+            <div class="flex items-center justify-between">
+                 <label class="font-semibold">음소거</label>
+                <button id="muteBtn" class="p-2 rounded-full hover:bg-gray-700">
+                    <svg id="soundOnIcon" xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" /></svg>
+                    <svg id="soundOffIcon" xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 hidden" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" /><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 14l2-2m0 0l2-2m-2 2L17 10" /></svg>
+                </button>
+            </div>
+            <div class="modal-buttons mt-4">
+                <button id="resizeBtn" class="btn-confirm">크기 적용</button>
+                <button id="closeMapSettingsModal" class="btn-cancel">닫기</button>
+            </div>
+        </div>
+    </div>
+    
+    <div id="growingFieldModal" class="modal-container">
+        <div class="modal-content">
+            <h3 class="text-xl font-bold mb-4">성장형 자기장 설정</h3>
+            <label for="fieldDirection">방향:</label>
+            <select id="fieldDirection" class="modal-input"><option value="DOWN">아래로</option><option value="UP">위로</option><option value="LEFT">왼쪽으로</option><option value="RIGHT">오른쪽으로</option></select>
+            <label for="fieldSpeed" class="mt-2">속도 (초):</label>
+            <input type="number" id="fieldSpeed" value="4" class="modal-input">
+            <label for="fieldDelay" class="mt-2">딜레이 (초):</label>
+            <input type="number" id="fieldDelay" value="0" class="modal-input">
+            <div class="modal-buttons">
+                 <button id="growingFieldDefaultBtn" class="btn-default">기본값</button>
+                <button id="closeGrowingFieldModal" class="btn-confirm">확인</button>
+            </div>
+        </div>
+    </div>
+    <div id="autoFieldModal" class="modal-container">
+        <div class="modal-content">
+            <h3 class="text-xl font-bold mb-4">자동 자기장 설정</h3>
+            <label class="flex items-center mb-2"><input type="checkbox" id="autoFieldActiveToggle" class="mr-2"> 활성화</label>
+            <label for="autoFieldShrinkTime">축소 시간 (분):</label>
+            <input type="number" id="autoFieldShrinkTime" value="1" class="modal-input">
+            <label for="autoFieldSafeZoneSize" class="mt-2">최종 안전구역 크기 (타일):</label>
+            <input type="number" id="autoFieldSafeZoneSize" value="6" class="modal-input">
+            <div class="modal-buttons">
+                <button id="autoFieldDefaultBtn" class="btn-default">기본값</button>
+                <button id="closeAutoFieldModal" class="btn-confirm">확인</button>
+            </div>
+        </div>
+    </div>
+    <div id="hadokenModal" class="modal-container">
+        <div class="modal-content">
+            <h3 class="text-xl font-bold mb-4">장풍 넉백 설정</h3>
+            <label for="hadokenKnockback">넉백 거리: <span id="hadokenKnockbackValue">15</span></label>
+            <input type="range" id="hadokenKnockback" min="0" max="50" value="15" class="w-full">
+            <div class="modal-buttons">
+                <button id="hadokenDefaultBtn" class="btn-default">기본값</button>
+                <button id="closeHadokenModal" class="btn-confirm">확인</button>
+            </div>
+        </div>
+    </div>
+
+    <script type="module" src="js/main.js"></script>
+</body>
+</html>
