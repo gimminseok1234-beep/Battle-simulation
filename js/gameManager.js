@@ -759,26 +759,6 @@ export class GameManager {
         this.draw();
     }
 
-    startSimulation() {
-        if (this.state !== 'EDIT') return;
-        this.initialUnitsState = JSON.stringify(this.units.map(u => ({...u, weapon: u.weapon ? {type: u.weapon.type} : null})));
-        this.initialWeaponsState = JSON.stringify(this.weapons.map(w => ({...w})));
-        this.initialNexusesState = JSON.stringify(this.nexuses.map(n => ({...n})));
-        this.initialMapState = JSON.stringify(this.map);
-        this.initialGrowingFieldsState = JSON.stringify(this.growingFields.map(f => ({...f})));
-        this.initialAutoFieldState = JSON.stringify(this.autoMagneticField);
-        this.initialNexusCount = this.nexuses.length;
-        this.winnerTeam = null;
-
-        this.state = 'SIMULATE';
-        document.getElementById('statusText').textContent = "시뮬레이션 진행 중...";
-        document.getElementById('simStartBtn').classList.add('hidden');
-        document.getElementById('simPauseBtn').classList.remove('hidden');
-        document.getElementById('simPlayBtn').classList.add('hidden');
-        document.getElementById('toolbox').style.pointerEvents = 'none';
-        this.gameLoop();
-    }
-
     pauseSimulation() {
         if (this.state !== 'SIMULATE') return;
         this.state = 'PAUSED';
@@ -1289,10 +1269,17 @@ export class GameManager {
         }
 
         this.currentMapName = mapData.name;
-        this.canvas.width = mapData.width;
-        this.canvas.height = mapData.height;
-        document.getElementById('widthInput').value = mapData.width;
-        document.getElementById('heightInput').value = mapData.height;
+        // ====================================================================
+        // ===== 수정된 부분 (START) ==========================================
+        // ====================================================================
+        // 맵 데이터에 크기 정보가 없을 경우를 대비해 기본값을 설정하여 맵이 잘리는 오류를 방지합니다.
+        this.canvas.width = mapData.width || 600;
+        this.canvas.height = mapData.height || 900;
+        // ====================================================================
+        // ===== 수정된 부분 (END) ============================================
+        // ====================================================================
+        document.getElementById('widthInput').value = this.canvas.width;
+        document.getElementById('heightInput').value = this.canvas.height;
         this.COLS = Math.floor(this.canvas.width / GRID_SIZE);
         this.ROWS = Math.floor(this.canvas.height / GRID_SIZE);
 
