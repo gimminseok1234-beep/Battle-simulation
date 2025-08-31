@@ -37,6 +37,7 @@ export class GameManager {
         this.initialNexusesState = [];
         this.initialMapState = [];
         this.initialGrowingFieldsState = [];
+        this.initialAutoFieldState = {};
         this.animationFrameId = null;
         this.animationFrameCounter = 0;
         this.gameSpeed = 1;
@@ -108,7 +109,6 @@ export class GameManager {
         await this.loadMapForEditing(mapId);
     }
     
-    // ▼▼▼▼▼ [수정됨] 툴바 UI 최종 수정본 ▼▼▼▼▼
     createToolboxUI() {
         const toolbox = document.getElementById('toolbox');
         if (!toolbox) return;
@@ -178,8 +178,7 @@ export class GameManager {
             </div>
         `;
     }
-    // ▲▲▲▲▲ [수정됨] 툴바 UI 최종 수정본 ▲▲▲▲▲
-
+    
     async getAllMaps() {
         if (!this.currentUser) return [];
         const mapsColRef = collection(this.db, "maps", this.currentUser.uid, "userMaps");
@@ -617,6 +616,7 @@ export class GameManager {
         this.initialUnitsState = []; this.initialWeaponsState = [];
         this.initialNexusesState = []; this.initialMapState = [];
         this.initialGrowingFieldsState = [];
+        this.initialAutoFieldState = {};
         document.getElementById('statusText').textContent = "에디터 모드";
         document.getElementById('simStartBtn').classList.remove('hidden');
         document.getElementById('simPauseBtn').classList.add('hidden');
@@ -625,6 +625,26 @@ export class GameManager {
         document.getElementById('toolbox').style.pointerEvents = 'auto';
         this.resetActionCam(true);
         this.draw();
+    }
+    
+    startSimulation() {
+        if (this.state !== 'EDIT') return;
+        this.initialUnitsState = JSON.stringify(this.units.map(u => ({...u, weapon: u.weapon ? {type: u.weapon.type} : null})));
+        this.initialWeaponsState = JSON.stringify(this.weapons.map(w => ({...w})));
+        this.initialNexusesState = JSON.stringify(this.nexuses.map(n => ({...n})));
+        this.initialMapState = JSON.stringify(this.map);
+        this.initialGrowingFieldsState = JSON.stringify(this.growingFields.map(f => ({...f})));
+        this.initialAutoFieldState = JSON.stringify(this.autoMagneticField);
+        this.initialNexusCount = this.nexuses.length;
+        this.winnerTeam = null;
+
+        this.state = 'SIMULATE';
+        document.getElementById('statusText').textContent = "시뮬레이션 진행 중...";
+        document.getElementById('simStartBtn').classList.add('hidden');
+        document.getElementById('simPauseBtn').classList.remove('hidden');
+        document.getElementById('simPlayBtn').classList.add('hidden');
+        document.getElementById('toolbox').style.pointerEvents = 'none';
+        this.gameLoop();
     }
 
     resetPlacement() {
@@ -648,6 +668,7 @@ export class GameManager {
              };
             return new GrowingMagneticField(fieldData.id, fieldData.gridX, fieldData.gridY, fieldData.width, fieldData.height, settings);
         });
+        this.autoMagneticField = JSON.parse(this.initialAutoFieldState);
         this.effects = []; this.projectiles = []; this.areaEffects = [];
         document.getElementById('statusText').textContent = "에디터 모드";
         document.getElementById('simStartBtn').classList.remove('hidden');
@@ -657,29 +678,6 @@ export class GameManager {
         document.getElementById('toolbox').style.pointerEvents = 'auto';
         this.resetActionCam(true);
         this.draw();
-    }
-
-    resetActionCam(immediate = false) {
-        this.isActionCam = false;
-        document.getElementById('actionCamToggle').checked = false;
-        
-        const target = {
-            x: this.canvas.width / 2,
-            y: this.canvas.height / 2,
-            scale: 1
-        };
-
-        if (immediate) {
-            this.actionCam.current = { ...target };
-            this.actionCam.target = { ...target };
-            this.actionCam.isAnimating = false;
-        } else if (!this.actionCam.isAnimating) {
-            this.actionCam.target = target;
-            this.actionCam.isAnimating = true;
-            if (this.state !== 'SIMULATE' && this.state !== 'PAUSED' && !this.animationFrameId) {
-                this.gameLoop();
-            }
-        }
     }
     
     selectTool(button) {
@@ -768,6 +766,7 @@ export class GameManager {
         this.initialNexusesState = JSON.stringify(this.nexuses.map(n => ({...n})));
         this.initialMapState = JSON.stringify(this.map);
         this.initialGrowingFieldsState = JSON.stringify(this.growingFields.map(f => ({...f})));
+        this.initialAutoFieldState = JSON.stringify(this.autoMagneticField);
         this.initialNexusCount = this.nexuses.length;
         this.winnerTeam = null;
 
@@ -1068,7 +1067,7 @@ export class GameManager {
                 if(tile.type === TILE.LAVA) {
                     const flicker = Math.sin(this.animationFrameCounter * 0.1 + x + y) * 10 + 10;
                     this.ctx.fillStyle = `rgba(255, 255, 0, 0.3)`;
-                    this.ctx.beginPath(); this.ctx.arc(x * GRID_SIZE + 10, y * GRID_SIZE + 10, flicker / 4, 0, Math.PI * 2); this.ctx.fill();
+                    this.ctx.beginPath(); ctx.arc(x * GRID_SIZE + 10, y * GRID_SIZE + 10, flicker / 4, 0, Math.PI * 2); ctx.fill();
                 }
                 if(tile.type === TILE.CRACKED_WALL) {
                     this.ctx.strokeStyle = 'rgba(0,0,0,0.7)'; this.ctx.lineWidth = 1.5;
@@ -1315,8 +1314,14 @@ export class GameManager {
             return new GrowingMagneticField(fieldData.id, fieldData.gridX, fieldData.gridY, fieldData.width, fieldData.height, settings);
         });
 
-        this.autoMagneticField = mapData.autoMagneticField || this.autoMagneticField;
-        this.hadokenKnockback = mapData.hadokenKnockback || this.hadokenKnockback;
+        this.autoMagneticField = mapData.autoMagneticField || {
+            isActive: false,
+            safeZoneSize: 6,
+            simulationTime: 0,
+            totalShrinkTime: 60 * 60,
+            currentBounds: { minX: 0, maxX: 0, minY: 0, maxY: 0 }
+        };
+        this.hadokenKnockback = mapData.hadokenKnockback || 15;
         
         cancelAnimationFrame(this.animationFrameId);
         this.animationFrameId = null;
@@ -1329,6 +1334,7 @@ export class GameManager {
         this.initialNexusesState = [];
         this.initialMapState = [];
         this.initialGrowingFieldsState = [];
+        this.initialAutoFieldState = {};
         document.getElementById('statusText').textContent = "에디터 모드";
         document.getElementById('simStartBtn').classList.remove('hidden');
         document.getElementById('simPauseBtn').classList.add('hidden');
