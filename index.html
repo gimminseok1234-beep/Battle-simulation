@@ -63,15 +63,14 @@
             </div>
         </div>
         <div class="flex items-start gap-4 w-full">
-            <div id="toolbox" class="bg-gray-800 p-4 rounded-lg shadow-lg flex flex-col gap-1 w-64 overflow-y-auto" style="max-height: 80vh;">
-                </div>
+            <div id="toolbox" class="bg-gray-800 p-4 rounded-lg shadow-lg flex flex-col gap-1 w-64 overflow-y-auto" style="max-height: 80vh;"></div>
             <div class="flex flex-col items-center flex-grow">
                 <canvas id="gameCanvas" class="border-2 border-gray-600 rounded-lg bg-gray-700"></canvas>
             </div>
         </div>
     </div>
 
-    <div id="newMapModal" class="modal-container hidden">
+    <div id="newMapModal" class="modal-container">
         <div class="modal-content">
             <h3 class="text-xl font-bold mb-4">새 맵 생성</h3>
             <input type="text" id="newMapName" placeholder="맵 이름" class="modal-input">
@@ -84,7 +83,7 @@
         </div>
     </div>
     
-    <div id="renameMapModal" class="modal-container hidden">
+    <div id="renameMapModal" class="modal-container">
         <div class="modal-content">
             <h3 class="text-xl font-bold mb-4">맵 이름 변경</h3>
             <input type="text" id="renameMapInput" class="modal-input">
@@ -95,7 +94,7 @@
         </div>
     </div>
 
-    <div id="deleteConfirmModal" class="modal-container hidden">
+    <div id="deleteConfirmModal" class="modal-container">
         <div class="modal-content">
             <h3 class="text-xl font-bold mb-4">삭제 확인</h3>
             <p id="deleteConfirmText" class="mb-4"></p>
@@ -106,7 +105,7 @@
         </div>
     </div>
     
-    <div id="mapSettingsModal" class="modal-container hidden">
+    <div id="mapSettingsModal" class="modal-container">
         <div class="modal-content">
             <h3 class="text-xl font-bold mb-4">맵 크기 변경</h3>
             <div class="flex items-center gap-2 mb-4">
@@ -121,7 +120,7 @@
         </div>
     </div>
     
-    <div id="growingFieldModal" class="modal-container hidden">
+    <div id="growingFieldModal" class="modal-container">
         <div class="modal-content">
             <h3 class="text-xl font-bold mb-4">성장형 자기장 설정</h3>
             <label for="fieldDirection">방향:</label>
@@ -136,7 +135,7 @@
             </div>
         </div>
     </div>
-    <div id="autoFieldModal" class="modal-container hidden">
+    <div id="autoFieldModal" class="modal-container">
         <div class="modal-content">
             <h3 class="text-xl font-bold mb-4">자동 자기장 설정</h3>
             <label class="flex items-center mb-2"><input type="checkbox" id="autoFieldActiveToggle" class="mr-2"> 활성화</label>
@@ -150,7 +149,7 @@
             </div>
         </div>
     </div>
-    <div id="hadokenModal" class="modal-container hidden">
+    <div id="hadokenModal" class="modal-container">
         <div class="modal-content">
             <h3 class="text-xl font-bold mb-4">장풍 넉백 설정</h3>
             <label for="hadokenKnockback">넉백 거리: <span id="hadokenKnockbackValue">15</span></label>
