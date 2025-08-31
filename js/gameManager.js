@@ -1297,7 +1297,14 @@ export class GameManager {
         this.ROWS = Math.floor(this.canvas.height / GRID_SIZE);
 
         if (mapData.map && typeof mapData.map === 'string') {
-            this.map = JSON.parse(mapData.map);
+            let parsedMap = JSON.parse(mapData.map);
+            // 옛날 숫자 형식의 맵 데이터와 호환되도록 변환
+            if (parsedMap.length > 0 && typeof parsedMap[0][0] === 'number') {
+                const tileTypes = Object.keys(TILE);
+                this.map = parsedMap.map(row => row.map(tileId => ({ type: tileTypes[tileId] || 'FLOOR' })));
+            } else {
+                this.map = parsedMap;
+            }
         } else {
             this.map = Array(this.ROWS).fill().map(() => Array(this.COLS).fill({ type: TILE.FLOOR, color: COLORS.FLOOR }));
         }
