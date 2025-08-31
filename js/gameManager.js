@@ -108,7 +108,7 @@ export class GameManager {
         await this.loadMapForEditing(mapId);
     }
     
-    // ▼▼▼▼▼ [수정됨] 툴바 UI 생성 순서 원복 ▼▼▼▼▼
+    // ▼▼▼▼▼ [수정됨] 툴바 UI 최종 수정본 ▼▼▼▼▼
     createToolboxUI() {
         const toolbox = document.getElementById('toolbox');
         if (!toolbox) return;
@@ -132,14 +132,22 @@ export class GameManager {
                     <button class="tool-btn flex-grow" data-tool="tile" data-type="REPLICATION_TILE">+N 복제</button>
                     <input type="number" id="replicationValue" value="${this.replicationValue}" min="1" class="modal-input w-16">
                 </div>
+                <div class="flex items-center gap-1 mt-1">
+                    <button class="tool-btn flex-grow" data-tool="growing_field">성장형 자기장</button>
+                    <button id="growingFieldSettingsBtn" class="p-2 rounded hover:bg-gray-600">⚙️</button>
+                </div>
+                <div class="flex items-center gap-1 mt-1">
+                    <button class="tool-btn flex-grow" data-tool="auto_field">자동 자기장</button>
+                    <button id="autoFieldSettingsBtn" class="p-2 rounded hover:bg-gray-600">⚙️</button>
+                </div>
             </div>
 
             <div class="category-header collapsed" data-target="category-units">유닛</div>
             <div id="category-units" class="category-content collapsed">
-                <button class="tool-btn" data-tool="unit" data-team="A">유닛 (A팀)</button>
-                <button class="tool-btn" data-tool="unit" data-team="B">유닛 (B팀)</button>
-                <button class="tool-btn" data-tool="unit" data-team="C">유닛 (C팀)</button>
-                <button class="tool-btn" data-tool="unit" data-team="D">유닛 (D팀)</button>
+                <button class="tool-btn" data-tool="unit" data-team="A">빨강 유닛</button>
+                <button class="tool-btn" data-tool="unit" data-team="B">파랑 유닛</button>
+                <button class="tool-btn" data-tool="unit" data-team="C">초록 유닛</button>
+                <button class="tool-btn" data-tool="unit" data-team="D">노랑 유닛</button>
             </div>
             
             <div class="category-header collapsed" data-target="category-weapons">무기</div>
@@ -158,22 +166,10 @@ export class GameManager {
 
             <div class="category-header collapsed" data-target="category-nexus">넥서스</div>
             <div id="category-nexus" class="category-content collapsed">
-                <button class="tool-btn" data-tool="nexus" data-team="A">넥서스 (A팀)</button>
-                <button class="tool-btn" data-tool="nexus" data-team="B">넥서스 (B팀)</button>
-                <button class="tool-btn" data-tool="nexus" data-team="C">넥서스 (C팀)</button>
-                <button class="tool-btn" data-tool="nexus" data-team="D">넥서스 (D팀)</button>
-            </div>
-
-            <div class="category-header collapsed" data-target="category-special">특수</div>
-            <div id="category-special" class="category-content collapsed">
-                <div class="flex items-center gap-1">
-                    <button class="tool-btn flex-grow" data-tool="growing_field">성장형 자기장</button>
-                    <button id="growingFieldSettingsBtn" class="p-2 rounded hover:bg-gray-600">⚙️</button>
-                </div>
-                <div class="flex items-center gap-1 mt-1">
-                    <button class="tool-btn flex-grow" data-tool="auto_field">자동 자기장</button>
-                    <button id="autoFieldSettingsBtn" class="p-2 rounded hover:bg-gray-600">⚙️</button>
-                </div>
+                <button class="tool-btn" data-tool="nexus" data-team="A">빨강 넥서스</button>
+                <button class="tool-btn" data-tool="nexus" data-team="B">파랑 넥서스</button>
+                <button class="tool-btn" data-tool="nexus" data-team="C">초록 넥서스</button>
+                <button class="tool-btn" data-tool="nexus" data-team="D">노랑 넥서스</button>
             </div>
 
             <div class="category-header bg-slate-800 collapsed" data-target="category-utils">기타</div>
@@ -182,8 +178,7 @@ export class GameManager {
             </div>
         `;
     }
-    // ▲▲▲▲▲ [수정됨] 툴바 UI 생성 순서 원복 ▲▲▲▲▲
-
+    // ▲▲▲▲▲ [수정됨] 툴바 UI 최종 수정본 ▲▲▲▲▲
 
     async getAllMaps() {
         if (!this.currentUser) return [];
@@ -520,7 +515,6 @@ export class GameManager {
             if (!this.isActionCam) this.resetActionCam(false);
         });
         
-        // ▼▼▼▼▼ [수정됨] 이벤트 위임을 사용하여 툴박스 전체 이벤트 처리 ▼▼▼▼▼
         document.getElementById('toolbox').addEventListener('click', (e) => {
             const target = e.target;
             const toolButton = target.closest('.tool-btn');
@@ -534,7 +528,7 @@ export class GameManager {
                 document.getElementById('fieldDelay').value = this.growingFieldSettings.delay;
                 document.getElementById('growingFieldModal').classList.add('show-modal');
             } else if (target.id === 'autoFieldSettingsBtn' || target.parentElement.id === 'autoFieldSettingsBtn') {
-                document.getElementById('autoFieldActiveToggle').checked = this.autoMagneticField.isActive;
+                 document.getElementById('autoFieldActiveToggle').checked = this.autoMagneticField.isActive;
                 document.getElementById('autoFieldShrinkTime').value = this.autoMagneticField.totalShrinkTime / 60;
                 document.getElementById('autoFieldSafeZoneSize').value = this.autoMagneticField.safeZoneSize;
                 document.getElementById('autoFieldModal').classList.add('show-modal');
@@ -548,9 +542,7 @@ export class GameManager {
                 content.classList.toggle('collapsed');
             }
         });
-        // ▲▲▲▲▲ [수정됨] 이벤트 위임을 사용하여 툴박스 전체 이벤트 처리 ▲▲▲▲▲
         
-        // Modal specific buttons
         document.getElementById('closeGrowingFieldModal').addEventListener('click', () => {
             this.growingFieldSettings.direction = document.getElementById('fieldDirection').value;
             this.growingFieldSettings.speed = parseFloat(document.getElementById('fieldSpeed').value);
@@ -588,7 +580,6 @@ export class GameManager {
             document.getElementById('hadokenKnockbackValue').textContent = this.hadokenKnockback;
         });
 
-        // Dynamic input listeners
         document.getElementById('toolbox').addEventListener('input', (e) => {
             if (e.target.id === 'replicationValue') this.replicationValue = parseInt(e.target.value) || 1;
             else if (e.target.id === 'wallColorPicker') {
@@ -690,7 +681,6 @@ export class GameManager {
         }
     }
     
-    // ▼▼▼▼▼ [수정됨] 툴 선택 시 불필요한 클래스 추가 로직 제거 ▼▼▼▼▼
     selectTool(button) {
         const { tool, team, type } = button.dataset;
 
@@ -699,8 +689,6 @@ export class GameManager {
 
         this.currentTool = { tool, team, type };
     }
-    // ▲▲▲▲▲ [수정됨] 툴 선택 시 불필요한 클래스 추가 로직 제거 ▲▲▲▲▲
-
 
     getMousePos(e) {
          const rect = this.canvas.getBoundingClientRect();
