@@ -81,6 +81,7 @@ export class GameManager {
 
     init() {
         if (!this.currentUser) return;
+        this.createToolboxUI(); // UI를 미리 생성
         this.setupEventListeners();
         this.showHomeScreen();
     }
@@ -110,6 +111,70 @@ export class GameManager {
 
         await this.loadMapForEditing(mapId);
     }
+
+    // =================================================================
+    // ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼ 툴바 UI 생성 코드 (추가됨) ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
+    // =================================================================
+    createToolboxUI() {
+        const toolbox = document.getElementById('toolbox');
+        if (!toolbox) return;
+
+        toolbox.innerHTML = `
+            <button class="tool-btn" data-tool="erase">지우개</button>
+            
+            <div class="category-header" data-target="tiles-content">타일</div>
+            <div id="tiles-content" class="category-content">
+                <button class="tool-btn selected" data-tool="tile" data-type="FLOOR">바닥</button>
+                <input type="color" id="floorColorPicker" value="${this.currentFloorColor}" class="w-full h-8 p-1 rounded">
+                <button class="tool-btn" data-tool="tile" data-type="WALL">벽</button>
+                <input type="color" id="wallColorPicker" value="${this.currentWallColor}" class="w-full h-8 p-1 rounded">
+                <button class="tool-btn" data-tool="tile" data-type="LAVA">용암</button>
+                <button class="tool-btn" data-tool="tile" data-type="CRACKED_WALL">부서지는 벽</button>
+                <button class="tool-btn" data-tool="tile" data-type="HEAL_PACK">회복 팩</button>
+                <button class="tool-btn" data-tool="tile" data-type="REPLICATION_TILE">복제 타일</button>
+                <input type="number" id="replicationValue" value="${this.replicationValue}" min="1" class="modal-input w-full my-1">
+                <button class="tool-btn" data-tool="tile" data-type="TELEPORTER">텔레포터</button>
+            </div>
+
+            <div class="category-header" data-target="units-content">유닛</div>
+            <div id="units-content" class="category-content collapsed">
+                <button class="tool-btn team-a" data-tool="unit" data-team="A">유닛 (A팀)</button>
+                <button class="tool-btn team-b" data-tool="unit" data-team="B">유닛 (B팀)</button>
+                <button class="tool-btn team-c" data-tool="unit" data-team="C">유닛 (C팀)</button>
+                <button class="tool-btn team-d" data-tool="unit" data-team="D">유닛 (D팀)</button>
+            </div>
+            
+            <div class="category-header" data-target="weapons-content">무기</div>
+            <div id="weapons-content" class="category-content collapsed">
+                <button class="tool-btn" data-tool="weapon" data-type="sword">검</button>
+                <button class="tool-btn" data-tool="weapon" data-type="bow">활</button>
+                <button class="tool-btn" data-tool="weapon" data-type="dual_swords">쌍검</button>
+                <button class="tool-btn" data-tool="weapon" data-type="staff">스태프</button>
+                <button class="tool-btn" data-tool="weapon" data-type="hadoken">장풍</button>
+                <button class="tool-btn" data-tool="weapon" data-type="shuriken">표창</button>
+                <button class="tool-btn" data-tool="weapon" data-type="crown">왕관</button>
+                <button id="hadokenSettingsBtn" class="tool-btn" style="display:none;">장풍 설정</button>
+            </div>
+
+            <div class="category-header" data-target="nexus-content">넥서스</div>
+            <div id="nexus-content" class="category-content collapsed">
+                <button class="tool-btn team-a" data-tool="nexus" data-team="A">넥서스 (A팀)</button>
+                <button class="tool-btn team-b" data-tool="nexus" data-team="B">넥서스 (B팀)</button>
+                <button class="tool-btn team-c" data-tool="nexus" data-team="C">넥서스 (C팀)</button>
+                <button class="tool-btn team-d" data-tool="nexus" data-team="D">넥서스 (D팀)</button>
+            </div>
+
+            <div class="category-header" data-target="special-content">특수</div>
+            <div id="special-content" class="category-content collapsed">
+                <button class="tool-btn" data-tool="growing_field">성장형 자기장</button>
+                <button id="growingFieldSettingsBtn" class="tool-btn" style="display:none;">성장형 자기장 설정</button>
+                <button id="autoFieldSettingsBtn" class="tool-btn" data-tool="auto_field">자동 자기장 설정</button>
+            </div>
+        `;
+    }
+    // =================================================================
+    // ▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲ 툴바 UI 생성 코드 (추가됨) ▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲
+    // =================================================================
 
     async getAllMaps() {
         if (!this.currentUser) return [];
@@ -389,7 +454,6 @@ export class GameManager {
             this.audioManager.toggleKillSound(e.target.checked);
         });
 
-        document.getElementById('toolbox').addEventListener('click', (e) => this.selectTool(e));
         this.canvas.addEventListener('mousedown', (e) => {
             if (this.isActionCam) {
                 if (this.actionCam.isAnimating) return;
@@ -471,8 +535,31 @@ export class GameManager {
                 });
             }
         };
+        
+        // This part needs to be delegated to the toolbox element because the buttons are dynamic
+        document.getElementById('toolbox').addEventListener('click', (e) => {
+            const button = e.target.closest('.tool-btn');
+            if (!button) return;
 
-        setupModalEvents('growingFieldModal', 'growingFieldSettingsBtn', 'closeGrowingFieldModal', () => {
+            // Handle tool selection
+            this.selectTool(e);
+
+            // Handle modal triggers
+            if (button.id === 'growingFieldSettingsBtn') {
+                document.getElementById('growingFieldModal').classList.add('show-modal');
+            } else if (button.id === 'autoFieldSettingsBtn') {
+                document.getElementById('autoFieldModal').classList.add('show-modal');
+            } else if (button.id === 'hadokenSettingsBtn') {
+                document.getElementById('hadokenModal').classList.add('show-modal');
+            } else if (e.target.closest('.category-header')) {
+                const header = e.target.closest('.category-header');
+                const content = header.nextElementSibling;
+                header.classList.toggle('collapsed');
+                content.classList.toggle('collapsed');
+            }
+        });
+        
+        setupModalEvents('growingFieldModal', null, 'closeGrowingFieldModal', () => {
             this.growingFieldSettings.direction = document.getElementById('fieldDirection').value;
             this.growingFieldSettings.speed = parseFloat(document.getElementById('fieldSpeed').value);
             this.growingFieldSettings.delay = parseInt(document.getElementById('fieldDelay').value);
@@ -484,7 +571,7 @@ export class GameManager {
             document.getElementById('fieldDelay').value = this.growingFieldSettings.delay;
         });
 
-        setupModalEvents('autoFieldModal', 'autoFieldSettingsBtn', 'closeAutoFieldModal', () => {
+        setupModalEvents('autoFieldModal', null, 'closeAutoFieldModal', () => {
             this.autoMagneticField.isActive = document.getElementById('autoFieldActiveToggle').checked;
             this.autoMagneticField.totalShrinkTime = parseFloat(document.getElementById('autoFieldShrinkTime').value) * 60;
             this.autoMagneticField.safeZoneSize = parseInt(document.getElementById('autoFieldSafeZoneSize').value);
@@ -496,7 +583,7 @@ export class GameManager {
             document.getElementById('autoFieldSafeZoneSize').value = this.autoMagneticField.safeZoneSize;
         });
 
-        setupModalEvents('hadokenModal', 'hadokenSettingsBtn', 'closeHadokenModal');
+        setupModalEvents('hadokenModal', null, 'closeHadokenModal');
         document.getElementById('hadokenKnockback').addEventListener('input', (e) => {
             this.hadokenKnockback = parseInt(e.target.value);
             document.getElementById('hadokenKnockbackValue').textContent = this.hadokenKnockback;
@@ -506,38 +593,19 @@ export class GameManager {
             document.getElementById('hadokenKnockback').value = this.hadokenKnockback;
             document.getElementById('hadokenKnockbackValue').textContent = this.hadokenKnockback;
         });
-
-
-        document.querySelectorAll('.category-header').forEach(header => {
-            header.addEventListener('click', () => {
-                const content = header.nextElementSibling;
-                header.classList.toggle('collapsed');
-                content.classList.toggle('collapsed');
-            });
-        });
         
-        const replicationInput = document.getElementById('replicationValue');
-        if (replicationInput) {
-            replicationInput.addEventListener('change', (e) => {
+        // Dynamic input listeners
+        document.getElementById('toolbox').addEventListener('input', (e) => {
+            if (e.target.id === 'replicationValue') {
                 this.replicationValue = parseInt(e.target.value) || 1;
-            });
-        }
-        
-        const wallColorPicker = document.getElementById('wallColorPicker');
-        if(wallColorPicker) {
-            wallColorPicker.addEventListener('input', (e) => {
+            } else if (e.target.id === 'wallColorPicker') {
                 this.currentWallColor = e.target.value;
                 this.draw();
-            });
-        }
-        
-        const floorColorPicker = document.getElementById('floorColorPicker');
-        if (floorColorPicker) {
-            floorColorPicker.addEventListener('input', (e) => {
+            } else if (e.target.id === 'floorColorPicker') {
                 this.currentFloorColor = e.target.value;
                 this.draw();
-            });
-        }
+            }
+        });
     }
 
     resizeCanvas(width, height) {
@@ -634,15 +702,19 @@ export class GameManager {
     selectTool(e) {
         const button = e.target.closest('.tool-btn');
         if (!button) return;
-        document.querySelectorAll('.tool-btn.selected').forEach(btn => btn.classList.remove('selected'));
         
         const { tool, team, type } = button.dataset;
 
         if(tool !== 'auto_field' && tool !== 'growing_field') { 
+             document.querySelectorAll('.tool-btn.selected').forEach(btn => btn.classList.remove('selected'));
             button.classList.add('selected');
         }
         
         this.currentTool = { tool, team, type };
+        
+        // Show/hide settings buttons based on tool selection
+        document.getElementById('hadokenSettingsBtn').style.display = (tool === 'weapon' && type === 'hadoken') ? 'block' : 'none';
+        document.getElementById('growingFieldSettingsBtn').style.display = (tool === 'growing_field') ? 'block' : 'none';
     }
 
     getMousePos(e) {
