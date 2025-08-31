@@ -431,7 +431,7 @@ export class Weapon {
         } else if (this.type === 'shuriken') {
             ctx.rotate(Math.PI / 4);
             ctx.fillStyle = '#9ca3af';
-            ctx.strokeStyle = '#4b5563';
+            ctx.strokeStyle = 'black'; // 테두리를 검은색으로 변경
             ctx.lineWidth = 2 / scale;
 
             ctx.beginPath();
