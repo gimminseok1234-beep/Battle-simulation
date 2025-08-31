@@ -56,7 +56,7 @@ export class GameManager {
             isActive: false,
             safeZoneSize: 6,
             simulationTime: 0,
-            totalShrinkTime: 60 * 60, // 60분
+            totalShrinkTime: 60 * 60,
             currentBounds: { minX: 0, maxX: 0, minY: 0, maxY: 0 }
         };
         this.hadokenKnockback = 15;
@@ -77,7 +77,7 @@ export class GameManager {
 
     init() {
         if (!this.currentUser) return;
-        this.createToolboxUI(); // UI를 먼저 생성
+        this.createToolboxUI();
         this.setupEventListeners();
         this.showHomeScreen();
     }
@@ -111,80 +111,72 @@ export class GameManager {
     createToolboxUI() {
         const toolbox = document.getElementById('toolbox');
         if (!toolbox) return;
-
-        // 원래 HTML 파일에 있던 툴박스 구조를 그대로 가져와서 생성합니다.
+        
         toolbox.innerHTML = `
-            <div>
-                <h3 class="category-header bg-teal-800" data-target="category-basic-tiles">기본 타일</h3>
-                <div id="category-basic-tiles" class="category-content" style="max-height: 500px;">
-                    <div class="flex items-center justify-between gap-2 mb-1">
-                        <button class="tool-btn flex-grow text-left p-2 rounded hover:bg-gray-700 selected" data-tool="tile" data-type="FLOOR">바닥</button>
-                        <input type="color" id="floorColorPicker" value="${this.currentFloorColor}" title="바닥 색상 선택">
-                    </div>
-                    <div class="flex items-center justify-between gap-2">
-                        <button class="tool-btn flex-grow text-left p-2 rounded hover:bg-gray-700" data-tool="tile" data-type="WALL">벽</button>
-                        <input type="color" id="wallColorPicker" value="${this.currentWallColor}" title="벽 색상 선택">
-                    </div>
+            <div class="category-header bg-slate-800" data-target="category-utils">기타</div>
+            <div id="category-utils" class="category-content">
+                <button class="tool-btn" data-tool="erase">지우개</button>
+            </div>
+
+            <div class="category-header" data-target="category-basic-tiles">기본 타일</div>
+            <div id="category-basic-tiles" class="category-content">
+                <button class="tool-btn selected" data-tool="tile" data-type="FLOOR">바닥</button>
+                <input type="color" id="floorColorPicker" value="${this.currentFloorColor}" class="w-full h-8 p-1 rounded my-1">
+                <button class="tool-btn" data-tool="tile" data-type="WALL">벽</button>
+                <input type="color" id="wallColorPicker" value="${this.currentWallColor}" class="w-full h-8 p-1 rounded my-1">
+            </div>
+
+            <div class="category-header collapsed" data-target="category-special-tiles">특수 타일</div>
+            <div id="category-special-tiles" class="category-content collapsed">
+                <button class="tool-btn" data-tool="tile" data-type="LAVA">용암</button>
+                <button class="tool-btn" data-tool="tile" data-type="CRACKED_WALL">부서지는 벽</button>
+                <button class="tool-btn" data-tool="tile" data-type="HEAL_PACK">회복 팩</button>
+                <button class="tool-btn" data-tool="tile" data-type="TELEPORTER">텔레포터</button>
+                <div class="flex items-center gap-2 mt-1">
+                    <button class="tool-btn flex-grow" data-tool="tile" data-type="REPLICATION_TILE">+N 복제</button>
+                    <input type="number" id="replicationValue" value="${this.replicationValue}" min="1" class="modal-input w-16">
                 </div>
             </div>
-            <div>
-                <h3 class="category-header bg-sky-800 collapsed" data-target="category-special-tiles">특수 타일</h3>
-                <div id="category-special-tiles" class="category-content collapsed">
-                    <button class="tool-btn w-full text-left p-2 rounded hover:bg-gray-700" data-tool="tile" data-type="CRACKED_WALL">금 간 벽</button>
-                    <button class="tool-btn w-full text-left p-2 rounded hover:bg-gray-700" data-tool="tile" data-type="LAVA">용암</button>
-                    <button class="tool-btn w-full text-left p-2 rounded hover:bg-gray-700" data-tool="tile" data-type="TELEPORTER">순간이동</button>
-                    <button class="tool-btn w-full text-left p-2 rounded hover:bg-gray-700" data-tool="tile" data-type="HEAL_PACK">힐 팩</button>
-                    <div class="flex items-center gap-1 mt-1">
-                        <button class="tool-btn flex-grow text-left p-2 rounded hover:bg-gray-700" data-tool="growing_field">성장형 자기장</button>
-                        <button id="growingFieldSettingsBtn" class="p-2 rounded hover:bg-gray-600">⚙️</button>
-                    </div>
-                    <div class="flex items-center gap-1 mt-1">
-                        <button class="tool-btn flex-grow text-left p-2 rounded hover:bg-gray-700" data-tool="auto_field">자동 자기장</button>
-                        <button id="autoFieldSettingsBtn" class="p-2 rounded hover:bg-gray-600">⚙️</button>
-                    </div>
-                    <div class="flex items-center gap-2 mt-2">
-                        <button class="tool-btn w-full text-left p-2 rounded hover:bg-gray-700" data-tool="tile" data-type="REPLICATION_TILE">+N 복제</button>
-                        <input type="number" id="replicationValue" value="2" class="p-1 rounded w-16 bg-gray-700 border-gray-600">
-                    </div>
-                </div>
+
+            <div class="category-header collapsed" data-target="category-units">유닛</div>
+            <div id="category-units" class="category-content collapsed">
+                <button class="tool-btn team-a" data-tool="unit" data-team="A">유닛 (A팀)</button>
+                <button class="tool-btn team-b" data-tool="unit" data-team="B">유닛 (B팀)</button>
+                <button class="tool-btn team-c" data-tool="unit" data-team="C">유닛 (C팀)</button>
+                <button class="tool-btn team-d" data-tool="unit" data-team="D">유닛 (D팀)</button>
             </div>
-            <div>
-                <h3 class="category-header bg-purple-800 collapsed" data-target="category-structures">구조물</h3>
-                <div id="category-structures" class="category-content collapsed">
-                    <button class="tool-btn team-a w-full text-left p-2 rounded hover:bg-red-500" data-tool="nexus" data-team="A">빨강 넥서스</button>
-                    <button class="tool-btn team-b w-full text-left p-2 rounded hover:bg-blue-500" data-tool="nexus" data-team="B">파랑 넥서스</button>
-                    <button class="tool-btn team-c w-full text-left p-2 rounded hover:bg-green-500" data-tool="nexus" data-team="C">초록 넥서스</button>
-                    <button class="tool-btn team-d w-full text-left p-2 rounded hover:bg-yellow-500" data-tool="nexus" data-team="D">노랑 넥서스</button>
+            
+            <div class="category-header collapsed" data-target="category-weapons">무기</div>
+            <div id="category-weapons" class="category-content collapsed">
+                <button class="tool-btn" data-tool="weapon" data-type="sword">검</button>
+                <button class="tool-btn" data-tool="weapon" data-type="bow">활</button>
+                <button class="tool-btn" data-tool="weapon" data-type="dual_swords">쌍검</button>
+                <button class="tool-btn" data-tool="weapon" data-type="staff">스태프</button>
+                <div class="flex items-center gap-1">
+                    <button class="tool-btn flex-grow" data-tool="weapon" data-type="hadoken">장풍</button>
+                    <button id="hadokenSettingsBtn" class="p-2 rounded hover:bg-gray-600">⚙️</button>
                 </div>
+                <button class="tool-btn" data-tool="weapon" data-type="shuriken">표창</button>
+                <button class="tool-btn" data-tool="weapon" data-type="crown">왕관</button>
             </div>
-            <div>
-                <h3 class="category-header bg-rose-800 collapsed" data-target="category-units">유닛</h3>
-                <div id="category-units" class="category-content collapsed">
-                    <button class="tool-btn team-a w-full text-left p-2 rounded hover:bg-red-500" data-tool="unit" data-team="A">빨강 유닛</button>
-                    <button class="tool-btn team-b w-full text-left p-2 rounded hover:bg-blue-500" data-tool="unit" data-team="B">파랑 유닛</button>
-                    <button class="tool-btn team-c w-full text-left p-2 rounded hover:bg-green-500" data-tool="unit" data-team="C">초록 유닛</button>
-                    <button class="tool-btn team-d w-full text-left p-2 rounded hover:bg-yellow-500" data-tool="unit" data-team="D">노랑 유닛</button>
+
+            <div class="category-header collapsed" data-target="category-nexus">넥서스</div>
+            <div id="category-nexus" class="category-content collapsed">
+                <button class="tool-btn team-a" data-tool="nexus" data-team="A">넥서스 (A팀)</button>
+                <button class="tool-btn team-b" data-tool="nexus" data-team="B">넥서스 (B팀)</button>
+                <button class="tool-btn team-c" data-tool="nexus" data-team="C">넥서스 (C팀)</button>
+                <button class="tool-btn team-d" data-tool="nexus" data-team="D">넥서스 (D팀)</button>
+            </div>
+
+            <div class="category-header collapsed" data-target="category-special">특수</div>
+            <div id="category-special" class="category-content collapsed">
+                <div class="flex items-center gap-1">
+                    <button class="tool-btn flex-grow" data-tool="growing_field">성장형 자기장</button>
+                    <button id="growingFieldSettingsBtn" class="p-2 rounded hover:bg-gray-600">⚙️</button>
                 </div>
-            </div>
-            <div>
-                <h3 class="category-header bg-indigo-800 collapsed" data-target="category-objects">무기</h3>
-                <div id="category-objects" class="category-content collapsed">
-                    <button class="tool-btn w-full text-left p-2 rounded hover:bg-gray-700" data-tool="weapon" data-type="sword">검</button>
-                    <button class="tool-btn w-full text-left p-2 rounded hover:bg-gray-700" data-tool="weapon" data-type="bow">활</button>
-                    <button class="tool-btn w-full text-left p-2 rounded hover:bg-gray-700" data-tool="weapon" data-type="dual_swords">쌍검</button>
-                    <button class="tool-btn w-full text-left p-2 rounded hover:bg-gray-700" data-tool="weapon" data-type="staff">지팡이</button>
-                    <div class="flex items-center gap-1">
-                        <button class="tool-btn flex-grow text-left p-2 rounded hover:bg-gray-700" data-tool="weapon" data-type="hadoken">장풍</button>
-                        <button id="hadokenSettingsBtn" class="p-2 rounded hover:bg-gray-600">⚙️</button>
-                    </div>
-                    <button class="tool-btn w-full text-left p-2 rounded hover:bg-gray-700" data-tool="weapon" data-type="shuriken">표창</button>
-                    <button class="tool-btn w-full text-left p-2 rounded hover:bg-gray-700" data-tool="weapon" data-type="crown">왕관</button>
-                </div>
-            </div>
-            <div>
-                <h3 class="category-header bg-slate-800 collapsed" data-target="category-utils">기타</h3>
-                <div id="category-utils" class="category-content collapsed">
-                     <button class="tool-btn w-full text-left p-2 rounded hover:bg-gray-700" data-tool="erase">지우개</button>
+                <div class="flex items-center gap-1 mt-1">
+                    <button class="tool-btn flex-grow" data-tool="auto_field">자동 자기장</button>
+                    <button id="autoFieldSettingsBtn" class="p-2 rounded hover:bg-gray-600">⚙️</button>
                 </div>
             </div>
         `;
@@ -413,7 +405,8 @@ export class GameManager {
             deleteConfirmModal.classList.remove('show-modal');
         };
     }
-
+    
+    // ▼▼▼▼▼ [수정됨] 이벤트 리스너 설정 함수 ▼▼▼▼▼
     setupEventListeners() {
         // Modal buttons
         document.getElementById('cancelNewMapBtn').addEventListener('click', () => document.getElementById('newMapModal').classList.remove('show-modal'));
@@ -482,38 +475,28 @@ export class GameManager {
                     this.actionCam.target.scale = 1;
                 }
                 this.actionCam.isAnimating = true;
-                if (this.state !== 'SIMULATE' && !this.animationFrameId) {
-                    this.gameLoop();
-                }
+                if (this.state !== 'SIMULATE' && !this.animationFrameId) this.gameLoop();
                 return;
             }
-
             if (this.state === 'EDIT') {
                 const pos = this.getMousePos(e);
                 this.isPainting = true;
-                if (this.currentTool.tool === 'growing_field') {
-                    this.dragStartPos = pos;
-                } else {
-                    this.applyTool(pos);
-                }
+                if (this.currentTool.tool === 'growing_field') this.dragStartPos = pos;
+                else this.applyTool(pos);
             }
         });
         this.canvas.addEventListener('mouseup', (e) => {
             if (this.state === 'EDIT' && this.currentTool.tool === 'growing_field' && this.dragStartPos) {
-                const pos = this.getMousePos(e);
-                this.applyTool(pos);
+                this.applyTool(this.getMousePos(e));
             }
             this.isPainting = false;
             this.dragStartPos = null;
         });
         this.canvas.addEventListener('mousemove', (e) => {
             if (this.isPainting && this.state === 'EDIT' && this.currentTool.tool !== 'growing_field') {
-                const pos = this.getMousePos(e);
-                this.applyTool(pos);
+                this.applyTool(this.getMousePos(e));
             }
-            if (this.state === 'EDIT' && this.dragStartPos) {
-                this.draw(e);
-            }
+            if (this.state === 'EDIT' && this.dragStartPos) this.draw(e);
         });
         this.canvas.addEventListener('mouseleave', () => {
             this.isPainting = false;
@@ -532,39 +515,43 @@ export class GameManager {
         });
         document.getElementById('actionCamToggle').addEventListener('change', (e) => {
             this.isActionCam = e.target.checked;
-            if (!this.isActionCam) {
-                this.resetActionCam(false);
-            }
+            if (!this.isActionCam) this.resetActionCam(false);
         });
 
         // ** Event Delegation for Toolbox **
         document.getElementById('toolbox').addEventListener('click', (e) => {
-            const toolButton = e.target.closest('.tool-btn');
-            const categoryHeader = e.target.closest('.category-header');
-
+            const target = e.target;
+            const toolButton = target.closest('.tool-btn');
+            const categoryHeader = target.closest('.category-header');
+            
             if (toolButton) {
-                this.selectTool(toolButton);
-                // Modal triggers
-                if (toolButton.id === 'growingFieldSettingsBtn') {
-                     document.getElementById('growingFieldModal').classList.add('show-modal');
-                } else if (toolButton.id === 'autoFieldSettingsBtn') {
+                 // 설정 버튼 클릭 처리
+                if (target.id === 'growingFieldSettingsBtn' || target.parentElement.id === 'growingFieldSettingsBtn') {
+                    document.getElementById('fieldDirection').value = this.growingFieldSettings.direction;
+                    document.getElementById('fieldSpeed').value = this.growingFieldSettings.speed;
+                    document.getElementById('fieldDelay').value = this.growingFieldSettings.delay;
+                    document.getElementById('growingFieldModal').classList.add('show-modal');
+                } else if (target.id === 'autoFieldSettingsBtn' || target.parentElement.id === 'autoFieldSettingsBtn') {
+                     document.getElementById('autoFieldActiveToggle').checked = this.autoMagneticField.isActive;
+                    document.getElementById('autoFieldShrinkTime').value = this.autoMagneticField.totalShrinkTime / 60;
+                    document.getElementById('autoFieldSafeZoneSize').value = this.autoMagneticField.safeZoneSize;
                     document.getElementById('autoFieldModal').classList.add('show-modal');
-                } else if (toolButton.id === 'hadokenSettingsBtn') {
+                } else if (target.id === 'hadokenSettingsBtn' || target.parentElement.id === 'hadokenSettingsBtn') {
+                    document.getElementById('hadokenKnockback').value = this.hadokenKnockback;
+                    document.getElementById('hadokenKnockbackValue').textContent = this.hadokenKnockback;
                     document.getElementById('hadokenModal').classList.add('show-modal');
+                } else {
+                    // 일반 툴 버튼 선택 처리
+                    this.selectTool(toolButton);
                 }
             } else if (categoryHeader) {
                 const content = categoryHeader.nextElementSibling;
                 categoryHeader.classList.toggle('collapsed');
                 content.classList.toggle('collapsed');
-                if (content.classList.contains('collapsed')) {
-                    content.style.maxHeight = '0';
-                } else {
-                    content.style.maxHeight = content.scrollHeight + "px";
-                }
             }
         });
-        
-        // Modal specific buttons that are outside the toolbox
+
+        // Modal specific buttons
         document.getElementById('closeGrowingFieldModal').addEventListener('click', () => {
             this.growingFieldSettings.direction = document.getElementById('fieldDirection').value;
             this.growingFieldSettings.speed = parseFloat(document.getElementById('fieldSpeed').value);
@@ -602,19 +589,17 @@ export class GameManager {
             document.getElementById('hadokenKnockbackValue').textContent = this.hadokenKnockback;
         });
 
-        // Dynamic input listeners using delegation
+        // Dynamic input listeners
         document.getElementById('toolbox').addEventListener('input', (e) => {
-            if (e.target.id === 'replicationValue') {
-                this.replicationValue = parseInt(e.target.value) || 1;
-            } else if (e.target.id === 'wallColorPicker') {
-                this.currentWallColor = e.target.value;
-                this.draw();
+            if (e.target.id === 'replicationValue') this.replicationValue = parseInt(e.target.value) || 1;
+            else if (e.target.id === 'wallColorPicker') {
+                this.currentWallColor = e.target.value; this.draw();
             } else if (e.target.id === 'floorColorPicker') {
-                this.currentFloorColor = e.target.value;
-                this.draw();
+                this.currentFloorColor = e.target.value; this.draw();
             }
         });
     }
+    // ▲▲▲▲▲ [수정됨] 이벤트 리스너 설정 함수 ▲▲▲▲▲
 
     resizeCanvas(width, height) {
         this.canvas.width = width;
@@ -706,16 +691,20 @@ export class GameManager {
             }
         }
     }
-
+    
+    // ▼▼▼▼▼ [수정됨] 툴 선택 로직 ▼▼▼▼▼
     selectTool(button) {
         const { tool, team, type } = button.dataset;
 
-        // 선택된 툴에만 'selected' 클래스 적용
-        document.querySelectorAll('.tool-btn.selected').forEach(btn => btn.classList.remove('selected'));
+        // 모든 버튼에서 'selected' 클래스 제거
+        document.querySelectorAll('#toolbox .tool-btn').forEach(btn => btn.classList.remove('selected'));
+        
+        // 클릭한 버튼에만 'selected' 클래스 추가
         button.classList.add('selected');
 
         this.currentTool = { tool, team, type };
     }
+    // ▲▲▲▲▲ [수정됨] 툴 선택 로직 ▲▲▲▲▲
 
     getMousePos(e) {
          const rect = this.canvas.getBoundingClientRect();
