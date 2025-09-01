@@ -1,6 +1,6 @@
 import { getFirestore, collection, doc, getDoc, getDocs, setDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/10.9.0/firebase-firestore.js";
 import { AudioManager } from './audioManager.js';
-import { Unit, Weapon, Nexus, Projectile, AreaEffect, Effect, GrowingMagneticField } from './gameEntities.js';
+import { Unit, Weapon, Nexus, Projectile, AreaEffect, Effect, GrowingMagneticField, MagicCircle } from './gameEntities.js';
 import { TILE, TEAM, COLORS, GRID_SIZE } from './constants.js';
 
 let instance = null;
@@ -1226,9 +1226,9 @@ export class GameManager {
             weapon.attackRangeBonus = 6 * GRID_SIZE;
             weapon.attackCooldownBonus = -20;
         } else if (type === 'magic_gun') {
-            weapon.attackRangeBonus = 5 * GRID_SIZE; // 활과 동일한 사거리
-            weapon.normalAttackPowerBonus = 5; // 일반 공격력 (활보다 낮음)
-            weapon.specialAttackPowerBonus = 15; // 특수 공격력 (활보다 높음)
+            weapon.attackRangeBonus = 5 * GRID_SIZE;
+            weapon.normalAttackPowerBonus = 5;
+            weapon.specialAttackPowerBonus = 15;
         } else if (type === 'crown') {
             weapon.attackPowerBonus = 5;
         }
