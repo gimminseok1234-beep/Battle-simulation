@@ -1004,10 +1004,9 @@ export class GameManager {
                 for (const otherUnit of this.units) {
                     if (otherUnit !== primaryTarget && otherUnit.team !== p.owner.team) {
                         const dist = Math.hypot(primaryTarget.pixelX - otherUnit.pixelX, primaryTarget.pixelY - otherUnit.pixelY);
-                        if (dist < GRID_SIZE * 2) { // 2칸 거리 내의 적에게 전이
-                            otherUnit.takeDamage(p.damage * 0.5); // 50% 데미지
+                        if (dist < GRID_SIZE * 3.5) { // 전이 사거리 3.5칸으로 증가
+                            otherUnit.takeDamage(p.damage * 0.7); // 전이 데미지 70%로 증가
                             this.createEffect('chain_lightning', primaryTarget.pixelX, primaryTarget.pixelY, otherUnit);
-                            break; // 한 번만 전이
                         }
                     }
                 }
@@ -1207,7 +1206,7 @@ export class GameManager {
         } else if (type === 'lightning') {
             weapon.attackPowerBonus = 8; 
             weapon.attackRangeBonus = 6 * GRID_SIZE;
-            weapon.attackCooldownBonus = -20; // 80 - 20 = 60 frames (1초)
+            weapon.attackCooldownBonus = -20;
         } else if (type === 'crown') {
             weapon.attackPowerBonus = 5;
         }
