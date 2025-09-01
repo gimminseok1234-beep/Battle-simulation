@@ -686,26 +686,31 @@ export class Weapon {
         ctx.rotate(rotation);
         ctx.scale(scale, scale);
     
-        const grad = ctx.createLinearGradient(-GRID_SIZE, -GRID_SIZE, GRID_SIZE, GRID_SIZE);
+        const grad = ctx.createLinearGradient(0, -GRID_SIZE, 0, GRID_SIZE);
         grad.addColorStop(0, '#fef08a'); 
         grad.addColorStop(1, '#facc15'); 
     
         ctx.fillStyle = grad;
         ctx.strokeStyle = '#18181b'; 
-        ctx.lineWidth = 2 / scale;
+        ctx.lineWidth = 2.5 / scale;
         ctx.lineJoin = 'round';
+        ctx.lineCap = 'round';
     
-        // 'ㄱ' shape design with increased thickness and reduced size
-        const armLength = GRID_SIZE * 1.2;
-        const thickness = GRID_SIZE * 0.4;
+        // 사진 기반의 새로운 V자형 부메랑 디자인
+        const tipX = GRID_SIZE * 1.1;
+        const tipY = -GRID_SIZE * 0.6;
+        const centerPointY = GRID_SIZE * 0.5;
+        const topControlY = -GRID_SIZE * 0.9;
     
         ctx.beginPath();
-        ctx.moveTo(0, -armLength);
-        ctx.lineTo(thickness, -armLength);
-        ctx.lineTo(thickness, -thickness);
-        ctx.lineTo(armLength, -thickness);
-        ctx.lineTo(armLength, 0);
-        ctx.lineTo(0, 0);
+        // 중앙 하단 지점에서 시작
+        ctx.moveTo(0, centerPointY);
+        // 왼쪽 끝으로 곡선
+        ctx.quadraticCurveTo(-tipX * 0.5, centerPointY * 0.2, -tipX, tipY);
+        // 왼쪽 끝에서 중앙 상단 제어점을 거쳐 오른쪽 끝으로 곡선
+        ctx.quadraticCurveTo(0, topControlY, tipX, tipY);
+        // 다시 중앙 하단 지점으로 곡선
+        ctx.quadraticCurveTo(tipX * 0.5, centerPointY * 0.2, 0, centerPointY);
         ctx.closePath();
         
         ctx.fill();
