@@ -159,7 +159,7 @@ export class GameManager {
                 <button class="tool-btn" data-tool="weapon" data-type="dual_swords">쌍검</button>
                 <button class="tool-btn" data-tool="weapon" data-type="staff">스태프</button>
                 <button class="tool-btn" data-tool="weapon" data-type="lightning">번개</button>
-                <button class="tool-btn" data-tool="weapon" data-type="magic_gun">마법총</button>
+                <button class="tool-btn" data-tool="weapon" data-type="magic_spear">마법창</button>
                 <button class="tool-btn" data-tool="weapon" data-type="poison_potion">독 포션</button>
                 <div class="flex items-center gap-1">
                     <button class="tool-btn flex-grow" data-tool="weapon" data-type="hadoken">장풍</button>
@@ -1203,7 +1203,7 @@ export class GameManager {
             weapon.attackPowerBonus = 8; 
             weapon.attackRangeBonus = 6 * GRID_SIZE;
             weapon.attackCooldownBonus = -20;
-        } else if (type === 'magic_gun') {
+        } else if (type === 'magic_spear') {
             weapon.attackRangeBonus = 5 * GRID_SIZE;
             weapon.normalAttackPowerBonus = 5;
             weapon.specialAttackPowerBonus = 15;
@@ -1241,18 +1241,17 @@ export class GameManager {
     createEffect(type, x, y, target, options = {}) { this.effects.push(new Effect(x, y, type, target, options)); }
     createProjectile(owner, target, type) { this.projectiles.push(new Projectile(owner, target, type)); }
     
-    castAreaSpell(pos, type, options = {}, team = null) {
-        let spellOptions = {};
-        if (typeof options !== 'object' || options === null) {
-            spellOptions = { damage: options, ownerTeam: team };
-        } else {
-            spellOptions = options;
-        }
-
+    castAreaSpell(pos, type, ...args) {
         if (type === 'poison_cloud') {
-            this.poisonClouds.push(new PoisonCloud(pos.x, pos.y, spellOptions.ownerTeam));
+            const ownerTeam = args[0];
+            this.poisonClouds.push(new PoisonCloud(pos.x, pos.y, ownerTeam));
+        } else if (type === 'fire_pillar') {
+            const damage = args[0];
+            const ownerTeam = args[1];
+            this.areaEffects.push(new AreaEffect(pos.x, pos.y, type, { damage, ownerTeam }));
         } else {
-            this.areaEffects.push(new AreaEffect(pos.x, pos.y, type, spellOptions));
+            const options = args[0] || {};
+            this.areaEffects.push(new AreaEffect(pos.x, pos.y, type, options));
         }
     }
 
@@ -1425,4 +1424,3 @@ export class GameManager {
         this.draw();
     }
 }
-
