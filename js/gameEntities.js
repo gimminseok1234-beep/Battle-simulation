@@ -1157,6 +1157,15 @@ export class Unit {
         }
     }
 
+    handleDeath() {
+        const gameManager = GameManager.getInstance();
+        if (!gameManager) return;
+
+        if (this.weapon && this.weapon.type === 'poison_potion') {
+            gameManager.castAreaSpell({ x: this.pixelX, y: this.pixelY }, 'poison_cloud', this.team);
+        }
+    }
+
     update(enemies, weapons, projectiles) {
         const gameManager = GameManager.getInstance();
         if (!gameManager) return;
@@ -1407,7 +1416,9 @@ export class Unit {
                         attackDistance = GRID_SIZE * 0.5;
                     }
                     if (this.weapon && this.weapon.type === 'boomerang') {
-                        attackDistance = this.target instanceof Nexus ? this.baseAttackRange : this.attackRange;
+                        if (this.target instanceof Nexus || this.boomerangCooldown > 0) {
+                            attackDistance = this.baseAttackRange;
+                        }
                     }
                     if (Math.hypot(this.pixelX - this.target.pixelX, this.pixelY - this.target.pixelY) <= attackDistance) {
                         this.moveTarget = null;
@@ -1656,16 +1667,9 @@ export class Unit {
         
         let skillBarY = hpBarY - 6;
         let specialSkillDrawn = false;
-        
-        // 특수 스킬 쿨타임 바 (회색 계열)
-        if (this.isCasting) {
-            // 캐스팅 바는 특수 스킬 바 위치에 표시
-            ctx.fillStyle = '#0c4a6e';
-            ctx.fillRect(hpBarX, skillBarY, hpBarWidth, 4);
-            ctx.fillStyle = '#38bdf8';
-            ctx.fillRect(hpBarX, skillBarY, hpBarWidth * (this.castingProgress / this.castDuration), 4);
-            specialSkillDrawn = true;
-        } else if (this.isKing && this.spawnCooldown > 0) {
+
+        // 특수 스킬 쿨타임 바 (회색 계열 또는 특정 색상)
+        if (this.isKing && this.spawnCooldown > 0) {
             ctx.fillStyle = '#78350f';
             ctx.fillRect(hpBarX, skillBarY, hpBarWidth, 4);
             ctx.fillStyle = '#f97316';
@@ -1689,19 +1693,21 @@ export class Unit {
             ctx.fillStyle = '#94a3b8';
             ctx.fillRect(hpBarX, skillBarY, hpBarWidth * ((300 - this.shurikenSkillCooldown) / 300), 4);
             specialSkillDrawn = true;
+        } else if (this.isCasting) {
+             ctx.fillStyle = '#0c4a6e';
+             ctx.fillRect(hpBarX, skillBarY, hpBarWidth, 4);
+             ctx.fillStyle = '#38bdf8';
+             ctx.fillRect(hpBarX, skillBarY, hpBarWidth * (this.castingProgress / this.castDuration), 4);
+             specialSkillDrawn = true;
         }
 
-        // 특수 스킬 바가 그려졌다면, 일반 공격 바는 그 위에 위치
-        if (specialSkillDrawn) {
-            skillBarY -= 5;
-        }
-
-        // 일반 공격 쿨타임 바 (파란색) - 캐스팅 중이 아닐 때만 표시
+        // 일반 공격 쿨타임 바 (파란색)
+        let attackBarY = specialSkillDrawn ? skillBarY - 5 : skillBarY;
         if (!this.isCasting && this.attackCooldown > 0) {
             ctx.fillStyle = '#0c4a6e';
-            ctx.fillRect(hpBarX, skillBarY, hpBarWidth, 4);
+            ctx.fillRect(hpBarX, attackBarY, hpBarWidth, 4);
             ctx.fillStyle = '#38bdf8';
-            ctx.fillRect(hpBarX, skillBarY, hpBarWidth * ((this.cooldownTime - this.attackCooldown) / this.cooldownTime), 4);
+            ctx.fillRect(hpBarX, attackBarY, hpBarWidth * ((this.cooldownTime - this.attackCooldown) / this.cooldownTime), 4);
         }
 
         if (this.alertedCounter > 0 && !(this.weapon && (this.weapon.type === 'shuriken' || this.weapon.type === 'lightning')) && this.state !== 'FLEEING_FIELD') {
