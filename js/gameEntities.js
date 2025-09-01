@@ -516,7 +516,6 @@ export class Weapon {
 
     drawMagicGun(ctx, scale = 1.0) {
         ctx.save();
-        ctx.rotate(Math.PI);
         ctx.rotate(-Math.PI / 8);
         ctx.scale(scale, scale);
     
