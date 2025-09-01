@@ -741,7 +741,7 @@ export class GameManager {
             this.map[y][x] = { type: TILE.FLOOR, color: this.currentFloorColor };
             this.units = this.units.filter(u => u.gridX !== x || u.gridY !== y);
             this.weapons = this.weapons.filter(w => w.gridX !== x || w.gridY !== y);
-            this.nexuses = this.nexuses.filter(n => n.gridX !== x || n.gridY !== y);
+            this.nexuses = this.nexuses.filter(n => n.gridX !== x || u.gridY !== y);
             this.growingFields = this.growingFields.filter(zone => !(x >= zone.gridX && x < zone.gridX + zone.width && y >= zone.gridY && y < zone.gridY + zone.height));
             this.draw();
             return;
@@ -1222,7 +1222,7 @@ export class GameManager {
             weapon.attackRangeBonus = 7 * GRID_SIZE; // 활보다 2칸 긴 사거리
             weapon.detectionRangeBonus = 6 * GRID_SIZE;
         } else if (type === 'poison_potion') {
-            weapon.attackPowerBonus = 0.3; // 초당 독 데미지
+            weapon.attackPowerBonus = 10; // 일반 공격 데미지 15
             weapon.attackRangeBonus = 5 * GRID_SIZE;
             weapon.detectionRangeBonus = 4 * GRID_SIZE;
         } else if (type === 'crown') {
@@ -1253,9 +1253,7 @@ export class GameManager {
     }
     
     createEffect(type, x, y, target, options = {}) { this.effects.push(new Effect(x, y, type, target, options)); }
-    createProjectile(owner, target, type, options = {}) { 
-        this.projectiles.push(new Projectile(owner, target, type, options)); 
-    }
+    createProjectile(owner, target, type, options = {}) { this.projectiles.push(new Projectile(owner, target, type, options)); }
     
     castAreaSpell(pos, type, ...args) {
         if (type === 'poison_cloud') {
@@ -1440,3 +1438,4 @@ export class GameManager {
         this.draw();
     }
 }
+
