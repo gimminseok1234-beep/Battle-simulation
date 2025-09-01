@@ -65,7 +65,7 @@ export class PoisonCloud {
         this.pixelY = y;
         this.ownerTeam = ownerTeam;
         this.duration = 300; // 5초
-        this.damage = 0.15; // 초당 데미지 감소
+        this.damage = 0.25; // 초당 데미지 상향
         this.animationTimer = 0;
     }
 
@@ -622,7 +622,7 @@ export class Weapon {
     draw(ctx) {
         if (this.isEquipped) return;
         const centerX = this.pixelX; const centerY = this.pixelY;
-        const scale = (this.type === 'crown') ? 1.0 : (this.type === 'lightning' ? 0.6 : (this.type === 'magic_gun' ? 0.6 : (this.type === 'poison_potion' ? 0.55 : 0.8)));
+        const scale = (this.type === 'crown') ? 1.0 : (this.type === 'lightning' ? 0.6 : (this.type === 'magic_gun' ? 0.6 : (this.type === 'poison_potion' ? 0.52 : 0.8))); // 0.4 * 1.3 = 0.52
         ctx.save(); ctx.translate(centerX, centerY); ctx.scale(scale, scale);
         ctx.strokeStyle = 'black'; ctx.lineWidth = 1 / scale;
 
