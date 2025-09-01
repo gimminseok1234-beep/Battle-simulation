@@ -26,15 +26,17 @@ export class MagicCircle {
         ctx.scale(scale, scale);
         ctx.globalAlpha = opacity;
 
-        const glowGradient = ctx.createRadialGradient(0, 0, GRID_SIZE * 0.5, 0, 0, GRID_SIZE * 1.5);
+        // 외부 빛 효과
+        const glowGradient = ctx.createRadialGradient(0, 0, GRID_SIZE * 0.35, 0, 0, GRID_SIZE * 1.05);
         glowGradient.addColorStop(0, 'rgba(192, 132, 252, 0.6)');
         glowGradient.addColorStop(1, 'rgba(192, 132, 252, 0)');
         ctx.fillStyle = glowGradient;
-        ctx.fillRect(-GRID_SIZE * 1.5, -GRID_SIZE * 1.5, GRID_SIZE * 3, GRID_SIZE * 3);
+        ctx.fillRect(-GRID_SIZE * 1.05, -GRID_SIZE * 1.05, GRID_SIZE * 2.1, GRID_SIZE * 2.1);
 
+        // 중앙 원
         ctx.fillStyle = '#a855f7';
         ctx.beginPath();
-        ctx.arc(0, 0, GRID_SIZE * 0.6, 0, Math.PI * 2);
+        ctx.arc(0, 0, GRID_SIZE * 0.42, 0, Math.PI * 2);
         ctx.fill();
 
         switch(this.team) {
@@ -46,12 +48,12 @@ export class MagicCircle {
         }
         ctx.lineWidth = 3;
         ctx.beginPath();
-        ctx.arc(0, 0, GRID_SIZE * 0.9, 0, Math.PI * 2);
+        ctx.arc(0, 0, GRID_SIZE * 0.63, 0, Math.PI * 2);
         ctx.stroke();
 
         ctx.lineWidth = 1;
         ctx.beginPath();
-        ctx.arc(0, 0, GRID_SIZE * 1.1, 0, Math.PI * 2);
+        ctx.arc(0, 0, GRID_SIZE * 0.77, 0, Math.PI * 2);
         ctx.stroke();
         
         ctx.restore();
@@ -1114,10 +1116,10 @@ export class Unit {
         const gameManager = GameManager.getInstance();
         if (!gameManager) return;
         
-        ctx.save(); // 전체 유닛 그리기를 위해 저장
+        ctx.save();
 
         if (this.isStunned > 0) {
-            ctx.globalAlpha = 0.7; // 기절 시 약간 투명하게
+            ctx.globalAlpha = 0.7;
         }
 
         switch(this.team) {
@@ -1129,7 +1131,7 @@ export class Unit {
         ctx.beginPath(); ctx.arc(this.pixelX, this.pixelY, GRID_SIZE / 2.5, 0, Math.PI * 2); ctx.fill();
         ctx.strokeStyle = 'black'; ctx.lineWidth = 1; ctx.stroke();
         
-        ctx.restore(); // 유닛 몸체 그린 후 복원
+        ctx.restore(); 
         
         if (this.isStunned > 0) {
             ctx.save();
@@ -1210,7 +1212,7 @@ export class Unit {
             if (this.weapon.type === 'staff') {
                 this.weapon.drawStaff(ctx, 0.8);
             } else if (this.weapon.type === 'magic_gun') {
-                this.weapon.drawMagicGun(ctx, 0.4);
+                this.weapon.drawMagicGun(ctx, 0.24);
             } else if (this.weapon.type === 'hadoken') {
                 ctx.translate(GRID_SIZE * 0.5, 0);
                 const scale = 0.7;
