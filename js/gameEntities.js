@@ -441,7 +441,7 @@ export class Projectile {
         } else if (this.type === 'harpoon_head') {
             ctx.save();
             ctx.translate(this.pixelX, this.pixelY);
-            ctx.rotate(this.angle + Math.PI); 
+            ctx.rotate(this.angle); 
             this.owner.weapon.drawHarpoon(ctx, 0.5); 
             ctx.restore();
         }
@@ -684,40 +684,33 @@ export class Weapon {
         ctx.rotate(rotation);
         ctx.scale(scale, scale);
 
-        const handleLength = GRID_SIZE * 1.2;
-        const handleWidth = GRID_SIZE * 0.25;
-        const bladeLength = GRID_SIZE * 1.5;
-        const bladeWidth = GRID_SIZE * 0.8;
+        const handleLength = GRID_SIZE * 1.0;
+        const handleWidth = GRID_SIZE * 0.2;
+        const bladeLength = GRID_SIZE * 1.8;
+        const bladeWidth = GRID_SIZE * 1.0; 
         const bladeBaseX = handleLength / 2;
 
         // Handle
-        ctx.fillStyle = '#1f2937';
+        ctx.fillStyle = '#18181b'; // zinc-900
         ctx.strokeStyle = '#000000';
         ctx.lineWidth = 2 / scale;
         ctx.fillRect(-handleLength / 2, -handleWidth / 2, handleLength, handleWidth);
         ctx.strokeRect(-handleLength / 2, -handleWidth / 2, handleLength, handleWidth);
-
+        
         // Blade
-        ctx.fillStyle = '#e5e7eb'; // Lighter silver
-        ctx.strokeStyle = '#9ca3af'; // Darker silver for outline
+        const grad = ctx.createLinearGradient(bladeBaseX, 0, bladeBaseX + bladeLength, 0);
+        grad.addColorStop(0, '#f8fafc'); // slate-50
+        grad.addColorStop(1, '#94a3b8'); // slate-400
+
+        ctx.fillStyle = grad;
+        ctx.strokeStyle = '#64748b'; // slate-500
         ctx.beginPath();
-        ctx.moveTo(bladeBaseX, -bladeWidth / 2); // Top point
-        ctx.bezierCurveTo(
-            bladeBaseX + bladeLength * 1.2, -bladeWidth * 0.2, // Control point 1
-            bladeBaseX + bladeLength * 1.2, bladeWidth * 0.2,  // Control point 2
-            bladeBaseX, bladeWidth / 2                       // Bottom point
-        );
+        ctx.moveTo(bladeBaseX, 0); 
+        ctx.arc(bladeBaseX, 0, bladeLength, Math.PI * 1.4, Math.PI * 0.6, true);
         ctx.closePath();
         ctx.fill();
         ctx.stroke();
 
-        // Hook at the end
-        ctx.strokeStyle = '#4b5563';
-        ctx.lineWidth = 3 / scale;
-        ctx.beginPath();
-        ctx.arc(-handleLength / 2, 0, GRID_SIZE * 0.25, Math.PI * 0.6, Math.PI * 1.9);
-        ctx.stroke();
-        
         ctx.restore();
     }
 
