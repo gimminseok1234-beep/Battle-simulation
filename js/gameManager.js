@@ -1253,7 +1253,9 @@ export class GameManager {
     }
     
     createEffect(type, x, y, target, options = {}) { this.effects.push(new Effect(x, y, type, target, options)); }
-    createProjectile(owner, target, type) { this.projectiles.push(new Projectile(owner, target, type)); }
+    createProjectile(owner, target, type, options = {}) { 
+        this.projectiles.push(new Projectile(owner, target, type, options)); 
+    }
     
     castAreaSpell(pos, type, ...args) {
         if (type === 'poison_cloud') {
@@ -1438,4 +1440,3 @@ export class GameManager {
         this.draw();
     }
 }
-
