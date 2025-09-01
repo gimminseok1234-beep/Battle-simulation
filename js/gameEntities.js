@@ -1,5 +1,5 @@
 import { TILE, TEAM, COLORS, GRID_SIZE } from './constants.js';
-import { GameManager } from './gameManager.js'; 
+import { GameManager } from './gameManager.js';
 
 // 마법진 클래스
 export class MagicCircle {
@@ -65,7 +65,7 @@ export class PoisonCloud {
         this.pixelY = y;
         this.ownerTeam = ownerTeam;
         this.duration = 300; // 5초
-        this.damage = 0.25; // 초당 데미지 상향
+        this.damage = 0.25; // 초당 데미지
         this.animationTimer = 0;
     }
 
@@ -80,6 +80,7 @@ export class PoisonCloud {
                 const dx = Math.abs(unit.pixelX - this.pixelX);
                 const dy = Math.abs(unit.pixelY - this.pixelY);
                 if (dx < GRID_SIZE * 2.5 && dy < GRID_SIZE * 2.5) {
+                    // 독 효과는 데미지를 직접 주지 않고, 유닛에게 독 디버프를 겁니다.
                     unit.takeDamage(0, { poison: { damage: this.damage } });
                 }
             }
@@ -98,6 +99,61 @@ export class PoisonCloud {
         ctx.beginPath();
         ctx.arc(bubbleX, bubbleY, GRID_SIZE * 0.3, 0, Math.PI * 2);
         ctx.fill();
+    }
+}
+
+// 불기둥 클래스 (수정됨)
+export class FirePillar {
+    constructor(x, y, options) {
+        this.pixelX = x;
+        this.pixelY = y;
+        this.ownerTeam = options.ownerTeam;
+        this.damage = options.damage;
+        this.duration = 30; // 0.5초 동안 지속
+        this.maxRadius = GRID_SIZE * 2.5;
+        this.currentRadius = 0;
+        this.alreadyDamaged = new Set(); // 이미 데미지를 입은 유닛 추적
+    }
+
+    update() {
+        const gameManager = GameManager.getInstance();
+        if (!gameManager) return;
+
+        this.duration -= gameManager.gameSpeed;
+        // 반지름이 시간에 따라 증가
+        this.currentRadius = this.maxRadius * (1 - (this.duration / 30));
+
+        // 효과 범위 내의 적 유닛에게 한 번만 데미지
+        gameManager.units.forEach(unit => {
+            if (unit.team !== this.ownerTeam && !this.alreadyDamaged.has(unit)) {
+                const distance = Math.hypot(unit.pixelX - this.pixelX, unit.pixelY - this.pixelY);
+                if (distance < this.currentRadius) {
+                    unit.takeDamage(this.damage, { interrupt: true });
+                    this.alreadyDamaged.add(unit);
+                }
+            }
+        });
+    }
+
+    draw(ctx) {
+        if (this.duration <= 0) return;
+        const opacity = Math.max(0, this.duration / 30);
+        
+        ctx.save();
+        
+        // 바깥쪽 불 효과
+        ctx.fillStyle = `rgba(255, 165, 0, ${opacity * 0.5})`;
+        ctx.beginPath();
+        ctx.arc(this.pixelX, this.pixelY, this.currentRadius, 0, Math.PI * 2);
+        ctx.fill();
+        
+        // 안쪽 불 효과
+        ctx.fillStyle = `rgba(255, 69, 0, ${opacity * 0.7})`;
+        ctx.beginPath();
+        ctx.arc(this.pixelX, this.pixelY, this.currentRadius * 0.6, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.restore();
     }
 }
 
@@ -958,7 +1014,7 @@ export class Unit {
         }
         if(effectInfo.poison){
             this.poisonEffect.active = true;
-            this.poisonEffect.duration = 180; // 3초로 변경
+            this.poisonEffect.duration = 180; // 3초
             this.poisonEffect.damage = effectInfo.poison.damage;
         }
     }
@@ -1033,12 +1089,13 @@ export class Unit {
                 this.attackCooldown = this.cooldownTime;
                 if (this.weapon.type === 'staff') {
                     gameManager.audioManager.play('fireball');
+                    // 수정된 부분: 옵션 객체를 사용하여 castAreaSpell 호출
                     gameManager.castAreaSpell(this.castTargetPos, 'fire_pillar', { damage: this.attackPower, ownerTeam: this.team });
                 } else if (this.weapon.type === 'hadoken') {
                     gameManager.createProjectile(this, this.target, 'hadoken');
                     gameManager.audioManager.play('hadokenShoot');
                 } else if (this.weapon.type === 'poison_potion') {
-                    gameManager.castAreaSpell({x: this.pixelX, y: this.pixelY}, 'poison_cloud', { ownerTeam: this.team, damage: this.attackPower });
+                    gameManager.castAreaSpell({x: this.pixelX, y: this.pixelY}, 'poison_cloud', { ownerTeam: this.team });
                     this.hp = 0; // 자폭
                 }
             }
@@ -1449,4 +1506,3 @@ export class Unit {
         }
     }
 }
-
