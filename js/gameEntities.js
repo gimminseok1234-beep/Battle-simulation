@@ -26,22 +26,25 @@ export class MagicCircle {
         ctx.scale(scale, scale);
         ctx.globalAlpha = opacity;
 
-        // 외부 빛 효과
         const glowGradient = ctx.createRadialGradient(0, 0, GRID_SIZE * 0.5, 0, 0, GRID_SIZE * 1.5);
         glowGradient.addColorStop(0, 'rgba(192, 132, 252, 0.6)');
         glowGradient.addColorStop(1, 'rgba(192, 132, 252, 0)');
         ctx.fillStyle = glowGradient;
         ctx.fillRect(-GRID_SIZE * 1.5, -GRID_SIZE * 1.5, GRID_SIZE * 3, GRID_SIZE * 3);
 
-        // 중앙 원
         ctx.fillStyle = '#a855f7';
         ctx.beginPath();
         ctx.arc(0, 0, GRID_SIZE * 0.6, 0, Math.PI * 2);
         ctx.fill();
 
-        // 바깥쪽 링들
-        ctx.strokeStyle = '#c084fc';
-        ctx.lineWidth = 2;
+        switch(this.team) {
+            case TEAM.A: ctx.strokeStyle = COLORS.TEAM_A; break;
+            case TEAM.B: ctx.strokeStyle = COLORS.TEAM_B; break;
+            case TEAM.C: ctx.strokeStyle = COLORS.TEAM_C; break;
+            case TEAM.D: ctx.strokeStyle = COLORS.TEAM_D; break;
+            default: ctx.strokeStyle = '#c084fc'; break;
+        }
+        ctx.lineWidth = 3;
         ctx.beginPath();
         ctx.arc(0, 0, GRID_SIZE * 0.9, 0, Math.PI * 2);
         ctx.stroke();
@@ -357,21 +360,26 @@ export class Projectile {
             ctx.stroke();
             ctx.restore();
         } else if (this.type.startsWith('magic_bullet')) {
+            const isSpecial = this.type === 'magic_bullet_special';
+            const mainColor = isSpecial ? '#a855f7' : '#374151';
+            const trailColor = isSpecial ? 'rgba(192, 132, 252, 0.4)' : 'rgba(107, 114, 128, 0.4)';
+            const coreColor = isSpecial ? '#e9d5ff' : '#9ca3af';
+
             for (let i = 0; i < this.trail.length; i++) {
                 const pos = this.trail[i];
                 const alpha = (i / this.trail.length) * 0.4;
-                ctx.fillStyle = `rgba(192, 132, 252, ${alpha})`;
+                ctx.fillStyle = trailColor.replace('0.4', alpha);
                 ctx.beginPath();
-                ctx.arc(pos.x, pos.y, (GRID_SIZE / 2.5) * (i / this.trail.length), 0, Math.PI * 2);
+                ctx.arc(pos.x, pos.y, (GRID_SIZE / 3) * (i / this.trail.length), 0, Math.PI * 2);
                 ctx.fill();
             }
-            ctx.fillStyle = '#e9d5ff';
+            ctx.fillStyle = coreColor;
             ctx.beginPath();
-            ctx.arc(this.pixelX, this.pixelY, GRID_SIZE / 2.5, 0, Math.PI * 2);
+            ctx.arc(this.pixelX, this.pixelY, GRID_SIZE / 3, 0, Math.PI * 2);
             ctx.fill();
-            ctx.fillStyle = '#a855f7';
+            ctx.fillStyle = mainColor;
             ctx.beginPath();
-            ctx.arc(this.pixelX, this.pixelY, GRID_SIZE / 4, 0, Math.PI * 2);
+            ctx.arc(this.pixelX, this.pixelY, GRID_SIZE / 5, 0, Math.PI * 2);
             ctx.fill();
         }
     }
@@ -508,12 +516,11 @@ export class Weapon {
         ctx.save();
         ctx.rotate(-Math.PI / 8);
         ctx.scale(scale, scale);
-
+    
         ctx.fillStyle = '#a78bfa';
-        ctx.strokeStyle = 'black'; // 검은색 테두리
+        ctx.strokeStyle = 'black';
         ctx.lineWidth = 2 / scale;
-
-        // 몸체
+    
         ctx.beginPath();
         ctx.moveTo(-GRID_SIZE, -GRID_SIZE * 0.3);
         ctx.lineTo(GRID_SIZE * 0.8, -GRID_SIZE * 0.4);
@@ -525,15 +532,13 @@ export class Weapon {
         ctx.closePath();
         ctx.fill();
         ctx.stroke();
-
-        // 총구
+    
         ctx.fillStyle = '#7c3aed';
         ctx.beginPath();
         ctx.rect(-GRID_SIZE * 1.5, -GRID_SIZE * 0.4, GRID_SIZE * 0.5, GRID_SIZE * 0.4);
         ctx.fill();
         ctx.stroke();
-
-        // 손잡이
+    
         ctx.fillStyle = '#9333ea';
         ctx.beginPath();
         ctx.moveTo(-GRID_SIZE * 0.2, GRID_SIZE * 0.7);
@@ -544,13 +549,12 @@ export class Weapon {
         ctx.fill();
         ctx.stroke();
         
-        // 보석
         ctx.fillStyle = '#c084fc';
         ctx.beginPath();
         ctx.arc(GRID_SIZE * 0.3, 0, GRID_SIZE * 0.3, 0, Math.PI * 2);
         ctx.fill();
         ctx.stroke();
-
+    
         ctx.restore();
     }
 
@@ -863,7 +867,7 @@ export class Unit {
                     gameManager.audioManager.play('lightningShoot');
                 } else if (this.weapon && this.weapon.type === 'magic_gun') {
                     gameManager.createProjectile(this, target, 'magic_bullet_normal');
-                    // gameManager.audioManager.play('magicShoot'); // 일반 공격 사운드
+                    // gameManager.audioManager.play('magicShoot');
                 }
                 else {
                     target.takeDamage(currentAttackPower);
@@ -1110,16 +1114,12 @@ export class Unit {
         const gameManager = GameManager.getInstance();
         if (!gameManager) return;
         
+        ctx.save(); // 전체 유닛 그리기를 위해 저장
+
         if (this.isStunned > 0) {
-             ctx.save();
-             ctx.globalAlpha = 0.5 + Math.sin(gameManager.animationFrameCounter * 0.2) * 0.2;
-             ctx.fillStyle = '#a78bfa';
-             ctx.beginPath();
-             ctx.arc(this.pixelX, this.pixelY, GRID_SIZE * 0.7, 0, Math.PI * 2);
-             ctx.fill();
-             ctx.restore();
+            ctx.globalAlpha = 0.7; // 기절 시 약간 투명하게
         }
-        
+
         switch(this.team) {
             case TEAM.A: ctx.fillStyle = COLORS.TEAM_A; break;
             case TEAM.B: ctx.fillStyle = COLORS.TEAM_B; break;
@@ -1129,6 +1129,24 @@ export class Unit {
         ctx.beginPath(); ctx.arc(this.pixelX, this.pixelY, GRID_SIZE / 2.5, 0, Math.PI * 2); ctx.fill();
         ctx.strokeStyle = 'black'; ctx.lineWidth = 1; ctx.stroke();
         
+        ctx.restore(); // 유닛 몸체 그린 후 복원
+        
+        if (this.isStunned > 0) {
+            ctx.save();
+            ctx.translate(this.pixelX, this.pixelY - GRID_SIZE);
+            const rotation = gameManager.animationFrameCounter * 0.1;
+            ctx.rotate(rotation);
+            ctx.strokeStyle = '#c084fc';
+            ctx.lineWidth = 2.5;
+            ctx.beginPath();
+            ctx.arc(0, 0, GRID_SIZE * 0.4, 0, Math.PI * 1.5);
+            ctx.stroke();
+            ctx.beginPath();
+            ctx.arc(0, 0, GRID_SIZE * 0.2, Math.PI, Math.PI * 2.5);
+            ctx.stroke();
+            ctx.restore();
+        }
+
         if (this.weapon && this.weapon.type === 'hadoken') {
              ctx.save();
              ctx.globalAlpha = 0.3 + Math.sin(gameManager.animationFrameCounter * 0.1) * 0.1;
@@ -1192,7 +1210,7 @@ export class Unit {
             if (this.weapon.type === 'staff') {
                 this.weapon.drawStaff(ctx, 0.8);
             } else if (this.weapon.type === 'magic_gun') {
-                this.weapon.drawMagicGun(ctx, 0.7);
+                this.weapon.drawMagicGun(ctx, 0.4);
             } else if (this.weapon.type === 'hadoken') {
                 ctx.translate(GRID_SIZE * 0.5, 0);
                 const scale = 0.7;
