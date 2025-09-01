@@ -526,6 +526,16 @@ export class AreaEffect {
         if (this.type === 'fire_pillar') {
             ctx.save();
             ctx.translate(this.pixelX, this.pixelY);
+
+            // 불기둥 범위 표시
+            const grad = ctx.createRadialGradient(0, 0, this.currentRadius * 0.3, 0, 0, this.currentRadius);
+            grad.addColorStop(0, `rgba(255, 220, 150, ${opacity * 0.5})`);
+            grad.addColorStop(0.6, `rgba(255, 100, 0, ${opacity * 0.4})`);
+            grad.addColorStop(1, `rgba(200, 0, 0, 0)`);
+            ctx.fillStyle = grad;
+            ctx.beginPath();
+            ctx.arc(0, 0, this.currentRadius, 0, Math.PI * 2);
+            ctx.fill();
             
             this.particles.forEach(p => {
                 ctx.globalAlpha = (p.lifespan / 20) * opacity;
@@ -1080,11 +1090,13 @@ export class Unit {
         
         const currentAttackPower = this.attackPower;
 
-        if (this.weapon && (this.weapon.type === 'staff' || (this.weapon.type === 'poison_potion' && target instanceof Nexus))) {
-            this.isCasting = true;
-            this.castingProgress = 0;
-            this.castTargetPos = { x: target.pixelX, y: target.pixelY };
-            this.target = target;
+        if (this.weapon && this.weapon.type === 'poison_potion') {
+            if (!this.isCasting) {
+                this.isCasting = true;
+                this.castingProgress = 0;
+                this.castDuration = 180; // 3초
+                this.target = target;
+            }
         } else {
             const targetGridX = Math.floor(target.pixelX / GRID_SIZE);
             const targetGridY = Math.floor(target.pixelY / GRID_SIZE);
@@ -1095,7 +1107,7 @@ export class Unit {
                 gameManager.damageTile(targetGridX, targetGridY, currentAttackPower);
                  this.attackCooldown = this.cooldownTime;
             } else if (target instanceof Unit || target instanceof Nexus) {
-                if (this.weapon && (this.weapon.type === 'sword' || this.weapon.type === 'dual_swords' || this.weapon.type === 'boomerang' || this.weapon.type === 'poison_potion')) {
+                if (this.weapon && (this.weapon.type === 'sword' || this.weapon.type === 'dual_swords' || this.weapon.type === 'boomerang')) {
                     this.attackAnimationTimer = 15;
                 }
                 
@@ -1124,6 +1136,14 @@ export class Unit {
                     }
                     gameManager.audioManager.play('shurikenShoot');
                     this.attackCooldown = this.cooldownTime;
+                } else if (this.weapon && this.weapon.type === 'hadoken') {
+                    gameManager.createProjectile(this, target, 'hadoken');
+                    gameManager.audioManager.play('hadokenShoot');
+                    this.attackCooldown = this.cooldownTime;
+                } else if (this.weapon && this.weapon.type === 'staff') {
+                    gameManager.audioManager.play('fireball');
+                    gameManager.castAreaSpell({ x: target.pixelX, y: target.pixelY }, 'fire_pillar', this.attackPower, this.team);
+                    this.attackCooldown = this.cooldownTime;
                 } else if (this.weapon && this.weapon.type === 'lightning') {
                     gameManager.createProjectile(this, target, 'lightning_bolt');
                     gameManager.audioManager.play('lightningShoot');
@@ -1133,9 +1153,6 @@ export class Unit {
                      this.attackCooldown = this.cooldownTime;
                 } else if (this.weapon && this.weapon.type === 'boomerang') {
                     target.takeDamage(15); 
-                     this.attackCooldown = this.cooldownTime;
-                } else if (this.weapon && this.weapon.type === 'poison_potion') {
-                    target.takeDamage(currentAttackPower);
                      this.attackCooldown = this.cooldownTime;
                 }
                 else {
@@ -1170,12 +1187,7 @@ export class Unit {
     }
 
     handleDeath() {
-        const gameManager = GameManager.getInstance();
-        if (!gameManager) return;
-
-        if (this.weapon && this.weapon.type === 'poison_potion') {
-            gameManager.castAreaSpell({ x: this.pixelX, y: this.pixelY }, 'poison_cloud', this.team);
-        }
+        // Now handled in update() when casting completes
     }
 
     update(enemies, weapons, projectiles) {
@@ -1264,17 +1276,11 @@ export class Unit {
             if (!this.target || (this.target instanceof Unit && this.target.hp <= 0)) {
                 this.isCasting = false; this.castingProgress = 0; return;
             }
-            if (this.weapon.type === 'poison_potion' && this.target instanceof Nexus && Math.hypot(this.pixelX - this.target.pixelX, this.pixelY - this.target.pixelY) > GRID_SIZE * 0.5) {
-                 this.moveTarget = { x: this.target.pixelX, y: this.target.pixelY };
-                 this.move();
-            }
+
             if (this.castingProgress >= this.castDuration) {
                 this.isCasting = false; this.castingProgress = 0;
                 this.attackCooldown = this.cooldownTime;
-                if (this.weapon.type === 'staff') {
-                    gameManager.audioManager.play('fireball');
-                    gameManager.castAreaSpell(this.castTargetPos, 'fire_pillar', this.attackPower, this.team);
-                } else if (this.weapon.type === 'poison_potion') {
+                if (this.weapon.type === 'poison_potion') {
                     gameManager.castAreaSpell({x: this.pixelX, y: this.pixelY}, 'poison_cloud', this.team);
                     this.hp = 0; // 자폭
                 }
@@ -1677,49 +1683,53 @@ export class Unit {
         ctx.fillStyle = '#111827'; ctx.fillRect(hpBarX, hpBarY, hpBarWidth, 5);
         ctx.fillStyle = '#10b981'; ctx.fillRect(hpBarX, hpBarY, hpBarWidth * (this.hp / 100), 5);
         
-        let skillBarY = hpBarY - 6;
+        let specialBarY = hpBarY - 6;
+        let normalBarY = hpBarY - 6;
         let specialSkillDrawn = false;
-
-        // 특수 스킬 쿨타임 바
-        if (this.isKing && this.spawnCooldown > 0) {
-            ctx.fillStyle = '#78350f';
-            ctx.fillRect(hpBarX, skillBarY, hpBarWidth, 4);
-            ctx.fillStyle = '#f97316';
-            ctx.fillRect(hpBarX, skillBarY, hpBarWidth * ((this.spawnInterval - this.spawnCooldown) / this.spawnInterval), 4);
-            specialSkillDrawn = true;
-        } else if (this.weapon?.type === 'magic_spear' && this.magicCircleCooldown > 0) {
-            ctx.fillStyle = '#3b0764'; 
-            ctx.fillRect(hpBarX, skillBarY, hpBarWidth, 4);
-            ctx.fillStyle = '#a855f7';
-            ctx.fillRect(hpBarX, skillBarY, hpBarWidth * ((300 - this.magicCircleCooldown) / 300), 4);
-            specialSkillDrawn = true;
-        } else if (this.weapon?.type === 'boomerang' && this.boomerangCooldown > 0) {
-            ctx.fillStyle = '#475569';
-            ctx.fillRect(hpBarX, skillBarY, hpBarWidth, 4);
-            ctx.fillStyle = '#94a3b8';
-            ctx.fillRect(hpBarX, skillBarY, hpBarWidth * ((480 - this.boomerangCooldown) / 480), 4);
-            specialSkillDrawn = true;
-        } else if (this.weapon?.type === 'shuriken' && this.shurikenSkillCooldown > 0) {
-            ctx.fillStyle = '#475569';
-            ctx.fillRect(hpBarX, skillBarY, hpBarWidth, 4);
-            ctx.fillStyle = '#94a3b8';
-            ctx.fillRect(hpBarX, skillBarY, hpBarWidth * ((300 - this.shurikenSkillCooldown) / 300), 4);
-            specialSkillDrawn = true;
-        } else if (this.isCasting) {
-             ctx.fillStyle = '#475569'; // 캐스팅 바 색상
-             ctx.fillRect(hpBarX, skillBarY, hpBarWidth, 4);
-             ctx.fillStyle = '#94a3b8'; // 캐스팅 진행 바 색상
-             ctx.fillRect(hpBarX, skillBarY, hpBarWidth * (this.castingProgress / this.castDuration), 4);
+        
+        if (this.isKing || (this.weapon && ['magic_spear', 'boomerang', 'shuriken', 'poison_potion'].includes(this.weapon.type)) || this.isCasting) {
              specialSkillDrawn = true;
         }
 
-        // 일반 공격 쿨타임 바
-        let attackBarY = specialSkillDrawn ? skillBarY - 5 : skillBarY;
-        if (!this.isCasting && this.attackCooldown > 0) {
-            ctx.fillStyle = '#0c4a6e';
-            ctx.fillRect(hpBarX, attackBarY, hpBarWidth, 4);
-            ctx.fillStyle = '#38bdf8';
-            ctx.fillRect(hpBarX, attackBarY, hpBarWidth * ((this.cooldownTime - this.attackCooldown) / this.cooldownTime), 4);
+        if (specialSkillDrawn) {
+            normalBarY = hpBarY - 6; 
+            specialBarY = normalBarY - 5; 
+        }
+
+        // Draw Special Skill / Casting Bar (Top)
+        if (this.isKing && this.spawnCooldown > 0) {
+            ctx.fillStyle = '#78350f'; // bg-orange-900
+            ctx.fillRect(hpBarX, specialBarY, hpBarWidth, 4);
+            ctx.fillStyle = '#f97316'; // bg-orange-500
+            ctx.fillRect(hpBarX, specialBarY, hpBarWidth * ((this.spawnInterval - this.spawnCooldown) / this.spawnInterval), 4);
+        } else if (this.weapon?.type === 'magic_spear' && this.magicCircleCooldown > 0) {
+            ctx.fillStyle = '#3b0764'; // bg-purple-900
+            ctx.fillRect(hpBarX, specialBarY, hpBarWidth, 4);
+            ctx.fillStyle = '#a855f7'; // bg-purple-500
+            ctx.fillRect(hpBarX, specialBarY, hpBarWidth * ((300 - this.magicCircleCooldown) / 300), 4);
+        } else if (this.weapon?.type === 'boomerang' && this.boomerangCooldown > 0) {
+            ctx.fillStyle = '#475569'; // bg-slate-600
+            ctx.fillRect(hpBarX, specialBarY, hpBarWidth, 4);
+            ctx.fillStyle = '#94a3b8'; // bg-slate-400
+            ctx.fillRect(hpBarX, specialBarY, hpBarWidth * ((480 - this.boomerangCooldown) / 480), 4);
+        } else if (this.weapon?.type === 'shuriken' && this.shurikenSkillCooldown > 0) {
+            ctx.fillStyle = '#475569';
+            ctx.fillRect(hpBarX, specialBarY, hpBarWidth, 4);
+            ctx.fillStyle = '#94a3b8';
+            ctx.fillRect(hpBarX, specialBarY, hpBarWidth * ((300 - this.shurikenSkillCooldown) / 300), 4);
+        } else if (this.isCasting) {
+             ctx.fillStyle = '#475569';
+             ctx.fillRect(hpBarX, specialBarY, hpBarWidth, 4);
+             ctx.fillStyle = '#94a3b8';
+             ctx.fillRect(hpBarX, specialBarY, hpBarWidth * (this.castingProgress / this.castDuration), 4);
+        }
+        
+        // Draw Normal Attack Cooldown Bar (Bottom)
+        if (this.attackCooldown > 0) {
+            ctx.fillStyle = '#0c4a6e'; // bg-sky-800
+            ctx.fillRect(hpBarX, normalBarY, hpBarWidth, 4);
+            ctx.fillStyle = '#38bdf8'; // bg-sky-400
+            ctx.fillRect(hpBarX, normalBarY, hpBarWidth * ((this.cooldownTime - this.attackCooldown) / this.cooldownTime), 4);
         }
 
         if (this.alertedCounter > 0 && !(this.weapon && (this.weapon.type === 'shuriken' || this.weapon.type === 'lightning')) && this.state !== 'FLEEING_FIELD') {
@@ -1728,4 +1738,3 @@ export class Unit {
         }
     }
 }
-
