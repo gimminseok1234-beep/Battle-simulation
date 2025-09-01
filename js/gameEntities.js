@@ -276,6 +276,7 @@ export class Projectile {
         if (type === 'hadoken') this.speed = 4;
         else if (type === 'shuriken') this.speed = 2;
         else if (type === 'lightning_bolt') this.speed = 8;
+        else if (type === 'harpoon_head') this.speed = 5;
         else this.speed = 6;
 
         this.damage = owner.attackPower;
@@ -283,6 +284,8 @@ export class Projectile {
             this.damage = (owner.weapon?.specialAttackPowerBonus || 0) + owner.baseAttackPower;
         } else if (type === 'magic_spear_normal') {
             this.damage = (owner.weapon?.normalAttackPowerBonus || 0) + owner.baseAttackPower;
+        } else if (type === 'harpoon_head') {
+            this.damage = 0;
         }
 
         this.knockback = (type === 'hadoken') ? gameManager.hadokenKnockback : 0;
@@ -335,12 +338,10 @@ export class Projectile {
             ctx.fillStyle = '#d1d5db';
             ctx.beginPath();
             ctx.moveTo(-GRID_SIZE * 0.6, -1); ctx.lineTo(-GRID_SIZE * 0.7, -3);
-            ctx.lineTo(-GRID_SIZE * 0.5, -1); ctx.closePath();
-            ctx.fill()
+            ctx.lineTo(-GRID_SIZE * 0.5, -1); ctx.closePath(); ctx.fill()
             ctx.beginPath();
             ctx.moveTo(-GRID_SIZE * 0.6, 1); ctx.lineTo(-GRID_SIZE * 0.7, 3);
-            ctx.lineTo(-GRID_SIZE * 0.5, 1); ctx.closePath();
-            ctx.fill()
+            ctx.lineTo(-GRID_SIZE * 0.5, 1); ctx.closePath(); ctx.fill()
             ctx.restore();
         } else if (this.type === 'hadoken') {
             for (let i = 0; i < this.trail.length; i++) {
@@ -404,10 +405,10 @@ export class Projectile {
             ctx.restore();
         } else if (this.type.startsWith('magic_spear')) {
             const isSpecial = this.type === 'magic_spear_special';
-            const mainColor = isSpecial ? '#a855f7' : '#111827'; // 일반 공격 색상 변경
+            const mainColor = isSpecial ? '#a855f7' : '#111827'; 
             const trailColor = isSpecial ? 'rgba(192, 132, 252, 0.4)' : 'rgba(107, 114, 128, 0.4)';
-            const spearLength = isSpecial ? GRID_SIZE * 1.2 : GRID_SIZE * 1.0; // 크기 조정
-            const spearWidth = isSpecial ? GRID_SIZE * 0.25 : GRID_SIZE * 0.2; // 크기 조정
+            const spearLength = isSpecial ? GRID_SIZE * 1.2 : GRID_SIZE * 1.0; 
+            const spearWidth = isSpecial ? GRID_SIZE * 0.25 : GRID_SIZE * 0.2; 
 
 
             ctx.save();
@@ -436,6 +437,12 @@ export class Projectile {
             ctx.closePath();
             ctx.fill();
             
+            ctx.restore();
+        } else if (this.type === 'harpoon_head') {
+            ctx.save();
+            ctx.translate(this.pixelX, this.pixelY);
+            ctx.rotate(this.angle + Math.PI); 
+            this.owner.weapon.drawHarpoon(ctx, 0.4); 
             ctx.restore();
         }
     }
@@ -518,15 +525,11 @@ export class Effect {
     constructor(x, y, type, target, options = {}) {
         this.x = x; this.y = y; this.type = type; this.target = target;
         this.duration = 20; this.angle = Math.random() * Math.PI * 2;
-        this.progress = 0;
     }
     update() {
         const gameManager = GameManager.getInstance();
         if (!gameManager) return;
         this.duration -= gameManager.gameSpeed;
-        if (this.type === 'grab_effect') {
-            this.progress = 1 - (this.duration / 20);
-        }
     }
     draw(ctx) {
         const opacity = this.duration / 20;
@@ -548,18 +551,6 @@ export class Effect {
             ctx.moveTo(this.x, this.y);
             ctx.lineTo(this.target.pixelX, this.target.pixelY);
             ctx.stroke();
-        } else if (this.type === 'grab_effect') {
-            ctx.save();
-            ctx.strokeStyle = `rgba(203, 213, 225, ${opacity * 0.8})`;
-            ctx.lineWidth = 4;
-            ctx.lineCap = 'round';
-            ctx.beginPath();
-            ctx.moveTo(this.x, this.y);
-            const targetX = this.x + (this.target.pixelX - this.x) * this.progress;
-            const targetY = this.y + (this.target.pixelY - this.y) * this.progress;
-            ctx.lineTo(targetX, targetY);
-            ctx.stroke();
-            ctx.restore();
         }
     }
 }
@@ -688,66 +679,42 @@ export class Weapon {
         ctx.restore();
     }
     
-    drawRoboticArm(ctx, scale = 1.0, rotation = 0) {
+    drawHarpoon(ctx, scale = 1.0, rotation = 0) {
         ctx.save();
         ctx.rotate(rotation);
         ctx.scale(scale, scale);
-    
-        ctx.strokeStyle = '#1e293b'; // slate-800
+
+        const handleLength = GRID_SIZE * 1.5;
+        const handleWidth = GRID_SIZE * 0.2;
+        const bladeLength = GRID_SIZE * 1.0;
+        const bladeWidth = GRID_SIZE * 0.5;
+
+        // Handle
+        ctx.fillStyle = '#1f2937'; // slate-800
+        ctx.strokeStyle = '#000000';
         ctx.lineWidth = 2 / scale;
-    
-        // Main Arm Body
-        ctx.fillStyle = '#94a3b8'; // slate-400
+        ctx.fillRect(-handleLength / 2, -handleWidth / 2, handleLength, handleWidth);
+        ctx.strokeRect(-handleLength / 2, -handleWidth / 2, handleLength, handleWidth);
+
+        // Blade
+        const bladeBaseX = handleLength / 2;
+        ctx.fillStyle = '#d1d5db'; // slate-300
+        ctx.strokeStyle = '#6b7280'; // slate-500
         ctx.beginPath();
-        ctx.moveTo(-GRID_SIZE * 1.2, -GRID_SIZE * 0.4);
-        ctx.lineTo(GRID_SIZE * 0.5, -GRID_SIZE * 0.5);
-        ctx.lineTo(GRID_SIZE * 0.5, GRID_SIZE * 0.5);
-        ctx.lineTo(-GRID_SIZE * 1.2, GRID_SIZE * 0.4);
+        ctx.moveTo(bladeBaseX, -bladeWidth / 2);
+        ctx.quadraticCurveTo(bladeBaseX + bladeLength * 0.8, 0, bladeBaseX, bladeWidth / 2);
+        ctx.lineTo(bladeBaseX - bladeLength * 0.2, 0);
         ctx.closePath();
         ctx.fill();
         ctx.stroke();
-    
-        // Shoulder Joint
-        ctx.fillStyle = '#e2e8f0'; // slate-200
+
+        // Hook at the end
+        ctx.strokeStyle = '#4b5563'; // slate-600
+        ctx.lineWidth = 2.5 / scale;
         ctx.beginPath();
-        ctx.arc(-GRID_SIZE * 1.2, 0, GRID_SIZE * 0.5, 0, Math.PI * 2);
-        ctx.fill();
+        ctx.arc(-handleLength / 2, 0, GRID_SIZE * 0.2, Math.PI * 0.6, Math.PI * 1.9);
         ctx.stroke();
-    
-        // Hand
-        ctx.fillStyle = '#cbd5e1'; // slate-300
-        ctx.beginPath();
-        ctx.moveTo(GRID_SIZE * 0.5, -GRID_SIZE * 0.5);
-        ctx.lineTo(GRID_SIZE * 1.2, -GRID_SIZE * 0.6);
-        ctx.lineTo(GRID_SIZE * 1.2, GRID_SIZE * 0.6);
-        ctx.lineTo(GRID_SIZE * 0.5, GRID_SIZE * 0.5);
-        ctx.closePath();
-        ctx.fill();
-        ctx.stroke();
-    
-        // Fingers
-        ctx.strokeStyle = '#475569'; // slate-600
-        ctx.lineWidth = 1.5 / scale;
-        const fingerBaseX = GRID_SIZE * 1.2;
-        const fingerLength = GRID_SIZE * 0.4;
-        for (let i = -2; i <= 2; i++) {
-            if (i === 0) continue;
-            const yOffset = i * 0.25;
-            ctx.beginPath();
-            ctx.moveTo(fingerBaseX, GRID_SIZE * yOffset);
-            ctx.lineTo(fingerBaseX + fingerLength, GRID_SIZE * (yOffset * 0.8));
-            ctx.stroke();
-        }
         
-        // Blue circle detail
-        ctx.fillStyle = '#67e8f9'; // cyan-300
-        ctx.strokeStyle = '#0891b2'; // cyan-600
-        ctx.lineWidth = 2 / scale;
-        ctx.beginPath();
-        ctx.arc(-GRID_SIZE * 0.2, 0, GRID_SIZE * 0.2, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.stroke();
-    
         ctx.restore();
     }
 
@@ -795,7 +762,7 @@ export class Weapon {
     draw(ctx) {
         if (this.isEquipped) return;
         const centerX = this.pixelX; const centerY = this.pixelY;
-        const scale = (this.type === 'crown') ? 1.0 : (this.type === 'lightning' ? 0.6 : (this.type === 'magic_spear' ? 0.6 : (this.type === 'poison_potion' ? 0.624 : (this.type === 'robotic_arm' ? 0.7 : 0.8))));
+        const scale = (this.type === 'crown') ? 1.0 : (this.type === 'lightning' ? 0.6 : (this.type === 'magic_spear' ? 0.6 : (this.type === 'poison_potion' ? 0.624 : (this.type === 'harpoon' ? 0.7 : 0.8))));
         ctx.save(); ctx.translate(centerX, centerY); ctx.scale(scale, scale);
         ctx.strokeStyle = 'black'; ctx.lineWidth = 1 / scale;
 
@@ -862,8 +829,8 @@ export class Weapon {
             this.drawLightning(ctx, 1.0, Math.PI / 4);
         } else if (this.type === 'magic_spear') {
             this.drawMagicSpear(ctx, 0.8, -Math.PI / 8);
-        } else if (this.type === 'robotic_arm') {
-            this.drawRoboticArm(ctx, 1.0, -Math.PI / 6);
+        } else if (this.type === 'harpoon') {
+            this.drawHarpoon(ctx, 1.0, -Math.PI / 6);
         } else if (this.type === 'poison_potion') {
             this.drawPoisonPotion(ctx, scale);
         } else if (this.type === 'hadoken') {
@@ -940,9 +907,12 @@ export class Unit {
         this.evasionCooldown = 0; 
         this.attackAnimationTimer = 0;
         this.magicCircleCooldown = 0;
-        this.roboticArmCooldown = 0;
+        this.harpoonCooldown = 0;
         this.isStunned = 0;
         this.poisonEffect = { active: false, duration: 0, damage: 0 };
+        this.isBeingPulled = false;
+        this.puller = null;
+        this.pullTargetPos = null;
     }
     
     get speed() {
@@ -1087,7 +1057,7 @@ export class Unit {
             if (tile.type === TILE.CRACKED_WALL) {
                 gameManager.damageTile(targetGridX, targetGridY, currentAttackPower);
             } else if (target instanceof Unit || target instanceof Nexus) {
-                if (this.weapon && (this.weapon.type === 'sword' || this.weapon.type === 'dual_swords' || this.weapon.type === 'robotic_arm')) {
+                if (this.weapon && (this.weapon.type === 'sword' || this.weapon.type === 'dual_swords' || this.weapon.type === 'harpoon')) {
                     this.attackAnimationTimer = 15;
                 }
                 
@@ -1108,7 +1078,7 @@ export class Unit {
                     gameManager.audioManager.play('lightningShoot');
                 } else if (this.weapon && this.weapon.type === 'magic_spear') {
                     gameManager.createProjectile(this, target, 'magic_spear_normal');
-                } else if (this.weapon && this.weapon.type === 'robotic_arm') {
+                } else if (this.weapon && this.weapon.type === 'harpoon') {
                     target.takeDamage(15); 
                 }
                 else {
@@ -1144,6 +1114,29 @@ export class Unit {
     update(enemies, weapons, projectiles) {
         const gameManager = GameManager.getInstance();
         if (!gameManager) return;
+
+        if (this.isBeingPulled && this.puller) {
+            const dx = this.pullTargetPos.x - this.pixelX;
+            const dy = this.pullTargetPos.y - this.pixelY;
+            const dist = Math.hypot(dx, dy);
+            const pullSpeed = 4; 
+
+            if (dist < pullSpeed * gameManager.gameSpeed) {
+                this.pixelX = this.pullTargetPos.x;
+                this.pixelY = this.pullTargetPos.y;
+                this.isBeingPulled = false;
+                this.puller = null;
+                this.takeDamage(20, { stun: 120 });
+            } else {
+                const angle = Math.atan2(dy, dx);
+                this.pixelX += Math.cos(angle) * pullSpeed * gameManager.gameSpeed;
+                this.pixelY += Math.sin(angle) * pullSpeed * gameManager.gameSpeed;
+                this.knockbackX = 0;
+                this.knockbackY = 0;
+            }
+            this.applyPhysics();
+            return;
+        }
         
         if (this.isStunned > 0) {
             this.isStunned -= gameManager.gameSpeed;
@@ -1157,7 +1150,7 @@ export class Unit {
         if (this.evasionCooldown > 0) this.evasionCooldown -= gameManager.gameSpeed;
         if (this.attackAnimationTimer > 0) this.attackAnimationTimer -= gameManager.gameSpeed;
         if (this.magicCircleCooldown > 0) this.magicCircleCooldown -= gameManager.gameSpeed;
-        if (this.roboticArmCooldown > 0) this.roboticArmCooldown -= gameManager.gameSpeed;
+        if (this.harpoonCooldown > 0) this.harpoonCooldown -= gameManager.gameSpeed;
         
         if (this.poisonEffect.active) {
             this.poisonEffect.duration -= gameManager.gameSpeed;
@@ -1271,22 +1264,13 @@ export class Unit {
                 this.attackCooldown = this.cooldownTime;
                 return;
             }
-        }
-        
-        if (this.weapon && this.weapon.type === 'robotic_arm' && this.roboticArmCooldown <= 0) {
+        } else if (this.weapon && this.weapon.type === 'harpoon' && this.harpoonCooldown <= 0) {
             const { item: closestEnemy } = this.findClosest(enemies);
             if (closestEnemy && gameManager.hasLineOfSight(this, closestEnemy)) {
                 const dist = Math.hypot(this.pixelX - closestEnemy.pixelX, this.pixelY - closestEnemy.pixelY);
                 if (dist <= this.attackRange) {
-                    this.roboticArmCooldown = 600; // 10초 쿨타임
-                    gameManager.createEffect('grab_effect', this.pixelX, this.pixelY, closestEnemy);
-                    
-                    const pullToX = this.pixelX + Math.cos(this.facingAngle) * GRID_SIZE;
-                    const pullToY = this.pixelY + Math.sin(this.facingAngle) * GRID_SIZE;
-
-                    closestEnemy.pixelX = pullToX;
-                    closestEnemy.pixelY = pullToY;
-                    closestEnemy.takeDamage(20, { stun: 120 }); // 2초 스턴
+                    this.harpoonCooldown = 600; // 10초 쿨타임
+                    gameManager.createProjectile(this, closestEnemy, 'harpoon_head');
                 }
             }
         }
@@ -1379,7 +1363,7 @@ export class Unit {
                     if (this.weapon && this.weapon.type === 'poison_potion') {
                         attackDistance = GRID_SIZE * 0.5; // 자폭 유닛은 근접해야 함
                     }
-                    if (this.weapon && this.weapon.type === 'robotic_arm' && this.roboticArmCooldown > 0) {
+                    if (this.weapon && this.weapon.type === 'harpoon' && this.harpoonCooldown > 0) {
                         attackDistance = this.baseAttackRange; // 스킬 쿨타임일 땐 기본 공격 사거리
                     }
 
@@ -1419,6 +1403,17 @@ export class Unit {
         ctx.strokeStyle = 'black'; ctx.lineWidth = 1; ctx.stroke();
         
         ctx.restore(); 
+
+        if (this.isBeingPulled && this.puller) {
+            ctx.save();
+            ctx.strokeStyle = '#94a3b8'; // slate-400
+            ctx.lineWidth = 3;
+            ctx.beginPath();
+            ctx.moveTo(this.puller.pixelX, this.puller.pixelY);
+            ctx.lineTo(this.pixelX, this.pixelY);
+            ctx.stroke();
+            ctx.restore();
+        }
         
         if (this.isStunned > 0) {
             ctx.save();
@@ -1501,9 +1496,9 @@ export class Unit {
             } else if (this.weapon.type === 'magic_spear') {
                 ctx.translate(GRID_SIZE * 0.2, GRID_SIZE * 0.4);
                 this.weapon.drawMagicSpear(ctx, 0.5, -Math.PI / 8 + Math.PI);
-            } else if (this.weapon.type === 'robotic_arm') {
+            } else if (this.weapon.type === 'harpoon') {
                 ctx.translate(0, GRID_SIZE * 0.4); 
-                this.weapon.drawRoboticArm(ctx, 0.6, Math.PI);
+                this.weapon.drawHarpoon(ctx, 0.6, Math.PI);
             } else if (this.weapon.type === 'poison_potion') {
                 ctx.translate(0, -GRID_SIZE * 0.5); 
                 this.weapon.drawPoisonPotion(ctx, 0.3);
@@ -1637,11 +1632,11 @@ export class Unit {
             ctx.fillRect(hpBarX, skillBarY, hpBarWidth, 4);
             ctx.fillStyle = '#a855f7';
             ctx.fillRect(hpBarX, skillBarY, hpBarWidth * ((300 - this.magicCircleCooldown) / 300), 4);
-        } else if (this.weapon?.type === 'robotic_arm' && this.roboticArmCooldown > 0) {
+        } else if (this.weapon?.type === 'harpoon' && this.harpoonCooldown > 0) {
             ctx.fillStyle = '#475569';
             ctx.fillRect(hpBarX, skillBarY, hpBarWidth, 4);
             ctx.fillStyle = '#94a3b8';
-            ctx.fillRect(hpBarX, skillBarY, hpBarWidth * ((600 - this.roboticArmCooldown) / 600), 4);
+            ctx.fillRect(hpBarX, skillBarY, hpBarWidth * ((600 - this.harpoonCooldown) / 600), 4);
         }
 
         
@@ -1651,3 +1646,4 @@ export class Unit {
         }
     }
 }
+
