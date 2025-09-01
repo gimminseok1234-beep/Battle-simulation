@@ -611,41 +611,80 @@ export class Weapon {
         ctx.rotate(rotation);
         ctx.scale(scale, scale);
     
-        ctx.fillStyle = '#a78bfa';
-        ctx.strokeStyle = 'black';
-        ctx.lineWidth = 2 / scale;
+        // Outer glow
+        ctx.shadowColor = 'rgba(192, 132, 252, 0.7)';
+        ctx.shadowBlur = 15 / scale;
+    
+        // Main Body
+        ctx.fillStyle = '#d8b4fe'; // Light purple
+        ctx.strokeStyle = '#4c1d95'; // Dark purple outline
+        ctx.lineWidth = 2.5 / scale;
     
         ctx.beginPath();
-        ctx.moveTo(-GRID_SIZE, -GRID_SIZE * 0.3);
-        ctx.lineTo(GRID_SIZE * 0.8, -GRID_SIZE * 0.4);
-        ctx.lineTo(GRID_SIZE * 1.2, -GRID_SIZE * 0.1);
-        ctx.lineTo(GRID_SIZE * 1.2, GRID_SIZE * 0.5);
-        ctx.lineTo(GRID_SIZE * 0.5, GRID_SIZE * 0.6);
-        ctx.lineTo(-GRID_SIZE * 0.5, GRID_SIZE * 0.8);
-        ctx.lineTo(-GRID_SIZE, GRID_SIZE * 0.3);
+        ctx.moveTo(-GRID_SIZE * 1.4, -GRID_SIZE * 0.2); // Back top
+        ctx.lineTo(GRID_SIZE * 0.5, -GRID_SIZE * 0.4); // Barrel top front
+        ctx.lineTo(GRID_SIZE * 1.1, -GRID_SIZE * 0.1); // Muzzle top
+        ctx.lineTo(GRID_SIZE * 1.1, GRID_SIZE * 0.3); // Muzzle bottom
+        ctx.lineTo(GRID_SIZE * 0.4, GRID_SIZE * 0.5); // Barrel bottom front
+        ctx.lineTo(-GRID_SIZE * 0.7, GRID_SIZE * 0.8); // Trigger guard top
+        ctx.lineTo(-GRID_SIZE * 0.9, GRID_SIZE * 1.4); // Handle front
+        ctx.lineTo(-GRID_SIZE * 1.6, GRID_SIZE * 1.2); // Handle bottom
+        ctx.lineTo(-GRID_SIZE * 1.8, GRID_SIZE * 0.3); // Handle back
         ctx.closePath();
         ctx.fill();
         ctx.stroke();
     
-        ctx.fillStyle = '#7c3aed';
-        ctx.beginPath();
-        ctx.rect(-GRID_SIZE * 1.5, -GRID_SIZE * 0.4, GRID_SIZE * 0.5, GRID_SIZE * 0.4);
-        ctx.fill();
-        ctx.stroke();
+        ctx.shadowColor = 'transparent'; // Reset shadow
     
-        ctx.fillStyle = '#9333ea';
+        // Barrel
+        ctx.fillStyle = '#a78bfa'; // Mid purple
         ctx.beginPath();
-        ctx.moveTo(-GRID_SIZE * 0.2, GRID_SIZE * 0.7);
-        ctx.lineTo(-GRID_SIZE * 0.4, GRID_SIZE * 1.5);
-        ctx.lineTo(GRID_SIZE * 0.3, GRID_SIZE * 1.6);
-        ctx.lineTo(GRID_SIZE * 0.5, GRID_SIZE * 0.8);
+        ctx.moveTo(GRID_SIZE * 0.5, -GRID_SIZE * 0.4);
+        ctx.lineTo(GRID_SIZE * 1.1, -GRID_SIZE * 0.1);
+        ctx.lineTo(GRID_SIZE * 1.1, GRID_SIZE * 0.3);
+        ctx.lineTo(GRID_SIZE * 0.4, GRID_SIZE * 0.5);
         ctx.closePath();
         ctx.fill();
         ctx.stroke();
+    
+        // Muzzle
+        ctx.fillStyle = '#5b21b6'; // Darker purple
+        ctx.beginPath();
+        ctx.ellipse(GRID_SIZE * 1.1, GRID_SIZE * 0.1, GRID_SIZE * 0.2, GRID_SIZE * 0.25, Math.PI / 2, 0, Math.PI * 2);
+        ctx.fill();
         
-        ctx.fillStyle = '#c084fc';
+        // Gem
+        const gemX = -GRID_SIZE * 0.2;
+        const gemY = GRID_SIZE * 0.1;
+        const gemRadius = GRID_SIZE * 0.3;
+        const grad = ctx.createRadialGradient(gemX, gemY, gemRadius * 0.2, gemX, gemY, gemRadius);
+        grad.addColorStop(0, '#f5d0fe');
+        grad.addColorStop(0.7, '#a855f7');
+        grad.addColorStop(1, '#5b21b6');
+        ctx.fillStyle = grad;
         ctx.beginPath();
-        ctx.arc(GRID_SIZE * 0.3, 0, GRID_SIZE * 0.3, 0, Math.PI * 2);
+        ctx.arc(gemX, gemY, gemRadius, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.strokeStyle = '#e9d5ff';
+        ctx.lineWidth = 1.5 / scale;
+        ctx.stroke();
+    
+        // Grip
+        ctx.fillStyle = '#5b21b6';
+        ctx.beginPath();
+        ctx.moveTo(-GRID_SIZE * 0.9, GRID_SIZE * 1.4);
+        ctx.lineTo(-GRID_SIZE * 1.6, GRID_SIZE * 1.2);
+        ctx.lineTo(-GRID_SIZE * 1.5, GRID_SIZE * 1.5);
+        ctx.lineTo(-GRID_SIZE * 0.8, GRID_SIZE * 1.7);
+        ctx.closePath();
+        ctx.fill();
+    
+        // Horn
+        ctx.fillStyle = '#e9d5ff';
+        ctx.beginPath();
+        ctx.moveTo(GRID_SIZE * 0.3, -GRID_SIZE * 0.4);
+        ctx.quadraticCurveTo(GRID_SIZE * 0.6, -GRID_SIZE * 0.8, GRID_SIZE * 0.2, -GRID_SIZE * 1.1);
+        ctx.quadraticCurveTo(GRID_SIZE * 0.1, -GRID_SIZE * 0.7, GRID_SIZE * 0.3, -GRID_SIZE * 0.4);
         ctx.fill();
         ctx.stroke();
     
@@ -762,7 +801,7 @@ export class Weapon {
         } else if (this.type === 'lightning') {
             this.drawLightning(ctx, 1.0, Math.PI / 4);
         } else if (this.type === 'magic_gun') {
-            this.drawMagicGun(ctx, scale, 0);
+            this.drawMagicGun(ctx, 0.8, -Math.PI / 8);
         } else if (this.type === 'poison_potion') {
             this.drawPoisonPotion(ctx, scale);
         } else if (this.type === 'hadoken') {
@@ -1516,3 +1555,4 @@ export class Unit {
         }
     }
 }
+
