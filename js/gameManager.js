@@ -940,6 +940,9 @@ export class GameManager {
             unit.update(enemies, this.weapons, this.projectiles);
         });
         
+        const deadUnits = this.units.filter(u => u.hp <= 0);
+        deadUnits.forEach(u => u.handleDeath());
+        
         this.units = this.units.filter(u => u.hp > 0);
         if (this.units.length < unitsBeforeUpdate) {
             this.audioManager.play('unitDeath');
@@ -1223,8 +1226,6 @@ export class GameManager {
             weapon.detectionRangeBonus = 6 * GRID_SIZE;
         } else if (type === 'poison_potion') {
             weapon.attackPowerBonus = 10; // 일반 공격 데미지 15
-            weapon.attackRangeBonus = 5 * GRID_SIZE;
-            weapon.detectionRangeBonus = 4 * GRID_SIZE;
         } else if (type === 'crown') {
             weapon.attackPowerBonus = 5;
         }
