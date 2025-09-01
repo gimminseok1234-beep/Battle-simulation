@@ -58,6 +58,49 @@ export class MagicCircle {
     }
 }
 
+// 독 장판 클래스
+export class PoisonCloud {
+    constructor(x, y, ownerTeam) {
+        this.pixelX = x;
+        this.pixelY = y;
+        this.ownerTeam = ownerTeam;
+        this.duration = 300; // 5초
+        this.damage = 0.3; // 초당 데미지 (Unit에서 설정)
+        this.animationTimer = 0;
+    }
+
+    update() {
+        this.duration--;
+        this.animationTimer++;
+        const gameManager = GameManager.getInstance();
+        if (!gameManager) return;
+        
+        gameManager.units.forEach(unit => {
+            if (unit.team !== this.ownerTeam) {
+                const dx = Math.abs(unit.pixelX - this.pixelX);
+                const dy = Math.abs(unit.pixelY - this.pixelY);
+                if (dx < GRID_SIZE * 2.5 && dy < GRID_SIZE * 2.5) {
+                    unit.takeDamage(0, { poison: { damage: this.damage } });
+                }
+            }
+        });
+    }
+
+    draw(ctx) {
+        const opacity = Math.min(1, this.duration / 60) * 0.4;
+        ctx.fillStyle = `rgba(132, 204, 22, ${opacity})`;
+        ctx.fillRect(this.pixelX - GRID_SIZE * 2.5, this.pixelY - GRID_SIZE * 2.5, GRID_SIZE * 5, GRID_SIZE * 5);
+
+        // 버블 효과
+        ctx.fillStyle = `rgba(163, 230, 53, ${opacity * 1.5})`;
+        const bubbleX = this.pixelX + Math.sin(this.animationTimer * 0.1) * GRID_SIZE * 2;
+        const bubbleY = this.pixelY + Math.cos(this.animationTimer * 0.05) * GRID_SIZE * 2;
+        ctx.beginPath();
+        ctx.arc(bubbleX, bubbleY, GRID_SIZE * 0.3, 0, Math.PI * 2);
+        ctx.fill();
+    }
+}
+
 
 // 성장형 자기장 클래스
 export class GrowingMagneticField {
@@ -399,7 +442,6 @@ export class AreaEffect {
         this.duration -= gameManager.gameSpeed;
         this.currentRadius = this.maxRadius * (1 - (this.duration / 30));
         
-        // 독 장판 로직
         if (this.type === 'poison_cloud') {
             this.duration--;
             gameManager.units.forEach(unit => {
@@ -407,7 +449,7 @@ export class AreaEffect {
                     const dx = unit.pixelX - this.pixelX;
                     const dy = unit.pixelY - this.pixelY;
                     if (Math.abs(dx) < GRID_SIZE * 2.5 && Math.abs(dy) < GRID_SIZE * 2.5) {
-                        unit.takeDamage(this.damage, { slow: 0.5 });
+                        unit.takeDamage(this.damage, { poison: { damage: this.damage } });
                     }
                 }
             });
@@ -580,8 +622,7 @@ export class Weapon {
     drawPoisonPotion(ctx, scale = 1.0) {
         ctx.save();
         ctx.scale(scale, scale);
-        // 유리병
-        ctx.fillStyle = 'rgba(173, 216, 230, 0.7)'; // Light blue with transparency
+        ctx.fillStyle = 'rgba(173, 216, 230, 0.7)'; 
         ctx.strokeStyle = '#4a5568';
         ctx.lineWidth = 3 / scale;
         ctx.beginPath();
@@ -589,7 +630,6 @@ export class Weapon {
         ctx.fill();
         ctx.stroke();
 
-        // 병목
         ctx.beginPath();
         ctx.moveTo(-GRID_SIZE * 0.5, -GRID_SIZE * 0.5);
         ctx.lineTo(-GRID_SIZE * 0.5, -GRID_SIZE * 1.2);
@@ -598,34 +638,28 @@ export class Weapon {
         ctx.fill();
         ctx.stroke();
         
-        // 병 주둥이
         ctx.fillStyle = 'rgba(129, 207, 224, 0.8)';
         ctx.beginPath();
         ctx.rect(-GRID_SIZE*0.6, -GRID_SIZE * 1.5, GRID_SIZE*1.2, GRID_SIZE*0.3);
         ctx.fill();
         ctx.stroke();
 
-        // 코르크 마개
-        ctx.fillStyle = '#D2B48C'; // Tan
-        ctx.strokeStyle = '#8B4513'; // SaddleBrown
+        ctx.fillStyle = '#D2B48C'; 
+        ctx.strokeStyle = '#8B4513'; 
         ctx.beginPath();
         ctx.ellipse(0, -GRID_SIZE * 1.6, GRID_SIZE * 0.5, GRID_SIZE*0.2, 0, 0, Math.PI * 2);
         ctx.fill();
         ctx.stroke();
 
-        // 독 액체
-        ctx.fillStyle = '#84cc16'; // Lime green
+        ctx.fillStyle = '#84cc16'; 
         ctx.beginPath();
         ctx.arc(0, GRID_SIZE * 0.2, GRID_SIZE * 0.9, 0, Math.PI * 2);
         ctx.fill();
 
-        // 해골
         ctx.fillStyle = 'black';
         ctx.beginPath();
-        // 머리
         ctx.arc(0, GRID_SIZE*0.2, GRID_SIZE*0.3, 0, Math.PI*2);
         ctx.fill();
-        // 뼈
         ctx.save();
         ctx.rotate(Math.PI/4);
         ctx.fillRect(-GRID_SIZE * 0.5, -GRID_SIZE * 0.05, GRID_SIZE, GRID_SIZE * 0.1);
@@ -706,7 +740,7 @@ export class Weapon {
         } else if (this.type === 'lightning') {
             this.drawLightning(ctx, 1.0, Math.PI / 4);
         } else if (this.type === 'magic_gun') {
-            this.drawMagicGun(ctx, scale, -Math.PI / 8);
+            this.drawMagicGun(ctx, scale, 0);
         } else if (this.type === 'poison_potion') {
             this.drawPoisonPotion(ctx, scale);
         } else if (this.type === 'hadoken') {
@@ -775,7 +809,7 @@ export class Unit {
         this.state = 'IDLE'; this.alertedCounter = 0;
         this.weapon = null; this.target = null; this.moveTarget = null;
         this.isCasting = false; this.castingProgress = 0; this.castTargetPos = null;
-        this.castDuration = 120; // 2초
+        this.castDuration = 180; // 독포션은 3초
         this.teleportCooldown = 0;
         this.isKing = false; this.spawnCooldown = 0; this.spawnInterval = 420;
         this.knockbackX = 0; this.knockbackY = 0;
@@ -1056,7 +1090,7 @@ export class Unit {
                     gameManager.createProjectile(this, this.target, 'hadoken');
                     gameManager.audioManager.play('hadokenShoot');
                 } else if (this.weapon.type === 'poison_potion') {
-                    gameManager.castAreaSpell(this.castTargetPos, 'poison_cloud', { ownerTeam: this.team });
+                    gameManager.castAreaSpell({x: this.pixelX, y: this.pixelY}, 'poison_cloud', { ownerTeam: this.team, damage: this.attackPower });
                     this.hp = 0; // 자폭
                 }
             }
@@ -1319,7 +1353,7 @@ export class Unit {
                 ctx.translate(GRID_SIZE * 0.4, GRID_SIZE * 0.2);
                 this.weapon.drawMagicGun(ctx, 0.24, -Math.PI / 8 + Math.PI);
             } else if (this.weapon.type === 'poison_potion') {
-                ctx.translate(0, -GRID_SIZE * 0.5); // 손에 들고 있는 것처럼 보이게 위치 조정
+                ctx.translate(0, -GRID_SIZE * 0.5); 
                 this.weapon.drawPoisonPotion(ctx, 0.6);
             } else if (this.weapon.type === 'hadoken') {
                 ctx.translate(GRID_SIZE * 0.5, 0);
