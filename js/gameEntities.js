@@ -174,11 +174,12 @@ export class Projectile {
         
         if (type === 'hadoken') this.speed = 4;
         else if (type === 'shuriken') this.speed = 2;
+        else if (type === 'lightning_bolt') this.speed = 8;
         else this.speed = 6;
 
         this.damage = owner.attackPower;
         this.knockback = (type === 'hadoken') ? gameManager.hadokenKnockback : 0;
-        const inaccuracy = (type === 'shuriken') ? 0 : GRID_SIZE * 0.8;
+        const inaccuracy = (type === 'shuriken' || type === 'lightning_bolt') ? 0 : GRID_SIZE * 0.8;
         const targetX = target.pixelX + (Math.random() - 0.5) * inaccuracy;
         const targetY = target.pixelY + (Math.random() - 0.5) * inaccuracy;
         const dx = targetX - this.pixelX; const dy = targetY - this.pixelY;
@@ -191,7 +192,7 @@ export class Projectile {
         const gameManager = GameManager.getInstance();
         if (!gameManager) return;
         
-        if (this.type === 'hadoken') {
+        if (this.type === 'hadoken' || this.type === 'lightning_bolt') {
             this.trail.push({x: this.pixelX, y: this.pixelY});
             if (this.trail.length > 10) this.trail.shift();
         }
@@ -282,6 +283,20 @@ export class Projectile {
             ctx.fill();
             ctx.stroke();
             ctx.restore();
+        } else if (this.type === 'lightning_bolt') {
+            ctx.save();
+            ctx.translate(this.pixelX, this.pixelY);
+            ctx.rotate(this.angle);
+            ctx.strokeStyle = '#fef08a';
+            ctx.lineWidth = 3;
+            ctx.beginPath();
+            ctx.moveTo(-GRID_SIZE * 0.5, 0);
+            for(let i = -GRID_SIZE * 0.5; i < GRID_SIZE * 0.5; i += 4) {
+                ctx.lineTo(i, (Math.random() - 0.5) * 4);
+            }
+            ctx.lineTo(GRID_SIZE * 0.5, 0);
+            ctx.stroke();
+            ctx.restore();
         }
     }
 }
@@ -311,7 +326,7 @@ export class AreaEffect {
 
 // 시각 효과 클래스
 export class Effect {
-    constructor(x, y, type, target) {
+    constructor(x, y, type, target, options = {}) {
         this.x = x; this.y = y; this.type = type; this.target = target;
         this.duration = 20; this.angle = Math.random() * Math.PI * 2;
     }
@@ -321,17 +336,25 @@ export class Effect {
         this.duration -= gameManager.gameSpeed;
     }
     draw(ctx) {
+        const opacity = this.duration / 20;
         if (this.type === 'slash' || this.type === 'dual_sword_slash') {
             ctx.save();
             ctx.translate(this.target.pixelX, this.target.pixelY);
             ctx.rotate(this.angle);
-            ctx.strokeStyle = `rgba(220, 38, 38, ${this.duration / 20})`;
+            ctx.strokeStyle = `rgba(220, 38, 38, ${opacity})`;
             ctx.lineWidth = this.type === 'slash' ? 3 : 2;
             const arcSize = this.type === 'slash' ? GRID_SIZE : GRID_SIZE * 0.7;
             ctx.beginPath();
             ctx.arc(0, 0, arcSize, -0.5, 0.5);
             ctx.stroke();
             ctx.restore();
+        } else if (this.type === 'chain_lightning') {
+            ctx.strokeStyle = `rgba(254, 240, 138, ${opacity})`;
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.moveTo(this.x, this.y);
+            ctx.lineTo(this.target.pixelX, this.target.pixelY);
+            ctx.stroke();
         }
     }
 }
@@ -348,9 +371,8 @@ export class Weapon {
 
     drawStaff(ctx, scale = 1.0) {
         ctx.save();
-        ctx.rotate(Math.PI / 4); // 공통 각도
+        ctx.rotate(Math.PI / 4);
         
-        // 스태프 몸체 (나무)
         ctx.fillStyle = '#5C3317';
         ctx.strokeStyle = '#2F1A0C';
         ctx.lineWidth = 3 / scale;
@@ -359,19 +381,17 @@ export class Weapon {
         ctx.lineTo(0, -GRID_SIZE * 0.8 * scale);
         ctx.stroke();
     
-        // 크리스탈 홀더 (금속)
-        ctx.fillStyle = '#FFD700'; // 금색
-        ctx.strokeStyle = '#B8860B'; // 어두운 금색
+        ctx.fillStyle = '#FFD700';
+        ctx.strokeStyle = '#B8860B';
         ctx.lineWidth = 2 / scale;
         ctx.beginPath();
         ctx.arc(0, -GRID_SIZE * 0.8 * scale, GRID_SIZE * 0.4 * scale, 0, Math.PI * 2);
         ctx.fill();
         ctx.stroke();
     
-        // 크리스탈 (보석)
         const grad = ctx.createRadialGradient(0, -GRID_SIZE * 0.8 * scale, GRID_SIZE * 0.1 * scale, 0, -GRID_SIZE * 0.8 * scale, GRID_SIZE * 0.4 * scale);
-        grad.addColorStop(0, '#FFC0CB'); // 밝은 핑크
-        grad.addColorStop(1, '#DC143C'); // 진한 핑크 (크림슨)
+        grad.addColorStop(0, '#FFC0CB'); 
+        grad.addColorStop(1, '#DC143C'); 
         ctx.fillStyle = grad;
         ctx.beginPath();
         ctx.arc(0, -GRID_SIZE * 0.8 * scale, GRID_SIZE * 0.35 * scale, 0, Math.PI * 2);
@@ -380,10 +400,38 @@ export class Weapon {
         ctx.restore();
     }
     
+    drawLightning(ctx, scale = 1.0, rotation = 0) {
+        ctx.save();
+        ctx.rotate(rotation);
+        ctx.scale(scale, scale);
+        ctx.fillStyle = '#fef08a';
+        ctx.strokeStyle = '#facc15';
+        ctx.lineWidth = 2.5 / scale;
+    
+        ctx.beginPath();
+        ctx.moveTo(0, -GRID_SIZE * 1.2);
+        ctx.lineTo(GRID_SIZE * 0.3, -GRID_SIZE * 0.2);
+        ctx.lineTo(-GRID_SIZE * 0.1, -GRID_SIZE * 0.2);
+        ctx.lineTo(GRID_SIZE * 0.1, GRID_SIZE * 0.4);
+        ctx.lineTo(-GRID_SIZE * 0.3, -GRID_SIZE * 0.1);
+        ctx.lineTo(GRID_SIZE * 0.1, -GRID_SIZE * 0.1);
+        ctx.lineTo(0, GRID_SIZE * 1.2);
+        ctx.lineTo(-0.1, -GRID_SIZE * 0.1);
+        ctx.lineTo(0.3, -GRID_SIZE * 0.1);
+        ctx.lineTo(-0.1, GRID_SIZE * 0.4);
+        ctx.lineTo(0.1, -GRID_SIZE * 0.2);
+        ctx.lineTo(-0.3, -GRID_SIZE * 0.2);
+        ctx.closePath();
+    
+        ctx.fill();
+        ctx.stroke();
+        ctx.restore();
+    }
+
     draw(ctx) {
         if (this.isEquipped) return;
         const centerX = this.pixelX; const centerY = this.pixelY;
-        const scale = (this.type === 'crown') ? 1.0 : 0.8;
+        const scale = (this.type === 'crown' || this.type === 'lightning') ? 1.0 : 0.8;
         ctx.save(); ctx.translate(centerX, centerY); ctx.scale(scale, scale);
         ctx.strokeStyle = 'black'; ctx.lineWidth = 1 / scale;
 
@@ -446,6 +494,8 @@ export class Weapon {
             drawCurvedSword(Math.PI / 4);
         } else if (this.type === 'staff') {
             this.drawStaff(ctx, scale);
+        } else if (this.type === 'lightning') {
+            this.drawLightning(ctx, scale, Math.PI / 4);
         } else if (this.type === 'hadoken') {
             ctx.rotate(Math.PI / 4);
             const grad = ctx.createRadialGradient(0, 0, 1, 0, 0, GRID_SIZE * 1.2);
@@ -518,7 +568,7 @@ export class Unit {
         this.knockbackX = 0; this.knockbackY = 0;
         this.isInMagneticField = false;
         this.evasionCooldown = 0; 
-        this.attackAnimationTimer = 0; // 공격 애니메이션 타이머
+        this.attackAnimationTimer = 0; 
     }
     
     get speed() {
@@ -663,7 +713,7 @@ export class Unit {
                 gameManager.damageTile(targetGridX, targetGridY, currentAttackPower);
             } else if (target instanceof Unit || target instanceof Nexus) {
                 if (this.weapon && (this.weapon.type === 'sword' || this.weapon.type === 'dual_swords')) {
-                    this.attackAnimationTimer = 15; // 공격 애니메이션 시작
+                    this.attackAnimationTimer = 15;
                 }
                 
                 if (this.weapon && this.weapon.type === 'sword') {
@@ -678,6 +728,9 @@ export class Unit {
                 } else if (this.weapon && this.weapon.type === 'shuriken') {
                      gameManager.createProjectile(this, target, 'shuriken');
                      gameManager.audioManager.play('shurikenShoot');
+                } else if (this.weapon && this.weapon.type === 'lightning') {
+                    gameManager.createProjectile(this, target, 'lightning_bolt');
+                    gameManager.audioManager.play('lightningShoot');
                 }
                 else {
                     target.takeDamage(currentAttackPower);
@@ -690,7 +743,7 @@ export class Unit {
     takeDamage(damage, effectInfo = {}) {
         this.hp -= damage;
         if (effectInfo.interrupt) {
-             if (this.weapon?.type !== 'shuriken' || effectInfo.force > 0) {
+             if (this.weapon?.type !== 'shuriken' || this.weapon?.type !== 'lightning' || effectInfo.force > 0) {
                  this.isCasting = false;
                  this.castingProgress = 0;
              }
@@ -712,7 +765,7 @@ export class Unit {
         if (this.evasionCooldown > 0) this.evasionCooldown -= gameManager.gameSpeed;
         if (this.attackAnimationTimer > 0) this.attackAnimationTimer -= gameManager.gameSpeed;
         
-        if (this.weapon && this.weapon.type === 'shuriken' && this.evasionCooldown <= 0) {
+        if (this.weapon && (this.weapon.type === 'shuriken' || this.weapon.type === 'lightning') && this.evasionCooldown <= 0) {
             for (const p of projectiles) {
                 if (p.owner.team === this.team) continue;
                 const dist = Math.hypot(this.pixelX - p.pixelX, this.pixelY - p.pixelY);
@@ -927,6 +980,16 @@ export class Unit {
             ctx.beginPath(); ctx.arc(backX2, backY2, GRID_SIZE / 3.5, 0, Math.PI * 2); ctx.fill();
             ctx.restore();
         }
+        
+        if (this.weapon && this.weapon.type === 'lightning') {
+            ctx.save();
+            ctx.translate(this.pixelX, this.pixelY);
+            ctx.rotate(gameManager.animationFrameCounter * 0.05); // 번개 회전
+            const orbitingRadius = GRID_SIZE * 0.8;
+            ctx.translate(orbitingRadius, 0);
+            this.weapon.drawLightning(ctx, 0.5, -gameManager.animationFrameCounter * 0.05); // 번개 자체는 회전하지 않도록 보정
+            ctx.restore();
+        }
 
         if (this.isKing) {
             ctx.save();
@@ -943,7 +1006,7 @@ export class Unit {
             ctx.restore();
         }
 
-        if (this.weapon && !this.isKing) {
+        if (this.weapon && !this.isKing && this.weapon.type !== 'lightning') {
             ctx.save(); 
             ctx.translate(this.pixelX, this.pixelY);
             
@@ -1083,7 +1146,7 @@ export class Unit {
             ctx.fillRect(hpBarX, skillBarY, hpBarWidth * ((this.spawnInterval - this.spawnCooldown) / this.spawnInterval), 4);
         }
         
-        if (this.alertedCounter > 0 && !(this.weapon && this.weapon.type === 'shuriken') && this.state !== 'FLEEING_FIELD') {
+        if (this.alertedCounter > 0 && !(this.weapon && (this.weapon.type === 'shuriken' || this.weapon.type === 'lightning')) && this.state !== 'FLEEING_FIELD') {
             ctx.fillStyle = 'yellow'; ctx.font = 'bold 20px Arial'; ctx.textAlign = 'center';
             ctx.fillText(this.state === 'SEEKING_HEAL_PACK' ? '+' : '!', this.pixelX, this.pixelY - GRID_SIZE);
         }
