@@ -687,22 +687,35 @@ export class Weapon {
         ctx.scale(scale, scale);
     
         const grad = ctx.createLinearGradient(-GRID_SIZE, -GRID_SIZE, GRID_SIZE, GRID_SIZE);
-        grad.addColorStop(0, '#fef08a'); // yellow-200
-        grad.addColorStop(1, '#facc15'); // yellow-400
+        grad.addColorStop(0, '#fef08a'); 
+        grad.addColorStop(1, '#facc15'); 
     
         ctx.fillStyle = grad;
-        ctx.strokeStyle = '#18181b'; // zinc-900
-        ctx.lineWidth = 2.5 / scale;
+        ctx.strokeStyle = '#18181b'; 
+        ctx.lineWidth = 2 / scale;
+        ctx.lineJoin = 'round';
+        ctx.lineCap = 'round';
+    
+        const w = GRID_SIZE * 1.4; // width of arms
+        const t = GRID_SIZE * 0.3; // thickness
     
         ctx.beginPath();
-        ctx.moveTo(-GRID_SIZE * 1.2, GRID_SIZE * 0.3);
-        ctx.lineTo(0, -GRID_SIZE * 0.6);
-        ctx.lineTo(GRID_SIZE * 1.2, GRID_SIZE * 0.3);
-        ctx.lineTo(GRID_SIZE * 0.7, GRID_SIZE * 0.1);
-        ctx.lineTo(0, 0);
-        ctx.lineTo(-GRID_SIZE * 0.7, GRID_SIZE * 0.1);
+        ctx.moveTo(-w, 0);
+        ctx.lineTo(0, -w);
+        ctx.lineTo(t, -w + t);
+        ctx.lineTo(t, -t);
+        ctx.lineTo(-w + t, t);
         ctx.closePath();
-        
+        ctx.fill();
+        ctx.stroke();
+    
+        ctx.beginPath();
+        ctx.moveTo(0, -w);
+        ctx.lineTo(w, 0);
+        ctx.lineTo(w - t, t);
+        ctx.lineTo(-t, t);
+        ctx.lineTo(-t, -w + t);
+        ctx.closePath();
         ctx.fill();
         ctx.stroke();
     
