@@ -1207,6 +1207,13 @@ export class Unit {
         if (this.isStunned > 0) {
             ctx.globalAlpha = 0.7;
         }
+        if(this.poisonEffect.active){
+            ctx.fillStyle = '#84cc16'; // 독 효과 시각화
+            ctx.beginPath();
+            ctx.arc(this.pixelX, this.pixelY, GRID_SIZE/2, 0, Math.PI * 2);
+            ctx.fill();
+        }
+
 
         switch(this.team) {
             case TEAM.A: ctx.fillStyle = COLORS.TEAM_A; break;
