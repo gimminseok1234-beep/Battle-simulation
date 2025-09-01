@@ -160,7 +160,7 @@ export class GameManager {
                 <button class="tool-btn" data-tool="weapon" data-type="staff">스태프</button>
                 <button class="tool-btn" data-tool="weapon" data-type="lightning">번개</button>
                 <button class="tool-btn" data-tool="weapon" data-type="magic_spear">마법창</button>
-                <button class="tool-btn" data-tool="weapon" data-type="robotic_arm">기계팔</button>
+                <button class="tool-btn" data-tool="weapon" data-type="harpoon">작살</button>
                 <button class="tool-btn" data-tool="weapon" data-type="poison_potion">독 포션</button>
                 <div class="flex items-center gap-1">
                     <button class="tool-btn flex-grow" data-tool="weapon" data-type="hadoken">장풍</button>
@@ -1204,14 +1204,10 @@ export class GameManager {
             weapon.attackPowerBonus = 8; 
             weapon.attackRangeBonus = 6 * GRID_SIZE;
             weapon.attackCooldownBonus = -20;
-        } else if (type === 'magic_spear') {
+        } else if (type === 'magic_gun') {
             weapon.attackRangeBonus = 5 * GRID_SIZE;
             weapon.normalAttackPowerBonus = 5;
             weapon.specialAttackPowerBonus = 15;
-        } else if (type === 'robotic_arm') {
-            weapon.attackPowerBonus = 10; // 일반 공격 데미지
-            weapon.attackRangeBonus = 7 * GRID_SIZE; // 활보다 2칸 긴 사거리
-            weapon.detectionRangeBonus = 2 * GRID_SIZE;
         } else if (type === 'poison_potion') {
             weapon.attackPowerBonus = 0.3; // 초당 독 데미지
             weapon.attackRangeBonus = 5 * GRID_SIZE;
@@ -1245,21 +1241,13 @@ export class GameManager {
     
     createEffect(type, x, y, target, options = {}) { this.effects.push(new Effect(x, y, type, target, options)); }
     createProjectile(owner, target, type) { this.projectiles.push(new Projectile(owner, target, type)); }
-    
-    castAreaSpell(pos, type, ...args) {
+    castAreaSpell(pos, type, options = {}) {
         if (type === 'poison_cloud') {
-            const ownerTeam = args[0];
-            this.poisonClouds.push(new PoisonCloud(pos.x, pos.y, ownerTeam));
-        } else if (type === 'fire_pillar') {
-            const damage = args[0];
-            const ownerTeam = args[1];
-            this.areaEffects.push(new AreaEffect(pos.x, pos.y, type, { damage, ownerTeam }));
+            this.poisonClouds.push(new PoisonCloud(pos.x, pos.y, options.ownerTeam));
         } else {
-            const options = args[0] || {};
             this.areaEffects.push(new AreaEffect(pos.x, pos.y, type, options));
         }
     }
-
     damageTile(x, y, damage) {
         if (y >= 0 && y < this.ROWS && x >= 0 && x < this.COLS) {
             const tile = this.map[y][x];
@@ -1428,5 +1416,7 @@ export class GameManager {
         this.resetActionCam(true);
         this.draw();
     }
+}
+
 }
 
