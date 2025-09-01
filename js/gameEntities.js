@@ -404,8 +404,11 @@ export class Projectile {
             ctx.restore();
         } else if (this.type.startsWith('magic_spear')) {
             const isSpecial = this.type === 'magic_spear_special';
-            const mainColor = isSpecial ? '#a855f7' : '#374151';
+            const mainColor = isSpecial ? '#a855f7' : '#111827'; // 일반 공격 색상 변경
             const trailColor = isSpecial ? 'rgba(192, 132, 252, 0.4)' : 'rgba(107, 114, 128, 0.4)';
+            const spearLength = isSpecial ? GRID_SIZE * 1.2 : GRID_SIZE * 1.0; // 크기 조정
+            const spearWidth = isSpecial ? GRID_SIZE * 0.25 : GRID_SIZE * 0.2; // 크기 조정
+
 
             ctx.save();
             ctx.translate(this.pixelX, this.pixelY);
@@ -425,12 +428,11 @@ export class Projectile {
             }
 
             // Spearhead
-            const spearLength = GRID_SIZE * 0.8;
             ctx.fillStyle = mainColor;
             ctx.beginPath();
             ctx.moveTo(spearLength, 0);
-            ctx.lineTo(0, -GRID_SIZE * 0.15);
-            ctx.lineTo(0, GRID_SIZE * 0.15);
+            ctx.lineTo(0, -spearWidth);
+            ctx.lineTo(0, spearWidth);
             ctx.closePath();
             ctx.fill();
             
@@ -490,13 +492,10 @@ export class AreaEffect {
     draw(ctx) {
         const opacity = this.duration / 30;
         if (this.type === 'fire_pillar') {
-            ctx.fillStyle = `rgba(255, 165, 0, ${opacity * 0.5})`;
-            ctx.beginPath(); ctx.arc(this.pixelX, this.pixelY, this.currentRadius, 0, Math.PI * 2); ctx.fill();
-            ctx.fillStyle = `rgba(255, 69, 0, ${opacity * 0.7})`;
-            ctx.beginPath(); ctx.arc(this.pixelX, this.pixelY, this.currentRadius * 0.6, 0, Math.PI * 2); ctx.fill();
-            
             ctx.save();
             ctx.translate(this.pixelX, this.pixelY);
+            
+            // Draw particles
             this.particles.forEach(p => {
                 ctx.globalAlpha = (p.lifespan / 20) * opacity;
                 ctx.fillStyle = p.color;
@@ -506,6 +505,7 @@ export class AreaEffect {
             });
             ctx.restore();
             ctx.globalAlpha = 1.0;
+
         } else if (this.type === 'poison_cloud') {
             ctx.fillStyle = `rgba(132, 204, 22, ${opacity * 0.4})`;
             ctx.fillRect(this.pixelX - GRID_SIZE * 2.5, this.pixelY - GRID_SIZE * 2.5, GRID_SIZE * 5, GRID_SIZE * 5);
