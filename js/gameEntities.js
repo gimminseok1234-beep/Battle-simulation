@@ -518,11 +518,15 @@ export class Effect {
     constructor(x, y, type, target, options = {}) {
         this.x = x; this.y = y; this.type = type; this.target = target;
         this.duration = 20; this.angle = Math.random() * Math.PI * 2;
+        this.progress = 0;
     }
     update() {
         const gameManager = GameManager.getInstance();
         if (!gameManager) return;
         this.duration -= gameManager.gameSpeed;
+        if (this.type === 'grab_effect') {
+            this.progress = 1 - (this.duration / 20);
+        }
     }
     draw(ctx) {
         const opacity = this.duration / 20;
@@ -544,6 +548,18 @@ export class Effect {
             ctx.moveTo(this.x, this.y);
             ctx.lineTo(this.target.pixelX, this.target.pixelY);
             ctx.stroke();
+        } else if (this.type === 'grab_effect') {
+            ctx.save();
+            ctx.strokeStyle = `rgba(203, 213, 225, ${opacity * 0.8})`;
+            ctx.lineWidth = 4;
+            ctx.lineCap = 'round';
+            ctx.beginPath();
+            ctx.moveTo(this.x, this.y);
+            const targetX = this.x + (this.target.pixelX - this.x) * this.progress;
+            const targetY = this.y + (this.target.pixelY - this.y) * this.progress;
+            ctx.lineTo(targetX, targetY);
+            ctx.stroke();
+            ctx.restore();
         }
     }
 }
@@ -672,6 +688,69 @@ export class Weapon {
         ctx.restore();
     }
     
+    drawRoboticArm(ctx, scale = 1.0, rotation = 0) {
+        ctx.save();
+        ctx.rotate(rotation);
+        ctx.scale(scale, scale);
+    
+        ctx.strokeStyle = '#1e293b'; // slate-800
+        ctx.lineWidth = 2 / scale;
+    
+        // Main Arm Body
+        ctx.fillStyle = '#94a3b8'; // slate-400
+        ctx.beginPath();
+        ctx.moveTo(-GRID_SIZE * 1.2, -GRID_SIZE * 0.4);
+        ctx.lineTo(GRID_SIZE * 0.5, -GRID_SIZE * 0.5);
+        ctx.lineTo(GRID_SIZE * 0.5, GRID_SIZE * 0.5);
+        ctx.lineTo(-GRID_SIZE * 1.2, GRID_SIZE * 0.4);
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+    
+        // Shoulder Joint
+        ctx.fillStyle = '#e2e8f0'; // slate-200
+        ctx.beginPath();
+        ctx.arc(-GRID_SIZE * 1.2, 0, GRID_SIZE * 0.5, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+    
+        // Hand
+        ctx.fillStyle = '#cbd5e1'; // slate-300
+        ctx.beginPath();
+        ctx.moveTo(GRID_SIZE * 0.5, -GRID_SIZE * 0.5);
+        ctx.lineTo(GRID_SIZE * 1.2, -GRID_SIZE * 0.6);
+        ctx.lineTo(GRID_SIZE * 1.2, GRID_SIZE * 0.6);
+        ctx.lineTo(GRID_SIZE * 0.5, GRID_SIZE * 0.5);
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+    
+        // Fingers
+        ctx.strokeStyle = '#475569'; // slate-600
+        ctx.lineWidth = 1.5 / scale;
+        const fingerBaseX = GRID_SIZE * 1.2;
+        const fingerLength = GRID_SIZE * 0.4;
+        for (let i = -2; i <= 2; i++) {
+            if (i === 0) continue;
+            const yOffset = i * 0.25;
+            ctx.beginPath();
+            ctx.moveTo(fingerBaseX, GRID_SIZE * yOffset);
+            ctx.lineTo(fingerBaseX + fingerLength, GRID_SIZE * (yOffset * 0.8));
+            ctx.stroke();
+        }
+        
+        // Blue circle detail
+        ctx.fillStyle = '#67e8f9'; // cyan-300
+        ctx.strokeStyle = '#0891b2'; // cyan-600
+        ctx.lineWidth = 2 / scale;
+        ctx.beginPath();
+        ctx.arc(-GRID_SIZE * 0.2, 0, GRID_SIZE * 0.2, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+    
+        ctx.restore();
+    }
+
     drawPoisonPotion(ctx, scale = 1.0) {
         ctx.save();
         ctx.scale(scale, scale);
@@ -716,7 +795,7 @@ export class Weapon {
     draw(ctx) {
         if (this.isEquipped) return;
         const centerX = this.pixelX; const centerY = this.pixelY;
-        const scale = (this.type === 'crown') ? 1.0 : (this.type === 'lightning' ? 0.6 : (this.type === 'magic_spear' ? 0.6 : (this.type === 'poison_potion' ? 0.624 : 0.8)));
+        const scale = (this.type === 'crown') ? 1.0 : (this.type === 'lightning' ? 0.6 : (this.type === 'magic_spear' ? 0.6 : (this.type === 'poison_potion' ? 0.624 : (this.type === 'robotic_arm' ? 0.7 : 0.8))));
         ctx.save(); ctx.translate(centerX, centerY); ctx.scale(scale, scale);
         ctx.strokeStyle = 'black'; ctx.lineWidth = 1 / scale;
 
@@ -783,6 +862,8 @@ export class Weapon {
             this.drawLightning(ctx, 1.0, Math.PI / 4);
         } else if (this.type === 'magic_spear') {
             this.drawMagicSpear(ctx, 0.8, -Math.PI / 8);
+        } else if (this.type === 'robotic_arm') {
+            this.drawRoboticArm(ctx, 1.0, -Math.PI / 6);
         } else if (this.type === 'poison_potion') {
             this.drawPoisonPotion(ctx, scale);
         } else if (this.type === 'hadoken') {
@@ -851,7 +932,7 @@ export class Unit {
         this.state = 'IDLE'; this.alertedCounter = 0;
         this.weapon = null; this.target = null; this.moveTarget = null;
         this.isCasting = false; this.castingProgress = 0; this.castTargetPos = null;
-        this.castDuration = 180; // 독포션은 3초
+        this.castDuration = 180; 
         this.teleportCooldown = 0;
         this.isKing = false; this.spawnCooldown = 0; this.spawnInterval = 420;
         this.knockbackX = 0; this.knockbackY = 0;
@@ -859,6 +940,7 @@ export class Unit {
         this.evasionCooldown = 0; 
         this.attackAnimationTimer = 0;
         this.magicCircleCooldown = 0;
+        this.roboticArmCooldown = 0;
         this.isStunned = 0;
         this.poisonEffect = { active: false, duration: 0, damage: 0 };
     }
@@ -1005,7 +1087,7 @@ export class Unit {
             if (tile.type === TILE.CRACKED_WALL) {
                 gameManager.damageTile(targetGridX, targetGridY, currentAttackPower);
             } else if (target instanceof Unit || target instanceof Nexus) {
-                if (this.weapon && (this.weapon.type === 'sword' || this.weapon.type === 'dual_swords')) {
+                if (this.weapon && (this.weapon.type === 'sword' || this.weapon.type === 'dual_swords' || this.weapon.type === 'robotic_arm')) {
                     this.attackAnimationTimer = 15;
                 }
                 
@@ -1026,6 +1108,8 @@ export class Unit {
                     gameManager.audioManager.play('lightningShoot');
                 } else if (this.weapon && this.weapon.type === 'magic_spear') {
                     gameManager.createProjectile(this, target, 'magic_spear_normal');
+                } else if (this.weapon && this.weapon.type === 'robotic_arm') {
+                    target.takeDamage(15); 
                 }
                 else {
                     target.takeDamage(currentAttackPower);
@@ -1073,6 +1157,7 @@ export class Unit {
         if (this.evasionCooldown > 0) this.evasionCooldown -= gameManager.gameSpeed;
         if (this.attackAnimationTimer > 0) this.attackAnimationTimer -= gameManager.gameSpeed;
         if (this.magicCircleCooldown > 0) this.magicCircleCooldown -= gameManager.gameSpeed;
+        if (this.roboticArmCooldown > 0) this.roboticArmCooldown -= gameManager.gameSpeed;
         
         if (this.poisonEffect.active) {
             this.poisonEffect.duration -= gameManager.gameSpeed;
@@ -1187,6 +1272,24 @@ export class Unit {
                 return;
             }
         }
+        
+        if (this.weapon && this.weapon.type === 'robotic_arm' && this.roboticArmCooldown <= 0) {
+            const { item: closestEnemy } = this.findClosest(enemies);
+            if (closestEnemy && gameManager.hasLineOfSight(this, closestEnemy)) {
+                const dist = Math.hypot(this.pixelX - closestEnemy.pixelX, this.pixelY - closestEnemy.pixelY);
+                if (dist <= this.attackRange) {
+                    this.roboticArmCooldown = 600; // 10초 쿨타임
+                    gameManager.createEffect('grab_effect', this.pixelX, this.pixelY, closestEnemy);
+                    
+                    const pullToX = this.pixelX + Math.cos(this.facingAngle) * GRID_SIZE;
+                    const pullToY = this.pixelY + Math.sin(this.facingAngle) * GRID_SIZE;
+
+                    closestEnemy.pixelX = pullToX;
+                    closestEnemy.pixelY = pullToY;
+                    closestEnemy.takeDamage(20, { stun: 120 }); // 2초 스턴
+                }
+            }
+        }
 
 
         let newState = 'IDLE';
@@ -1276,6 +1379,10 @@ export class Unit {
                     if (this.weapon && this.weapon.type === 'poison_potion') {
                         attackDistance = GRID_SIZE * 0.5; // 자폭 유닛은 근접해야 함
                     }
+                    if (this.weapon && this.weapon.type === 'robotic_arm' && this.roboticArmCooldown > 0) {
+                        attackDistance = this.baseAttackRange; // 스킬 쿨타임일 땐 기본 공격 사거리
+                    }
+
                     if (Math.hypot(this.pixelX - this.target.pixelX, this.pixelY - this.target.pixelY) <= attackDistance) {
                         this.moveTarget = null; this.attack(this.target);
                         this.facingAngle = Math.atan2(this.target.pixelY - this.pixelY, this.target.pixelX - this.pixelX);
@@ -1394,6 +1501,9 @@ export class Unit {
             } else if (this.weapon.type === 'magic_spear') {
                 ctx.translate(GRID_SIZE * 0.2, GRID_SIZE * 0.4);
                 this.weapon.drawMagicSpear(ctx, 0.5, -Math.PI / 8 + Math.PI);
+            } else if (this.weapon.type === 'robotic_arm') {
+                ctx.translate(0, GRID_SIZE * 0.4); 
+                this.weapon.drawRoboticArm(ctx, 0.6, Math.PI);
             } else if (this.weapon.type === 'poison_potion') {
                 ctx.translate(0, -GRID_SIZE * 0.5); 
                 this.weapon.drawPoisonPotion(ctx, 0.3);
@@ -1527,6 +1637,11 @@ export class Unit {
             ctx.fillRect(hpBarX, skillBarY, hpBarWidth, 4);
             ctx.fillStyle = '#a855f7';
             ctx.fillRect(hpBarX, skillBarY, hpBarWidth * ((300 - this.magicCircleCooldown) / 300), 4);
+        } else if (this.weapon?.type === 'robotic_arm' && this.roboticArmCooldown > 0) {
+            ctx.fillStyle = '#475569';
+            ctx.fillRect(hpBarX, skillBarY, hpBarWidth, 4);
+            ctx.fillStyle = '#94a3b8';
+            ctx.fillRect(hpBarX, skillBarY, hpBarWidth * ((600 - this.roboticArmCooldown) / 600), 4);
         }
 
         
@@ -1536,4 +1651,3 @@ export class Unit {
         }
     }
 }
-
