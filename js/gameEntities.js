@@ -65,7 +65,7 @@ export class PoisonCloud {
         this.pixelY = y;
         this.ownerTeam = ownerTeam;
         this.duration = 300; // 5초
-        this.damage = 0.3; // 초당 데미지 (Unit에서 설정)
+        this.damage = 0.15; // 초당 데미지 감소
         this.animationTimer = 0;
     }
 
@@ -656,17 +656,6 @@ export class Weapon {
         ctx.arc(0, GRID_SIZE * 0.2, GRID_SIZE * 0.9, 0, Math.PI * 2);
         ctx.fill();
 
-        ctx.fillStyle = 'black';
-        ctx.beginPath();
-        ctx.arc(0, GRID_SIZE*0.2, GRID_SIZE*0.3, 0, Math.PI*2);
-        ctx.fill();
-        ctx.save();
-        ctx.rotate(Math.PI/4);
-        ctx.fillRect(-GRID_SIZE * 0.5, -GRID_SIZE * 0.05, GRID_SIZE, GRID_SIZE * 0.1);
-        ctx.rotate(-Math.PI/2);
-        ctx.fillRect(-GRID_SIZE * 0.5, -GRID_SIZE * 0.05, GRID_SIZE, GRID_SIZE * 0.1);
-        ctx.restore();
-
         ctx.restore();
     }
 
@@ -674,7 +663,7 @@ export class Weapon {
     draw(ctx) {
         if (this.isEquipped) return;
         const centerX = this.pixelX; const centerY = this.pixelY;
-        const scale = (this.type === 'crown') ? 1.0 : (this.type === 'lightning' ? 0.6 : (this.type === 'magic_gun' ? 0.6 : 0.8));
+        const scale = (this.type === 'crown') ? 1.0 : (this.type === 'lightning' ? 0.6 : (this.type === 'magic_gun' ? 0.6 : (this.type === 'poison_potion' ? 0.4 : 0.8)));
         ctx.save(); ctx.translate(centerX, centerY); ctx.scale(scale, scale);
         ctx.strokeStyle = 'black'; ctx.lineWidth = 1 / scale;
 
@@ -1010,7 +999,7 @@ export class Unit {
         }
         if(effectInfo.poison){
             this.poisonEffect.active = true;
-            this.poisonEffect.duration = 300; // 5초
+            this.poisonEffect.duration = 180; // 3초로 변경
             this.poisonEffect.damage = effectInfo.poison.damage;
         }
     }
@@ -1354,7 +1343,7 @@ export class Unit {
                 this.weapon.drawMagicGun(ctx, 0.24, -Math.PI / 8 + Math.PI);
             } else if (this.weapon.type === 'poison_potion') {
                 ctx.translate(0, -GRID_SIZE * 0.5); 
-                this.weapon.drawPoisonPotion(ctx, 0.6);
+                this.weapon.drawPoisonPotion(ctx, 0.3);
             } else if (this.weapon.type === 'hadoken') {
                 ctx.translate(GRID_SIZE * 0.5, 0);
                 const scale = 0.7;
