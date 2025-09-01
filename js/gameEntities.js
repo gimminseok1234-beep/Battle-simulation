@@ -618,7 +618,6 @@ export class Unit {
             this.castingProgress = 0;
             this.castTargetPos = { x: target.pixelX, y: target.pixelY };
             this.target = target;
-            gameManager.audioManager.play('hadokenCast'); // 공통 캐스팅 사운드
         } else {
             this.attackCooldown = this.cooldownTime;
             const targetGridX = Math.floor(target.pixelX / GRID_SIZE);
