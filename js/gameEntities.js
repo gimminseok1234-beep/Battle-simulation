@@ -431,7 +431,7 @@ export class Weapon {
     draw(ctx) {
         if (this.isEquipped) return;
         const centerX = this.pixelX; const centerY = this.pixelY;
-        const scale = (this.type === 'crown' || this.type === 'lightning') ? 1.0 : 0.8;
+        const scale = (this.type === 'crown') ? 1.0 : (this.type === 'lightning' ? 0.6 : 0.8);
         ctx.save(); ctx.translate(centerX, centerY); ctx.scale(scale, scale);
         ctx.strokeStyle = 'black'; ctx.lineWidth = 1 / scale;
 
@@ -495,7 +495,7 @@ export class Weapon {
         } else if (this.type === 'staff') {
             this.drawStaff(ctx, scale);
         } else if (this.type === 'lightning') {
-            this.drawLightning(ctx, scale, Math.PI / 4);
+            this.drawLightning(ctx, 1.0, Math.PI / 4);
         } else if (this.type === 'hadoken') {
             ctx.rotate(Math.PI / 4);
             const grad = ctx.createRadialGradient(0, 0, 1, 0, 0, GRID_SIZE * 1.2);
@@ -984,10 +984,10 @@ export class Unit {
         if (this.weapon && this.weapon.type === 'lightning') {
             ctx.save();
             ctx.translate(this.pixelX, this.pixelY);
-            ctx.rotate(gameManager.animationFrameCounter * 0.05); // 번개 회전
+            ctx.rotate(gameManager.animationFrameCounter * 0.05);
             const orbitingRadius = GRID_SIZE * 0.8;
             ctx.translate(orbitingRadius, 0);
-            this.weapon.drawLightning(ctx, 0.5, -gameManager.animationFrameCounter * 0.05); // 번개 자체는 회전하지 않도록 보정
+            this.weapon.drawLightning(ctx, 0.5, -gameManager.animationFrameCounter * 0.05);
             ctx.restore();
         }
 
