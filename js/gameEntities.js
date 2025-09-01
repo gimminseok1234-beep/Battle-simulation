@@ -268,7 +268,7 @@ export class Nexus {
 
 // 발사체 클래스
 export class Projectile {
-    constructor(owner, target, type = 'arrow') {
+    constructor(owner, target, type = 'arrow', options = {}) {
         const gameManager = GameManager.getInstance();
         this.owner = owner; this.pixelX = owner.pixelX; this.pixelY = owner.pixelY;
         this.type = type;
@@ -293,7 +293,7 @@ export class Projectile {
         const targetX = target.pixelX + (Math.random() - 0.5) * inaccuracy;
         const targetY = target.pixelY + (Math.random() - 0.5) * inaccuracy;
         const dx = targetX - this.pixelX; const dy = targetY - this.pixelY;
-        this.angle = Math.atan2(dy, dx);
+        this.angle = options.angle !== undefined ? options.angle : Math.atan2(dy, dx);
         this.destroyed = false;
         this.trail = [];
         this.rotationAngle = 0;
@@ -902,6 +902,7 @@ export class Unit {
         this.attackAnimationTimer = 0;
         this.magicCircleCooldown = 0;
         this.boomerangCooldown = 0;
+        this.shurikenSkillCooldown = 0;
         this.isStunned = 0;
         this.poisonEffect = { active: false, duration: 0, damage: 0 };
         this.isBeingPulled = false;
@@ -1064,9 +1065,6 @@ export class Unit {
                 } else if (this.weapon && this.weapon.type === 'dual_swords') {
                     target.takeDamage(currentAttackPower); gameManager.createEffect('dual_sword_slash', this.pixelX, this.pixelY, target);
                     gameManager.audioManager.play('dualSwordHit');
-                } else if (this.weapon && this.weapon.type === 'shuriken') {
-                     gameManager.createProjectile(this, target, 'shuriken');
-                     gameManager.audioManager.play('shurikenShoot');
                 } else if (this.weapon && this.weapon.type === 'lightning') {
                     gameManager.createProjectile(this, target, 'lightning_bolt');
                     gameManager.audioManager.play('lightningShoot');
@@ -1145,6 +1143,7 @@ export class Unit {
         if (this.attackAnimationTimer > 0) this.attackAnimationTimer -= gameManager.gameSpeed;
         if (this.magicCircleCooldown > 0) this.magicCircleCooldown -= gameManager.gameSpeed;
         if (this.boomerangCooldown > 0) this.boomerangCooldown -= gameManager.gameSpeed;
+        if (this.shurikenSkillCooldown > 0) this.shurikenSkillCooldown -= gameManager.gameSpeed;
         
         if (this.poisonEffect.active) {
             this.poisonEffect.duration -= gameManager.gameSpeed;
@@ -1267,6 +1266,20 @@ export class Unit {
                     gameManager.createProjectile(this, closestEnemy, 'boomerang_projectile');
                 }
             }
+        } else if (this.weapon && this.weapon.type === 'shuriken' && this.shurikenSkillCooldown <= 0) {
+            const { item: closestEnemy } = this.findClosest(enemies);
+            if (closestEnemy && gameManager.hasLineOfSight(this, closestEnemy)) {
+                const dist = Math.hypot(this.pixelX - closestEnemy.pixelX, this.pixelY - closestEnemy.pixelY);
+                if (dist <= this.attackRange) {
+                    const angleToTarget = Math.atan2(closestEnemy.pixelY - this.pixelY, closestEnemy.pixelX - this.pixelX);
+                    const spread = 0.3; // Cone spread in radians
+                    gameManager.createProjectile(this, closestEnemy, 'shuriken', { angle: angleToTarget - spread });
+                    gameManager.createProjectile(this, closestEnemy, 'shuriken', { angle: angleToTarget });
+                    gameManager.createProjectile(this, closestEnemy, 'shuriken', { angle: angleToTarget + spread });
+                    gameManager.audioManager.play('shurikenShoot');
+                    this.shurikenSkillCooldown = 300; // 5 seconds (5 * 60)
+                }
+            }
         }
 
 
@@ -1362,7 +1375,10 @@ export class Unit {
                     }
 
                     if (Math.hypot(this.pixelX - this.target.pixelX, this.pixelY - this.target.pixelY) <= attackDistance) {
-                        this.moveTarget = null; this.attack(this.target);
+                        this.moveTarget = null; 
+                        if (this.weapon?.type !== 'shuriken') {
+                             this.attack(this.target);
+                        }
                         this.facingAngle = Math.atan2(this.target.pixelY - this.pixelY, this.target.pixelX - this.pixelX);
                     } else { this.moveTarget = { x: this.target.pixelX, y: this.target.pixelY }; }
                 }
@@ -1631,6 +1647,11 @@ export class Unit {
             ctx.fillRect(hpBarX, skillBarY, hpBarWidth, 4);
             ctx.fillStyle = '#94a3b8';
             ctx.fillRect(hpBarX, skillBarY, hpBarWidth * ((480 - this.boomerangCooldown) / 480), 4);
+        } else if (this.weapon?.type === 'shuriken' && this.shurikenSkillCooldown > 0) {
+            ctx.fillStyle = '#475569';
+            ctx.fillRect(hpBarX, skillBarY, hpBarWidth, 4);
+            ctx.fillStyle = '#94a3b8';
+            ctx.fillRect(hpBarX, skillBarY, hpBarWidth * ((300 - this.shurikenSkillCooldown) / 300), 4);
         }
 
         
