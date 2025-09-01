@@ -65,7 +65,7 @@ export class PoisonCloud {
         this.pixelY = y;
         this.ownerTeam = ownerTeam;
         this.duration = 300; // 5초
-        this.damage = 0.25; // 초당 데미지 감소 (기존 0.15에서 상향)
+        this.damage = 0.25; 
         this.animationTimer = 0;
     }
 
@@ -435,6 +435,21 @@ export class AreaEffect {
         this.duration = 30; this.maxRadius = GRID_SIZE * 2.5; this.currentRadius = 0;
         this.damage = options.damage || 0;
         this.ownerTeam = options.ownerTeam || null;
+        this.particles = [];
+        this.damagedUnits = new Set();
+
+        if (this.type === 'fire_pillar') {
+            for (let i = 0; i < 50; i++) {
+                this.particles.push({
+                    x: (Math.random() - 0.5) * this.maxRadius * 1.5,
+                    y: (Math.random() - 0.5) * this.maxRadius * 0.5,
+                    size: Math.random() * 4 + 2,
+                    speed: Math.random() * 1.5 + 1,
+                    lifespan: Math.random() * 20 + 10,
+                    color: ['#ffcc00', '#ff9900', '#ff6600', '#ef4444'][Math.floor(Math.random() * 4)]
+                });
+            }
+        }
     }
     update() {
         const gameManager = GameManager.getInstance();
@@ -442,26 +457,44 @@ export class AreaEffect {
         this.duration -= gameManager.gameSpeed;
         this.currentRadius = this.maxRadius * (1 - (this.duration / 30));
         
-        if (this.type === 'poison_cloud') {
-            this.duration--;
+        if (this.type === 'fire_pillar') {
+            this.particles.forEach(p => {
+                p.y -= p.speed * gameManager.gameSpeed;
+                p.lifespan -= gameManager.gameSpeed;
+                p.x += (Math.random() - 0.5) * 0.5;
+            });
+            this.particles = this.particles.filter(p => p.lifespan > 0);
+
             gameManager.units.forEach(unit => {
-                if (unit.team !== this.ownerTeam) {
-                    const dx = unit.pixelX - this.pixelX;
-                    const dy = unit.pixelY - this.pixelY;
-                    if (Math.abs(dx) < GRID_SIZE * 2.5 && Math.abs(dy) < GRID_SIZE * 2.5) {
-                        unit.takeDamage(this.damage, { poison: { damage: this.damage } });
+                if (unit.team !== this.ownerTeam && !this.damagedUnits.has(unit)) {
+                    const dist = Math.hypot(unit.pixelX - this.pixelX, unit.pixelY - this.pixelY);
+                    if (dist < this.currentRadius) {
+                        unit.takeDamage(this.damage);
+                        this.damagedUnits.add(unit);
                     }
                 }
             });
         }
     }
     draw(ctx) {
-        const opacity = this.duration / 300;
+        const opacity = this.duration / 30;
         if (this.type === 'fire_pillar') {
             ctx.fillStyle = `rgba(255, 165, 0, ${opacity * 0.5})`;
             ctx.beginPath(); ctx.arc(this.pixelX, this.pixelY, this.currentRadius, 0, Math.PI * 2); ctx.fill();
             ctx.fillStyle = `rgba(255, 69, 0, ${opacity * 0.7})`;
             ctx.beginPath(); ctx.arc(this.pixelX, this.pixelY, this.currentRadius * 0.6, 0, Math.PI * 2); ctx.fill();
+            
+            ctx.save();
+            ctx.translate(this.pixelX, this.pixelY);
+            this.particles.forEach(p => {
+                ctx.globalAlpha = (p.lifespan / 20) * opacity;
+                ctx.fillStyle = p.color;
+                ctx.beginPath();
+                ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+                ctx.fill();
+            });
+            ctx.restore();
+            ctx.globalAlpha = 1.0;
         } else if (this.type === 'poison_cloud') {
             ctx.fillStyle = `rgba(132, 204, 22, ${opacity * 0.4})`;
             ctx.fillRect(this.pixelX - GRID_SIZE * 2.5, this.pixelY - GRID_SIZE * 2.5, GRID_SIZE * 5, GRID_SIZE * 5);
@@ -663,8 +696,7 @@ export class Weapon {
     draw(ctx) {
         if (this.isEquipped) return;
         const centerX = this.pixelX; const centerY = this.pixelY;
-        // 독 포션 크기 30% 증가 (0.4 -> 0.52)
-        const scale = (this.type === 'crown') ? 1.0 : (this.type === 'lightning' ? 0.6 : (this.type === 'magic_gun' ? 0.6 : (this.type === 'poison_potion' ? 0.52 : 0.8)));
+        const scale = (this.type === 'crown') ? 1.0 : (this.type === 'lightning' ? 0.6 : (this.type === 'magic_gun' ? 0.6 : (this.type === 'poison_potion' ? 0.624 : 0.8)));
         ctx.save(); ctx.translate(centerX, centerY); ctx.scale(scale, scale);
         ctx.strokeStyle = 'black'; ctx.lineWidth = 1 / scale;
 
@@ -817,7 +849,7 @@ export class Unit {
 
         let speedModifier = 0;
         if (this.isInMagneticField) speedModifier = -0.7;
-        if (this.poisonEffect.active) speedModifier -= 0.5;
+        if (this.poisonEffect.active) speedModifier -= 0.7;
 
         const gridX = Math.floor(this.pixelX / GRID_SIZE);
         const gridY = Math.floor(this.pixelY / GRID_SIZE);
