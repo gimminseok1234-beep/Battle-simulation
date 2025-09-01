@@ -687,8 +687,8 @@ export class Weapon {
         ctx.scale(scale, scale);
 
         const grad = ctx.createLinearGradient(0, -GRID_SIZE * 1.2, 0, GRID_SIZE * 0.6);
-        grad.addColorStop(0, '#fef08a');
-        grad.addColorStop(1, '#facc15');
+        grad.addColorStop(0, '#e5e7eb'); // Light Silver
+        grad.addColorStop(1, '#9ca3af'); // Dark Silver
 
         ctx.fillStyle = grad;
         ctx.strokeStyle = '#18181b';
@@ -756,7 +756,7 @@ export class Weapon {
     draw(ctx) {
         if (this.isEquipped) return;
         const centerX = this.pixelX; const centerY = this.pixelY;
-        const scale = (this.type === 'crown') ? 1.0 : (this.type === 'lightning' ? 0.6 : (this.type === 'magic_spear' ? 0.6 : (this.type === 'poison_potion' ? 0.624 : (this.type === 'boomerang' ? 0.7 : 0.8))));
+        const scale = (this.type === 'crown') ? 1.0 : (this.type === 'lightning' ? 0.6 : (this.type === 'magic_spear' ? 0.6 : (this.type === 'poison_potion' ? 0.624 : (this.type === 'boomerang' ? 0.49 : 0.8))));
         ctx.save(); ctx.translate(centerX, centerY); ctx.scale(scale, scale);
         ctx.strokeStyle = 'black'; ctx.lineWidth = 1 / scale;
 
