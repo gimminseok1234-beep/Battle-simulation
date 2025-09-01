@@ -1,5 +1,5 @@
 import { TILE, TEAM, COLORS, GRID_SIZE } from './constants.js';
-import { GameManager } from './gameManager.js';
+import { GameManager } from './gameManager.js'; 
 
 // 마법진 클래스
 export class MagicCircle {
@@ -65,7 +65,7 @@ export class PoisonCloud {
         this.pixelY = y;
         this.ownerTeam = ownerTeam;
         this.duration = 300; // 5초
-        this.damage = 0.25; // 초당 데미지
+        this.damage = 0.25; // 초당 데미지 감소 (기존 0.15에서 상향)
         this.animationTimer = 0;
     }
 
@@ -80,7 +80,6 @@ export class PoisonCloud {
                 const dx = Math.abs(unit.pixelX - this.pixelX);
                 const dy = Math.abs(unit.pixelY - this.pixelY);
                 if (dx < GRID_SIZE * 2.5 && dy < GRID_SIZE * 2.5) {
-                    // 독 효과는 데미지를 직접 주지 않고, 유닛에게 독 디버프를 겁니다.
                     unit.takeDamage(0, { poison: { damage: this.damage } });
                 }
             }
@@ -99,61 +98,6 @@ export class PoisonCloud {
         ctx.beginPath();
         ctx.arc(bubbleX, bubbleY, GRID_SIZE * 0.3, 0, Math.PI * 2);
         ctx.fill();
-    }
-}
-
-// 불기둥 클래스 (수정됨)
-export class FirePillar {
-    constructor(x, y, options) {
-        this.pixelX = x;
-        this.pixelY = y;
-        this.ownerTeam = options.ownerTeam;
-        this.damage = options.damage;
-        this.duration = 30; // 0.5초 동안 지속
-        this.maxRadius = GRID_SIZE * 2.5;
-        this.currentRadius = 0;
-        this.alreadyDamaged = new Set(); // 이미 데미지를 입은 유닛 추적
-    }
-
-    update() {
-        const gameManager = GameManager.getInstance();
-        if (!gameManager) return;
-
-        this.duration -= gameManager.gameSpeed;
-        // 반지름이 시간에 따라 증가
-        this.currentRadius = this.maxRadius * (1 - (this.duration / 30));
-
-        // 효과 범위 내의 적 유닛에게 한 번만 데미지
-        gameManager.units.forEach(unit => {
-            if (unit.team !== this.ownerTeam && !this.alreadyDamaged.has(unit)) {
-                const distance = Math.hypot(unit.pixelX - this.pixelX, unit.pixelY - this.pixelY);
-                if (distance < this.currentRadius) {
-                    unit.takeDamage(this.damage, { interrupt: true });
-                    this.alreadyDamaged.add(unit);
-                }
-            }
-        });
-    }
-
-    draw(ctx) {
-        if (this.duration <= 0) return;
-        const opacity = Math.max(0, this.duration / 30);
-        
-        ctx.save();
-        
-        // 바깥쪽 불 효과
-        ctx.fillStyle = `rgba(255, 165, 0, ${opacity * 0.5})`;
-        ctx.beginPath();
-        ctx.arc(this.pixelX, this.pixelY, this.currentRadius, 0, Math.PI * 2);
-        ctx.fill();
-        
-        // 안쪽 불 효과
-        ctx.fillStyle = `rgba(255, 69, 0, ${opacity * 0.7})`;
-        ctx.beginPath();
-        ctx.arc(this.pixelX, this.pixelY, this.currentRadius * 0.6, 0, Math.PI * 2);
-        ctx.fill();
-
-        ctx.restore();
     }
 }
 
@@ -484,6 +428,47 @@ export class Projectile {
     }
 }
 
+// 광역 효과 클래스
+export class AreaEffect {
+    constructor(x, y, type, options = {}) {
+        this.pixelX = x; this.pixelY = y; this.type = type;
+        this.duration = 30; this.maxRadius = GRID_SIZE * 2.5; this.currentRadius = 0;
+        this.damage = options.damage || 0;
+        this.ownerTeam = options.ownerTeam || null;
+    }
+    update() {
+        const gameManager = GameManager.getInstance();
+        if (!gameManager) return;
+        this.duration -= gameManager.gameSpeed;
+        this.currentRadius = this.maxRadius * (1 - (this.duration / 30));
+        
+        if (this.type === 'poison_cloud') {
+            this.duration--;
+            gameManager.units.forEach(unit => {
+                if (unit.team !== this.ownerTeam) {
+                    const dx = unit.pixelX - this.pixelX;
+                    const dy = unit.pixelY - this.pixelY;
+                    if (Math.abs(dx) < GRID_SIZE * 2.5 && Math.abs(dy) < GRID_SIZE * 2.5) {
+                        unit.takeDamage(this.damage, { poison: { damage: this.damage } });
+                    }
+                }
+            });
+        }
+    }
+    draw(ctx) {
+        const opacity = this.duration / 300;
+        if (this.type === 'fire_pillar') {
+            ctx.fillStyle = `rgba(255, 165, 0, ${opacity * 0.5})`;
+            ctx.beginPath(); ctx.arc(this.pixelX, this.pixelY, this.currentRadius, 0, Math.PI * 2); ctx.fill();
+            ctx.fillStyle = `rgba(255, 69, 0, ${opacity * 0.7})`;
+            ctx.beginPath(); ctx.arc(this.pixelX, this.pixelY, this.currentRadius * 0.6, 0, Math.PI * 2); ctx.fill();
+        } else if (this.type === 'poison_cloud') {
+            ctx.fillStyle = `rgba(132, 204, 22, ${opacity * 0.4})`;
+            ctx.fillRect(this.pixelX - GRID_SIZE * 2.5, this.pixelY - GRID_SIZE * 2.5, GRID_SIZE * 5, GRID_SIZE * 5);
+        }
+    }
+}
+
 // 시각 효과 클래스
 export class Effect {
     constructor(x, y, type, target, options = {}) {
@@ -678,7 +663,8 @@ export class Weapon {
     draw(ctx) {
         if (this.isEquipped) return;
         const centerX = this.pixelX; const centerY = this.pixelY;
-        const scale = (this.type === 'crown') ? 1.0 : (this.type === 'lightning' ? 0.6 : (this.type === 'magic_gun' ? 0.6 : (this.type === 'poison_potion' ? 0.52 : 0.8))); // 0.4 * 1.3 = 0.52
+        // 독 포션 크기 30% 증가 (0.4 -> 0.52)
+        const scale = (this.type === 'crown') ? 1.0 : (this.type === 'lightning' ? 0.6 : (this.type === 'magic_gun' ? 0.6 : (this.type === 'poison_potion' ? 0.52 : 0.8)));
         ctx.save(); ctx.translate(centerX, centerY); ctx.scale(scale, scale);
         ctx.strokeStyle = 'black'; ctx.lineWidth = 1 / scale;
 
@@ -1014,7 +1000,7 @@ export class Unit {
         }
         if(effectInfo.poison){
             this.poisonEffect.active = true;
-            this.poisonEffect.duration = 180; // 3초
+            this.poisonEffect.duration = 180; // 3초로 변경
             this.poisonEffect.damage = effectInfo.poison.damage;
         }
     }
@@ -1089,13 +1075,12 @@ export class Unit {
                 this.attackCooldown = this.cooldownTime;
                 if (this.weapon.type === 'staff') {
                     gameManager.audioManager.play('fireball');
-                    // 수정된 부분: 옵션 객체를 사용하여 castAreaSpell 호출
-                    gameManager.castAreaSpell(this.castTargetPos, 'fire_pillar', { damage: this.attackPower, ownerTeam: this.team });
+                    gameManager.castAreaSpell(this.castTargetPos, 'fire_pillar', this.attackPower, this.team);
                 } else if (this.weapon.type === 'hadoken') {
                     gameManager.createProjectile(this, this.target, 'hadoken');
                     gameManager.audioManager.play('hadokenShoot');
                 } else if (this.weapon.type === 'poison_potion') {
-                    gameManager.castAreaSpell({x: this.pixelX, y: this.pixelY}, 'poison_cloud', { ownerTeam: this.team });
+                    gameManager.castAreaSpell({x: this.pixelX, y: this.pixelY}, 'poison_cloud', { ownerTeam: this.team, damage: this.attackPower });
                     this.hp = 0; // 자폭
                 }
             }
@@ -1264,13 +1249,6 @@ export class Unit {
         if (this.isStunned > 0) {
             ctx.globalAlpha = 0.7;
         }
-        if(this.poisonEffect.active){
-            ctx.fillStyle = '#84cc16'; // 독 효과 시각화
-            ctx.beginPath();
-            ctx.arc(this.pixelX, this.pixelY, GRID_SIZE/2, 0, Math.PI * 2);
-            ctx.fill();
-        }
-
 
         switch(this.team) {
             case TEAM.A: ctx.fillStyle = COLORS.TEAM_A; break;
