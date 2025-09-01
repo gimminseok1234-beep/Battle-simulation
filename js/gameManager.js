@@ -1241,13 +1241,18 @@ export class GameManager {
     createEffect(type, x, y, target, options = {}) { this.effects.push(new Effect(x, y, type, target, options)); }
     createProjectile(owner, target, type) { this.projectiles.push(new Projectile(owner, target, type)); }
     
-    castAreaSpell(pos, type, options = {}) {
-        if (type === 'poison_cloud') {
-            // PoisonCloud는 ownerTeam 정보를 직접 받도록 수정되었습니다.
-            this.poisonClouds.push(new PoisonCloud(pos.x, pos.y, options.ownerTeam));
+    castAreaSpell(pos, type, options = {}, team = null) {
+        let spellOptions = {};
+        if (typeof options !== 'object' || options === null) {
+            spellOptions = { damage: options, ownerTeam: team };
         } else {
-            // 다른 광역 효과는 기존 로직을 유지합니다.
-            this.areaEffects.push(new AreaEffect(pos.x, pos.y, type, options));
+            spellOptions = options;
+        }
+
+        if (type === 'poison_cloud') {
+            this.poisonClouds.push(new PoisonCloud(pos.x, pos.y, spellOptions.ownerTeam));
+        } else {
+            this.areaEffects.push(new AreaEffect(pos.x, pos.y, type, spellOptions));
         }
     }
 
@@ -1420,3 +1425,4 @@ export class GameManager {
         this.draw();
     }
 }
+
