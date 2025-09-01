@@ -14,14 +14,12 @@ export class AudioManager {
             fireball: './sounds/fireball.mp3',
             heal: './sounds/heal.mp3',
             unitDeath: './sounds/kill.mp3',
-            hadokenCast: './sounds/long wind.mp3',
-            hadokenShoot: './sounds/shuriken.mp3', // 장풍 발사 효과음 추가
+            hadokenShoot: './sounds/shuriken.mp3', // 장풍 발사 효과음
             nexusDestruction: './sounds/Nexus destruction.mp3',
             punch: './sounds/punch.mp3',
             shurikenShoot: './sounds/shuriken.mp3',
             swordHit: './sounds/sword.mp3',
             teleport: './sounds/teleport.mp3',
-            arrowHit: './sounds/arrow.mp3',
             hadokenHit: './sounds/punch.mp3',
         };
     }
