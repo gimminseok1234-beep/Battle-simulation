@@ -1225,7 +1225,7 @@ export class GameManager {
             weapon.attackRangeBonus = 7 * GRID_SIZE; // 활보다 2칸 긴 사거리
             weapon.detectionRangeBonus = 6 * GRID_SIZE;
         } else if (type === 'poison_potion') {
-            weapon.attackPowerBonus = 10; // 일반 공격 데미지 15
+            weapon.attackPowerBonus = 10;
         } else if (type === 'crown') {
             weapon.attackPowerBonus = 5;
         }
