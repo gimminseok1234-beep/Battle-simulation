@@ -407,10 +407,10 @@ export class Projectile {
             ctx.restore();
         } else if (this.type.startsWith('magic_spear')) {
             const isSpecial = this.type === 'magic_spear_special';
-            const mainColor = isSpecial ? '#a855f7' : '#111827'; 
+            const mainColor = isSpecial ? '#a855f7' : '#111827'; // 일반 공격 색상 변경
             const trailColor = isSpecial ? 'rgba(192, 132, 252, 0.4)' : 'rgba(107, 114, 128, 0.4)';
-            const spearLength = isSpecial ? GRID_SIZE * 1.2 : GRID_SIZE * 1.0; 
-            const spearWidth = isSpecial ? GRID_SIZE * 0.25 : GRID_SIZE * 0.2; 
+            const spearLength = isSpecial ? GRID_SIZE * 1.2 : GRID_SIZE * 1.0; // 크기 조정
+            const spearWidth = isSpecial ? GRID_SIZE * 0.25 : GRID_SIZE * 0.2; // 크기 조정
 
 
             ctx.save();
@@ -685,26 +685,27 @@ export class Weapon {
         ctx.save();
         ctx.rotate(rotation);
         ctx.scale(scale, scale);
-        
+    
         const grad = ctx.createLinearGradient(-GRID_SIZE, -GRID_SIZE, GRID_SIZE, GRID_SIZE);
         grad.addColorStop(0, '#fef08a'); // yellow-200
         grad.addColorStop(1, '#facc15'); // yellow-400
-
+    
         ctx.fillStyle = grad;
         ctx.strokeStyle = '#18181b'; // zinc-900
         ctx.lineWidth = 2.5 / scale;
-
+    
         ctx.beginPath();
-        ctx.moveTo(-GRID_SIZE * 1.2, 0); // Left tip
-        ctx.quadraticCurveTo(-GRID_SIZE * 0.8, -GRID_SIZE * 0.1, 0, -GRID_SIZE * 0.6); // Curve to top point
-        ctx.quadraticCurveTo(GRID_SIZE * 0.8, -GRID_SIZE * 0.1, GRID_SIZE * 1.2, 0); // Curve to right tip
-        ctx.quadraticCurveTo(GRID_SIZE * 0.5, GRID_SIZE * 0.2, 0, GRID_SIZE * 0.3); // Curve to inner corner
-        ctx.quadraticCurveTo(-GRID_SIZE * 0.5, GRID_SIZE * 0.2, -GRID_SIZE * 1.2, 0); // Curve back to left tip
+        ctx.moveTo(-GRID_SIZE * 1.2, GRID_SIZE * 0.3);
+        ctx.lineTo(0, -GRID_SIZE * 0.6);
+        ctx.lineTo(GRID_SIZE * 1.2, GRID_SIZE * 0.3);
+        ctx.lineTo(GRID_SIZE * 0.7, GRID_SIZE * 0.1);
+        ctx.lineTo(0, 0);
+        ctx.lineTo(-GRID_SIZE * 0.7, GRID_SIZE * 0.1);
         ctx.closePath();
         
         ctx.fill();
         ctx.stroke();
-
+    
         ctx.restore();
     }
 
