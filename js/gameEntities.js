@@ -1065,6 +1065,20 @@ export class Unit {
                 } else if (this.weapon && this.weapon.type === 'dual_swords') {
                     target.takeDamage(currentAttackPower); gameManager.createEffect('dual_sword_slash', this.pixelX, this.pixelY, target);
                     gameManager.audioManager.play('dualSwordHit');
+                } else if (this.weapon && this.weapon.type === 'shuriken') {
+                    if (this.shurikenSkillCooldown <= 0) {
+                        // 스킬 공격
+                        const angleToTarget = Math.atan2(target.pixelY - this.pixelY, target.pixelX - this.pixelX);
+                        const spread = 0.3; // 라디안 단위의 원뿔 각도
+                        gameManager.createProjectile(this, target, 'shuriken', { angle: angleToTarget - spread });
+                        gameManager.createProjectile(this, target, 'shuriken', { angle: angleToTarget });
+                        gameManager.createProjectile(this, target, 'shuriken', { angle: angleToTarget + spread });
+                        this.shurikenSkillCooldown = 300; // 5초 쿨타임
+                    } else {
+                        // 일반 공격
+                        gameManager.createProjectile(this, target, 'shuriken');
+                    }
+                    gameManager.audioManager.play('shurikenShoot');
                 } else if (this.weapon && this.weapon.type === 'lightning') {
                     gameManager.createProjectile(this, target, 'lightning_bolt');
                     gameManager.audioManager.play('lightningShoot');
@@ -1266,22 +1280,7 @@ export class Unit {
                     gameManager.createProjectile(this, closestEnemy, 'boomerang_projectile');
                 }
             }
-        } else if (this.weapon && this.weapon.type === 'shuriken' && this.shurikenSkillCooldown <= 0) {
-            const { item: closestEnemy } = this.findClosest(enemies);
-            if (closestEnemy && gameManager.hasLineOfSight(this, closestEnemy)) {
-                const dist = Math.hypot(this.pixelX - closestEnemy.pixelX, this.pixelY - closestEnemy.pixelY);
-                if (dist <= this.attackRange) {
-                    const angleToTarget = Math.atan2(closestEnemy.pixelY - this.pixelY, closestEnemy.pixelX - this.pixelX);
-                    const spread = 0.3; // Cone spread in radians
-                    gameManager.createProjectile(this, closestEnemy, 'shuriken', { angle: angleToTarget - spread });
-                    gameManager.createProjectile(this, closestEnemy, 'shuriken', { angle: angleToTarget });
-                    gameManager.createProjectile(this, closestEnemy, 'shuriken', { angle: angleToTarget + spread });
-                    gameManager.audioManager.play('shurikenShoot');
-                    this.shurikenSkillCooldown = 300; // 5 seconds (5 * 60)
-                }
-            }
         }
-
 
         let newState = 'IDLE';
         let newTarget = null;
@@ -1375,10 +1374,8 @@ export class Unit {
                     }
 
                     if (Math.hypot(this.pixelX - this.target.pixelX, this.pixelY - this.target.pixelY) <= attackDistance) {
-                        this.moveTarget = null; 
-                        if (this.weapon?.type !== 'shuriken') {
-                             this.attack(this.target);
-                        }
+                        this.moveTarget = null;
+                        this.attack(this.target);
                         this.facingAngle = Math.atan2(this.target.pixelY - this.pixelY, this.target.pixelX - this.pixelX);
                     } else { this.moveTarget = { x: this.target.pixelX, y: this.target.pixelY }; }
                 }
@@ -1627,7 +1624,7 @@ export class Unit {
             ctx.fillRect(hpBarX, skillBarY, hpBarWidth, 4);
             ctx.fillStyle = '#38bdf8';
             ctx.fillRect(hpBarX, skillBarY, hpBarWidth * (this.castingProgress / this.castDuration), 4);
-        } else if (this.attackCooldown > 0) {
+        } else if (this.attackCooldown > 0 && this.weapon?.type !== 'shuriken') {
             ctx.fillStyle = '#0c4a6e';
             ctx.fillRect(hpBarX, skillBarY, hpBarWidth, 4);
             ctx.fillStyle = '#38bdf8';
