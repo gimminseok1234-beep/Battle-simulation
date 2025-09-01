@@ -257,10 +257,10 @@ export class Projectile {
             ctx.save();
             ctx.translate(this.pixelX, this.pixelY);
             ctx.rotate(this.rotationAngle);
-            const scale = 0.6;
+            const scale = 0.8; // 크기를 조금 키웁니다.
             ctx.scale(scale, scale);
             ctx.fillStyle = '#9ca3af'; 
-            ctx.strokeStyle = '#4b5563'; 
+            ctx.strokeStyle = 'black'; // 테두리 색을 검은색으로 변경
             ctx.lineWidth = 2 / scale;
 
             ctx.beginPath();
@@ -717,6 +717,7 @@ export class Unit {
                     gameManager.castAreaSpell(this.castTargetPos, 'fire_pillar', this.attackPower, this.team);
                 } else if (this.weapon.type === 'hadoken') {
                     gameManager.createProjectile(this, this.target, 'hadoken');
+                    gameManager.audioManager.play('hadokenShoot'); // 장풍 발사 사운드
                 }
             }
             return;
@@ -1026,15 +1027,15 @@ export class Unit {
             ctx.fillRect(hpBarX, skillBarY, hpBarWidth, 4);
             ctx.fillStyle = '#ef4444';
             ctx.fillRect(hpBarX, skillBarY, hpBarWidth * (this.castingProgress / this.castDuration), 4);
-        } else if (this.weapon && this.weapon.type === 'shuriken' && this.attackCooldown > 0) {
-            ctx.fillStyle = '#450a0a';
+        } else if (this.attackCooldown > 0) { // 모든 공격 재사용 대기시간을 표시하도록 변경
+            ctx.fillStyle = '#0c4a6e'; // 재사용 대기시간 바 색상 변경
             ctx.fillRect(hpBarX, skillBarY, hpBarWidth, 4);
-            ctx.fillStyle = '#ef4444';
+            ctx.fillStyle = '#38bdf8';
             ctx.fillRect(hpBarX, skillBarY, hpBarWidth * ((this.cooldownTime - this.attackCooldown) / this.cooldownTime), 4);
         } else if (this.isKing && this.spawnCooldown > 0) {
-            ctx.fillStyle = '#450a0a';
+            ctx.fillStyle = '#78350f'; // 왕 스폰 쿨다운 바 색상 변경
             ctx.fillRect(hpBarX, skillBarY, hpBarWidth, 4);
-            ctx.fillStyle = '#ef4444';
+            ctx.fillStyle = '#f97316';
             ctx.fillRect(hpBarX, skillBarY, hpBarWidth * ((this.spawnInterval - this.spawnCooldown) / this.spawnInterval), 4);
         }
         
