@@ -29,6 +29,7 @@ export class GameManager {
         this.projectiles = [];
         this.areaEffects = [];
         this.growingFields = [];
+        this.magicCircles = []; // 마법진 배열 추가
         this.currentTool = { tool: 'tile', type: 'FLOOR' };
         this.isPainting = false;
         this.dragStartPos = null;
@@ -157,6 +158,7 @@ export class GameManager {
                 <button class="tool-btn" data-tool="weapon" data-type="dual_swords">쌍검</button>
                 <button class="tool-btn" data-tool="weapon" data-type="staff">스태프</button>
                 <button class="tool-btn" data-tool="weapon" data-type="lightning">번개</button>
+                <button class="tool-btn" data-tool="weapon" data-type="magic_gun">마법총</button>
                 <div class="flex items-center gap-1">
                     <button class="tool-btn flex-grow" data-tool="weapon" data-type="hadoken">장풍</button>
                     <button id="hadokenSettingsBtn" class="p-2 rounded hover:bg-gray-600">⚙️</button>
@@ -630,7 +632,7 @@ export class GameManager {
         this.state = 'EDIT';
         this.map = Array(this.ROWS).fill().map(() => Array(this.COLS).fill().map(() => ({ type: TILE.FLOOR, color: this.currentFloorColor })));
         this.units = []; this.weapons = []; this.nexuses = []; this.growingFields = [];
-        this.effects = []; this.projectiles = []; this.areaEffects = [];
+        this.effects = []; this.projectiles = []; this.areaEffects = []; this.magicCircles = [];
         this.initialUnitsState = []; this.initialWeaponsState = [];
         this.initialNexusesState = []; this.initialMapState = [];
         this.initialGrowingFieldsState = [];
@@ -655,6 +657,7 @@ export class GameManager {
         this.initialAutoFieldState = JSON.stringify(this.autoMagneticField);
         this.initialNexusCount = this.nexuses.length;
         this.winnerTeam = null;
+        this.magicCircles = [];
 
         this.state = 'SIMULATE';
         document.getElementById('statusText').textContent = "시뮬레이션 진행 중...";
@@ -687,7 +690,7 @@ export class GameManager {
             return new GrowingMagneticField(fieldData.id, fieldData.gridX, fieldData.gridY, fieldData.width, fieldData.height, settings);
         });
         this.autoMagneticField = JSON.parse(this.initialAutoFieldState);
-        this.effects = []; this.projectiles = []; this.areaEffects = [];
+        this.effects = []; this.projectiles = []; this.areaEffects = []; this.magicCircles = [];
         document.getElementById('statusText').textContent = "에디터 모드";
         document.getElementById('simStartBtn').classList.remove('hidden');
         document.getElementById('simPauseBtn').classList.add('hidden');
@@ -999,13 +1002,12 @@ export class GameManager {
                 }
             }
 
-            // 체인 라이트닝 로직
             if (hit && p.type === 'lightning_bolt' && primaryTarget) {
                 for (const otherUnit of this.units) {
                     if (otherUnit !== primaryTarget && otherUnit.team !== p.owner.team) {
                         const dist = Math.hypot(primaryTarget.pixelX - otherUnit.pixelX, primaryTarget.pixelY - otherUnit.pixelY);
-                        if (dist < GRID_SIZE * 3.5) { // 전이 사거리 3.5칸으로 증가
-                            otherUnit.takeDamage(p.damage * 0.7); // 전이 데미지 70%로 증가
+                        if (dist < GRID_SIZE * 3.5) { 
+                            otherUnit.takeDamage(p.damage * 0.7); 
                             this.createEffect('chain_lightning', primaryTarget.pixelX, primaryTarget.pixelY, otherUnit);
                         }
                     }
@@ -1014,6 +1016,21 @@ export class GameManager {
 
             if (hit || p.pixelX < 0 || p.pixelX > this.canvas.width || p.pixelY < 0 || p.pixelY > this.canvas.height) {
                 this.projectiles.splice(i, 1);
+            }
+        }
+        
+        this.magicCircles.forEach(circle => circle.update());
+        this.magicCircles = this.magicCircles.filter(c => c.duration > 0);
+        
+        for (const unit of this.units) {
+            const gridX = Math.floor(unit.pixelX / GRID_SIZE);
+            const gridY = Math.floor(unit.pixelY / GRID_SIZE);
+            for (let i = this.magicCircles.length - 1; i >= 0; i--) {
+                const circle = this.magicCircles[i];
+                if (circle.gridX === gridX && circle.gridY === gridY && circle.team !== unit.team) {
+                    unit.takeDamage(0, { stun: 120 }); // 2초 기절
+                    this.magicCircles.splice(i, 1); // 밟으면 사라짐
+                }
             }
         }
 
@@ -1036,6 +1053,7 @@ export class GameManager {
         this.ctx.translate(-cam.current.x, -cam.current.y);
 
         this.drawMap();
+        this.magicCircles.forEach(c => c.draw(this.ctx));
         
         if (this.state === 'SIMULATE' || this.state === 'PAUSED' || this.state === 'ENDING') {
             if (this.autoMagneticField.isActive) {
@@ -1207,6 +1225,10 @@ export class GameManager {
             weapon.attackPowerBonus = 8; 
             weapon.attackRangeBonus = 6 * GRID_SIZE;
             weapon.attackCooldownBonus = -20;
+        } else if (type === 'magic_gun') {
+            weapon.attackRangeBonus = 5 * GRID_SIZE; // 활과 동일한 사거리
+            weapon.normalAttackPowerBonus = 5; // 일반 공격력 (활보다 낮음)
+            weapon.specialAttackPowerBonus = 15; // 특수 공격력 (활보다 높음)
         } else if (type === 'crown') {
             weapon.attackPowerBonus = 5;
         }
@@ -1325,6 +1347,25 @@ export class GameManager {
         }
         return closestSpot || { x: this.canvas.width / 2, y: this.canvas.height / 2 };
     }
+    
+    findStunnedEnemy(team) {
+        return this.units.find(u => u.team !== team && u.isStunned > 0);
+    }
+
+    spawnMagicCircle(team) {
+        const availableTiles = [];
+        for (let y = 0; y < this.ROWS; y++) {
+            for (let x = 0; x < this.COLS; x++) {
+                if (this.map[y][x].type === TILE.FLOOR) {
+                    availableTiles.push({ x, y });
+                }
+            }
+        }
+        if (availableTiles.length > 0) {
+            const pos = availableTiles[Math.floor(Math.random() * availableTiles.length)];
+            this.magicCircles.push(new MagicCircle(pos.x, pos.y, team));
+        }
+    }
 
     async loadMapForEditing(mapId) {
         const mapData = await this.getMapById(mapId);
@@ -1344,7 +1385,6 @@ export class GameManager {
 
         if (mapData.map && typeof mapData.map === 'string') {
             let parsedMap = JSON.parse(mapData.map);
-            
             if (parsedMap.length > 0 && typeof parsedMap[0][0] === 'number') {
                 const tileTypes = Object.keys(TILE);
                 this.map = parsedMap.map(row => row.map(tileId => ({ type: tileTypes[tileId] || 'FLOOR' })));
@@ -1382,6 +1422,7 @@ export class GameManager {
         this.effects = [];
         this.projectiles = [];
         this.areaEffects = [];
+        this.magicCircles = [];
         this.initialUnitsState = [];
         this.initialWeaponsState = [];
         this.initialNexusesState = [];
@@ -1398,3 +1439,4 @@ export class GameManager {
         this.draw();
     }
 }
+
