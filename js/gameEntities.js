@@ -694,28 +694,20 @@ export class Weapon {
         ctx.strokeStyle = '#18181b'; 
         ctx.lineWidth = 2 / scale;
         ctx.lineJoin = 'round';
-        ctx.lineCap = 'round';
     
-        const w = GRID_SIZE * 1.4; // width of arms
-        const t = GRID_SIZE * 0.3; // thickness
-    
-        ctx.beginPath();
-        ctx.moveTo(-w, 0);
-        ctx.lineTo(0, -w);
-        ctx.lineTo(t, -w + t);
-        ctx.lineTo(t, -t);
-        ctx.lineTo(-w + t, t);
-        ctx.closePath();
-        ctx.fill();
-        ctx.stroke();
+        // New 'ㄱ' shape design with thin, uniform thickness
+        const armLength = GRID_SIZE * 1.5;
+        const thickness = GRID_SIZE * 0.25;
     
         ctx.beginPath();
-        ctx.moveTo(0, -w);
-        ctx.lineTo(w, 0);
-        ctx.lineTo(w - t, t);
-        ctx.lineTo(-t, t);
-        ctx.lineTo(-t, -w + t);
+        ctx.moveTo(0, -armLength);
+        ctx.lineTo(thickness, -armLength);
+        ctx.lineTo(thickness, -thickness);
+        ctx.lineTo(armLength, -thickness);
+        ctx.lineTo(armLength, 0);
+        ctx.lineTo(0, 0);
         ctx.closePath();
+        
         ctx.fill();
         ctx.stroke();
     
@@ -1273,7 +1265,7 @@ export class Unit {
             if (closestEnemy && gameManager.hasLineOfSight(this, closestEnemy)) {
                 const dist = Math.hypot(this.pixelX - closestEnemy.pixelX, this.pixelY - closestEnemy.pixelY);
                 if (dist <= this.attackRange) {
-                    this.boomerangCooldown = 600; // 10초 쿨타임
+                    this.boomerangCooldown = 480; // 8초 쿨타임
                     gameManager.createProjectile(this, closestEnemy, 'boomerang_projectile');
                 }
             }
@@ -1640,7 +1632,7 @@ export class Unit {
             ctx.fillStyle = '#475569';
             ctx.fillRect(hpBarX, skillBarY, hpBarWidth, 4);
             ctx.fillStyle = '#94a3b8';
-            ctx.fillRect(hpBarX, skillBarY, hpBarWidth * ((600 - this.boomerangCooldown) / 600), 4);
+            ctx.fillRect(hpBarX, skillBarY, hpBarWidth * ((480 - this.boomerangCooldown) / 480), 4);
         }
 
         
@@ -1650,4 +1642,3 @@ export class Unit {
         }
     }
 }
-
