@@ -954,16 +954,25 @@ export class GameManager {
             const p = this.projectiles[i]; let hit = false;
             let primaryTarget = null;
             for (const unit of this.units) {
-                if (p.owner.team !== unit.team && Math.hypot(p.pixelX - unit.pixelX, p.pixelY - unit.pixelY) < GRID_SIZE / 2) {
+                 if (p.owner.team !== unit.team && Math.hypot(p.pixelX - unit.pixelX, p.pixelY - unit.pixelY) < GRID_SIZE / 2) {
                     primaryTarget = unit;
-                    const effectInfo = {
-                        interrupt: p.type === 'hadoken',
-                        force: p.knockback,
-                        angle: p.angle
-                    };
-                    unit.takeDamage(p.damage, effectInfo);
-                    if (p.type === 'hadoken') this.audioManager.play('hadokenHit');
-                    hit = true;
+                    if (p.type === 'harpoon_head') {
+                        unit.isBeingPulled = true;
+                        unit.puller = p.owner;
+                        const pullToX = p.owner.pixelX + Math.cos(p.owner.facingAngle) * GRID_SIZE;
+                        const pullToY = p.owner.pixelY + Math.sin(p.owner.facingAngle) * GRID_SIZE;
+                        unit.pullTargetPos = { x: pullToX, y: pullToY };
+                        hit = true; 
+                    } else {
+                        const effectInfo = {
+                            interrupt: p.type === 'hadoken',
+                            force: p.knockback,
+                            angle: p.angle
+                        };
+                        unit.takeDamage(p.damage, effectInfo);
+                        if (p.type === 'hadoken') this.audioManager.play('hadokenHit');
+                        hit = true;
+                    }
                     break;
                 }
             }
@@ -1204,10 +1213,14 @@ export class GameManager {
             weapon.attackPowerBonus = 8; 
             weapon.attackRangeBonus = 6 * GRID_SIZE;
             weapon.attackCooldownBonus = -20;
-        } else if (type === 'magic_gun') {
+        } else if (type === 'magic_spear') {
             weapon.attackRangeBonus = 5 * GRID_SIZE;
             weapon.normalAttackPowerBonus = 5;
             weapon.specialAttackPowerBonus = 15;
+        } else if (type === 'harpoon') {
+            weapon.attackPowerBonus = 10; // 일반 공격 데미지 15
+            weapon.attackRangeBonus = 7 * GRID_SIZE; // 활보다 2칸 긴 사거리
+            weapon.detectionRangeBonus = 6 * GRID_SIZE;
         } else if (type === 'poison_potion') {
             weapon.attackPowerBonus = 0.3; // 초당 독 데미지
             weapon.attackRangeBonus = 5 * GRID_SIZE;
@@ -1241,13 +1254,21 @@ export class GameManager {
     
     createEffect(type, x, y, target, options = {}) { this.effects.push(new Effect(x, y, type, target, options)); }
     createProjectile(owner, target, type) { this.projectiles.push(new Projectile(owner, target, type)); }
-    castAreaSpell(pos, type, options = {}) {
+    
+    castAreaSpell(pos, type, ...args) {
         if (type === 'poison_cloud') {
-            this.poisonClouds.push(new PoisonCloud(pos.x, pos.y, options.ownerTeam));
+            const ownerTeam = args[0];
+            this.poisonClouds.push(new PoisonCloud(pos.x, pos.y, ownerTeam));
+        } else if (type === 'fire_pillar') {
+            const damage = args[0];
+            const ownerTeam = args[1];
+            this.areaEffects.push(new AreaEffect(pos.x, pos.y, type, { damage, ownerTeam }));
         } else {
+            const options = args[0] || {};
             this.areaEffects.push(new AreaEffect(pos.x, pos.y, type, options));
         }
     }
+
     damageTile(x, y, damage) {
         if (y >= 0 && y < this.ROWS && x >= 0 && x < this.COLS) {
             const tile = this.map[y][x];
@@ -1416,7 +1437,5 @@ export class GameManager {
         this.resetActionCam(true);
         this.draw();
     }
-}
-
 }
 
