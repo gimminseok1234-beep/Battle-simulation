@@ -957,7 +957,7 @@ export class GameManager {
             const p = this.projectiles[i]; let hit = false;
             let primaryTarget = null;
             for (const unit of this.units) {
-                 if (p.owner.team !== unit.team && Math.hypot(p.pixelX - unit.pixelX, p.pixelY - unit.pixelY) < GRID_SIZE / 2) {
+                if (p.owner.team !== unit.team && Math.hypot(p.pixelX - unit.pixelX, p.pixelY - unit.pixelY) < GRID_SIZE / 2) {
                     primaryTarget = unit;
                     if (p.type === 'boomerang_projectile') {
                         unit.isBeingPulled = true;
@@ -965,7 +965,7 @@ export class GameManager {
                         const pullToX = p.owner.pixelX + Math.cos(p.owner.facingAngle) * GRID_SIZE;
                         const pullToY = p.owner.pixelY + Math.sin(p.owner.facingAngle) * GRID_SIZE;
                         unit.pullTargetPos = { x: pullToX, y: pullToY };
-                        hit = true; 
+                        hit = true;
                     } else {
                         const effectInfo = {
                             interrupt: p.type === 'hadoken',
@@ -979,10 +979,12 @@ export class GameManager {
                     break;
                 }
             }
+
             if (!hit) {
                 for (const nexus of this.nexuses) {
                     if (p.owner.team !== nexus.team && Math.hypot(p.pixelX - nexus.pixelX, p.pixelY - nexus.pixelY) < GRID_SIZE) {
                         nexus.takeDamage(p.damage);
+                        if (p.type === 'hadoken') this.audioManager.play('hadokenHit');
                         hit = true;
                         break;
                     }
@@ -1439,4 +1441,3 @@ export class GameManager {
         this.draw();
     }
 }
-
