@@ -314,6 +314,7 @@ export class Effect {
     constructor(x, y, type, target) {
         this.x = x; this.y = y; this.type = type; this.target = target;
         this.duration = 20; this.angle = Math.random() * Math.PI * 2;
+        this.swingDirection = Math.random() < 0.5 ? 1 : -1; // 검/쌍검 휘두르는 방향
     }
     update() {
         const gameManager = GameManager.getInstance();
@@ -324,7 +325,12 @@ export class Effect {
         if (this.type === 'slash' || this.type === 'dual_sword_slash') {
             ctx.save();
             ctx.translate(this.target.pixelX, this.target.pixelY);
-            ctx.rotate(this.angle);
+            // 공격 순간에 무기가 휘둘러지는 느낌을 주기 위해 각도와 위치를 조절
+            const swingAngle = Math.sin((20 - this.duration) / 20 * Math.PI) * Math.PI / 4 * this.swingDirection;
+            ctx.rotate(this.angle + swingAngle);
+            const offset = (20 - this.duration) / 20 * GRID_SIZE * 0.5; // 공격 시 앞으로 나가는 느낌
+            ctx.translate(Math.cos(this.angle) * offset, Math.sin(this.angle) * offset);
+
             ctx.strokeStyle = `rgba(220, 38, 38, ${this.duration / 20})`;
             ctx.lineWidth = this.type === 'slash' ? 3 : 2;
             const arcSize = this.type === 'slash' ? GRID_SIZE : GRID_SIZE * 0.7;
@@ -345,6 +351,83 @@ export class Weapon {
         this.type = type;
         this.isEquipped = false;
     }
+
+    drawStaff(ctx, scale = 1.0, isEquipped = false, rotation = 0) {
+        const staffWidth = GRID_SIZE * 0.8 * scale;
+        const staffHeight = GRID_SIZE * 2.5 * scale;
+        const crystalSize = GRID_SIZE * 0.6 * scale;
+
+        ctx.save();
+        if (isEquipped) {
+            ctx.translate(GRID_SIZE * 0.4 * scale, 0); // 유닛 손에 들린 위치
+            ctx.rotate(rotation + Math.PI / 4); // 장착 시 각도 조정
+        } else {
+            ctx.rotate(rotation + Math.PI / 4); // 바닥에 놓인 각도
+        }
+
+        // 스태프 몸통 (가지)
+        ctx.fillStyle = '#654321'; // 어두운 나무색
+        ctx.strokeStyle = '#321A0A'; // 더 어두운 테두리
+        ctx.lineWidth = 2 / scale;
+
+        ctx.beginPath();
+        // 중앙 줄기
+        ctx.moveTo(0, staffHeight / 2);
+        ctx.bezierCurveTo(-staffWidth * 0.1, staffHeight * 0.2,
+                           staffWidth * 0.1, -staffHeight * 0.2,
+                           0, -staffHeight / 2 + crystalSize * 0.7);
+        // 왼쪽 가지
+        ctx.moveTo(staffWidth * 0.1, -staffHeight * 0.1);
+        ctx.quadraticCurveTo(staffWidth * 0.3, -staffHeight * 0.3, staffWidth * 0.2, -staffHeight * 0.4);
+        ctx.quadraticCurveTo(staffWidth * 0.1, -staffHeight * 0.45, staffWidth * 0.25, -staffHeight * 0.55);
+        ctx.bezierCurveTo(staffWidth * 0.4, -staffHeight * 0.6, staffWidth * 0.2, -staffHeight * 0.7, staffWidth * 0.2, -staffHeight * 0.75);
+        ctx.quadraticCurveTo(staffWidth * 0.1, -staffHeight * 0.78, 0, -staffHeight / 2 + crystalSize * 0.7);
+
+        // 오른쪽 가지
+        ctx.moveTo(-staffWidth * 0.1, -staffHeight * 0.1);
+        ctx.quadraticCurveTo(-staffWidth * 0.3, -staffHeight * 0.3, -staffWidth * 0.2, -staffHeight * 0.4);
+        ctx.quadraticCurveTo(-staffWidth * 0.1, -staffHeight * 0.45, -staffWidth * 0.25, -staffHeight * 0.55);
+        ctx.bezierCurveTo(-staffWidth * 0.4, -staffHeight * 0.6, -staffWidth * 0.2, -staffHeight * 0.7, -staffWidth * 0.2, -staffHeight * 0.75);
+        ctx.quadraticCurveTo(-staffWidth * 0.1, -staffHeight * 0.78, 0, -staffHeight / 2 + crystalSize * 0.7);
+
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+
+        // 크리스탈
+        const crystalTipY = -staffHeight / 2 - crystalSize * 0.2;
+        const crystalBottomY = crystalTipY + crystalSize * 0.8;
+        const crystalWidth = crystalSize * 0.6;
+
+        ctx.fillStyle = '#ff0000'; // 빨간색 크리스탈
+        ctx.strokeStyle = '#a00000'; // 어두운 빨간 테두리
+        ctx.lineWidth = 1.5 / scale;
+
+        ctx.beginPath();
+        ctx.moveTo(0, crystalTipY);
+        ctx.lineTo(crystalWidth / 2, crystalBottomY - crystalSize * 0.2);
+        ctx.lineTo(crystalWidth / 2, crystalBottomY);
+        ctx.lineTo(0, crystalTipY + crystalSize);
+        ctx.lineTo(-crystalWidth / 2, crystalBottomY);
+        ctx.lineTo(-crystalWidth / 2, crystalBottomY - crystalSize * 0.2);
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+
+        // 크리스탈 하이라이트
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.5)';
+        ctx.beginPath();
+        ctx.moveTo(0, crystalTipY);
+        ctx.lineTo(crystalWidth / 4, crystalTipY + crystalSize * 0.3);
+        ctx.lineTo(crystalWidth / 4, crystalTipY + crystalSize * 0.6);
+        ctx.lineTo(0, crystalTipY + crystalSize * 0.7);
+        ctx.closePath();
+        ctx.fill();
+        
+        ctx.restore();
+    }
+
+
     draw(ctx) {
         if (this.isEquipped) return;
         const centerX = this.pixelX; const centerY = this.pixelY;
@@ -410,9 +493,7 @@ export class Weapon {
             drawCurvedSword(-Math.PI / 4);
             drawCurvedSword(Math.PI / 4);
         } else if (this.type === 'staff') {
-            ctx.rotate(Math.PI / 4);
-            ctx.fillStyle = '#a16207'; ctx.fillRect(-2, -GRID_SIZE * 0.6, 4, GRID_SIZE * 1.2); ctx.strokeRect(-2, -GRID_SIZE * 0.6, 4, GRID_SIZE * 1.2);
-            ctx.fillStyle = '#a855f7'; ctx.beginPath(); ctx.arc(0, -GRID_SIZE * 0.7, GRID_SIZE * 0.25, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+            this.drawStaff(ctx, scale, false);
         } else if (this.type === 'hadoken') {
             ctx.rotate(Math.PI / 4);
             const grad = ctx.createRadialGradient(0, 0, 1, 0, 0, GRID_SIZE * 1.2);
@@ -909,9 +990,7 @@ export class Unit {
             ctx.rotate(this.facingAngle);
 
             if (this.weapon.type === 'staff') {
-                ctx.translate(GRID_SIZE * 0.4, 0);
-                ctx.fillStyle = '#a16207'; ctx.fillRect(-1.5, -GRID_SIZE * 0.5, 3, GRID_SIZE * 1.0); ctx.strokeRect(-1.5, -GRID_SIZE * 0.5, 3, GRID_SIZE * 1.0);
-                ctx.fillStyle = '#a855f7'; ctx.beginPath(); ctx.arc(0, -GRID_SIZE * 0.6, GRID_SIZE * 0.2, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+                this.weapon.drawStaff(ctx, 0.8, true, this.facingAngle); // 유닛이 장착한 스태프
             } else if (this.weapon.type === 'hadoken') {
                 ctx.translate(GRID_SIZE * 0.5, 0);
                 const scale = 0.7;
