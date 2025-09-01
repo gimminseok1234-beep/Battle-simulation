@@ -156,6 +156,7 @@ export class GameManager {
                 <button class="tool-btn" data-tool="weapon" data-type="bow">활</button>
                 <button class="tool-btn" data-tool="weapon" data-type="dual_swords">쌍검</button>
                 <button class="tool-btn" data-tool="weapon" data-type="staff">스태프</button>
+                <button class="tool-btn" data-tool="weapon" data-type="lightning">번개</button>
                 <div class="flex items-center gap-1">
                     <button class="tool-btn flex-grow" data-tool="weapon" data-type="hadoken">장풍</button>
                     <button id="hadokenSettingsBtn" class="p-2 rounded hover:bg-gray-600">⚙️</button>
@@ -892,7 +893,7 @@ export class GameManager {
                 const dx = unitB.pixelX - unitA.pixelX;
                 const dy = unitB.pixelY - unitA.pixelY;
                 const distance = Math.hypot(dx, dy);
-                const minDistance = (GRID_SIZE / 2.5) * 2; // 유닛 반지름 * 2
+                const minDistance = (GRID_SIZE / 2.5) * 2; 
 
                 if (distance < minDistance) {
                     const overlap = minDistance - distance;
@@ -958,8 +959,7 @@ export class GameManager {
             const enemies = enemyTeams.flatMap(key => unitsByTeam[key]);
             unit.update(enemies, this.weapons, this.projectiles);
         });
-
-        // 유닛 충돌 처리 로직 추가
+        
         this.handleUnitCollisions();
         
         this.units = this.units.filter(u => u.hp > 0);
@@ -974,15 +974,16 @@ export class GameManager {
 
         for (let i = this.projectiles.length - 1; i >= 0; i--) {
             const p = this.projectiles[i]; let hit = false;
+            let primaryTarget = null;
             for (const unit of this.units) {
                 if (p.owner.team !== unit.team && Math.hypot(p.pixelX - unit.pixelX, p.pixelY - unit.pixelY) < GRID_SIZE / 2) {
+                    primaryTarget = unit;
                     const effectInfo = {
                         interrupt: p.type === 'hadoken',
                         force: p.knockback,
                         angle: p.angle
                     };
                     unit.takeDamage(p.damage, effectInfo);
-                    if (p.type === 'arrow') this.audioManager.play('arrowHit');
                     if (p.type === 'hadoken') this.audioManager.play('hadokenHit');
                     hit = true;
                     break;
@@ -997,6 +998,21 @@ export class GameManager {
                     }
                 }
             }
+
+            // 체인 라이트닝 로직
+            if (hit && p.type === 'lightning_bolt' && primaryTarget) {
+                for (const otherUnit of this.units) {
+                    if (otherUnit !== primaryTarget && otherUnit.team !== p.owner.team) {
+                        const dist = Math.hypot(primaryTarget.pixelX - otherUnit.pixelX, primaryTarget.pixelY - otherUnit.pixelY);
+                        if (dist < GRID_SIZE * 2) { // 2칸 거리 내의 적에게 전이
+                            otherUnit.takeDamage(p.damage * 0.5); // 50% 데미지
+                            this.createEffect('chain_lightning', primaryTarget.pixelX, primaryTarget.pixelY, otherUnit);
+                            break; // 한 번만 전이
+                        }
+                    }
+                }
+            }
+
             if (hit || p.pixelX < 0 || p.pixelX > this.canvas.width || p.pixelY < 0 || p.pixelY > this.canvas.height) {
                 this.projectiles.splice(i, 1);
             }
@@ -1188,6 +1204,10 @@ export class GameManager {
             weapon.attackCooldownBonus = 100;
             weapon.attackRangeBonus = 5 * GRID_SIZE;
             weapon.detectionRangeBonus = 4 * GRID_SIZE;
+        } else if (type === 'lightning') {
+            weapon.attackPowerBonus = 8; 
+            weapon.attackRangeBonus = 6 * GRID_SIZE;
+            weapon.attackCooldownBonus = -20; // 80 - 20 = 60 frames (1초)
         } else if (type === 'crown') {
             weapon.attackPowerBonus = 5;
         }
@@ -1215,7 +1235,7 @@ export class GameManager {
         }
     }
     
-    createEffect(type, x, y, target) { this.effects.push(new Effect(x, y, type, target)); }
+    createEffect(type, x, y, target, options = {}) { this.effects.push(new Effect(x, y, type, target, options)); }
     createProjectile(owner, target, type) { this.projectiles.push(new Projectile(owner, target, type)); }
     castAreaSpell(pos, type, damage, team) {
         this.areaEffects.push(new AreaEffect(pos.x, pos.y, type));
@@ -1325,7 +1345,7 @@ export class GameManager {
 
         if (mapData.map && typeof mapData.map === 'string') {
             let parsedMap = JSON.parse(mapData.map);
-            // 옛날 숫자 형식의 맵 데이터와 호환되도록 변환
+            
             if (parsedMap.length > 0 && typeof parsedMap[0][0] === 'number') {
                 const tileTypes = Object.keys(TILE);
                 this.map = parsedMap.map(row => row.map(tileId => ({ type: tileTypes[tileId] || 'FLOOR' })));
