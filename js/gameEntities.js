@@ -1067,18 +1067,17 @@ export class Unit {
                     gameManager.audioManager.play('dualSwordHit');
                 } else if (this.weapon && this.weapon.type === 'shuriken') {
                     if (this.shurikenSkillCooldown <= 0) {
-                        // 스킬 공격
                         const angleToTarget = Math.atan2(target.pixelY - this.pixelY, target.pixelX - this.pixelX);
-                        const spread = 0.3; // 라디안 단위의 원뿔 각도
+                        const spread = 0.3;
                         gameManager.createProjectile(this, target, 'shuriken', { angle: angleToTarget - spread });
                         gameManager.createProjectile(this, target, 'shuriken', { angle: angleToTarget });
                         gameManager.createProjectile(this, target, 'shuriken', { angle: angleToTarget + spread });
-                        this.shurikenSkillCooldown = 300; // 5초 쿨타임
+                        this.shurikenSkillCooldown = 300;
                     } else {
-                        // 일반 공격
                         gameManager.createProjectile(this, target, 'shuriken');
                     }
                     gameManager.audioManager.play('shurikenShoot');
+                    this.attackCooldown = this.cooldownTime;
                 } else if (this.weapon && this.weapon.type === 'lightning') {
                     gameManager.createProjectile(this, target, 'lightning_bolt');
                     gameManager.audioManager.play('lightningShoot');
@@ -1619,39 +1618,51 @@ export class Unit {
         ctx.fillStyle = '#10b981'; ctx.fillRect(hpBarX, hpBarY, hpBarWidth * (this.hp / 100), 5);
         
         const skillBarY = hpBarY - 6;
+        let barDrawn = false;
+        
         if (this.isCasting) {
             ctx.fillStyle = '#0c4a6e';
             ctx.fillRect(hpBarX, skillBarY, hpBarWidth, 4);
             ctx.fillStyle = '#38bdf8';
             ctx.fillRect(hpBarX, skillBarY, hpBarWidth * (this.castingProgress / this.castDuration), 4);
-        } else if (this.attackCooldown > 0 && this.weapon?.type !== 'shuriken') {
+            barDrawn = true;
+        }
+
+        if (!barDrawn) {
+            if (this.isKing && this.spawnCooldown > 0) {
+                ctx.fillStyle = '#78350f';
+                ctx.fillRect(hpBarX, skillBarY, hpBarWidth, 4);
+                ctx.fillStyle = '#f97316';
+                ctx.fillRect(hpBarX, skillBarY, hpBarWidth * ((this.spawnInterval - this.spawnCooldown) / this.spawnInterval), 4);
+                barDrawn = true;
+            } else if (this.weapon?.type === 'magic_spear' && this.magicCircleCooldown > 0) {
+                ctx.fillStyle = '#3b0764'; 
+                ctx.fillRect(hpBarX, skillBarY, hpBarWidth, 4);
+                ctx.fillStyle = '#a855f7';
+                ctx.fillRect(hpBarX, skillBarY, hpBarWidth * ((300 - this.magicCircleCooldown) / 300), 4);
+                barDrawn = true;
+            } else if (this.weapon?.type === 'boomerang' && this.boomerangCooldown > 0) {
+                ctx.fillStyle = '#475569';
+                ctx.fillRect(hpBarX, skillBarY, hpBarWidth, 4);
+                ctx.fillStyle = '#94a3b8';
+                ctx.fillRect(hpBarX, skillBarY, hpBarWidth * ((480 - this.boomerangCooldown) / 480), 4);
+                barDrawn = true;
+            } else if (this.weapon?.type === 'shuriken' && this.shurikenSkillCooldown > 0) {
+                ctx.fillStyle = '#475569';
+                ctx.fillRect(hpBarX, skillBarY, hpBarWidth, 4);
+                ctx.fillStyle = '#94a3b8';
+                ctx.fillRect(hpBarX, skillBarY, hpBarWidth * ((300 - this.shurikenSkillCooldown) / 300), 4);
+                barDrawn = true;
+            }
+        }
+
+        if (!barDrawn && this.attackCooldown > 0) {
             ctx.fillStyle = '#0c4a6e';
             ctx.fillRect(hpBarX, skillBarY, hpBarWidth, 4);
             ctx.fillStyle = '#38bdf8';
             ctx.fillRect(hpBarX, skillBarY, hpBarWidth * ((this.cooldownTime - this.attackCooldown) / this.cooldownTime), 4);
-        } else if (this.isKing && this.spawnCooldown > 0) {
-            ctx.fillStyle = '#78350f';
-            ctx.fillRect(hpBarX, skillBarY, hpBarWidth, 4);
-            ctx.fillStyle = '#f97316';
-            ctx.fillRect(hpBarX, skillBarY, hpBarWidth * ((this.spawnInterval - this.spawnCooldown) / this.spawnInterval), 4);
-        } else if (this.weapon?.type === 'magic_spear' && this.magicCircleCooldown > 0) {
-            ctx.fillStyle = '#3b0764'; 
-            ctx.fillRect(hpBarX, skillBarY, hpBarWidth, 4);
-            ctx.fillStyle = '#a855f7';
-            ctx.fillRect(hpBarX, skillBarY, hpBarWidth * ((300 - this.magicCircleCooldown) / 300), 4);
-        } else if (this.weapon?.type === 'boomerang' && this.boomerangCooldown > 0) {
-            ctx.fillStyle = '#475569';
-            ctx.fillRect(hpBarX, skillBarY, hpBarWidth, 4);
-            ctx.fillStyle = '#94a3b8';
-            ctx.fillRect(hpBarX, skillBarY, hpBarWidth * ((480 - this.boomerangCooldown) / 480), 4);
-        } else if (this.weapon?.type === 'shuriken' && this.shurikenSkillCooldown > 0) {
-            ctx.fillStyle = '#475569';
-            ctx.fillRect(hpBarX, skillBarY, hpBarWidth, 4);
-            ctx.fillStyle = '#94a3b8';
-            ctx.fillRect(hpBarX, skillBarY, hpBarWidth * ((300 - this.shurikenSkillCooldown) / 300), 4);
         }
 
-        
         if (this.alertedCounter > 0 && !(this.weapon && (this.weapon.type === 'shuriken' || this.weapon.type === 'lightning')) && this.state !== 'FLEEING_FIELD') {
             ctx.fillStyle = 'yellow'; ctx.font = 'bold 20px Arial'; ctx.textAlign = 'center';
             ctx.fillText(this.state === 'SEEKING_HEAL_PACK' ? '+' : '!', this.pixelX, this.pixelY - GRID_SIZE);
