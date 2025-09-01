@@ -472,6 +472,19 @@ export class AreaEffect {
         this.particles = [];
         this.damagedUnits = new Set();
         this.damagedNexuses = new Set();
+
+        if (this.type === 'fire_pillar') {
+            for (let i = 0; i < 50; i++) {
+                this.particles.push({
+                    x: (Math.random() - 0.5) * this.maxRadius * 1.5,
+                    y: (Math.random() - 0.5) * this.maxRadius * 0.5,
+                    size: Math.random() * 4 + 2,
+                    speed: Math.random() * 1.5 + 1,
+                    lifespan: Math.random() * 20 + 10,
+                    color: ['#ffcc00', '#ff9900', '#ff6600', '#ef4444'][Math.floor(Math.random() * 4)]
+                });
+            }
+        }
     }
     update() {
         const gameManager = GameManager.getInstance();
@@ -514,7 +527,6 @@ export class AreaEffect {
             ctx.save();
             ctx.translate(this.pixelX, this.pixelY);
             
-            // Draw particles
             this.particles.forEach(p => {
                 ctx.globalAlpha = (p.lifespan / 20) * opacity;
                 ctx.fillStyle = p.color;
@@ -1668,7 +1680,7 @@ export class Unit {
         let skillBarY = hpBarY - 6;
         let specialSkillDrawn = false;
 
-        // 특수 스킬 쿨타임 바 (회색 계열 또는 특정 색상)
+        // 특수 스킬 쿨타임 바
         if (this.isKing && this.spawnCooldown > 0) {
             ctx.fillStyle = '#78350f';
             ctx.fillRect(hpBarX, skillBarY, hpBarWidth, 4);
@@ -1694,14 +1706,14 @@ export class Unit {
             ctx.fillRect(hpBarX, skillBarY, hpBarWidth * ((300 - this.shurikenSkillCooldown) / 300), 4);
             specialSkillDrawn = true;
         } else if (this.isCasting) {
-             ctx.fillStyle = '#0c4a6e';
+             ctx.fillStyle = '#475569'; // 캐스팅 바 색상
              ctx.fillRect(hpBarX, skillBarY, hpBarWidth, 4);
-             ctx.fillStyle = '#38bdf8';
+             ctx.fillStyle = '#94a3b8'; // 캐스팅 진행 바 색상
              ctx.fillRect(hpBarX, skillBarY, hpBarWidth * (this.castingProgress / this.castDuration), 4);
              specialSkillDrawn = true;
         }
 
-        // 일반 공격 쿨타임 바 (파란색)
+        // 일반 공격 쿨타임 바
         let attackBarY = specialSkillDrawn ? skillBarY - 5 : skillBarY;
         if (!this.isCasting && this.attackCooldown > 0) {
             ctx.fillStyle = '#0c4a6e';
