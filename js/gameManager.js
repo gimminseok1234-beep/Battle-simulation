@@ -1,6 +1,6 @@
 import { getFirestore, collection, doc, getDoc, getDocs, setDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/10.9.0/firebase-firestore.js";
 import { AudioManager } from './audioManager.js';
-import { Unit, Weapon, Nexus, Projectile, AreaEffect, Effect, GrowingMagneticField, MagicCircle } from './gameEntities.js';
+import { Unit, Weapon, Nexus, Projectile, AreaEffect, Effect, GrowingMagneticField, MagicCircle, PoisonCloud } from './gameEntities.js';
 import { TILE, TEAM, COLORS, GRID_SIZE } from './constants.js';
 
 let instance = null;
@@ -29,7 +29,8 @@ export class GameManager {
         this.projectiles = [];
         this.areaEffects = [];
         this.growingFields = [];
-        this.magicCircles = []; // 마법진 배열 추가
+        this.magicCircles = [];
+        this.poisonClouds = []; // 독 장판 배열 추가
         this.currentTool = { tool: 'tile', type: 'FLOOR' };
         this.isPainting = false;
         this.dragStartPos = null;
@@ -159,6 +160,7 @@ export class GameManager {
                 <button class="tool-btn" data-tool="weapon" data-type="staff">스태프</button>
                 <button class="tool-btn" data-tool="weapon" data-type="lightning">번개</button>
                 <button class="tool-btn" data-tool="weapon" data-type="magic_gun">마법총</button>
+                <button class="tool-btn" data-tool="weapon" data-type="poison_potion">독 포션</button>
                 <div class="flex items-center gap-1">
                     <button class="tool-btn flex-grow" data-tool="weapon" data-type="hadoken">장풍</button>
                     <button id="hadokenSettingsBtn" class="p-2 rounded hover:bg-gray-600">⚙️</button>
@@ -632,7 +634,7 @@ export class GameManager {
         this.state = 'EDIT';
         this.map = Array(this.ROWS).fill().map(() => Array(this.COLS).fill().map(() => ({ type: TILE.FLOOR, color: this.currentFloorColor })));
         this.units = []; this.weapons = []; this.nexuses = []; this.growingFields = [];
-        this.effects = []; this.projectiles = []; this.areaEffects = []; this.magicCircles = [];
+        this.effects = []; this.projectiles = []; this.areaEffects = []; this.magicCircles = []; this.poisonClouds = [];
         this.initialUnitsState = []; this.initialWeaponsState = [];
         this.initialNexusesState = []; this.initialMapState = [];
         this.initialGrowingFieldsState = [];
@@ -658,6 +660,7 @@ export class GameManager {
         this.initialNexusCount = this.nexuses.length;
         this.winnerTeam = null;
         this.magicCircles = [];
+        this.poisonClouds = [];
 
         this.state = 'SIMULATE';
         document.getElementById('statusText').textContent = "시뮬레이션 진행 중...";
@@ -690,7 +693,7 @@ export class GameManager {
             return new GrowingMagneticField(fieldData.id, fieldData.gridX, fieldData.gridY, fieldData.width, fieldData.height, settings);
         });
         this.autoMagneticField = JSON.parse(this.initialAutoFieldState);
-        this.effects = []; this.projectiles = []; this.areaEffects = []; this.magicCircles = [];
+        this.effects = []; this.projectiles = []; this.areaEffects = []; this.magicCircles = []; this.poisonClouds = [];
         document.getElementById('statusText').textContent = "에디터 모드";
         document.getElementById('simStartBtn').classList.remove('hidden');
         document.getElementById('simPauseBtn').classList.add('hidden');
@@ -887,33 +890,6 @@ export class GameManager {
         }
     }
 
-    handleUnitCollisions() {
-        for (let i = 0; i < this.units.length; i++) {
-            for (let j = i + 1; j < this.units.length; j++) {
-                const unitA = this.units[i];
-                const unitB = this.units[j];
-
-                const dx = unitB.pixelX - unitA.pixelX;
-                const dy = unitB.pixelY - unitA.pixelY;
-                const distance = Math.hypot(dx, dy);
-                const minDistance = (GRID_SIZE / 2.5) * 2; 
-
-                if (distance < minDistance) {
-                    const overlap = minDistance - distance;
-                    const angle = Math.atan2(dy, dx);
-                    
-                    const moveX = Math.cos(angle) * overlap * 0.5;
-                    const moveY = Math.sin(angle) * overlap * 0.5;
-
-                    unitA.pixelX -= moveX;
-                    unitA.pixelY -= moveY;
-                    unitB.pixelX += moveX;
-                    unitB.pixelY += moveY;
-                }
-            }
-        }
-    }
-
     update() {
         if (this.state === 'PAUSED' || this.state === 'DONE') return;
 
@@ -962,8 +938,6 @@ export class GameManager {
             const enemies = enemyTeams.flatMap(key => unitsByTeam[key]);
             unit.update(enemies, this.weapons, this.projectiles);
         });
-        
-        this.handleUnitCollisions();
         
         this.units = this.units.filter(u => u.hp > 0);
         if (this.units.length < unitsBeforeUpdate) {
@@ -1022,6 +996,9 @@ export class GameManager {
         this.magicCircles.forEach(circle => circle.update());
         this.magicCircles = this.magicCircles.filter(c => c.duration > 0);
         
+        this.poisonClouds.forEach(cloud => cloud.update());
+        this.poisonClouds = this.poisonClouds.filter(c => c.duration > 0);
+
         for (const unit of this.units) {
             const gridX = Math.floor(unit.pixelX / GRID_SIZE);
             const gridY = Math.floor(unit.pixelY / GRID_SIZE);
@@ -1054,6 +1031,7 @@ export class GameManager {
 
         this.drawMap();
         this.magicCircles.forEach(c => c.draw(this.ctx));
+        this.poisonClouds.forEach(c => c.draw(this.ctx));
         
         if (this.state === 'SIMULATE' || this.state === 'PAUSED' || this.state === 'ENDING') {
             if (this.autoMagneticField.isActive) {
@@ -1229,6 +1207,10 @@ export class GameManager {
             weapon.attackRangeBonus = 5 * GRID_SIZE;
             weapon.normalAttackPowerBonus = 5;
             weapon.specialAttackPowerBonus = 15;
+        } else if (type === 'poison_potion') {
+            weapon.attackPowerBonus = 0.3; // 초당 독 데미지
+            weapon.attackRangeBonus = 5 * GRID_SIZE;
+            weapon.detectionRangeBonus = 4 * GRID_SIZE;
         } else if (type === 'crown') {
             weapon.attackPowerBonus = 5;
         }
@@ -1258,18 +1240,12 @@ export class GameManager {
     
     createEffect(type, x, y, target, options = {}) { this.effects.push(new Effect(x, y, type, target, options)); }
     createProjectile(owner, target, type) { this.projectiles.push(new Projectile(owner, target, type)); }
-    castAreaSpell(pos, type, damage, team) {
-        this.areaEffects.push(new AreaEffect(pos.x, pos.y, type));
-        this.units.forEach(unit => {
-            if (unit.team !== team && Math.hypot(unit.pixelX - pos.x, unit.pixelY - pos.y) < GRID_SIZE * 2.5) {
-                unit.takeDamage(damage);
-            }
-        });
-        this.nexuses.forEach(nexus => {
-            if (nexus.team !== team && !nexus.isDestroying && Math.hypot(nexus.pixelX - pos.x, nexus.pixelY - pos.y) < GRID_SIZE * 2.5) {
-                nexus.takeDamage(damage);
-            }
-        });
+    castAreaSpell(pos, type, options = {}) {
+        if (type === 'poison_cloud') {
+            this.poisonClouds.push(new PoisonCloud(pos.x, pos.y, options.ownerTeam));
+        } else {
+            this.areaEffects.push(new AreaEffect(pos.x, pos.y, type, options));
+        }
     }
     damageTile(x, y, damage) {
         if (y >= 0 && y < this.ROWS && x >= 0 && x < this.COLS) {
@@ -1423,6 +1399,7 @@ export class GameManager {
         this.projectiles = [];
         this.areaEffects = [];
         this.magicCircles = [];
+        this.poisonClouds = [];
         this.initialUnitsState = [];
         this.initialWeaponsState = [];
         this.initialNexusesState = [];
