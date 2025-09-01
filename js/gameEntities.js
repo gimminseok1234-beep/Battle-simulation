@@ -178,6 +178,12 @@ export class Projectile {
         else this.speed = 6;
 
         this.damage = owner.attackPower;
+        if (type === 'magic_bullet_special') {
+            this.damage = (owner.weapon?.specialAttackPowerBonus || 0) + owner.baseAttackPower;
+        } else if (type === 'magic_bullet_normal') {
+            this.damage = (owner.weapon?.normalAttackPowerBonus || 0) + owner.baseAttackPower;
+        }
+
         this.knockback = (type === 'hadoken') ? gameManager.hadokenKnockback : 0;
         const inaccuracy = (type === 'shuriken' || type === 'lightning_bolt') ? 0 : GRID_SIZE * 0.8;
         const targetX = target.pixelX + (Math.random() - 0.5) * inaccuracy;
@@ -192,7 +198,7 @@ export class Projectile {
         const gameManager = GameManager.getInstance();
         if (!gameManager) return;
         
-        if (this.type === 'hadoken' || this.type === 'lightning_bolt') {
+        if (this.type === 'hadoken' || this.type === 'lightning_bolt' || this.type.startsWith('magic_bullet')) {
             this.trail.push({x: this.pixelX, y: this.pixelY});
             if (this.trail.length > 10) this.trail.shift();
         }
@@ -236,7 +242,6 @@ export class Projectile {
             ctx.fill()
             ctx.restore();
         } else if (this.type === 'hadoken') {
-            // Draw trail
             for (let i = 0; i < this.trail.length; i++) {
                 const pos = this.trail[i];
                 const alpha = (i / this.trail.length) * 0.5;
@@ -245,7 +250,6 @@ export class Projectile {
                 ctx.arc(pos.x, pos.y, (GRID_SIZE / 2) * (i / this.trail.length), 0, Math.PI * 2);
                 ctx.fill();
             }
-            // Draw main projectile
             ctx.fillStyle = '#c4b5fd';
             ctx.beginPath();
             ctx.arc(this.pixelX, this.pixelY, GRID_SIZE / 2, 0, Math.PI * 2);
@@ -297,6 +301,23 @@ export class Projectile {
             ctx.lineTo(GRID_SIZE * 0.5, 0);
             ctx.stroke();
             ctx.restore();
+        } else if (this.type.startsWith('magic_bullet')) {
+            for (let i = 0; i < this.trail.length; i++) {
+                const pos = this.trail[i];
+                const alpha = (i / this.trail.length) * 0.4;
+                ctx.fillStyle = `rgba(192, 132, 252, ${alpha})`;
+                ctx.beginPath();
+                ctx.arc(pos.x, pos.y, (GRID_SIZE / 2.5) * (i / this.trail.length), 0, Math.PI * 2);
+                ctx.fill();
+            }
+            ctx.fillStyle = '#e9d5ff';
+            ctx.beginPath();
+            ctx.arc(this.pixelX, this.pixelY, GRID_SIZE / 2.5, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.fillStyle = '#a855f7';
+            ctx.beginPath();
+            ctx.arc(this.pixelX, this.pixelY, GRID_SIZE / 4, 0, Math.PI * 2);
+            ctx.fill();
         }
     }
 }
@@ -428,6 +449,56 @@ export class Weapon {
         ctx.restore();
     }
 
+    drawMagicGun(ctx, scale = 1.0) {
+        ctx.save();
+        ctx.rotate(-Math.PI / 8);
+        ctx.scale(scale, scale);
+
+        ctx.fillStyle = '#a78bfa'; // 밝은 보라
+        ctx.strokeStyle = '#5b21b6'; // 어두운 보라
+        ctx.lineWidth = 2 / scale;
+
+        // 몸체
+        ctx.beginPath();
+        ctx.moveTo(-GRID_SIZE, -GRID_SIZE * 0.3);
+        ctx.lineTo(GRID_SIZE * 0.8, -GRID_SIZE * 0.4);
+        ctx.lineTo(GRID_SIZE * 1.2, -GRID_SIZE * 0.1);
+        ctx.lineTo(GRID_SIZE * 1.2, GRID_SIZE * 0.5);
+        ctx.lineTo(GRID_SIZE * 0.5, GRID_SIZE * 0.6);
+        ctx.lineTo(-GRID_SIZE * 0.5, GRID_SIZE * 0.8);
+        ctx.lineTo(-GRID_SIZE, GRID_SIZE * 0.3);
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+
+        // 총구
+        ctx.fillStyle = '#7c3aed';
+        ctx.beginPath();
+        ctx.rect(-GRID_SIZE * 1.5, -GRID_SIZE * 0.4, GRID_SIZE * 0.5, GRID_SIZE * 0.4);
+        ctx.fill();
+        ctx.stroke();
+
+        // 손잡이
+        ctx.fillStyle = '#9333ea';
+        ctx.beginPath();
+        ctx.moveTo(-GRID_SIZE * 0.2, GRID_SIZE * 0.7);
+        ctx.lineTo(-GRID_SIZE * 0.4, GRID_SIZE * 1.5);
+        ctx.lineTo(GRID_SIZE * 0.3, GRID_SIZE * 1.6);
+        ctx.lineTo(GRID_SIZE * 0.5, GRID_SIZE * 0.8);
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+        
+        // 보석
+        ctx.fillStyle = '#c084fc';
+        ctx.beginPath();
+        ctx.arc(GRID_SIZE * 0.3, 0, GRID_SIZE * 0.3, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+
+        ctx.restore();
+    }
+
     draw(ctx) {
         if (this.isEquipped) return;
         const centerX = this.pixelX; const centerY = this.pixelY;
@@ -496,6 +567,8 @@ export class Weapon {
             this.drawStaff(ctx, scale);
         } else if (this.type === 'lightning') {
             this.drawLightning(ctx, 1.0, Math.PI / 4);
+        } else if (this.type === 'magic_gun') {
+            this.drawMagicGun(ctx, scale);
         } else if (this.type === 'hadoken') {
             ctx.rotate(Math.PI / 4);
             const grad = ctx.createRadialGradient(0, 0, 1, 0, 0, GRID_SIZE * 1.2);
@@ -568,12 +641,14 @@ export class Unit {
         this.knockbackX = 0; this.knockbackY = 0;
         this.isInMagneticField = false;
         this.evasionCooldown = 0; 
-        this.attackAnimationTimer = 0; 
+        this.attackAnimationTimer = 0;
+        this.magicCircleCooldown = 0; // 마법진 설치 쿨다운
+        this.isStunned = 0; // 기절 상태 타이머
     }
     
     get speed() {
         const gameManager = GameManager.getInstance();
-        if (!gameManager) return this.baseSpeed;
+        if (!gameManager || this.isStunned > 0) return 0; // 기절 상태면 속도 0
 
         let speedModifier = 0;
         if (this.isInMagneticField) speedModifier = -0.7;
@@ -650,7 +725,7 @@ export class Unit {
     }
 
     move() {
-        if (!this.moveTarget || this.isCasting) return;
+        if (!this.moveTarget || this.isCasting || this.isStunned > 0) return;
         const gameManager = GameManager.getInstance();
         if (!gameManager) return;
         
@@ -691,7 +766,7 @@ export class Unit {
     }
 
     attack(target) {
-        if (!target || this.attackCooldown > 0 || this.isCasting) return;
+        if (!target || this.attackCooldown > 0 || this.isCasting || this.isStunned > 0) return;
         const gameManager = GameManager.getInstance();
         if (!gameManager) return;
         
@@ -731,6 +806,9 @@ export class Unit {
                 } else if (this.weapon && this.weapon.type === 'lightning') {
                     gameManager.createProjectile(this, target, 'lightning_bolt');
                     gameManager.audioManager.play('lightningShoot');
+                } else if (this.weapon && this.weapon.type === 'magic_gun') {
+                    gameManager.createProjectile(this, target, 'magic_bullet_normal');
+                    // gameManager.audioManager.play('magicShoot'); // 일반 공격 사운드
                 }
                 else {
                     target.takeDamage(currentAttackPower);
@@ -743,7 +821,7 @@ export class Unit {
     takeDamage(damage, effectInfo = {}) {
         this.hp -= damage;
         if (effectInfo.interrupt) {
-             if (this.weapon?.type !== 'shuriken' || this.weapon?.type !== 'lightning' || effectInfo.force > 0) {
+             if (this.weapon?.type !== 'shuriken' && this.weapon?.type !== 'lightning' || effectInfo.force > 0) {
                  this.isCasting = false;
                  this.castingProgress = 0;
              }
@@ -752,11 +830,19 @@ export class Unit {
             this.knockbackX += Math.cos(effectInfo.angle) * effectInfo.force;
             this.knockbackY += Math.sin(effectInfo.angle) * effectInfo.force;
         }
+        if (effectInfo.stun) {
+            this.isStunned = Math.max(this.isStunned, effectInfo.stun);
+        }
     }
 
     update(enemies, weapons, projectiles) {
         const gameManager = GameManager.getInstance();
         if (!gameManager) return;
+        
+        if (this.isStunned > 0) {
+            this.isStunned -= gameManager.gameSpeed;
+            return;
+        }
 
         if (this.attackCooldown > 0) this.attackCooldown -= gameManager.gameSpeed;
         if (this.teleportCooldown > 0) this.teleportCooldown -= gameManager.gameSpeed;
@@ -764,6 +850,7 @@ export class Unit {
         if (this.isKing && this.spawnCooldown > 0) this.spawnCooldown -= gameManager.gameSpeed;
         if (this.evasionCooldown > 0) this.evasionCooldown -= gameManager.gameSpeed;
         if (this.attackAnimationTimer > 0) this.attackAnimationTimer -= gameManager.gameSpeed;
+        if (this.magicCircleCooldown > 0) this.magicCircleCooldown -= gameManager.gameSpeed;
         
         if (this.weapon && (this.weapon.type === 'shuriken' || this.weapon.type === 'lightning') && this.evasionCooldown <= 0) {
             for (const p of projectiles) {
@@ -848,6 +935,23 @@ export class Unit {
                 gameManager.audioManager.play('replication');
             }
         }
+        
+        // 마법총 능력
+        if (this.weapon && this.weapon.type === 'magic_gun') {
+            if (this.magicCircleCooldown <= 0) {
+                gameManager.spawnMagicCircle(this.team);
+                this.magicCircleCooldown = 300; // 5초
+            }
+            const stunnedEnemy = gameManager.findStunnedEnemy(this.team);
+            if (stunnedEnemy && this.attackCooldown <= 0) {
+                this.alertedCounter = 60;
+                this.target = stunnedEnemy; // 상태와 무관하게 타겟 지정
+                gameManager.createProjectile(this, stunnedEnemy, 'magic_bullet_special');
+                this.attackCooldown = this.cooldownTime;
+                return; // 특수 공격 후 턴 종료
+            }
+        }
+
 
         let newState = 'IDLE';
         let newTarget = null;
@@ -896,7 +1000,11 @@ export class Unit {
             }
         }
 
-        if (this.state !== newState && newState !== 'IDLE' && newState !== 'FLEEING_FIELD') this.alertedCounter = 60;
+        if (this.state !== newState && newState !== 'IDLE' && newState !== 'FLEEING_FIELD') {
+            if (!(this.weapon && this.weapon.type === 'magic_gun' && newState === 'AGGRESSIVE')) {
+                 this.alertedCounter = 60;
+            }
+        }
         this.state = newState;
         this.target = newTarget;
         
@@ -947,6 +1055,16 @@ export class Unit {
     draw(ctx) {
         const gameManager = GameManager.getInstance();
         if (!gameManager) return;
+        
+        if (this.isStunned > 0) {
+             ctx.save();
+             ctx.globalAlpha = 0.5 + Math.sin(gameManager.animationFrameCounter * 0.2) * 0.2;
+             ctx.fillStyle = '#a78bfa';
+             ctx.beginPath();
+             ctx.arc(this.pixelX, this.pixelY, GRID_SIZE * 0.7, 0, Math.PI * 2);
+             ctx.fill();
+             ctx.restore();
+        }
         
         switch(this.team) {
             case TEAM.A: ctx.fillStyle = COLORS.TEAM_A; break;
@@ -1019,6 +1137,8 @@ export class Unit {
 
             if (this.weapon.type === 'staff') {
                 this.weapon.drawStaff(ctx, 0.8);
+            } else if (this.weapon.type === 'magic_gun') {
+                this.weapon.drawMagicGun(ctx, 0.7);
             } else if (this.weapon.type === 'hadoken') {
                 ctx.translate(GRID_SIZE * 0.5, 0);
                 const scale = 0.7;
@@ -1144,7 +1264,13 @@ export class Unit {
             ctx.fillRect(hpBarX, skillBarY, hpBarWidth, 4);
             ctx.fillStyle = '#f97316';
             ctx.fillRect(hpBarX, skillBarY, hpBarWidth * ((this.spawnInterval - this.spawnCooldown) / this.spawnInterval), 4);
+        } else if (this.weapon?.type === 'magic_gun' && this.magicCircleCooldown > 0) {
+            ctx.fillStyle = '#3b0764'; // 마법진 쿨다운 바 색상
+            ctx.fillRect(hpBarX, skillBarY, hpBarWidth, 4);
+            ctx.fillStyle = '#a855f7';
+            ctx.fillRect(hpBarX, skillBarY, hpBarWidth * ((300 - this.magicCircleCooldown) / 300), 4);
         }
+
         
         if (this.alertedCounter > 0 && !(this.weapon && (this.weapon.type === 'shuriken' || this.weapon.type === 'lightning')) && this.state !== 'FLEEING_FIELD') {
             ctx.fillStyle = 'yellow'; ctx.font = 'bold 20px Arial'; ctx.textAlign = 'center';
@@ -1152,3 +1278,4 @@ export class Unit {
         }
     }
 }
+
