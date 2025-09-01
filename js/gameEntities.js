@@ -607,18 +607,18 @@ export class Unit {
     }
 
     attack(target) {
-        if (!target || this.attackCooldown > 0) return;
+        if (!target || this.attackCooldown > 0 || this.isCasting) return;
         const gameManager = GameManager.getInstance();
         if (!gameManager) return;
         
         const currentAttackPower = this.attackPower;
 
-        if (this.weapon && this.weapon.type === 'staff') {
-            this.isCasting = true; this.castingProgress = 0; this.castTargetPos = { x: target.pixelX, y: target.pixelY }; this.target = target;
-            gameManager.audioManager.play('fireball');
-        } else if (this.weapon && this.weapon.type === 'hadoken') {
-             this.isCasting = true; this.castingProgress = 0; this.castTargetPos = { x: target.pixelX, y: target.pixelY }; this.target = target;
-             gameManager.audioManager.play('hadokenCast');
+        if (this.weapon && (this.weapon.type === 'staff' || this.weapon.type === 'hadoken')) {
+            this.isCasting = true;
+            this.castingProgress = 0;
+            this.castTargetPos = { x: target.pixelX, y: target.pixelY };
+            this.target = target;
+            gameManager.audioManager.play('hadokenCast'); // 공통 캐스팅 사운드
         } else {
             this.attackCooldown = this.cooldownTime;
             const targetGridX = Math.floor(target.pixelX / GRID_SIZE);
@@ -714,6 +714,7 @@ export class Unit {
                 this.isCasting = false; this.castingProgress = 0;
                 this.attackCooldown = this.cooldownTime;
                 if (this.weapon.type === 'staff') {
+                    gameManager.audioManager.play('fireball');
                     gameManager.castAreaSpell(this.castTargetPos, 'fire_pillar', this.attackPower, this.team);
                 } else if (this.weapon.type === 'hadoken') {
                     gameManager.createProjectile(this, this.target, 'hadoken');
@@ -1023,17 +1024,17 @@ export class Unit {
         
         const skillBarY = hpBarY - 6;
         if (this.isCasting) {
-            ctx.fillStyle = '#450a0a';
+            ctx.fillStyle = '#0c4a6e';
             ctx.fillRect(hpBarX, skillBarY, hpBarWidth, 4);
-            ctx.fillStyle = '#ef4444';
+            ctx.fillStyle = '#38bdf8';
             ctx.fillRect(hpBarX, skillBarY, hpBarWidth * (this.castingProgress / this.castDuration), 4);
-        } else if (this.attackCooldown > 0) { // 모든 공격 재사용 대기시간을 표시하도록 변경
-            ctx.fillStyle = '#0c4a6e'; // 재사용 대기시간 바 색상 변경
+        } else if (this.attackCooldown > 0) {
+            ctx.fillStyle = '#0c4a6e';
             ctx.fillRect(hpBarX, skillBarY, hpBarWidth, 4);
             ctx.fillStyle = '#38bdf8';
             ctx.fillRect(hpBarX, skillBarY, hpBarWidth * ((this.cooldownTime - this.attackCooldown) / this.cooldownTime), 4);
         } else if (this.isKing && this.spawnCooldown > 0) {
-            ctx.fillStyle = '#78350f'; // 왕 스폰 쿨다운 바 색상 변경
+            ctx.fillStyle = '#78350f';
             ctx.fillRect(hpBarX, skillBarY, hpBarWidth, 4);
             ctx.fillStyle = '#f97316';
             ctx.fillRect(hpBarX, skillBarY, hpBarWidth * ((this.spawnInterval - this.spawnCooldown) / this.spawnInterval), 4);
