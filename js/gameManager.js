@@ -160,6 +160,7 @@ export class GameManager {
                 <button class="tool-btn" data-tool="weapon" data-type="staff">스태프</button>
                 <button class="tool-btn" data-tool="weapon" data-type="lightning">번개</button>
                 <button class="tool-btn" data-tool="weapon" data-type="magic_spear">마법창</button>
+                <button class="tool-btn" data-tool="weapon" data-type="robotic_arm">기계팔</button>
                 <button class="tool-btn" data-tool="weapon" data-type="poison_potion">독 포션</button>
                 <div class="flex items-center gap-1">
                     <button class="tool-btn flex-grow" data-tool="weapon" data-type="hadoken">장풍</button>
@@ -1207,6 +1208,10 @@ export class GameManager {
             weapon.attackRangeBonus = 5 * GRID_SIZE;
             weapon.normalAttackPowerBonus = 5;
             weapon.specialAttackPowerBonus = 15;
+        } else if (type === 'robotic_arm') {
+            weapon.attackPowerBonus = 10; // 일반 공격 데미지
+            weapon.attackRangeBonus = 7 * GRID_SIZE; // 활보다 2칸 긴 사거리
+            weapon.detectionRangeBonus = 2 * GRID_SIZE;
         } else if (type === 'poison_potion') {
             weapon.attackPowerBonus = 0.3; // 초당 독 데미지
             weapon.attackRangeBonus = 5 * GRID_SIZE;
@@ -1424,3 +1429,4 @@ export class GameManager {
         this.draw();
     }
 }
+
