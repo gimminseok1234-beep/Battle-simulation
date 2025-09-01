@@ -160,7 +160,7 @@ export class GameManager {
                 <button class="tool-btn" data-tool="weapon" data-type="staff">스태프</button>
                 <button class="tool-btn" data-tool="weapon" data-type="lightning">번개</button>
                 <button class="tool-btn" data-tool="weapon" data-type="magic_spear">마법창</button>
-                <button class="tool-btn" data-tool="weapon" data-type="harpoon">작살</button>
+                <button class="tool-btn" data-tool="weapon" data-type="boomerang">부메랑</button>
                 <button class="tool-btn" data-tool="weapon" data-type="poison_potion">독 포션</button>
                 <div class="flex items-center gap-1">
                     <button class="tool-btn flex-grow" data-tool="weapon" data-type="hadoken">장풍</button>
@@ -956,7 +956,7 @@ export class GameManager {
             for (const unit of this.units) {
                  if (p.owner.team !== unit.team && Math.hypot(p.pixelX - unit.pixelX, p.pixelY - unit.pixelY) < GRID_SIZE / 2) {
                     primaryTarget = unit;
-                    if (p.type === 'harpoon_head') {
+                    if (p.type === 'boomerang_projectile') {
                         unit.isBeingPulled = true;
                         unit.puller = p.owner;
                         const pullToX = p.owner.pixelX + Math.cos(p.owner.facingAngle) * GRID_SIZE;
@@ -1217,7 +1217,7 @@ export class GameManager {
             weapon.attackRangeBonus = 5 * GRID_SIZE;
             weapon.normalAttackPowerBonus = 5;
             weapon.specialAttackPowerBonus = 15;
-        } else if (type === 'harpoon') {
+        } else if (type === 'boomerang') {
             weapon.attackPowerBonus = 10; // 일반 공격 데미지 15
             weapon.attackRangeBonus = 7 * GRID_SIZE; // 활보다 2칸 긴 사거리
             weapon.detectionRangeBonus = 6 * GRID_SIZE;
