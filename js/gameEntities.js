@@ -276,7 +276,7 @@ export class Projectile {
         if (type === 'hadoken') this.speed = 4;
         else if (type === 'shuriken') this.speed = 2;
         else if (type === 'lightning_bolt') this.speed = 8;
-        else if (type === 'harpoon_head') this.speed = 5;
+        else if (type === 'boomerang_projectile') this.speed = 5;
         else this.speed = 6;
 
         this.damage = owner.attackPower;
@@ -284,7 +284,7 @@ export class Projectile {
             this.damage = (owner.weapon?.specialAttackPowerBonus || 0) + owner.baseAttackPower;
         } else if (type === 'magic_spear_normal') {
             this.damage = (owner.weapon?.normalAttackPowerBonus || 0) + owner.baseAttackPower;
-        } else if (type === 'harpoon_head') {
+        } else if (type === 'boomerang_projectile') {
             this.damage = 0;
         }
 
@@ -306,7 +306,7 @@ export class Projectile {
             this.trail.push({x: this.pixelX, y: this.pixelY});
             if (this.trail.length > 10) this.trail.shift();
         }
-        if (this.type === 'shuriken') {
+        if (this.type === 'shuriken' || this.type === 'boomerang_projectile') {
             this.rotationAngle += 0.4 * gameManager.gameSpeed;
         }
 
@@ -338,10 +338,12 @@ export class Projectile {
             ctx.fillStyle = '#d1d5db';
             ctx.beginPath();
             ctx.moveTo(-GRID_SIZE * 0.6, -1); ctx.lineTo(-GRID_SIZE * 0.7, -3);
-            ctx.lineTo(-GRID_SIZE * 0.5, -1); ctx.closePath(); ctx.fill()
+            ctx.lineTo(-GRID_SIZE * 0.5, -1); ctx.closePath();
+            ctx.fill()
             ctx.beginPath();
             ctx.moveTo(-GRID_SIZE * 0.6, 1); ctx.lineTo(-GRID_SIZE * 0.7, 3);
-            ctx.lineTo(-GRID_SIZE * 0.5, 1); ctx.closePath(); ctx.fill()
+            ctx.lineTo(-GRID_SIZE * 0.5, 1); ctx.closePath();
+            ctx.fill()
             ctx.restore();
         } else if (this.type === 'hadoken') {
             for (let i = 0; i < this.trail.length; i++) {
@@ -438,11 +440,11 @@ export class Projectile {
             ctx.fill();
             
             ctx.restore();
-        } else if (this.type === 'harpoon_head') {
+        } else if (this.type === 'boomerang_projectile') {
             ctx.save();
             ctx.translate(this.pixelX, this.pixelY);
-            ctx.rotate(this.angle); 
-            this.owner.weapon.drawHarpoon(ctx, 0.5); 
+            ctx.rotate(this.rotationAngle); 
+            this.owner.weapon.drawBoomerang(ctx, 0.6); 
             ctx.restore();
         }
     }
@@ -679,35 +681,27 @@ export class Weapon {
         ctx.restore();
     }
     
-    drawHarpoon(ctx, scale = 1.0, rotation = 0) {
+    drawBoomerang(ctx, scale = 1.0, rotation = 0) {
         ctx.save();
         ctx.rotate(rotation);
         ctx.scale(scale, scale);
-
-        const handleLength = GRID_SIZE * 1.0;
-        const handleWidth = GRID_SIZE * 0.2;
-        const bladeLength = GRID_SIZE * 1.8;
-        const bladeWidth = GRID_SIZE * 1.0; 
-        const bladeBaseX = handleLength / 2;
-
-        // Handle
-        ctx.fillStyle = '#18181b'; // zinc-900
-        ctx.strokeStyle = '#000000';
-        ctx.lineWidth = 2 / scale;
-        ctx.fillRect(-handleLength / 2, -handleWidth / 2, handleLength, handleWidth);
-        ctx.strokeRect(-handleLength / 2, -handleWidth / 2, handleLength, handleWidth);
         
-        // Blade
-        const grad = ctx.createLinearGradient(bladeBaseX, 0, bladeBaseX + bladeLength, 0);
-        grad.addColorStop(0, '#f8fafc'); // slate-50
-        grad.addColorStop(1, '#94a3b8'); // slate-400
+        const grad = ctx.createLinearGradient(-GRID_SIZE, -GRID_SIZE, GRID_SIZE, GRID_SIZE);
+        grad.addColorStop(0, '#fef08a'); // yellow-200
+        grad.addColorStop(1, '#facc15'); // yellow-400
 
         ctx.fillStyle = grad;
-        ctx.strokeStyle = '#64748b'; // slate-500
+        ctx.strokeStyle = '#18181b'; // zinc-900
+        ctx.lineWidth = 2.5 / scale;
+
         ctx.beginPath();
-        ctx.moveTo(bladeBaseX, 0); 
-        ctx.arc(bladeBaseX, 0, bladeLength, Math.PI * 1.4, Math.PI * 0.6, true);
+        ctx.moveTo(-GRID_SIZE * 1.2, 0); // Left tip
+        ctx.quadraticCurveTo(-GRID_SIZE * 0.8, -GRID_SIZE * 0.1, 0, -GRID_SIZE * 0.6); // Curve to top point
+        ctx.quadraticCurveTo(GRID_SIZE * 0.8, -GRID_SIZE * 0.1, GRID_SIZE * 1.2, 0); // Curve to right tip
+        ctx.quadraticCurveTo(GRID_SIZE * 0.5, GRID_SIZE * 0.2, 0, GRID_SIZE * 0.3); // Curve to inner corner
+        ctx.quadraticCurveTo(-GRID_SIZE * 0.5, GRID_SIZE * 0.2, -GRID_SIZE * 1.2, 0); // Curve back to left tip
         ctx.closePath();
+        
         ctx.fill();
         ctx.stroke();
 
@@ -758,7 +752,7 @@ export class Weapon {
     draw(ctx) {
         if (this.isEquipped) return;
         const centerX = this.pixelX; const centerY = this.pixelY;
-        const scale = (this.type === 'crown') ? 1.0 : (this.type === 'lightning' ? 0.6 : (this.type === 'magic_spear' ? 0.6 : (this.type === 'poison_potion' ? 0.624 : (this.type === 'harpoon' ? 0.7 : 0.8))));
+        const scale = (this.type === 'crown') ? 1.0 : (this.type === 'lightning' ? 0.6 : (this.type === 'magic_spear' ? 0.6 : (this.type === 'poison_potion' ? 0.624 : (this.type === 'boomerang' ? 0.7 : 0.8))));
         ctx.save(); ctx.translate(centerX, centerY); ctx.scale(scale, scale);
         ctx.strokeStyle = 'black'; ctx.lineWidth = 1 / scale;
 
@@ -825,8 +819,8 @@ export class Weapon {
             this.drawLightning(ctx, 1.0, Math.PI / 4);
         } else if (this.type === 'magic_spear') {
             this.drawMagicSpear(ctx, 0.8, -Math.PI / 8);
-        } else if (this.type === 'harpoon') {
-            this.drawHarpoon(ctx, 1.0, -Math.PI / 6);
+        } else if (this.type === 'boomerang') {
+            this.drawBoomerang(ctx, 1.0, -Math.PI / 6);
         } else if (this.type === 'poison_potion') {
             this.drawPoisonPotion(ctx, scale);
         } else if (this.type === 'hadoken') {
@@ -903,7 +897,7 @@ export class Unit {
         this.evasionCooldown = 0; 
         this.attackAnimationTimer = 0;
         this.magicCircleCooldown = 0;
-        this.harpoonCooldown = 0;
+        this.boomerangCooldown = 0;
         this.isStunned = 0;
         this.poisonEffect = { active: false, duration: 0, damage: 0 };
         this.isBeingPulled = false;
@@ -1053,7 +1047,7 @@ export class Unit {
             if (tile.type === TILE.CRACKED_WALL) {
                 gameManager.damageTile(targetGridX, targetGridY, currentAttackPower);
             } else if (target instanceof Unit || target instanceof Nexus) {
-                if (this.weapon && (this.weapon.type === 'sword' || this.weapon.type === 'dual_swords' || this.weapon.type === 'harpoon')) {
+                if (this.weapon && (this.weapon.type === 'sword' || this.weapon.type === 'dual_swords' || this.weapon.type === 'boomerang')) {
                     this.attackAnimationTimer = 15;
                 }
                 
@@ -1074,7 +1068,7 @@ export class Unit {
                     gameManager.audioManager.play('lightningShoot');
                 } else if (this.weapon && this.weapon.type === 'magic_spear') {
                     gameManager.createProjectile(this, target, 'magic_spear_normal');
-                } else if (this.weapon && this.weapon.type === 'harpoon') {
+                } else if (this.weapon && this.weapon.type === 'boomerang') {
                     target.takeDamage(15); 
                 }
                 else {
@@ -1146,7 +1140,7 @@ export class Unit {
         if (this.evasionCooldown > 0) this.evasionCooldown -= gameManager.gameSpeed;
         if (this.attackAnimationTimer > 0) this.attackAnimationTimer -= gameManager.gameSpeed;
         if (this.magicCircleCooldown > 0) this.magicCircleCooldown -= gameManager.gameSpeed;
-        if (this.harpoonCooldown > 0) this.harpoonCooldown -= gameManager.gameSpeed;
+        if (this.boomerangCooldown > 0) this.boomerangCooldown -= gameManager.gameSpeed;
         
         if (this.poisonEffect.active) {
             this.poisonEffect.duration -= gameManager.gameSpeed;
@@ -1260,13 +1254,13 @@ export class Unit {
                 this.attackCooldown = this.cooldownTime;
                 return;
             }
-        } else if (this.weapon && this.weapon.type === 'harpoon' && this.harpoonCooldown <= 0) {
+        } else if (this.weapon && this.weapon.type === 'boomerang' && this.boomerangCooldown <= 0) {
             const { item: closestEnemy } = this.findClosest(enemies);
             if (closestEnemy && gameManager.hasLineOfSight(this, closestEnemy)) {
                 const dist = Math.hypot(this.pixelX - closestEnemy.pixelX, this.pixelY - closestEnemy.pixelY);
                 if (dist <= this.attackRange) {
-                    this.harpoonCooldown = 600; // 10초 쿨타임
-                    gameManager.createProjectile(this, closestEnemy, 'harpoon_head');
+                    this.boomerangCooldown = 600; // 10초 쿨타임
+                    gameManager.createProjectile(this, closestEnemy, 'boomerang_projectile');
                 }
             }
         }
@@ -1359,7 +1353,7 @@ export class Unit {
                     if (this.weapon && this.weapon.type === 'poison_potion') {
                         attackDistance = GRID_SIZE * 0.5; // 자폭 유닛은 근접해야 함
                     }
-                    if (this.weapon && this.weapon.type === 'harpoon' && this.harpoonCooldown > 0) {
+                    if (this.weapon && this.weapon.type === 'boomerang' && this.boomerangCooldown > 0) {
                         attackDistance = this.baseAttackRange; // 스킬 쿨타임일 땐 기본 공격 사거리
                     }
 
@@ -1492,9 +1486,9 @@ export class Unit {
             } else if (this.weapon.type === 'magic_spear') {
                 ctx.translate(GRID_SIZE * 0.2, GRID_SIZE * 0.4);
                 this.weapon.drawMagicSpear(ctx, 0.5, -Math.PI / 8 + Math.PI);
-            } else if (this.weapon.type === 'harpoon') {
-                ctx.translate(0, GRID_SIZE * 0.4); 
-                this.weapon.drawHarpoon(ctx, 0.6, Math.PI);
+            } else if (this.weapon.type === 'boomerang') {
+                ctx.translate(0, -GRID_SIZE * 0.5); 
+                this.weapon.drawBoomerang(ctx, 0.6);
             } else if (this.weapon.type === 'poison_potion') {
                 ctx.translate(0, -GRID_SIZE * 0.5); 
                 this.weapon.drawPoisonPotion(ctx, 0.3);
@@ -1628,11 +1622,11 @@ export class Unit {
             ctx.fillRect(hpBarX, skillBarY, hpBarWidth, 4);
             ctx.fillStyle = '#a855f7';
             ctx.fillRect(hpBarX, skillBarY, hpBarWidth * ((300 - this.magicCircleCooldown) / 300), 4);
-        } else if (this.weapon?.type === 'harpoon' && this.harpoonCooldown > 0) {
+        } else if (this.weapon?.type === 'boomerang' && this.boomerangCooldown > 0) {
             ctx.fillStyle = '#475569';
             ctx.fillRect(hpBarX, skillBarY, hpBarWidth, 4);
             ctx.fillStyle = '#94a3b8';
-            ctx.fillRect(hpBarX, skillBarY, hpBarWidth * ((600 - this.harpoonCooldown) / 600), 4);
+            ctx.fillRect(hpBarX, skillBarY, hpBarWidth * ((600 - this.boomerangCooldown) / 600), 4);
         }
 
         
