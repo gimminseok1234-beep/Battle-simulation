@@ -23,7 +23,7 @@ export class MagicCircle {
         
         ctx.save();
         ctx.translate(this.pixelX, this.pixelY);
-        ctx.scale(scale, scale);
+        ctx.scale(scale * 0.7, scale * 0.7); // 크기 30% 감소
         ctx.globalAlpha = opacity;
 
         // 외부 빛 효과
@@ -31,12 +31,12 @@ export class MagicCircle {
         glowGradient.addColorStop(0, 'rgba(192, 132, 252, 0.6)');
         glowGradient.addColorStop(1, 'rgba(192, 132, 252, 0)');
         ctx.fillStyle = glowGradient;
-        ctx.fillRect(-GRID_SIZE * 1.05, -GRID_SIZE * 1.05, GRID_SIZE * 2.1, GRID_SIZE * 2.1);
+        ctx.fillRect(-GRID_SIZE * 1.5, -GRID_SIZE * 1.5, GRID_SIZE * 3, GRID_SIZE * 3);
 
         // 중앙 원
         ctx.fillStyle = '#a855f7';
         ctx.beginPath();
-        ctx.arc(0, 0, GRID_SIZE * 0.42, 0, Math.PI * 2);
+        ctx.arc(0, 0, GRID_SIZE * 0.6, 0, Math.PI * 2);
         ctx.fill();
 
         switch(this.team) {
@@ -48,12 +48,12 @@ export class MagicCircle {
         }
         ctx.lineWidth = 3;
         ctx.beginPath();
-        ctx.arc(0, 0, GRID_SIZE * 0.63, 0, Math.PI * 2);
+        ctx.arc(0, 0, GRID_SIZE * 0.9, 0, Math.PI * 2);
         ctx.stroke();
 
         ctx.lineWidth = 1;
         ctx.beginPath();
-        ctx.arc(0, 0, GRID_SIZE * 0.77, 0, Math.PI * 2);
+        ctx.arc(0, 0, GRID_SIZE * 1.1, 0, Math.PI * 2);
         ctx.stroke();
         
         ctx.restore();
@@ -516,6 +516,7 @@ export class Weapon {
 
     drawMagicGun(ctx, scale = 1.0) {
         ctx.save();
+        ctx.rotate(Math.PI);
         ctx.rotate(-Math.PI / 8);
         ctx.scale(scale, scale);
     
@@ -1212,6 +1213,7 @@ export class Unit {
             if (this.weapon.type === 'staff') {
                 this.weapon.drawStaff(ctx, 0.8);
             } else if (this.weapon.type === 'magic_gun') {
+                ctx.translate(GRID_SIZE * 0.2, GRID_SIZE * 0.4);
                 this.weapon.drawMagicGun(ctx, 0.24);
             } else if (this.weapon.type === 'hadoken') {
                 ctx.translate(GRID_SIZE * 0.5, 0);
