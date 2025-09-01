@@ -279,9 +279,9 @@ export class Projectile {
         else this.speed = 6;
 
         this.damage = owner.attackPower;
-        if (type === 'magic_bullet_special') {
+        if (type === 'magic_spear_special') {
             this.damage = (owner.weapon?.specialAttackPowerBonus || 0) + owner.baseAttackPower;
-        } else if (type === 'magic_bullet_normal') {
+        } else if (type === 'magic_spear_normal') {
             this.damage = (owner.weapon?.normalAttackPowerBonus || 0) + owner.baseAttackPower;
         }
 
@@ -299,7 +299,7 @@ export class Projectile {
         const gameManager = GameManager.getInstance();
         if (!gameManager) return;
         
-        if (this.type === 'hadoken' || this.type === 'lightning_bolt' || this.type.startsWith('magic_bullet')) {
+        if (this.type === 'hadoken' || this.type === 'lightning_bolt' || this.type.startsWith('magic_spear')) {
             this.trail.push({x: this.pixelX, y: this.pixelY});
             if (this.trail.length > 10) this.trail.shift();
         }
@@ -402,28 +402,39 @@ export class Projectile {
             ctx.lineTo(GRID_SIZE * 0.5, 0);
             ctx.stroke();
             ctx.restore();
-        } else if (this.type.startsWith('magic_bullet')) {
-            const isSpecial = this.type === 'magic_bullet_special';
+        } else if (this.type.startsWith('magic_spear')) {
+            const isSpecial = this.type === 'magic_spear_special';
             const mainColor = isSpecial ? '#a855f7' : '#374151';
             const trailColor = isSpecial ? 'rgba(192, 132, 252, 0.4)' : 'rgba(107, 114, 128, 0.4)';
-            const coreColor = isSpecial ? '#e9d5ff' : '#9ca3af';
 
+            ctx.save();
+            ctx.translate(this.pixelX, this.pixelY);
+            ctx.rotate(this.angle);
+
+            // Trail
             for (let i = 0; i < this.trail.length; i++) {
                 const pos = this.trail[i];
-                const alpha = (i / this.trail.length) * 0.4;
+                const alpha = (i / this.trail.length) * 0.3;
+                const trailX = (pos.x - this.pixelX) * Math.cos(-this.angle) - (pos.y - this.pixelY) * Math.sin(-this.angle);
+                const trailY = (pos.x - this.pixelX) * Math.sin(-this.angle) + (pos.y - this.pixelY) * Math.cos(-this.angle);
+                
                 ctx.fillStyle = trailColor.replace('0.4', alpha);
                 ctx.beginPath();
-                ctx.arc(pos.x, pos.y, (GRID_SIZE / 3) * (i / this.trail.length), 0, Math.PI * 2);
+                ctx.arc(trailX, trailY, (GRID_SIZE / 4) * (i / this.trail.length), 0, Math.PI * 2);
                 ctx.fill();
             }
-            ctx.fillStyle = coreColor;
-            ctx.beginPath();
-            ctx.arc(this.pixelX, this.pixelY, GRID_SIZE / 3, 0, Math.PI * 2);
-            ctx.fill();
+
+            // Spearhead
+            const spearLength = GRID_SIZE * 0.8;
             ctx.fillStyle = mainColor;
             ctx.beginPath();
-            ctx.arc(this.pixelX, this.pixelY, GRID_SIZE / 5, 0, Math.PI * 2);
+            ctx.moveTo(spearLength, 0);
+            ctx.lineTo(0, -GRID_SIZE * 0.15);
+            ctx.lineTo(0, GRID_SIZE * 0.15);
+            ctx.closePath();
             ctx.fill();
+            
+            ctx.restore();
         }
     }
 }
@@ -606,88 +617,58 @@ export class Weapon {
         ctx.restore();
     }
 
-    drawMagicGun(ctx, scale = 1.0, rotation = 0) {
+    drawMagicSpear(ctx, scale = 1.0, rotation = 0) {
         ctx.save();
         ctx.rotate(rotation);
         ctx.scale(scale, scale);
-    
-        // Outer glow
-        ctx.shadowColor = 'rgba(192, 132, 252, 0.7)';
+
+        // Glow effect
+        ctx.shadowColor = 'rgba(192, 132, 252, 0.8)';
         ctx.shadowBlur = 15 / scale;
-    
-        // Main Body
-        ctx.fillStyle = '#d8b4fe'; // Light purple
-        ctx.strokeStyle = '#4c1d95'; // Dark purple outline
-        ctx.lineWidth = 2.5 / scale;
-    
-        ctx.beginPath();
-        ctx.moveTo(-GRID_SIZE * 1.4, -GRID_SIZE * 0.2); // Back top
-        ctx.lineTo(GRID_SIZE * 0.5, -GRID_SIZE * 0.4); // Barrel top front
-        ctx.lineTo(GRID_SIZE * 1.1, -GRID_SIZE * 0.1); // Muzzle top
-        ctx.lineTo(GRID_SIZE * 1.1, GRID_SIZE * 0.3); // Muzzle bottom
-        ctx.lineTo(GRID_SIZE * 0.4, GRID_SIZE * 0.5); // Barrel bottom front
-        ctx.lineTo(-GRID_SIZE * 0.7, GRID_SIZE * 0.8); // Trigger guard top
-        ctx.lineTo(-GRID_SIZE * 0.9, GRID_SIZE * 1.4); // Handle front
-        ctx.lineTo(-GRID_SIZE * 1.6, GRID_SIZE * 1.2); // Handle bottom
-        ctx.lineTo(-GRID_SIZE * 1.8, GRID_SIZE * 0.3); // Handle back
-        ctx.closePath();
-        ctx.fill();
-        ctx.stroke();
-    
-        ctx.shadowColor = 'transparent'; // Reset shadow
-    
-        // Barrel
-        ctx.fillStyle = '#a78bfa'; // Mid purple
-        ctx.beginPath();
-        ctx.moveTo(GRID_SIZE * 0.5, -GRID_SIZE * 0.4);
-        ctx.lineTo(GRID_SIZE * 1.1, -GRID_SIZE * 0.1);
-        ctx.lineTo(GRID_SIZE * 1.1, GRID_SIZE * 0.3);
-        ctx.lineTo(GRID_SIZE * 0.4, GRID_SIZE * 0.5);
-        ctx.closePath();
-        ctx.fill();
-        ctx.stroke();
-    
-        // Muzzle
-        ctx.fillStyle = '#5b21b6'; // Darker purple
-        ctx.beginPath();
-        ctx.ellipse(GRID_SIZE * 1.1, GRID_SIZE * 0.1, GRID_SIZE * 0.2, GRID_SIZE * 0.25, Math.PI / 2, 0, Math.PI * 2);
-        ctx.fill();
-        
-        // Gem
-        const gemX = -GRID_SIZE * 0.2;
-        const gemY = GRID_SIZE * 0.1;
-        const gemRadius = GRID_SIZE * 0.3;
-        const grad = ctx.createRadialGradient(gemX, gemY, gemRadius * 0.2, gemX, gemY, gemRadius);
-        grad.addColorStop(0, '#f5d0fe');
-        grad.addColorStop(0.7, '#a855f7');
-        grad.addColorStop(1, '#5b21b6');
-        ctx.fillStyle = grad;
-        ctx.beginPath();
-        ctx.arc(gemX, gemY, gemRadius, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.strokeStyle = '#e9d5ff';
+
+        // Spear Shaft
+        const shaftLength = GRID_SIZE * 2.5;
+        const shaftWidth = GRID_SIZE * 0.15;
+        ctx.fillStyle = '#5b21b6'; // Dark Purple
+        ctx.strokeStyle = '#2e1065'; // Darker Purple
         ctx.lineWidth = 1.5 / scale;
-        ctx.stroke();
-    
-        // Grip
-        ctx.fillStyle = '#5b21b6';
+        ctx.fillRect(-shaftLength / 2, -shaftWidth, shaftLength, shaftWidth * 2);
+        ctx.strokeRect(-shaftLength / 2, -shaftWidth, shaftLength, shaftWidth * 2);
+
+        // Spear Head
+        const headLength = GRID_SIZE * 0.8;
+        const headWidth = GRID_SIZE * 0.4;
+        const headBaseX = shaftLength / 2;
+        
+        const grad = ctx.createLinearGradient(headBaseX, 0, headBaseX + headLength, 0);
+        grad.addColorStop(0, '#e9d5ff');
+        grad.addColorStop(1, '#a855f7');
+        
+        ctx.fillStyle = grad;
+        ctx.strokeStyle = '#c084fc';
+        ctx.lineWidth = 2 / scale;
         ctx.beginPath();
-        ctx.moveTo(-GRID_SIZE * 0.9, GRID_SIZE * 1.4);
-        ctx.lineTo(-GRID_SIZE * 1.6, GRID_SIZE * 1.2);
-        ctx.lineTo(-GRID_SIZE * 1.5, GRID_SIZE * 1.5);
-        ctx.lineTo(-GRID_SIZE * 0.8, GRID_SIZE * 1.7);
+        ctx.moveTo(headBaseX, -headWidth);
+        ctx.lineTo(headBaseX + headLength, 0);
+        ctx.lineTo(headBaseX, headWidth);
+        ctx.quadraticCurveTo(headBaseX - headLength * 0.2, 0, headBaseX, -headWidth);
         ctx.closePath();
         ctx.fill();
-    
-        // Horn
-        ctx.fillStyle = '#e9d5ff';
-        ctx.beginPath();
-        ctx.moveTo(GRID_SIZE * 0.3, -GRID_SIZE * 0.4);
-        ctx.quadraticCurveTo(GRID_SIZE * 0.6, -GRID_SIZE * 0.8, GRID_SIZE * 0.2, -GRID_SIZE * 1.1);
-        ctx.quadraticCurveTo(GRID_SIZE * 0.1, -GRID_SIZE * 0.7, GRID_SIZE * 0.3, -GRID_SIZE * 0.4);
-        ctx.fill();
         ctx.stroke();
-    
+
+        // Gem
+        const gemX = -GRID_SIZE * 0.4;
+        const gemRadius = GRID_SIZE * 0.25;
+        const gemGrad = ctx.createRadialGradient(gemX, 0, gemRadius * 0.1, gemX, 0, gemRadius);
+        gemGrad.addColorStop(0, '#f5d0fe');
+        gemGrad.addColorStop(1, '#9333ea');
+        ctx.fillStyle = gemGrad;
+        ctx.beginPath();
+        ctx.arc(gemX, 0, gemRadius, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.strokeStyle = '#d8b4fe';
+        ctx.stroke();
+
         ctx.restore();
     }
     
@@ -735,7 +716,7 @@ export class Weapon {
     draw(ctx) {
         if (this.isEquipped) return;
         const centerX = this.pixelX; const centerY = this.pixelY;
-        const scale = (this.type === 'crown') ? 1.0 : (this.type === 'lightning' ? 0.6 : (this.type === 'magic_gun' ? 0.6 : (this.type === 'poison_potion' ? 0.624 : 0.8)));
+        const scale = (this.type === 'crown') ? 1.0 : (this.type === 'lightning' ? 0.6 : (this.type === 'magic_spear' ? 0.6 : (this.type === 'poison_potion' ? 0.624 : 0.8)));
         ctx.save(); ctx.translate(centerX, centerY); ctx.scale(scale, scale);
         ctx.strokeStyle = 'black'; ctx.lineWidth = 1 / scale;
 
@@ -800,8 +781,8 @@ export class Weapon {
             this.drawStaff(ctx, scale);
         } else if (this.type === 'lightning') {
             this.drawLightning(ctx, 1.0, Math.PI / 4);
-        } else if (this.type === 'magic_gun') {
-            this.drawMagicGun(ctx, 0.8, -Math.PI / 8);
+        } else if (this.type === 'magic_spear') {
+            this.drawMagicSpear(ctx, 0.8, -Math.PI / 8);
         } else if (this.type === 'poison_potion') {
             this.drawPoisonPotion(ctx, scale);
         } else if (this.type === 'hadoken') {
@@ -1043,8 +1024,8 @@ export class Unit {
                 } else if (this.weapon && this.weapon.type === 'lightning') {
                     gameManager.createProjectile(this, target, 'lightning_bolt');
                     gameManager.audioManager.play('lightningShoot');
-                } else if (this.weapon && this.weapon.type === 'magic_gun') {
-                    gameManager.createProjectile(this, target, 'magic_bullet_normal');
+                } else if (this.weapon && this.weapon.type === 'magic_spear') {
+                    gameManager.createProjectile(this, target, 'magic_spear_normal');
                 }
                 else {
                     target.takeDamage(currentAttackPower);
@@ -1151,7 +1132,7 @@ export class Unit {
                     gameManager.createProjectile(this, this.target, 'hadoken');
                     gameManager.audioManager.play('hadokenShoot');
                 } else if (this.weapon.type === 'poison_potion') {
-                    gameManager.castAreaSpell({x: this.pixelX, y: this.pixelY}, 'poison_cloud', { ownerTeam: this.team, damage: this.attackPower });
+                    gameManager.castAreaSpell({x: this.pixelX, y: this.pixelY}, 'poison_cloud', this.team);
                     this.hp = 0; // 자폭
                 }
             }
@@ -1192,7 +1173,7 @@ export class Unit {
             }
         }
         
-        if (this.weapon && this.weapon.type === 'magic_gun') {
+        if (this.weapon && this.weapon.type === 'magic_spear') {
             if (this.magicCircleCooldown <= 0) {
                 gameManager.spawnMagicCircle(this.team);
                 this.magicCircleCooldown = 300;
@@ -1201,7 +1182,7 @@ export class Unit {
             if (stunnedEnemy && this.attackCooldown <= 0) {
                 this.alertedCounter = 60;
                 this.target = stunnedEnemy;
-                gameManager.createProjectile(this, stunnedEnemy, 'magic_bullet_special');
+                gameManager.createProjectile(this, stunnedEnemy, 'magic_spear_special');
                 this.attackCooldown = this.cooldownTime;
                 return;
             }
@@ -1256,7 +1237,7 @@ export class Unit {
         }
 
         if (this.state !== newState && newState !== 'IDLE' && newState !== 'FLEEING_FIELD') {
-            if (!(this.weapon && this.weapon.type === 'magic_gun' && newState === 'AGGRESSIVE')) {
+            if (!(this.weapon && this.weapon.type === 'magic_spear' && newState === 'AGGRESSIVE')) {
                  this.alertedCounter = 60;
             }
         }
@@ -1410,9 +1391,9 @@ export class Unit {
 
             if (this.weapon.type === 'staff') {
                 this.weapon.drawStaff(ctx, 0.8);
-            } else if (this.weapon.type === 'magic_gun') {
-                ctx.translate(GRID_SIZE * 0.4, GRID_SIZE * 0.2);
-                this.weapon.drawMagicGun(ctx, 0.24, -Math.PI / 8 + Math.PI);
+            } else if (this.weapon.type === 'magic_spear') {
+                ctx.translate(GRID_SIZE * 0.2, GRID_SIZE * 0.4);
+                this.weapon.drawMagicSpear(ctx, 0.5, -Math.PI / 8 + Math.PI);
             } else if (this.weapon.type === 'poison_potion') {
                 ctx.translate(0, -GRID_SIZE * 0.5); 
                 this.weapon.drawPoisonPotion(ctx, 0.3);
@@ -1541,7 +1522,7 @@ export class Unit {
             ctx.fillRect(hpBarX, skillBarY, hpBarWidth, 4);
             ctx.fillStyle = '#f97316';
             ctx.fillRect(hpBarX, skillBarY, hpBarWidth * ((this.spawnInterval - this.spawnCooldown) / this.spawnInterval), 4);
-        } else if (this.weapon?.type === 'magic_gun' && this.magicCircleCooldown > 0) {
+        } else if (this.weapon?.type === 'magic_spear' && this.magicCircleCooldown > 0) {
             ctx.fillStyle = '#3b0764'; 
             ctx.fillRect(hpBarX, skillBarY, hpBarWidth, 4);
             ctx.fillStyle = '#a855f7';
