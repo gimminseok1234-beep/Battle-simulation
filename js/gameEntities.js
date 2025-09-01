@@ -1,5 +1,60 @@
 import { TILE, TEAM, COLORS, GRID_SIZE } from './constants.js';
-import { GameManager } from './gameManager.js'; // GameManager 클래스만 import
+import { GameManager } from './gameManager.js'; 
+
+// 마법진 클래스
+export class MagicCircle {
+    constructor(x, y, team) {
+        this.gridX = x; this.gridY = y;
+        this.pixelX = x * GRID_SIZE + GRID_SIZE / 2;
+        this.pixelY = y * GRID_SIZE + GRID_SIZE / 2;
+        this.team = team;
+        this.duration = 600; // 10초
+        this.animationTimer = 0;
+    }
+
+    update() {
+        this.duration--;
+        this.animationTimer++;
+    }
+
+    draw(ctx) {
+        const opacity = Math.min(1, (600 - this.duration) / 60) * Math.min(1, this.duration / 60);
+        const scale = 1 + Math.sin(this.animationTimer * 0.1) * 0.05;
+        
+        ctx.save();
+        ctx.translate(this.pixelX, this.pixelY);
+        ctx.scale(scale, scale);
+        ctx.globalAlpha = opacity;
+
+        // 외부 빛 효과
+        const glowGradient = ctx.createRadialGradient(0, 0, GRID_SIZE * 0.5, 0, 0, GRID_SIZE * 1.5);
+        glowGradient.addColorStop(0, 'rgba(192, 132, 252, 0.6)');
+        glowGradient.addColorStop(1, 'rgba(192, 132, 252, 0)');
+        ctx.fillStyle = glowGradient;
+        ctx.fillRect(-GRID_SIZE * 1.5, -GRID_SIZE * 1.5, GRID_SIZE * 3, GRID_SIZE * 3);
+
+        // 중앙 원
+        ctx.fillStyle = '#a855f7';
+        ctx.beginPath();
+        ctx.arc(0, 0, GRID_SIZE * 0.6, 0, Math.PI * 2);
+        ctx.fill();
+
+        // 바깥쪽 링들
+        ctx.strokeStyle = '#c084fc';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.arc(0, 0, GRID_SIZE * 0.9, 0, Math.PI * 2);
+        ctx.stroke();
+
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.arc(0, 0, GRID_SIZE * 1.1, 0, Math.PI * 2);
+        ctx.stroke();
+        
+        ctx.restore();
+    }
+}
+
 
 // 성장형 자기장 클래스
 export class GrowingMagneticField {
@@ -30,7 +85,7 @@ export class GrowingMagneticField {
     }
 
     draw(ctx) {
-        const gameManager = GameManager.getInstance(); // GameManager 인스턴스 가져오기
+        const gameManager = GameManager.getInstance();
         if (!gameManager) return;
 
         const startX = this.gridX * GRID_SIZE;
@@ -454,8 +509,8 @@ export class Weapon {
         ctx.rotate(-Math.PI / 8);
         ctx.scale(scale, scale);
 
-        ctx.fillStyle = '#a78bfa'; // 밝은 보라
-        ctx.strokeStyle = '#5b21b6'; // 어두운 보라
+        ctx.fillStyle = '#a78bfa';
+        ctx.strokeStyle = 'black'; // 검은색 테두리
         ctx.lineWidth = 2 / scale;
 
         // 몸체
@@ -502,7 +557,7 @@ export class Weapon {
     draw(ctx) {
         if (this.isEquipped) return;
         const centerX = this.pixelX; const centerY = this.pixelY;
-        const scale = (this.type === 'crown') ? 1.0 : (this.type === 'lightning' ? 0.6 : 0.8);
+        const scale = (this.type === 'crown') ? 1.0 : (this.type === 'lightning' ? 0.6 : (this.type === 'magic_gun' ? 0.6 : 0.8));
         ctx.save(); ctx.translate(centerX, centerY); ctx.scale(scale, scale);
         ctx.strokeStyle = 'black'; ctx.lineWidth = 1 / scale;
 
@@ -642,13 +697,13 @@ export class Unit {
         this.isInMagneticField = false;
         this.evasionCooldown = 0; 
         this.attackAnimationTimer = 0;
-        this.magicCircleCooldown = 0; // 마법진 설치 쿨다운
-        this.isStunned = 0; // 기절 상태 타이머
+        this.magicCircleCooldown = 0;
+        this.isStunned = 0;
     }
     
     get speed() {
         const gameManager = GameManager.getInstance();
-        if (!gameManager || this.isStunned > 0) return 0; // 기절 상태면 속도 0
+        if (!gameManager || this.isStunned > 0) return 0;
 
         let speedModifier = 0;
         if (this.isInMagneticField) speedModifier = -0.7;
@@ -821,7 +876,7 @@ export class Unit {
     takeDamage(damage, effectInfo = {}) {
         this.hp -= damage;
         if (effectInfo.interrupt) {
-             if (this.weapon?.type !== 'shuriken' && this.weapon?.type !== 'lightning' || effectInfo.force > 0) {
+             if (!['shuriken', 'lightning'].includes(this.weapon?.type) || effectInfo.force > 0) {
                  this.isCasting = false;
                  this.castingProgress = 0;
              }
@@ -936,7 +991,6 @@ export class Unit {
             }
         }
         
-        // 마법총 능력
         if (this.weapon && this.weapon.type === 'magic_gun') {
             if (this.magicCircleCooldown <= 0) {
                 gameManager.spawnMagicCircle(this.team);
@@ -945,10 +999,10 @@ export class Unit {
             const stunnedEnemy = gameManager.findStunnedEnemy(this.team);
             if (stunnedEnemy && this.attackCooldown <= 0) {
                 this.alertedCounter = 60;
-                this.target = stunnedEnemy; // 상태와 무관하게 타겟 지정
+                this.target = stunnedEnemy;
                 gameManager.createProjectile(this, stunnedEnemy, 'magic_bullet_special');
                 this.attackCooldown = this.cooldownTime;
-                return; // 특수 공격 후 턴 종료
+                return;
             }
         }
 
@@ -1265,7 +1319,7 @@ export class Unit {
             ctx.fillStyle = '#f97316';
             ctx.fillRect(hpBarX, skillBarY, hpBarWidth * ((this.spawnInterval - this.spawnCooldown) / this.spawnInterval), 4);
         } else if (this.weapon?.type === 'magic_gun' && this.magicCircleCooldown > 0) {
-            ctx.fillStyle = '#3b0764'; // 마법진 쿨다운 바 색상
+            ctx.fillStyle = '#3b0764'; 
             ctx.fillRect(hpBarX, skillBarY, hpBarWidth, 4);
             ctx.fillStyle = '#a855f7';
             ctx.fillRect(hpBarX, skillBarY, hpBarWidth * ((300 - this.magicCircleCooldown) / 300), 4);
