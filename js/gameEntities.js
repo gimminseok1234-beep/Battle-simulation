@@ -695,9 +695,9 @@ export class Weapon {
         ctx.lineWidth = 2 / scale;
         ctx.lineJoin = 'round';
     
-        // New 'ㄱ' shape design with thin, uniform thickness
-        const armLength = GRID_SIZE * 1.5;
-        const thickness = GRID_SIZE * 0.25;
+        // 'ㄱ' shape design with increased thickness and reduced size
+        const armLength = GRID_SIZE * 1.2;
+        const thickness = GRID_SIZE * 0.4;
     
         ctx.beginPath();
         ctx.moveTo(0, -armLength);
@@ -1494,7 +1494,7 @@ export class Unit {
                 this.weapon.drawMagicSpear(ctx, 0.5, -Math.PI / 8 + Math.PI);
             } else if (this.weapon.type === 'boomerang') {
                 ctx.translate(0, -GRID_SIZE * 0.5); 
-                this.weapon.drawBoomerang(ctx, 0.6);
+                this.weapon.drawBoomerang(ctx, 0.5);
             } else if (this.weapon.type === 'poison_potion') {
                 ctx.translate(0, -GRID_SIZE * 0.5); 
                 this.weapon.drawPoisonPotion(ctx, 0.3);
@@ -1642,3 +1642,4 @@ export class Unit {
         }
     }
 }
+
