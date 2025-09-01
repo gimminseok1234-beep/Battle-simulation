@@ -442,7 +442,7 @@ export class Projectile {
             ctx.save();
             ctx.translate(this.pixelX, this.pixelY);
             ctx.rotate(this.angle + Math.PI); 
-            this.owner.weapon.drawHarpoon(ctx, 0.4); 
+            this.owner.weapon.drawHarpoon(ctx, 0.5); 
             ctx.restore();
         }
     }
@@ -684,35 +684,38 @@ export class Weapon {
         ctx.rotate(rotation);
         ctx.scale(scale, scale);
 
-        const handleLength = GRID_SIZE * 1.5;
-        const handleWidth = GRID_SIZE * 0.2;
-        const bladeLength = GRID_SIZE * 1.0;
-        const bladeWidth = GRID_SIZE * 0.5;
+        const handleLength = GRID_SIZE * 1.2;
+        const handleWidth = GRID_SIZE * 0.25;
+        const bladeLength = GRID_SIZE * 1.5;
+        const bladeWidth = GRID_SIZE * 0.8;
+        const bladeBaseX = handleLength / 2;
 
         // Handle
-        ctx.fillStyle = '#1f2937'; // slate-800
+        ctx.fillStyle = '#1f2937';
         ctx.strokeStyle = '#000000';
         ctx.lineWidth = 2 / scale;
         ctx.fillRect(-handleLength / 2, -handleWidth / 2, handleLength, handleWidth);
         ctx.strokeRect(-handleLength / 2, -handleWidth / 2, handleLength, handleWidth);
 
         // Blade
-        const bladeBaseX = handleLength / 2;
-        ctx.fillStyle = '#d1d5db'; // slate-300
-        ctx.strokeStyle = '#6b7280'; // slate-500
+        ctx.fillStyle = '#e5e7eb'; // Lighter silver
+        ctx.strokeStyle = '#9ca3af'; // Darker silver for outline
         ctx.beginPath();
-        ctx.moveTo(bladeBaseX, -bladeWidth / 2);
-        ctx.quadraticCurveTo(bladeBaseX + bladeLength * 0.8, 0, bladeBaseX, bladeWidth / 2);
-        ctx.lineTo(bladeBaseX - bladeLength * 0.2, 0);
+        ctx.moveTo(bladeBaseX, -bladeWidth / 2); // Top point
+        ctx.bezierCurveTo(
+            bladeBaseX + bladeLength * 1.2, -bladeWidth * 0.2, // Control point 1
+            bladeBaseX + bladeLength * 1.2, bladeWidth * 0.2,  // Control point 2
+            bladeBaseX, bladeWidth / 2                       // Bottom point
+        );
         ctx.closePath();
         ctx.fill();
         ctx.stroke();
 
         // Hook at the end
-        ctx.strokeStyle = '#4b5563'; // slate-600
-        ctx.lineWidth = 2.5 / scale;
+        ctx.strokeStyle = '#4b5563';
+        ctx.lineWidth = 3 / scale;
         ctx.beginPath();
-        ctx.arc(-handleLength / 2, 0, GRID_SIZE * 0.2, Math.PI * 0.6, Math.PI * 1.9);
+        ctx.arc(-handleLength / 2, 0, GRID_SIZE * 0.25, Math.PI * 0.6, Math.PI * 1.9);
         ctx.stroke();
         
         ctx.restore();
