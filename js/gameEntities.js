@@ -805,7 +805,7 @@ export class Weapon {
 
         ctx.fillStyle = '#84cc16'; 
         ctx.beginPath();
-        ctx.arc(0, GRID_SIZE * 0.2, GRID_SIZE * 0.9, 0, Math.PI * 2);
+        ctx.arc(0, 0, GRID_SIZE * 0.9, 0, Math.PI * 2);
         ctx.fill();
 
         ctx.restore();
@@ -1024,30 +1024,45 @@ export class Unit {
     applyPhysics() {
         const gameManager = GameManager.getInstance();
         if (!gameManager) return;
-
-        // Knockback 적용
-        this.pixelX += this.knockbackX * gameManager.gameSpeed;
-        this.pixelY += this.knockbackY * gameManager.gameSpeed;
-
+    
+        // 넉백 적용 및 벽 충돌 확인 (장풍 오류 수정)
+        if (this.knockbackX !== 0 || this.knockbackY !== 0) {
+            const nextX = this.pixelX + this.knockbackX * gameManager.gameSpeed;
+            const nextY = this.pixelY + this.knockbackY * gameManager.gameSpeed;
+    
+            const gridX = Math.floor(nextX / GRID_SIZE);
+            const gridY = Math.floor(nextY / GRID_SIZE);
+    
+            if (gridY >= 0 && gridY < gameManager.ROWS && gridX >= 0 && gridX < gameManager.COLS &&
+                (gameManager.map[gridY][gridX].type === TILE.WALL || gameManager.map[gridY][gridX].type === TILE.CRACKED_WALL)) {
+                // 벽에 부딪히면 넉백을 멈춤
+                this.knockbackX = 0;
+                this.knockbackY = 0;
+            } else {
+                this.pixelX = nextX;
+                this.pixelY = nextY;
+            }
+        }
+    
         this.knockbackX *= 0.9;
         this.knockbackY *= 0.9;
         if (Math.abs(this.knockbackX) < 0.1) this.knockbackX = 0;
         if (Math.abs(this.knockbackY) < 0.1) this.knockbackY = 0;
-
+    
         // 유닛 간의 충돌 및 밀어내기
         gameManager.units.forEach(otherUnit => {
             if (this !== otherUnit) {
                 const dx = otherUnit.pixelX - this.pixelX;
                 const dy = otherUnit.pixelY - this.pixelY;
                 const distance = Math.hypot(dx, dy);
-                const minDistance = (GRID_SIZE / 2.5) * 2; 
-
+                const minDistance = (GRID_SIZE / 2.5) * 2;
+    
                 if (distance < minDistance && distance > 0) {
                     const angle = Math.atan2(dy, dx);
                     const overlap = minDistance - distance;
                     const moveX = (overlap / 2) * Math.cos(angle);
                     const moveY = (overlap / 2) * Math.sin(angle);
-
+    
                     this.pixelX -= moveX;
                     this.pixelY -= moveY;
                     otherUnit.pixelX += moveX;
@@ -1055,7 +1070,7 @@ export class Unit {
                 }
             }
         });
-        
+    
         // 맵 경계 충돌 처리
         const radius = GRID_SIZE / 2.5;
         let bounced = false;
@@ -1124,6 +1139,16 @@ export class Unit {
         if (this.isCasting && this.weapon.type !== 'poison_potion') return;
         const gameManager = GameManager.getInstance();
         if (!gameManager) return;
+
+        // 스태프 유닛은 캐스팅 로직을 최우선으로 실행합니다. (스태프 오류 수정)
+        if (this.weapon && this.weapon.type === 'staff' && (target instanceof Unit || target instanceof Nexus)) {
+            this.isCasting = true;
+            this.castingProgress = 0;
+            this.castDuration = 120; // 2초
+            this.castTargetPos = { x: target.pixelX, y: target.pixelY };
+            this.target = target;
+            return; // 캐스팅을 시작했으므로 여기서 함수를 종료합니다.
+        }
         
         const currentAttackPower = this.attackPower;
 
@@ -1169,12 +1194,6 @@ export class Unit {
                 gameManager.createProjectile(this, target, 'hadoken');
                 gameManager.audioManager.play('hadokenShoot');
                 this.attackCooldown = this.cooldownTime; 
-            } else if (this.weapon && this.weapon.type === 'staff') {
-                this.isCasting = true;
-                this.castingProgress = 0;
-                this.castDuration = 120; // 2초
-                this.castTargetPos = { x: target.pixelX, y: target.pixelY };
-                this.target = target;
             } else if (this.weapon && this.weapon.type === 'lightning') {
                 gameManager.createProjectile(this, target, 'lightning_bolt');
                 gameManager.audioManager.play('lightningShoot');
@@ -1828,3 +1847,4 @@ export class Unit {
         }
     }
 }
+
