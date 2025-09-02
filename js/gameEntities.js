@@ -65,7 +65,7 @@ export class PoisonCloud {
         this.pixelY = y;
         this.ownerTeam = ownerTeam;
         this.duration = 300; // 5초
-        this.damage = 0.25; 
+        this.damage = 0.2; // 데미지 소폭 하향
         this.animationTimer = 0;
     }
 
@@ -75,27 +75,22 @@ export class PoisonCloud {
         const gameManager = GameManager.getInstance();
         if (!gameManager) return;
         
-        // 유닛에게 피해 적용
-        gameManager.units.forEach(unit => {
-            if (unit.team !== this.ownerTeam) {
-                const dx = Math.abs(unit.pixelX - this.pixelX);
-                const dy = Math.abs(unit.pixelY - this.pixelY);
+        const applyPoisonDamage = (target) => {
+             if (target.team !== this.ownerTeam) {
+                const dx = Math.abs(target.pixelX - this.pixelX);
+                const dy = Math.abs(target.pixelY - this.pixelY);
                 if (dx < GRID_SIZE * 2.5 && dy < GRID_SIZE * 2.5) {
-                    unit.takeDamage(0, { poison: { damage: this.damage } });
+                    if(target instanceof Unit) {
+                        target.takeDamage(0, { poison: { damage: this.damage * gameManager.gameSpeed } });
+                    } else if (target instanceof Nexus && !target.isDestroying) {
+                        target.takeDamage(this.damage * gameManager.gameSpeed);
+                    }
                 }
             }
-        });
+        };
 
-        // 넥서스에게 감소된 피해 적용 (1.2배)
-        gameManager.nexuses.forEach(nexus => {
-            if (nexus.team !== this.ownerTeam && !nexus.isDestroying) {
-                const dx = Math.abs(nexus.pixelX - this.pixelX);
-                const dy = Math.abs(nexus.pixelY - this.pixelY);
-                if (dx < GRID_SIZE * 2.5 && dy < GRID_SIZE * 2.5) {
-                    nexus.takeDamage(this.damage * 0.6 * gameManager.gameSpeed);
-                }
-            }
-        });
+        gameManager.units.forEach(applyPoisonDamage);
+        gameManager.nexuses.forEach(applyPoisonDamage);
     }
 
     draw(ctx) {
@@ -940,6 +935,7 @@ export class Unit {
         this.isBeingPulled = false;
         this.puller = null;
         this.pullTargetPos = null;
+        this.hpBarVisibleTimer = 0;
     }
     
     get speed() {
@@ -1136,7 +1132,7 @@ export class Unit {
             } else if (this.weapon && this.weapon.type === 'staff') {
                 this.isCasting = true;
                 this.castingProgress = 0;
-                this.castDuration = 180; // 3초
+                this.castDuration = 120; // 2초
                 this.castTargetPos = { x: target.pixelX, y: target.pixelY };
                 this.target = target;
             } else if (this.weapon && this.weapon.type === 'lightning') {
@@ -1163,6 +1159,7 @@ export class Unit {
 
     takeDamage(damage, effectInfo = {}) {
         this.hp -= damage;
+        this.hpBarVisibleTimer = 180; // 3초간 체력바 표시
         if (effectInfo.interrupt) {
              if (!['shuriken', 'lightning'].includes(this.weapon?.type) || effectInfo.force > 0) {
                  this.isCasting = false;
@@ -1195,6 +1192,8 @@ export class Unit {
     update(enemies, weapons, projectiles) {
         const gameManager = GameManager.getInstance();
         if (!gameManager) return;
+        
+        if (this.hpBarVisibleTimer > 0) this.hpBarVisibleTimer--;
 
         if (this.isBeingPulled && this.puller) {
             const dx = this.pullTargetPos.x - this.pixelX;
@@ -1236,7 +1235,7 @@ export class Unit {
         
         if (this.poisonEffect.active) {
             this.poisonEffect.duration -= gameManager.gameSpeed;
-            this.takeDamage(this.poisonEffect.damage * gameManager.gameSpeed);
+            this.takeDamage(this.poisonEffect.damage);
             if (this.poisonEffect.duration <= 0) {
                 this.poisonEffect.active = false;
             }
@@ -1657,9 +1656,11 @@ export class Unit {
         const hpBarWidth = GRID_SIZE * 1.0, hpBarX = this.pixelX - hpBarWidth / 2;
         let currentBarY = this.pixelY - hpBarYOffset;
 
-        // 체력 바
-        ctx.fillStyle = '#111827'; ctx.fillRect(hpBarX, currentBarY, hpBarWidth, 5);
-        ctx.fillStyle = '#10b981'; ctx.fillRect(hpBarX, currentBarY, hpBarWidth * (this.hp / 100), 5);
+        // 체력 바 (피격 시 또는 체력이 100 미만일 때만 표시)
+        if (this.hp < 100 || this.hpBarVisibleTimer > 0) {
+            ctx.fillStyle = '#111827'; ctx.fillRect(hpBarX, currentBarY, hpBarWidth, 5);
+            ctx.fillStyle = '#10b981'; ctx.fillRect(hpBarX, currentBarY, hpBarWidth * (this.hp / 100), 5);
+        }
         
         let nextBarY = currentBarY - 6;
 
@@ -1674,7 +1675,22 @@ export class Unit {
             (this.isCasting && this.weapon?.type === 'staff') ||
             (this.attackCooldown > 0);
 
-        // 특수 스킬 게이지 (가장 위에)
+        // 일반 공격 게이지 (중간)
+        if (normalAttackIsVisible) {
+            let yPos = nextBarY;
+            if (specialSkillIsVisible) {
+                yPos -= 5;
+            }
+            if (this.isCasting && this.weapon?.type === 'staff') {
+                ctx.fillStyle = '#0c4a6e'; ctx.fillRect(hpBarX, yPos, hpBarWidth, 4);
+                ctx.fillStyle = '#38bdf8'; ctx.fillRect(hpBarX, yPos, hpBarWidth * (this.castingProgress / this.castDuration), 4);
+            } else if (this.attackCooldown > 0) {
+                ctx.fillStyle = '#0c4a6e'; ctx.fillRect(hpBarX, yPos, hpBarWidth, 4);
+                ctx.fillStyle = '#38bdf8'; ctx.fillRect(hpBarX, yPos, hpBarWidth * ((this.cooldownTime - this.attackCooldown) / this.cooldownTime), 4);
+            }
+        }
+
+        // 특수 스킬 게이지 (가장 위)
         if (specialSkillIsVisible) {
             if (this.isKing) {
                 ctx.fillStyle = '#78350f'; ctx.fillRect(hpBarX, nextBarY, hpBarWidth, 4);
@@ -1691,18 +1707,6 @@ export class Unit {
             } else if (this.weapon?.type === 'poison_potion' && this.isCasting) {
                 ctx.fillStyle = '#475569'; ctx.fillRect(hpBarX, nextBarY, hpBarWidth, 4);
                 ctx.fillStyle = '#94a3b8'; ctx.fillRect(hpBarX, nextBarY, hpBarWidth * (this.castingProgress / this.castDuration), 4);
-            }
-        }
-
-        // 일반 공격 게이지 (중간에)
-        if (normalAttackIsVisible) {
-            let yPos = specialSkillIsVisible ? nextBarY + 5 : nextBarY;
-             if (this.isCasting && this.weapon?.type === 'staff') {
-                ctx.fillStyle = '#0c4a6e'; ctx.fillRect(hpBarX, yPos, hpBarWidth, 4);
-                ctx.fillStyle = '#38bdf8'; ctx.fillRect(hpBarX, yPos, hpBarWidth * (this.castingProgress / this.castDuration), 4);
-            } else if (this.attackCooldown > 0) {
-                ctx.fillStyle = '#0c4a6e'; ctx.fillRect(hpBarX, yPos, hpBarWidth, 4);
-                ctx.fillStyle = '#38bdf8'; ctx.fillRect(hpBarX, yPos, hpBarWidth * ((this.cooldownTime - this.attackCooldown) / this.cooldownTime), 4);
             }
         }
         
