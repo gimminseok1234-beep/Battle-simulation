@@ -743,7 +743,7 @@ export class GameManager {
             this.map[y][x] = { type: TILE.FLOOR, color: this.currentFloorColor };
             this.units = this.units.filter(u => u.gridX !== x || u.gridY !== y);
             this.weapons = this.weapons.filter(w => w.gridX !== x || w.gridY !== y);
-            this.nexuses = this.nexuses.filter(n => n.gridX !== x || u.gridY !== y);
+            this.nexuses = this.nexuses.filter(n => n.gridX !== x || n.gridY !== y);
             this.growingFields = this.growingFields.filter(zone => !(x >= zone.gridX && x < zone.gridX + zone.width && y >= zone.gridY && y < zone.gridY + zone.height));
             this.draw();
             return;
