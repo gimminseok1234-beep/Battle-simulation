@@ -1607,8 +1607,17 @@ export class Unit {
             } else if (this.weapon.type === 'staff') {
                 this.weapon.drawStaff(ctx, 0.8);
             } else if (this.weapon.type === 'lightning') {
-                const rotation = gameManager.animationFrameCounter * 0.05;
-                this.weapon.drawLightning(ctx, 0.6, rotation);
+                // 번개가 유닛 주위를 돌도록 수정
+                const revolutionAngle = gameManager.animationFrameCounter * 0.05;
+                const orbitRadius = GRID_SIZE * 0.8;
+                const weaponX = Math.cos(revolutionAngle) * orbitRadius;
+                const weaponY = Math.sin(revolutionAngle) * orbitRadius;
+                
+                ctx.save();
+                ctx.translate(weaponX, weaponY);
+                // 번개 자체는 회전하지 않고 고정된 각도를 유지
+                this.weapon.drawLightning(ctx, 0.6, Math.PI / 4); 
+                ctx.restore();
             } else if (this.weapon.type === 'magic_spear') {
                 ctx.translate(GRID_SIZE * 0.2, GRID_SIZE * 0.4);
                 this.weapon.drawMagicSpear(ctx, 0.5, -Math.PI / 8 + Math.PI);
