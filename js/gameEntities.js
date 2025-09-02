@@ -993,7 +993,16 @@ export class Unit {
         const gameManager = GameManager.getInstance();
         if (!gameManager) return;
 
-        // 유닛 간의 충돌 및 밀어내기 (보다 강하게)
+        // Knockback 적용
+        this.pixelX += this.knockbackX * gameManager.gameSpeed;
+        this.pixelY += this.knockbackY * gameManager.gameSpeed;
+
+        this.knockbackX *= 0.9;
+        this.knockbackY *= 0.9;
+        if (Math.abs(this.knockbackX) < 0.1) this.knockbackX = 0;
+        if (Math.abs(this.knockbackY) < 0.1) this.knockbackY = 0;
+
+        // 유닛 간의 충돌 및 밀어내기
         gameManager.units.forEach(otherUnit => {
             if (this !== otherUnit) {
                 const dx = otherUnit.pixelX - this.pixelX;
@@ -1004,8 +1013,6 @@ export class Unit {
                 if (distance < minDistance && distance > 0) {
                     const angle = Math.atan2(dy, dx);
                     const overlap = minDistance - distance;
-                    
-                    // 각 유닛을 겹침 거리의 절반만큼 즉시 밀어냅니다.
                     const moveX = (overlap / 2) * Math.cos(angle);
                     const moveY = (overlap / 2) * Math.sin(angle);
 
@@ -1017,54 +1024,22 @@ export class Unit {
             }
         });
         
-        let nextX = this.pixelX + this.knockbackX * gameManager.gameSpeed;
-        let nextY = this.pixelY + this.knockbackY * gameManager.gameSpeed;
-        
-        const nextGridX_kb = Math.floor(nextX / GRID_SIZE);
-        const nextGridY_kb = Math.floor(nextY / GRID_SIZE);
-        if (nextGridY_kb >= 0 && nextGridY_kb < gameManager.ROWS && nextGridX_kb >= 0 && nextGridX_kb < gameManager.COLS) {
-            const collidedTile = gameManager.map[nextGridY_kb][nextGridX_kb];
-             if (collidedTile.type === TILE.WALL || collidedTile.type === TILE.CRACKED_WALL) {
-                nextX = this.pixelX;
-                nextY = this.pixelY;
-                this.knockbackX = 0;
-                this.knockbackY = 0;
-            }
-        }
-        
-        this.pixelX = nextX;
-        this.pixelY = nextY;
-
-        this.knockbackX *= 0.9;
-        this.knockbackY *= 0.9;
-        if (Math.abs(this.knockbackX) < 0.1) this.knockbackX = 0;
-        if (Math.abs(this.knockbackY) < 0.1) this.knockbackY = 0;
-
         // 맵 경계 충돌 처리 및 튕김 효과
         const radius = GRID_SIZE / 2.5;
-        let bounced = false;
         if (this.pixelX < radius) {
             this.pixelX = radius;
             this.knockbackX = 1; 
-            bounced = true;
         } else if (this.pixelX > gameManager.canvas.width - radius) {
             this.pixelX = gameManager.canvas.width - radius;
             this.knockbackX = -1;
-            bounced = true;
         }
 
         if (this.pixelY < radius) {
             this.pixelY = radius;
             this.knockbackY = 1;
-            bounced = true;
         } else if (this.pixelY > gameManager.canvas.height - radius) {
             this.pixelY = gameManager.canvas.height - radius;
             this.knockbackY = -1;
-            bounced = true;
-        }
-
-        if(bounced){
-            this.moveTarget = null;
         }
     }
 
@@ -1092,6 +1067,9 @@ export class Unit {
                 if (collidedTile.type === TILE.CRACKED_WALL) {
                     gameManager.damageTile(nextGridX, nextGridY, 999);
                 }
+                const bounceAngle = this.facingAngle + Math.PI + (Math.random() - 0.5);
+                this.knockbackX += Math.cos(bounceAngle) * 2;
+                this.knockbackY += Math.sin(bounceAngle) * 2;
                 this.moveTarget = null;
                 return;
             }
