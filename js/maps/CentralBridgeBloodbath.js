@@ -1,10 +1,10 @@
 /**
- * 맵 제목: 중앙대교 혈투 (v2)
- * 컨셉: 유닛 몰림 오류를 해결하고, 다양한 전략적 경로와 지형지물을 추가하여 전투의 깊이를 더한 리뉴얼 버전입니다.
- * '부서지는 벽'으로 구성된 새로운 우회로와 재배치된 핵심 무기들이 예측 불가능한 전투를 만들어냅니다.
+ * 맵 제목: 중앙대교 혈투 (v3)
+ * 컨셉: 유닛 뭉침 현상을 해결하고, 색상을 통일하여 가시성을 높였습니다.
+ * 일부 지형 구조를 단순화하여 더 직관적인 전투가 가능하도록 개선했습니다.
  */
 export const centralBridgeBloodbathMap = {
-    name: '중앙대교 혈투 v2',
+    name: '중앙대교 혈투 v3',
     width: 460,
     height: 800,
     hadokenKnockback: 12,
@@ -17,19 +17,19 @@ export const centralBridgeBloodbathMap = {
         [...Array(40)].map((_, y) =>
             [...Array(23)].map((_, x) => {
                 // Outer walls
-                if (y === 0 || y === 39 || x === 0 || x === 22) return { type: 'WALL', color: '#44403c' };
+                if (y === 0 || y === 39 || x === 0 || x === 22) return { type: 'WALL', color: '#111827' };
 
-                // Team Bases (Top A, Bottom B)
+                // Team Bases (Top A, Bottom B) - Floor color unified
                 if ((y >= 1 && y <= 6) || (y >= 33 && y <= 38)) {
                     if (x > 5 && x < 17) { // Base inner area
                         if (y === 6 || y === 33) return { type: 'CRACKED_WALL', hp: 150 };
-                        return { type: 'FLOOR', color: '#312e81' };
+                        return { type: 'FLOOR', color: '#374151' };
                     }
                 }
 
                 // Central Bridge (Widened)
                 if (y >= 18 && y <= 21) {
-                    if (x >= 7 && x <= 15) return { type: 'FLOOR', color: '#a8a29e' }; // Bridge path
+                    if (x >= 7 && x <= 15) return { type: 'FLOOR', color: '#374151' }; // Bridge path
                     if (x === 6 || x === 16) return { type: 'LAVA' }; // Lava edges
                 }
                 if (y === 19 && x === 11) return { type: 'HEAL_PACK' }; // Center heal pack
@@ -37,19 +37,19 @@ export const centralBridgeBloodbathMap = {
 
                 // Side Paths & new structures
                 // --- Left Side Path ---
-                if (x === 5 && y > 8 && y < 14) return { type: 'WALL', color: '#44403c' };
-                if (x === 5 && y > 25 && y < 31) return { type: 'WALL', color: '#44403c' };
+                if (x === 5 && y > 8 && y < 14) return { type: 'WALL', color: '#111827' };
+                if (x === 5 && y > 25 && y < 31) return { type: 'WALL', color: '#111827' };
                 if (y === 16 && x > 1 && x < 5) return { type: 'CRACKED_WALL', hp: 80 };
                 if (y === 23 && x > 1 && x < 5) return { type: 'CRACKED_WALL', hp: 80 };
 
                 // --- Right Side Path ---
-                if (x === 17 && y > 8 && y < 14) return { type: 'WALL', color: '#44403c' };
-                if (x === 17 && y > 25 && y < 31) return { type: 'WALL', color: '#44403c' };
+                if (x === 17 && y > 8 && y < 14) return { type: 'WALL', color: '#111827' };
+                if (x === 17 && y > 25 && y < 31) return { type: 'WALL', color: '#111827' };
                 if (y === 16 && x > 18 && x < 22) return { type: 'CRACKED_WALL', hp: 80 };
                 if (y === 23 && x > 18 && x < 22) return { type: 'CRACKED_WALL', hp: 80 };
                 
                 // Obstacles near bases
-                if ((y === 10 || y === 29) && (x === 8 || x === 14)) return { type: 'WALL', color: '#44403c' };
+                if ((y === 10 || y === 29) && (x === 8 || x === 14)) return { type: 'WALL', color: '#111827' };
 
 
                 // Special Tiles in Side Paths
@@ -106,7 +106,7 @@ export const centralBridgeBloodbathMap = {
         { gridX: 8, gridY: 12, type: 'hadoken' },
         { gridX: 14, gridY: 27, type: 'poison_potion' },
         
-        // High-Tier Weapons in new structures or contested zones
+        // High-Tier Weapons in new structures or contested zones - Relocated staff
         { gridX: 2, gridY: 2, type: 'staff' },
         { gridX: 20, gridY: 37, type: 'staff' },
         { gridX: 8, gridY: 19, type: 'lightning' },
