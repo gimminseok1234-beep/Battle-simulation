@@ -10,24 +10,28 @@
 </head>
 <body class="bg-gray-900 text-gray-200 p-4">
 
-    <div id="homeScreen" class="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <header class="flex items-center justify-between py-8">
-            <h1 class="text-4xl font-bold text-white">배틀 시뮬레이터</h1>
-            <div id="userInfo" class="h-10 flex items-center">
-                <p id="loadingStatus" class="text-gray-400">Firebase 인증 중...</p>
-                <button id="googleLoginBtn" class="hidden bg-white text-black font-bold py-2 px-4 rounded-lg flex items-center justify-center hover:bg-gray-200 transition">
-                    <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" class="w-5 h-5 mr-2">
-                    Google 계정으로 로그인
-                </button>
-                <div id="userDetails" class="hidden items-center justify-center">
+    <div id="homeScreen" class="relative w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <!-- Header Section -->
+        <div class="absolute top-6 left-1/2 -translate-x-1/2">
+            <h1 class="text-3xl font-bold text-white text-center">배틀 시뮬레이터</h1>
+        </div>
+        <div id="userInfo" class="absolute top-4 right-4 sm:top-6 sm:right-6">
+            <p id="loadingStatus" class="text-gray-400">Firebase 인증 중...</p>
+            <button id="googleLoginBtn" class="hidden bg-white text-black font-bold py-2 px-4 rounded-lg flex items-center justify-center hover:bg-gray-200 transition">
+                <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" class="w-5 h-5 mr-2">
+                Google 계정으로 로그인
+            </button>
+            <div id="userDetails" class="hidden flex flex-col items-end gap-2">
+                <div class="flex items-center">
                     <img id="userPhoto" class="w-8 h-8 rounded-full mr-2">
                     <span id="userName" class="text-white font-semibold"></span>
-                    <button id="logoutBtn" class="ml-4 bg-red-600 hover:bg-red-700 text-white font-bold py-1 px-3 rounded">로그아웃</button>
                 </div>
+                <button id="logoutBtn" class="bg-red-600 hover:bg-red-700 text-white font-bold py-1 px-3 rounded text-sm">로그아웃</button>
             </div>
-        </header>
+        </div>
         
-        <div id="mapGrid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-6 w-full">
+        <!-- Map Grid Section -->
+        <div id="mapGrid" class="pt-24 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-6 w-full">
             <button id="addNewMapCard" class="flex flex-col items-center justify-center p-4 rounded-lg border-2 border-dashed border-gray-600 hover:bg-gray-800 hover:border-gray-500 transition-colors aspect-[3/4] hidden">
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-12 w-12 text-gray-500 mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" /></svg>
                 <span class="text-gray-400 font-semibold">새 맵 추가</span>
@@ -170,3 +174,4 @@
     <script type="module" src="js/main.js"></script>
 </body>
 </html>
+
