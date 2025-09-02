@@ -2,6 +2,8 @@ import { getFirestore, collection, doc, getDoc, getDocs, setDoc, deleteDoc } fro
 import { AudioManager } from './audioManager.js';
 import { Unit, Weapon, Nexus, Projectile, AreaEffect, Effect, GrowingMagneticField, MagicCircle, PoisonCloud } from './gameEntities.js';
 import { TILE, TEAM, COLORS, GRID_SIZE } from './constants.js';
+// '중앙대교 혈투' 맵 데이터를 import 합니다.
+import { centralBridgeBloodbathMap } from './maps/CentralBridgeBloodbath.js';
 
 let instance = null;
 
@@ -203,7 +205,25 @@ export class GameManager {
     }
 
     async saveCurrentMap() {
-        if (!this.currentMapId || !this.currentUser || !this.currentMapName) return;
+        if (!this.currentUser || !this.currentMapName) {
+            alert('맵을 저장하려면 로그인이 필요하며, 맵 이름이 지정되어야 합니다.');
+            return;
+        }
+
+        // 로컬 맵을 처음 저장하는 경우, 새로운 ID를 생성합니다.
+        // 이렇게 하면 '기본' 맵을 수정한 후 '내 맵'으로 저장할 수 있습니다.
+        if (!this.currentMapId) {
+            this.currentMapId = `map_${Date.now()}`;
+            // 맵 이름을 바꿔서 저장할 수 있도록 유도할 수 있습니다.
+            const newName = prompt("새로운 맵의 이름을 입력하세요:", this.currentMapName);
+            if (newName) {
+                this.currentMapName = newName;
+            } else {
+                // 사용자가 이름 입력을 취소하면 저장을 중단합니다.
+                this.currentMapId = null; // ID를 다시 null로 설정
+                return;
+            }
+        }
 
         const plainUnits = this.units.map(u => ({...u, weapon: u.weapon ? {type: u.weapon.type, ...u.weapon} : null}));
         const plainWeapons = this.weapons.map(w => ({...w}));
@@ -226,7 +246,7 @@ export class GameManager {
         const mapDocRef = doc(this.db, "maps", this.currentUser.uid, "userMaps", this.currentMapId);
         try {
             await setDoc(mapDocRef, mapData, { merge: true });
-            alert('맵이 Firebase에 저장되었습니다!');
+            alert(`'${this.currentMapName}' 맵이 Firebase에 성공적으로 저장되었습니다!`);
         } catch (error) {
             console.error("Error saving map to Firebase: ", error);
             alert('맵 저장에 실패했습니다.');
@@ -244,26 +264,60 @@ export class GameManager {
             mapGrid.removeChild(mapGrid.firstChild);
         }
 
+        // 로컬 맵(중앙대교 혈투)을 먼저 렌더링합니다.
+        const localMapCard = this.createMapCard(centralBridgeBloodbathMap, true);
+        mapGrid.insertBefore(localMapCard, addNewMapCard);
+
         maps.forEach(mapData => {
-            const card = document.createElement('div');
-            card.className = 'relative group bg-gray-800 rounded-lg overflow-hidden flex flex-col cursor-pointer shadow-lg hover:shadow-indigo-500/30 transition-shadow duration-300';
-            card.addEventListener('click', (e) => {
-                if (!e.target.closest('.map-menu-button')) {
-                    this.showEditorScreen(mapData.id);
+            const card = this.createMapCard(mapData, false);
+            mapGrid.insertBefore(card, addNewMapCard);
+        });
+
+        document.addEventListener('click', (e) => {
+             if (!e.target.closest('.map-menu-button')) {
+                document.querySelectorAll('.map-menu').forEach(menu => {
+                     menu.style.display = 'none';
+                });
+            }
+        }, true);
+    }
+
+    createMapCard(mapData, isLocal) {
+        const card = document.createElement('div');
+        card.className = 'relative group bg-gray-800 rounded-lg overflow-hidden flex flex-col cursor-pointer shadow-lg hover:shadow-indigo-500/30 transition-shadow duration-300';
+        
+        const mapId = isLocal ? mapData.name : mapData.id;
+
+        card.addEventListener('click', (e) => {
+            if (!e.target.closest('.map-menu-button')) {
+                if (isLocal) {
+                    this.loadLocalMapForEditing(mapData);
+                } else {
+                    this.showEditorScreen(mapId);
                 }
-            });
+            }
+        });
 
-            const previewCanvas = document.createElement('canvas');
-            previewCanvas.className = 'w-full aspect-[3/4] object-cover';
-            
-            const infoDiv = document.createElement('div');
-            infoDiv.className = 'p-3 flex-grow flex items-center justify-between';
-            const nameP = document.createElement('p');
-            nameP.className = 'font-bold text-white truncate';
-            nameP.id = `map-name-${mapData.id}`;
-            nameP.textContent = mapData.name;
-            infoDiv.appendChild(nameP);
+        const previewCanvas = document.createElement('canvas');
+        previewCanvas.className = 'w-full aspect-[3/4] object-cover';
+        
+        const infoDiv = document.createElement('div');
+        infoDiv.className = 'p-3 flex-grow flex items-center justify-between';
+        const nameP = document.createElement('p');
+        nameP.className = 'font-bold text-white truncate';
+        nameP.id = `map-name-${mapId}`;
+        nameP.textContent = mapData.name;
+        
+        if (isLocal) {
+            const localBadge = document.createElement('span');
+            localBadge.className = 'ml-2 text-xs font-semibold bg-indigo-500 text-white px-2 py-0.5 rounded-full';
+            localBadge.textContent = '기본';
+            nameP.appendChild(localBadge);
+        }
 
+        infoDiv.appendChild(nameP);
+
+        if (!isLocal) {
             const menuButton = document.createElement('button');
             menuButton.className = 'map-menu-button absolute top-2 right-2 p-1.5 rounded-full bg-gray-900/50 hover:bg-gray-700/70 opacity-0 group-hover:opacity-100 transition-opacity';
             menuButton.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-gray-300" viewBox="0 0 20 20" fill="currentColor"><path d="M10 6a2 2 0 110-4 2 2 0 010 4zM10 12a2 2 0 110-4 2 2 0 010 4zM10 18a2 2 0 110-4 2 2 0 010 4z" /></svg>`;
@@ -275,14 +329,14 @@ export class GameManager {
             renameBtn.textContent = '이름 변경';
             renameBtn.onclick = () => {
                 menu.style.display = 'none';
-                this.openRenameModal(mapData.id, mapData.name);
+                this.openRenameModal(mapId, mapData.name);
             };
             const deleteBtn = document.createElement('button');
             deleteBtn.className = 'w-full text-left px-3 py-1.5 text-sm text-red-400 rounded hover:bg-gray-600';
             deleteBtn.textContent = '삭제';
             deleteBtn.onclick = () => {
                 menu.style.display = 'none';
-                this.openDeleteConfirmModal(mapData.id, mapData.name);
+                this.openDeleteConfirmModal(mapId, mapData.name);
             };
             menu.append(renameBtn, deleteBtn);
 
@@ -293,20 +347,12 @@ export class GameManager {
                 });
                 menu.style.display = menu.style.display === 'block' ? 'none' : 'block';
             });
+            card.append(menuButton, menu);
+        }
 
-            card.append(previewCanvas, infoDiv, menuButton, menu);
-            mapGrid.insertBefore(card, addNewMapCard);
-
-            this.drawMapPreview(previewCanvas, mapData);
-        });
-
-        document.addEventListener('click', (e) => {
-             if (!e.target.closest('.map-menu-button')) {
-                document.querySelectorAll('.map-menu').forEach(menu => {
-                     menu.style.display = 'none';
-                });
-            }
-        }, true);
+        card.append(previewCanvas, infoDiv);
+        this.drawMapPreview(previewCanvas, mapData);
+        return card;
     }
 
     drawMapPreview(previewCanvas, mapData) {
@@ -1450,6 +1496,60 @@ export class GameManager {
         cancelAnimationFrame(this.animationFrameId);
         this.animationFrameId = null;
         this.state = 'EDIT';
+        this.effects = [];
+        this.projectiles = [];
+        this.areaEffects = [];
+        this.magicCircles = [];
+        this.poisonClouds = [];
+        this.initialUnitsState = [];
+        this.initialWeaponsState = [];
+        this.initialNexusesState = [];
+        this.initialMapState = [];
+        this.initialGrowingFieldsState = [];
+        this.initialAutoFieldState = {};
+        document.getElementById('statusText').textContent = "에디터 모드";
+        document.getElementById('simStartBtn').classList.remove('hidden');
+        document.getElementById('simPauseBtn').classList.add('hidden');
+        document.getElementById('simPlayBtn').classList.add('hidden');
+        document.getElementById('simStartBtn').disabled = false;
+        document.getElementById('toolbox').style.pointerEvents = 'auto';
+        this.resetActionCam(true);
+        this.draw();
+    }
+
+    async loadLocalMapForEditing(mapData) {
+        this.state = 'EDIT';
+        this.currentMapId = null; // 로컬 맵은 ID가 없습니다.
+        document.getElementById('homeScreen').style.display = 'none';
+        document.getElementById('editorScreen').style.display = 'flex';
+        await this.audioManager.init();
+        
+        this.currentMapName = mapData.name;
+        this.canvas.width = mapData.width;
+        this.canvas.height = mapData.height;
+        document.getElementById('widthInput').value = this.canvas.width;
+        document.getElementById('heightInput').value = this.canvas.height;
+        this.COLS = Math.floor(this.canvas.width / GRID_SIZE);
+        this.ROWS = Math.floor(this.canvas.height / GRID_SIZE);
+
+        this.map = JSON.parse(mapData.map);
+        this.units = (mapData.units || []).map(u => Object.assign(new Unit(0,0), u));
+        this.weapons = (mapData.weapons || []).map(w => Object.assign(new Weapon(0,0), w));
+        this.nexuses = (mapData.nexuses || []).map(n => Object.assign(new Nexus(0,0), n));
+        this.growingFields = (mapData.growingFields || []).map(fieldData => {
+             const settings = {
+                 direction: fieldData.direction,
+                 speed: (fieldData.totalFrames / 60) || 4,
+                 delay: (fieldData.delay / 60) || 0,
+             };
+            return new GrowingMagneticField(fieldData.id, fieldData.gridX, fieldData.gridY, fieldData.width, fieldData.height, settings);
+        });
+
+        this.autoMagneticField = mapData.autoMagneticField;
+        this.hadokenKnockback = mapData.hadokenKnockback;
+        
+        cancelAnimationFrame(this.animationFrameId);
+        this.animationFrameId = null;
         this.effects = [];
         this.projectiles = [];
         this.areaEffects = [];
