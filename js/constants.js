@@ -9,7 +9,8 @@ export const TILE = {
     CRACKED_WALL: 'CRACKED_WALL',
     HEAL_PACK: 'HEAL_PACK',
     REPLICATION_TILE: 'REPLICATION_TILE',
-    TELEPORTER: 'TELEPORTER'
+    TELEPORTER: 'TELEPORTER',
+    QUESTION_MARK: 'QUESTION_MARK'
 };
 
 export const TEAM = {
@@ -28,6 +29,7 @@ export const COLORS = {
     HEAL_PACK: '#22c55e',
     REPLICATION_TILE: '#ec4899',
     TELEPORTER: '#8b5cf6',
+    QUESTION_MARK: '#facc15',
     TEAM_A: '#ef4444',
     TEAM_B: '#3b82f6',
     TEAM_C: '#10b981',
