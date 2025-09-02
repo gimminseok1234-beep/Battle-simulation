@@ -993,7 +993,7 @@ export class Unit {
         const gameManager = GameManager.getInstance();
         if (!gameManager) return;
 
-        // 유닛 간의 충돌 및 밀어내기
+        // 유닛 간의 충돌 및 밀어내기 (보다 강하게)
         gameManager.units.forEach(otherUnit => {
             if (this !== otherUnit) {
                 const dx = otherUnit.pixelX - this.pixelX;
@@ -1001,15 +1001,18 @@ export class Unit {
                 const distance = Math.hypot(dx, dy);
                 const minDistance = (GRID_SIZE / 2.5) * 2; 
 
-                if (distance < minDistance) {
+                if (distance < minDistance && distance > 0) {
                     const angle = Math.atan2(dy, dx);
                     const overlap = minDistance - distance;
-                    const force = overlap * 0.1;
+                    
+                    // 각 유닛을 겹침 거리의 절반만큼 즉시 밀어냅니다.
+                    const moveX = (overlap / 2) * Math.cos(angle);
+                    const moveY = (overlap / 2) * Math.sin(angle);
 
-                    this.pixelX -= Math.cos(angle) * force;
-                    this.pixelY -= Math.sin(angle) * force;
-                    otherUnit.pixelX += Math.cos(angle) * force;
-                    otherUnit.pixelY += Math.sin(angle) * force;
+                    this.pixelX -= moveX;
+                    this.pixelY -= moveY;
+                    otherUnit.pixelX += moveX;
+                    otherUnit.pixelY += moveY;
                 }
             }
         });
@@ -1029,11 +1032,6 @@ export class Unit {
             }
         }
         
-        const radius = GRID_SIZE / 2.5;
-        nextX = Math.max(radius, Math.min(gameManager.canvas.width - radius, nextX));
-        nextY = Math.max(radius, Math.min(gameManager.canvas.height - radius, nextY));
-
-
         this.pixelX = nextX;
         this.pixelY = nextY;
 
@@ -1041,6 +1039,11 @@ export class Unit {
         this.knockbackY *= 0.9;
         if (Math.abs(this.knockbackX) < 0.1) this.knockbackX = 0;
         if (Math.abs(this.knockbackY) < 0.1) this.knockbackY = 0;
+
+        // 맵 경계 밖으로 나가지 않도록 최종 위치 보정
+        const radius = GRID_SIZE / 2.5;
+        this.pixelX = Math.max(radius, Math.min(gameManager.canvas.width - radius, this.pixelX));
+        this.pixelY = Math.max(radius, Math.min(gameManager.canvas.height - radius, this.pixelY));
     }
 
     move() {
