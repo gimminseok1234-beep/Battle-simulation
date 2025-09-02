@@ -89,7 +89,7 @@ export class GameManager {
         this.state = 'HOME';
         this.currentMapId = null;
         this.currentMapName = null;
-        document.getElementById('homeScreen').style.display = 'flex';
+        document.getElementById('homeScreen').style.display = 'block';
         document.getElementById('editorScreen').style.display = 'none';
         this.renderMapCards();
     }
@@ -423,16 +423,16 @@ export class GameManager {
         // Home screen
         document.getElementById('addNewMapCard').addEventListener('click', () => {
             document.getElementById('newMapName').value = '';
-            document.getElementById('newMapWidth').value = '600';
-            document.getElementById('newMapHeight').value = '900';
+            document.getElementById('newMapWidth').value = '460';
+            document.getElementById('newMapHeight').value = '800';
             document.getElementById('newMapModal').classList.add('show-modal');
         });
 
         document.getElementById('confirmNewMapBtn').addEventListener('click', async () => {
             if (!this.currentUser) return;
             const name = document.getElementById('newMapName').value.trim() || '새로운 맵';
-            const width = parseInt(document.getElementById('newMapWidth').value) || 600;
-            const height = parseInt(document.getElementById('newMapHeight').value) || 900;
+            const width = parseInt(document.getElementById('newMapWidth').value) || 460;
+            const height = parseInt(document.getElementById('newMapHeight').value) || 800;
             
             const newMapId = `map_${Date.now()}`;
             const newMapData = {
@@ -1471,4 +1471,3 @@ export class GameManager {
         this.draw();
     }
 }
-
