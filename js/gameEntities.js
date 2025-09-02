@@ -1024,22 +1024,26 @@ export class Unit {
             }
         });
         
-        // 맵 경계 충돌 처리 및 튕김 효과
+        // 맵 경계 충돌 처리
         const radius = GRID_SIZE / 2.5;
         if (this.pixelX < radius) {
             this.pixelX = radius;
-            this.knockbackX = 1; 
+            this.knockbackX = Math.abs(this.knockbackX) * 0.5 || 1; 
+            this.moveTarget = null; // 맵 밖으로 나가려는 목표 초기화
         } else if (this.pixelX > gameManager.canvas.width - radius) {
             this.pixelX = gameManager.canvas.width - radius;
-            this.knockbackX = -1;
+            this.knockbackX = -Math.abs(this.knockbackX) * 0.5 || -1;
+            this.moveTarget = null;
         }
 
         if (this.pixelY < radius) {
             this.pixelY = radius;
-            this.knockbackY = 1;
+            this.knockbackY = Math.abs(this.knockbackY) * 0.5 || 1;
+            this.moveTarget = null;
         } else if (this.pixelY > gameManager.canvas.height - radius) {
             this.pixelY = gameManager.canvas.height - radius;
-            this.knockbackY = -1;
+            this.knockbackY = -Math.abs(this.knockbackY) * 0.5 || -1;
+            this.moveTarget = null;
         }
     }
 
