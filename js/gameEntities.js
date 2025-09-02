@@ -1537,17 +1537,7 @@ export class Unit {
             case TEAM.C: ctx.fillStyle = COLORS.TEAM_C; break;
             case TEAM.D: ctx.fillStyle = COLORS.TEAM_D; break;
         }
-
-        const radius = GRID_SIZE / 2.5;
-        ctx.beginPath();
-        ctx.moveTo(this.pixelX + radius * Math.cos(Math.PI / 6), this.pixelY + radius * Math.sin(Math.PI / 6));
-        for (let i = 1; i <= 6; i++) {
-            const angle = (Math.PI / 3) * i + Math.PI / 6;
-            ctx.lineTo(this.pixelX + radius * Math.cos(angle), this.pixelY + radius * Math.sin(angle));
-        }
-        ctx.closePath();
-        ctx.fill();
-        
+        ctx.beginPath(); ctx.arc(this.pixelX, this.pixelY, GRID_SIZE / 2.5, 0, Math.PI * 2); ctx.fill();
         ctx.strokeStyle = 'black'; ctx.lineWidth = 1; ctx.stroke();
         
         ctx.restore(); 
@@ -1675,7 +1665,6 @@ export class Unit {
             } else if (this.weapon.type === 'staff') {
                 this.weapon.drawStaff(ctx, 0.8);
             } else if (this.weapon.type === 'lightning') {
-                // 번개가 유닛 주위를 돌도록 수정
                 const revolutionAngle = gameManager.animationFrameCounter * 0.05;
                 const orbitRadius = GRID_SIZE * 0.8;
                 const weaponX = Math.cos(revolutionAngle) * orbitRadius;
@@ -1839,4 +1828,3 @@ export class Unit {
         }
     }
 }
-
