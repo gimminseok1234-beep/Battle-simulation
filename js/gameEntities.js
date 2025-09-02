@@ -1136,7 +1136,7 @@ export class Unit {
             } else if (this.weapon && this.weapon.type === 'staff') {
                 this.isCasting = true;
                 this.castingProgress = 0;
-                this.castDuration = 300; // 5초
+                this.castDuration = 180; // 3초
                 this.castTargetPos = { x: target.pixelX, y: target.pixelY };
                 this.target = target;
             } else if (this.weapon && this.weapon.type === 'lightning') {
@@ -1654,60 +1654,51 @@ export class Unit {
             ctx.restore();
         }
         
-        const hpBarYOffset = this.isKing ? GRID_SIZE * 1.0 : GRID_SIZE * 0.8;
-        const hpBarWidth = GRID_SIZE * 0.8, hpBarX = this.pixelX - hpBarWidth / 2, hpBarY = this.pixelY - hpBarYOffset;
-        ctx.fillStyle = '#111827'; ctx.fillRect(hpBarX, hpBarY, hpBarWidth, 5);
-        ctx.fillStyle = '#10b981'; ctx.fillRect(hpBarX, hpBarY, hpBarWidth * (this.hp / 100), 5);
+        const hpBarYOffset = this.isKing ? GRID_SIZE * 1.2 : GRID_SIZE * 1.0;
+        const hpBarWidth = GRID_SIZE * 1.0, hpBarX = this.pixelX - hpBarWidth / 2;
+        let currentBarY = this.pixelY - hpBarYOffset;
+
+        // 체력 바
+        ctx.fillStyle = '#111827'; ctx.fillRect(hpBarX, currentBarY, hpBarWidth, 5);
+        ctx.fillStyle = '#10b981'; ctx.fillRect(hpBarX, currentBarY, hpBarWidth * (this.hp / 100), 5);
         
-        let skillBarY = hpBarY - 6;
         let specialSkillDrawn = false;
-        
-        // 특수 스킬 게이지 (위에 표시)
+        let nextBarY = currentBarY - 6;
+
+        // 특수 스킬 게이지
         if (this.isKing && this.spawnCooldown > 0) {
-            ctx.fillStyle = '#78350f';
-            ctx.fillRect(hpBarX, skillBarY, hpBarWidth, 4);
-            ctx.fillStyle = '#f97316';
-            ctx.fillRect(hpBarX, skillBarY, hpBarWidth * ((this.spawnInterval - this.spawnCooldown) / this.spawnInterval), 4);
+            ctx.fillStyle = '#78350f'; ctx.fillRect(hpBarX, nextBarY, hpBarWidth, 4);
+            ctx.fillStyle = '#f97316'; ctx.fillRect(hpBarX, nextBarY, hpBarWidth * ((this.spawnInterval - this.spawnCooldown) / this.spawnInterval), 4);
             specialSkillDrawn = true;
         } else if (this.weapon?.type === 'magic_spear' && this.magicCircleCooldown > 0) {
-            ctx.fillStyle = '#3b0764'; 
-            ctx.fillRect(hpBarX, skillBarY, hpBarWidth, 4);
-            ctx.fillStyle = '#a855f7';
-            ctx.fillRect(hpBarX, skillBarY, hpBarWidth * ((300 - this.magicCircleCooldown) / 300), 4);
+            ctx.fillStyle = '#3b0764'; ctx.fillRect(hpBarX, nextBarY, hpBarWidth, 4);
+            ctx.fillStyle = '#a855f7'; ctx.fillRect(hpBarX, nextBarY, hpBarWidth * ((300 - this.magicCircleCooldown) / 300), 4);
             specialSkillDrawn = true;
         } else if (this.weapon?.type === 'boomerang' && this.boomerangCooldown > 0) {
-            ctx.fillStyle = '#475569';
-            ctx.fillRect(hpBarX, skillBarY, hpBarWidth, 4);
-            ctx.fillStyle = '#94a3b8';
-            ctx.fillRect(hpBarX, skillBarY, hpBarWidth * ((480 - this.boomerangCooldown) / 480), 4);
+            ctx.fillStyle = '#475569'; ctx.fillRect(hpBarX, nextBarY, hpBarWidth, 4);
+            ctx.fillStyle = '#94a3b8'; ctx.fillRect(hpBarX, nextBarY, hpBarWidth * ((480 - this.boomerangCooldown) / 480), 4);
             specialSkillDrawn = true;
         } else if (this.weapon?.type === 'shuriken' && this.shurikenSkillCooldown > 0) {
-            ctx.fillStyle = '#475569';
-            ctx.fillRect(hpBarX, skillBarY, hpBarWidth, 4);
-            ctx.fillStyle = '#94a3b8';
-            ctx.fillRect(hpBarX, skillBarY, hpBarWidth * ((300 - this.shurikenSkillCooldown) / 300), 4);
+            ctx.fillStyle = '#475569'; ctx.fillRect(hpBarX, nextBarY, hpBarWidth, 4);
+            ctx.fillStyle = '#94a3b8'; ctx.fillRect(hpBarX, nextBarY, hpBarWidth * ((300 - this.shurikenSkillCooldown) / 300), 4);
             specialSkillDrawn = true;
-        } else if (this.isCasting) {
-             let bgColor = '#475569';
-             let fgColor = '#94a3b8';
-             if (this.weapon?.type === 'staff') {
-                bgColor = '#0c4a6e';
-                fgColor = '#38bdf8';
-             }
-             ctx.fillStyle = bgColor; 
-             ctx.fillRect(hpBarX, skillBarY, hpBarWidth, 4);
-             ctx.fillStyle = fgColor; 
-             ctx.fillRect(hpBarX, skillBarY, hpBarWidth * (this.castingProgress / this.castDuration), 4);
-             specialSkillDrawn = true;
+        } else if (this.isCasting && this.weapon?.type === 'poison_potion') {
+            ctx.fillStyle = '#475569'; ctx.fillRect(hpBarX, nextBarY, hpBarWidth, 4);
+            ctx.fillStyle = '#94a3b8'; ctx.fillRect(hpBarX, nextBarY, hpBarWidth * (this.castingProgress / this.castDuration), 4);
+            specialSkillDrawn = true;
+        }
+        
+        if (specialSkillDrawn) {
+            nextBarY -= 5;
         }
 
-        // 일반 공격 게이지 (아래에 표시)
-        let attackBarY = specialSkillDrawn ? skillBarY + 5 : skillBarY;
-        if (this.attackCooldown > 0 && this.weapon?.type !== 'staff') {
-            ctx.fillStyle = '#0c4a6e';
-            ctx.fillRect(hpBarX, attackBarY, hpBarWidth, 4);
-            ctx.fillStyle = '#38bdf8';
-            ctx.fillRect(hpBarX, attackBarY, hpBarWidth * ((this.cooldownTime - this.attackCooldown) / this.cooldownTime), 4);
+        // 일반 공격 게이지
+        if (this.isCasting && this.weapon?.type === 'staff') {
+            ctx.fillStyle = '#0c4a6e'; ctx.fillRect(hpBarX, nextBarY, hpBarWidth, 4);
+            ctx.fillStyle = '#38bdf8'; ctx.fillRect(hpBarX, nextBarY, hpBarWidth * (this.castingProgress / this.castDuration), 4);
+        } else if (this.attackCooldown > 0) {
+            ctx.fillStyle = '#0c4a6e'; ctx.fillRect(hpBarX, nextBarY, hpBarWidth, 4);
+            ctx.fillStyle = '#38bdf8'; ctx.fillRect(hpBarX, nextBarY, hpBarWidth * ((this.cooldownTime - this.attackCooldown) / this.cooldownTime), 4);
         }
 
         if (this.alertedCounter > 0 && !(this.weapon && (this.weapon.type === 'shuriken' || this.weapon.type === 'lightning')) && this.state !== 'FLEEING_FIELD') {
