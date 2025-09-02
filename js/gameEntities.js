@@ -805,7 +805,7 @@ export class Weapon {
 
         ctx.fillStyle = '#84cc16'; 
         ctx.beginPath();
-        ctx.arc(0, 0, GRID_SIZE * 0.9, 0, Math.PI * 2);
+        ctx.arc(0, GRID_SIZE * 0.2, GRID_SIZE * 0.9, 0, Math.PI * 2);
         ctx.fill();
 
         ctx.restore();
@@ -945,10 +945,7 @@ export class Unit {
         this.pixelX = x * GRID_SIZE + GRID_SIZE / 2;
         this.pixelY = y * GRID_SIZE + GRID_SIZE / 2;
         this.team = team; this.hp = 100;
-        this.baseSpeed = 1.0; 
-        this.facingAngle = Math.random() * Math.PI * 2;
-        this.moveDirection = this.facingAngle; // 이동 방향 추가
-        this.directionChangeTimer = Math.random() * 120 + 60; // 1~3초마다 방향 전환
+        this.baseSpeed = 1.0; this.facingAngle = Math.random() * Math.PI * 2;
         this.baseAttackPower = 5; this.baseAttackRange = 1.5 * GRID_SIZE;
         this.baseDetectionRange = 6 * GRID_SIZE;
         this.attackCooldown = 0; this.baseCooldownTime = 80;
@@ -1027,45 +1024,30 @@ export class Unit {
     applyPhysics() {
         const gameManager = GameManager.getInstance();
         if (!gameManager) return;
-    
-        // 넉백 적용 및 벽 충돌 확인
-        if (this.knockbackX !== 0 || this.knockbackY !== 0) {
-            const nextX = this.pixelX + this.knockbackX * gameManager.gameSpeed;
-            const nextY = this.pixelY + this.knockbackY * gameManager.gameSpeed;
-    
-            const gridX = Math.floor(nextX / GRID_SIZE);
-            const gridY = Math.floor(nextY / GRID_SIZE);
-    
-            if (gridY >= 0 && gridY < gameManager.ROWS && gridX >= 0 && gridX < gameManager.COLS &&
-                (gameManager.map[gridY][gridX].type === TILE.WALL || gameManager.map[gridY][gridX].type === TILE.CRACKED_WALL)) {
-                // 벽에 부딪히면 넉백을 멈춤
-                this.knockbackX = 0;
-                this.knockbackY = 0;
-            } else {
-                this.pixelX = nextX;
-                this.pixelY = nextY;
-            }
-        }
-    
+
+        // Knockback 적용
+        this.pixelX += this.knockbackX * gameManager.gameSpeed;
+        this.pixelY += this.knockbackY * gameManager.gameSpeed;
+
         this.knockbackX *= 0.9;
         this.knockbackY *= 0.9;
         if (Math.abs(this.knockbackX) < 0.1) this.knockbackX = 0;
         if (Math.abs(this.knockbackY) < 0.1) this.knockbackY = 0;
-    
+
         // 유닛 간의 충돌 및 밀어내기
         gameManager.units.forEach(otherUnit => {
             if (this !== otherUnit) {
                 const dx = otherUnit.pixelX - this.pixelX;
                 const dy = otherUnit.pixelY - this.pixelY;
                 const distance = Math.hypot(dx, dy);
-                const minDistance = (GRID_SIZE / 2.5) * 2;
-    
+                const minDistance = (GRID_SIZE / 2.5) * 2; 
+
                 if (distance < minDistance && distance > 0) {
                     const angle = Math.atan2(dy, dx);
                     const overlap = minDistance - distance;
                     const moveX = (overlap / 2) * Math.cos(angle);
                     const moveY = (overlap / 2) * Math.sin(angle);
-    
+
                     this.pixelX -= moveX;
                     this.pixelY -= moveY;
                     otherUnit.pixelX += moveX;
@@ -1073,65 +1055,68 @@ export class Unit {
                 }
             }
         });
-    
+        
         // 맵 경계 충돌 처리
         const radius = GRID_SIZE / 2.5;
-        if (this.pixelX < radius) this.pixelX = radius;
-        if (this.pixelX > gameManager.canvas.width - radius) this.pixelX = gameManager.canvas.width - radius;
-        if (this.pixelY < radius) this.pixelY = radius;
-        if (this.pixelY > gameManager.canvas.height - radius) this.pixelY = gameManager.canvas.height - radius;
+        let bounced = false;
+        if (this.pixelX < radius) {
+            this.pixelX = radius;
+            this.knockbackX = Math.abs(this.knockbackX) * 0.5 || 1; 
+            bounced = true;
+        } else if (this.pixelX > gameManager.canvas.width - radius) {
+            this.pixelX = gameManager.canvas.width - radius;
+            this.knockbackX = -Math.abs(this.knockbackX) * 0.5 || -1;
+            bounced = true;
+        }
+
+        if (this.pixelY < radius) {
+            this.pixelY = radius;
+            this.knockbackY = Math.abs(this.knockbackY) * 0.5 || 1;
+            bounced = true;
+        } else if (this.pixelY > gameManager.canvas.height - radius) {
+            this.pixelY = gameManager.canvas.height - radius;
+            this.knockbackY = -Math.abs(this.knockbackY) * 0.5 || -1;
+            bounced = true;
+        }
+
+        if(bounced && this.state === 'IDLE'){
+            this.moveTarget = null;
+        }
     }
 
     move() {
-        if (this.isCasting || this.isStunned > 0) return;
+        if (!this.moveTarget || this.isCasting || this.isStunned > 0) return;
         const gameManager = GameManager.getInstance();
         if (!gameManager) return;
+        
+        const dx = this.moveTarget.x - this.pixelX, dy = this.moveTarget.y - this.pixelY;
+        const distance = Math.hypot(dx, dy);
+        const currentSpeed = this.speed * gameManager.gameSpeed;
+        if (distance < currentSpeed) {
+            this.pixelX = this.moveTarget.x; this.pixelY = this.moveTarget.y;
+            this.moveTarget = null; return;
+        }
+        const angle = Math.atan2(dy, dx);
+        const nextPixelX = this.pixelX + Math.cos(angle) * currentSpeed;
+        const nextPixelY = this.pixelY + Math.sin(angle) * currentSpeed;
+        const nextGridX = Math.floor(nextPixelX / GRID_SIZE);
+        const nextGridY = Math.floor(nextPixelY / GRID_SIZE);
 
-        let angle = this.facingAngle;
-        let currentSpeed = this.speed * gameManager.gameSpeed;
-
-        // 목표가 있으면 목표를 향해, 없으면 현재 방향으로
-        if (this.moveTarget) {
-            const dx = this.moveTarget.x - this.pixelX;
-            const dy = this.moveTarget.y - this.pixelY;
-            const distance = Math.hypot(dx, dy);
-            
-            if (distance < currentSpeed) {
+        if (nextGridY >= 0 && nextGridY < gameManager.ROWS && nextGridX >= 0 && nextGridX < gameManager.COLS) {
+            const collidedTile = gameManager.map[nextGridY][nextGridX];
+            if (collidedTile.type === TILE.WALL || collidedTile.type === TILE.CRACKED_WALL) {
+                if (collidedTile.type === TILE.CRACKED_WALL) {
+                    gameManager.damageTile(nextGridX, nextGridY, 999);
+                }
+                const bounceAngle = this.facingAngle + Math.PI + (Math.random() - 0.5);
+                this.knockbackX += Math.cos(bounceAngle) * 2;
+                this.knockbackY += Math.sin(bounceAngle) * 2;
                 this.moveTarget = null;
-                if(this.state === 'IDLE') this.state = 'IDLE'; // 목표 도달 후 다시 IDLE로
                 return;
             }
-            angle = Math.atan2(dy, dx);
-            this.facingAngle = angle;
-        } else {
-            angle = this.moveDirection;
-            this.facingAngle = angle;
-        }
-
-        let nextX = this.pixelX + Math.cos(angle) * currentSpeed;
-        let nextY = this.pixelY + Math.sin(angle) * currentSpeed;
-
-        const checkGridX = Math.floor(nextX / GRID_SIZE);
-        const checkGridY = Math.floor(nextY / GRID_SIZE);
-
-        let collided = false;
-        if (checkGridY < 0 || checkGridY >= gameManager.ROWS || checkGridX < 0 || checkGridX >= gameManager.COLS) {
-            collided = true;
-        } else {
-            const tile = gameManager.map[checkGridY][checkGridX];
-            if (tile.type === TILE.WALL || tile.type === TILE.CRACKED_WALL) {
-                collided = true;
-            }
-        }
+        } 
         
-        if (collided) {
-            this.moveDirection += Math.PI + (Math.random() - 0.5) * 0.5; // 반대 방향으로 튕기기
-            this.directionChangeTimer = Math.random() * 60 + 30; // 0.5~1.5초 후 새 방향 탐색
-            this.moveTarget = null; // 목표 상실
-        } else {
-            this.pixelX = nextX;
-            this.pixelY = nextY;
-        }
+        this.facingAngle = angle; this.pixelX = nextPixelX; this.pixelY = nextPixelY;
     }
 
     attack(target) {
@@ -1139,16 +1124,6 @@ export class Unit {
         if (this.isCasting && this.weapon.type !== 'poison_potion') return;
         const gameManager = GameManager.getInstance();
         if (!gameManager) return;
-
-        // 스태프 유닛은 캐스팅 로직을 최우선으로 실행합니다.
-        if (this.weapon && this.weapon.type === 'staff' && (target instanceof Unit || target instanceof Nexus)) {
-            this.isCasting = true;
-            this.castingProgress = 0;
-            this.castDuration = 120; // 2초
-            this.castTargetPos = { x: target.pixelX, y: target.pixelY };
-            this.target = target;
-            return; // 캐스팅을 시작했으므로 여기서 함수를 종료합니다.
-        }
         
         const currentAttackPower = this.attackPower;
 
@@ -1194,6 +1169,12 @@ export class Unit {
                 gameManager.createProjectile(this, target, 'hadoken');
                 gameManager.audioManager.play('hadokenShoot');
                 this.attackCooldown = this.cooldownTime; 
+            } else if (this.weapon && this.weapon.type === 'staff') {
+                this.isCasting = true;
+                this.castingProgress = 0;
+                this.castDuration = 120; // 2초
+                this.castTargetPos = { x: target.pixelX, y: target.pixelY };
+                this.target = target;
             } else if (this.weapon && this.weapon.type === 'lightning') {
                 gameManager.createProjectile(this, target, 'lightning_bolt');
                 gameManager.audioManager.play('lightningShoot');
@@ -1251,10 +1232,8 @@ export class Unit {
     update(enemies, weapons, projectiles) {
         const gameManager = GameManager.getInstance();
         if (!gameManager) return;
-
-        // ======================= AI 상태 업데이트 (매 프레임) =======================
+        
         if (this.hpBarVisibleTimer > 0) this.hpBarVisibleTimer--;
-        if (this.directionChangeTimer > 0) this.directionChangeTimer--;
 
         if (this.isBeingPulled && this.puller) {
             const dx = this.pullTargetPos.x - this.pixelX;
@@ -1281,10 +1260,9 @@ export class Unit {
         
         if (this.isStunned > 0) {
             this.isStunned -= gameManager.gameSpeed;
-            return; // 기절 상태에서는 아무것도 하지 않음
+            return;
         }
 
-        // 쿨다운 감소
         if (this.attackCooldown > 0) this.attackCooldown -= gameManager.gameSpeed;
         if (this.teleportCooldown > 0) this.teleportCooldown -= gameManager.gameSpeed;
         if (this.alertedCounter > 0) this.alertedCounter -= gameManager.gameSpeed;
@@ -1295,11 +1273,12 @@ export class Unit {
         if (this.boomerangCooldown > 0) this.boomerangCooldown -= gameManager.gameSpeed;
         if (this.shurikenSkillCooldown > 0) this.shurikenSkillCooldown -= gameManager.gameSpeed;
         
-        // 각종 효과(독, 자기장 등) 처리
         if (this.poisonEffect.active) {
             this.poisonEffect.duration -= gameManager.gameSpeed;
             this.takeDamage(this.poisonEffect.damage);
-            if (this.poisonEffect.duration <= 0) this.poisonEffect.active = false;
+            if (this.poisonEffect.duration <= 0) {
+                this.poisonEffect.active = false;
+            }
         }
         
         if (this.weapon && (this.weapon.type === 'shuriken' || this.weapon.type === 'lightning') && this.evasionCooldown <= 0) {
@@ -1323,14 +1302,16 @@ export class Unit {
             }
         }
         
-        this.applyPhysics(); // 물리 효과 적용
+        this.applyPhysics();
 
         const currentGridX = Math.floor(this.pixelX / GRID_SIZE);
         const currentGridY = Math.floor(this.pixelY / GRID_SIZE);
-        this.isInMagneticField = gameManager.isPosInAnyField(currentGridX, currentGridY);
-        if(this.isInMagneticField) this.takeDamage(0.3 * gameManager.gameSpeed);
 
-        // 캐스팅 중일 때의 처리
+        this.isInMagneticField = gameManager.isPosInAnyField(currentGridX, currentGridY);
+        if(this.isInMagneticField) {
+            this.takeDamage(0.3 * gameManager.gameSpeed);
+        }
+
         if (this.isCasting) {
             this.castingProgress += gameManager.gameSpeed;
             if (!this.target || (this.target instanceof Unit && this.target.hp <= 0)) {
@@ -1349,14 +1330,12 @@ export class Unit {
             }
             return;
         }
-        
-        // 왕 유닛의 스폰 처리
+
         if (this.isKing && this.spawnCooldown <= 0) {
             gameManager.spawnUnit(this, false);
             this.spawnCooldown = this.spawnInterval;
         }
         
-        // 타일 효과 처리
         if(currentGridY >= 0 && currentGridY < gameManager.ROWS && currentGridX >= 0 && currentGridX < gameManager.COLS) {
             const currentTile = gameManager.map[currentGridY][currentGridX];
             if (currentTile.type === TILE.LAVA) this.hp -= 0.2 * gameManager.gameSpeed;
@@ -1391,7 +1370,6 @@ export class Unit {
             }
         }
         
-        // 특수 무기 스킬 사용 로직
         if (this.weapon && this.weapon.type === 'magic_spear') {
             if (this.magicCircleCooldown <= 0) {
                 gameManager.spawnMagicCircle(this.team);
@@ -1407,7 +1385,7 @@ export class Unit {
             }
         } else if (this.weapon && this.weapon.type === 'boomerang' && this.boomerangCooldown <= 0) {
             const { item: closestEnemy } = this.findClosest(enemies);
-            if (closestEnemy && gameManager.hasLineOfSight({ x: this.pixelX, y: this.pixelY }, { x: closestEnemy.pixelX, y: closestEnemy.pixelY })) {
+            if (closestEnemy && gameManager.hasLineOfSight(this, closestEnemy)) {
                 const dist = Math.hypot(this.pixelX - closestEnemy.pixelX, this.pixelY - closestEnemy.pixelY);
                 if (dist <= this.attackRange) {
                     this.boomerangCooldown = 480; // 8초 쿨타임
@@ -1416,17 +1394,14 @@ export class Unit {
             }
         }
 
-        // ======================= 지능적인 상태 결정 =======================
         let newState = 'IDLE';
         let newTarget = null;
-        const myPos = { x: this.pixelX, y: this.pixelY };
-
+        
         if (this.isInMagneticField) {
             newState = 'FLEEING_FIELD';
         } else {
             const enemyNexus = gameManager.nexuses.find(n => n.team !== this.team && !n.isDestroying);
-            const visibleEnemies = enemies.filter(enemy => gameManager.hasLineOfSight(myPos, { x: enemy.pixelX, y: enemy.pixelY }));
-            const { item: closestEnemy, distance: enemyDist } = this.findClosest(visibleEnemies);
+            const { item: closestEnemy, distance: enemyDist } = this.findClosest(enemies);
             const { item: targetWeapon, distance: weaponDist } = this.findClosest(weapons.filter(w => !w.isEquipped));
             const questionMarkTiles = gameManager.getTilesOfType(TILE.QUESTION_MARK);
             const questionMarkPositions = questionMarkTiles.map(pos => ({
@@ -1437,7 +1412,7 @@ export class Unit {
             const { item: closestQuestionMark, distance: questionMarkDist } = this.findClosest(questionMarkPositions);
 
             let targetEnemy = null;
-            if (closestEnemy && enemyDist <= this.detectionRange) {
+            if (closestEnemy && enemyDist <= this.detectionRange && gameManager.hasLineOfSight(this, closestEnemy)) {
                 targetEnemy = closestEnemy;
             }
 
@@ -1469,7 +1444,7 @@ export class Unit {
                 } else if (targetEnemy) {
                     newState = 'AGGRESSIVE';
                     newTarget = targetEnemy;
-                } else if (enemyNexus && gameManager.hasLineOfSight(myPos, { x: enemyNexus.pixelX, y: enemyNexus.pixelY }) && Math.hypot(myPos.x - enemyNexus.pixelX, myPos.y - enemyNexus.pixelY) <= this.detectionRange) {
+                } else if (enemyNexus && gameManager.hasLineOfSight(this, enemyNexus) && Math.hypot(this.pixelX - enemyNexus.pixelX, this.pixelY - enemyNexus.pixelY) <= this.detectionRange) {
                     newState = 'ATTACKING_NEXUS';
                     newTarget = enemyNexus;
                 }
@@ -1484,54 +1459,65 @@ export class Unit {
         this.state = newState;
         this.target = newTarget;
 
-        if(this.state === 'IDLE') {
-            this.moveTarget = null;
-            if(this.directionChangeTimer <= 0) {
-                this.moveDirection = Math.random() * Math.PI * 2;
-                this.directionChangeTimer = Math.random() * 120 + 60; // 1~3초 후 다시 방향 전환
-            }
-        } else if (this.state === 'AGGRESSIVE' || this.state === 'ATTACKING_NEXUS') {
-            this.moveTarget = {x: this.target.pixelX, y: this.target.pixelY};
-        } else if (this.state === 'FLEEING_FIELD') {
-            this.moveTarget = gameManager.findClosestSafeSpot(this.pixelX, this.pixelY);
-        } else if (this.state === 'FLEEING') {
-             if (this.target) {
-                const fleeAngle = Math.atan2(this.pixelY - this.target.pixelY, this.pixelX - this.target.pixelX);
-                this.moveTarget = { x: this.pixelX + Math.cos(fleeAngle) * GRID_SIZE * 5, y: this.pixelY + Math.sin(fleeAngle) * GRID_SIZE * 5 };
-            }
-        } else if (this.state === 'SEEKING_WEAPON') {
-             if (this.target) {
-                const distance = Math.hypot(this.pixelX - this.target.pixelX, this.pixelY - this.target.pixelY);
-                if (distance < GRID_SIZE * 0.8 && !this.target.isEquipped) {
-                    this.equipWeapon(this.target.type);
-                    this.target.isEquipped = true;
-                } else {
-                    this.moveTarget = { x: this.target.pixelX, y: this.target.pixelY };
+        switch(this.state) {
+            case 'FLEEING_FIELD':
+                this.moveTarget = gameManager.findClosestSafeSpot(this.pixelX, this.pixelY);
+                break;
+            case 'FLEEING':
+                if (this.target) {
+                    const fleeAngle = Math.atan2(this.pixelY - this.target.pixelY, this.pixelX - this.target.pixelX);
+                    this.moveTarget = { x: this.pixelX + Math.cos(fleeAngle) * GRID_SIZE * 5, y: this.pixelY + Math.sin(fleeAngle) * GRID_SIZE * 5 };
                 }
-            }
-        } else if (this.state === 'SEEKING_HEAL_PACK' || this.state === 'SEEKING_QUESTION_MARK') {
-             if (this.target) this.moveTarget = { x: this.target.pixelX, y: this.target.pixelY };
-        }
-        
-        // 공격 가능 거리 확인
-        if((this.state === 'AGGRESSIVE' || this.state === 'ATTACKING_NEXUS') && this.target) {
-             if (!gameManager.hasLineOfSight({x: this.pixelX, y: this.pixelY}, { x: this.target.pixelX, y: this.target.pixelY })) {
-                this.target = null; this.state = 'IDLE';
-            } else {
-                let attackDistance = this.attackRange;
-                if (this.weapon && (this.weapon.type === 'poison_potion' || (this.weapon.type === 'boomerang' && (this.target instanceof Nexus || this.boomerangCooldown > 0)))) {
-                    attackDistance = this.baseAttackRange;
-                }
-                if (Math.hypot(this.pixelX - this.target.pixelX, this.pixelY - this.target.pixelY) <= attackDistance) {
-                    this.moveTarget = null;
-                    this.attack(this.target);
-                    if (this.weapon && this.weapon.type === 'poison_potion' && !this.isCasting) {
-                        this.isCasting = true; this.castingProgress = 0; this.castDuration = 180;
+                break;
+            case 'SEEKING_HEAL_PACK':
+                if (this.target) this.moveTarget = { x: this.target.pixelX, y: this.target.pixelY };
+                break;
+            case 'SEEKING_QUESTION_MARK':
+                if (this.target) this.moveTarget = { x: this.target.pixelX, y: this.target.pixelY };
+                break;
+            case 'SEEKING_WEAPON':
+                if (this.target) {
+                    const distance = Math.hypot(this.pixelX - this.target.pixelX, this.pixelY - this.target.pixelY);
+                    if (distance < GRID_SIZE * 0.8 && !this.target.isEquipped) {
+                        this.equipWeapon(this.target.type);
+                        this.target.isEquipped = true;
+                        this.target = null;
+                    } else {
+                        this.moveTarget = { x: this.target.pixelX, y: this.target.pixelY };
                     }
                 }
-            }
+                break;
+            case 'ATTACKING_NEXUS':
+            case 'AGGRESSIVE':
+                if (this.target) {
+                    let attackDistance = this.attackRange;
+                    if (this.weapon && this.weapon.type === 'poison_potion') {
+                        attackDistance = this.baseAttackRange;
+                    }
+                    if (this.weapon && this.weapon.type === 'boomerang') {
+                        if (this.target instanceof Nexus || this.boomerangCooldown > 0) {
+                            attackDistance = this.baseAttackRange;
+                        }
+                    }
+                    if (Math.hypot(this.pixelX - this.target.pixelX, this.pixelY - this.target.pixelY) <= attackDistance) {
+                        this.moveTarget = null;
+                        this.attack(this.target);
+                        if (this.weapon && this.weapon.type === 'poison_potion' && !this.isCasting) {
+                            this.isCasting = true;
+                            this.castingProgress = 0;
+                            this.castDuration = 180; // 3초
+                        }
+                        this.facingAngle = Math.atan2(this.target.pixelY - this.pixelY, this.target.pixelX - this.pixelX);
+                    } else { this.moveTarget = { x: this.target.pixelX, y: this.target.pixelY }; }
+                }
+                break;
+            case 'IDLE': default:
+                if (!this.moveTarget || Math.hypot(this.pixelX - this.moveTarget.x, this.pixelY - this.moveTarget.y) < GRID_SIZE) {
+                    const angle = Math.random() * Math.PI * 2;
+                    this.moveTarget = { x: this.pixelX + Math.cos(angle) * GRID_SIZE * 8, y: this.pixelY + Math.sin(angle) * GRID_SIZE * 8 };
+                }
+                break;
         }
-        
         this.move();
     }
 
@@ -1842,4 +1828,3 @@ export class Unit {
         }
     }
 }
-
