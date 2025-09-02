@@ -255,7 +255,7 @@ export class Nexus {
             ctx.moveTo(0, -GRID_SIZE * 0.8); ctx.lineTo(GRID_SIZE * 0.7, 0);
             ctx.lineTo(0, GRID_SIZE * 0.8); ctx.lineTo(-GRID_SIZE * 0.7, 0);
             ctx.closePath(); ctx.fill(); ctx.stroke();
-            const hpBarWidth = GRID_SIZE * 1.5; // 너비 원래대로 복원
+            const hpBarWidth = GRID_SIZE * 1.5;
             const hpBarX = -hpBarWidth / 2;
             const hpBarY = -GRID_SIZE * 1.2;
             ctx.fillStyle = '#111827'; ctx.fillRect(hpBarX, hpBarY, hpBarWidth, 8);
@@ -1128,7 +1128,7 @@ export class Unit {
             } else if (this.weapon && this.weapon.type === 'hadoken') {
                 gameManager.createProjectile(this, target, 'hadoken');
                 gameManager.audioManager.play('hadokenShoot');
-                this.attackCooldown = this.cooldownTime;
+                this.attackCooldown = 120; // 2초 쿨다운으로 수정
             } else if (this.weapon && this.weapon.type === 'staff') {
                 this.isCasting = true;
                 this.castingProgress = 0;
@@ -1526,7 +1526,7 @@ export class Unit {
             ctx.restore();
         }
 
-        if (this.weapon && !this.isKing && this.weapon.type !== 'lightning') {
+        if (this.weapon && !this.isKing) {
             ctx.save(); 
             ctx.translate(this.pixelX, this.pixelY);
             
@@ -1535,57 +1535,13 @@ export class Unit {
                 const swingProgress = Math.sin((15 - this.attackAnimationTimer) / 15 * Math.PI);
                 rotation += swingProgress * Math.PI / 4;
             }
-            ctx.rotate(rotation);
+            
+            // Non-lightning weapons follow facing angle
+            if (this.weapon.type !== 'lightning') {
+                ctx.rotate(rotation);
+            }
 
-            if (this.weapon.type === 'staff') {
-                this.weapon.drawStaff(ctx, 0.8);
-            } else if (this.weapon.type === 'magic_spear') {
-                ctx.translate(GRID_SIZE * 0.2, GRID_SIZE * 0.4);
-                this.weapon.drawMagicSpear(ctx, 0.5, -Math.PI / 8 + Math.PI);
-            } else if (this.weapon.type === 'boomerang') {
-                ctx.translate(0, -GRID_SIZE * 0.5); 
-                this.weapon.drawBoomerang(ctx, 0.5);
-            } else if (this.weapon.type === 'poison_potion') {
-                ctx.translate(0, -GRID_SIZE * 0.5); 
-                this.weapon.drawPoisonPotion(ctx, 0.3);
-            } else if (this.weapon.type === 'hadoken') {
-                ctx.translate(GRID_SIZE * 0.5, 0);
-                const scale = 0.7;
-                ctx.scale(scale, scale);
-                const grad = ctx.createRadialGradient(0, 0, 1, 0, 0, GRID_SIZE * 1.2);
-                grad.addColorStop(0, '#bfdbfe');
-                grad.addColorStop(0.6, '#3b82f6');
-                grad.addColorStop(1, '#1e40af');
-                ctx.fillStyle = grad;
-                ctx.strokeStyle = 'black';
-                ctx.lineWidth = 1.5 / scale;
-                ctx.beginPath();
-                ctx.arc(GRID_SIZE * 0.2, 0, GRID_SIZE * 0.6, -Math.PI / 2, Math.PI / 2, false);
-                ctx.lineTo(-GRID_SIZE * 0.8, 0);
-                ctx.closePath();
-                ctx.fill();
-                ctx.stroke();
-            } else if (this.weapon.type === 'shuriken') {
-                ctx.translate(GRID_SIZE * 0.4, GRID_SIZE * 0.3);
-                const scale = 0.5;
-                ctx.scale(scale, scale);
-                ctx.rotate(gameManager.animationFrameCounter * 0.1);
-                ctx.fillStyle = '#4a5568';
-                ctx.strokeStyle = 'black';
-                ctx.lineWidth = 2 / scale;
-                ctx.beginPath();
-                ctx.moveTo(0, -GRID_SIZE * 0.8);
-                ctx.lineTo(GRID_SIZE * 0.2, -GRID_SIZE * 0.2);
-                ctx.lineTo(GRID_SIZE * 0.8, 0);
-                ctx.lineTo(GRID_SIZE * 0.2, GRID_SIZE * 0.2);
-                ctx.lineTo(0, GRID_SIZE * 0.8);
-                ctx.lineTo(-GRID_SIZE * 0.2, GRID_SIZE * 0.2);
-                ctx.lineTo(-GRID_SIZE * 0.8, 0);
-                ctx.lineTo(-GRID_SIZE * 0.2, -GRID_SIZE * 0.2);
-                ctx.closePath();
-                ctx.fill();
-                ctx.stroke();
-            } else if (this.weapon.type === 'sword') {
+            if (this.weapon.type === 'sword') {
                 ctx.translate(GRID_SIZE * 0.5, 0);
                 const bladeGradient = ctx.createLinearGradient(0, -GRID_SIZE, 0, 0);
                 bladeGradient.addColorStop(0, '#f3f4f6'); bladeGradient.addColorStop(1, '#9ca3af');
@@ -1648,12 +1604,63 @@ export class Unit {
                 };
                 drawEquippedCurvedSword(true);
                 drawEquippedCurvedSword(false);
+            } else if (this.weapon.type === 'staff') {
+                this.weapon.drawStaff(ctx, 0.8);
+            } else if (this.weapon.type === 'lightning') {
+                const rotation = gameManager.animationFrameCounter * 0.05;
+                this.weapon.drawLightning(ctx, 0.6, rotation);
+            } else if (this.weapon.type === 'magic_spear') {
+                ctx.translate(GRID_SIZE * 0.2, GRID_SIZE * 0.4);
+                this.weapon.drawMagicSpear(ctx, 0.5, -Math.PI / 8 + Math.PI);
+            } else if (this.weapon.type === 'boomerang') {
+                ctx.translate(0, -GRID_SIZE * 0.5); 
+                this.weapon.drawBoomerang(ctx, 0.5);
+            } else if (this.weapon.type === 'poison_potion') {
+                ctx.translate(0, -GRID_SIZE * 0.5); 
+                this.weapon.drawPoisonPotion(ctx, 0.3);
+            } else if (this.weapon.type === 'hadoken') {
+                ctx.translate(GRID_SIZE * 0.5, 0);
+                const scale = 0.7;
+                ctx.scale(scale, scale);
+                const grad = ctx.createRadialGradient(0, 0, 1, 0, 0, GRID_SIZE * 1.2);
+                grad.addColorStop(0, '#bfdbfe');
+                grad.addColorStop(0.6, '#3b82f6');
+                grad.addColorStop(1, '#1e40af');
+                ctx.fillStyle = grad;
+                ctx.strokeStyle = 'black';
+                ctx.lineWidth = 1.5 / scale;
+                ctx.beginPath();
+                ctx.arc(GRID_SIZE * 0.2, 0, GRID_SIZE * 0.6, -Math.PI / 2, Math.PI / 2, false);
+                ctx.lineTo(-GRID_SIZE * 0.8, 0);
+                ctx.closePath();
+                ctx.fill();
+                ctx.stroke();
+            } else if (this.weapon.type === 'shuriken') {
+                ctx.translate(GRID_SIZE * 0.4, GRID_SIZE * 0.3);
+                const scale = 0.5;
+                ctx.scale(scale, scale);
+                ctx.rotate(gameManager.animationFrameCounter * 0.1);
+                ctx.fillStyle = '#4a5568';
+                ctx.strokeStyle = 'black';
+                ctx.lineWidth = 2 / scale;
+                ctx.beginPath();
+                ctx.moveTo(0, -GRID_SIZE * 0.8);
+                ctx.lineTo(GRID_SIZE * 0.2, -GRID_SIZE * 0.2);
+                ctx.lineTo(GRID_SIZE * 0.8, 0);
+                ctx.lineTo(GRID_SIZE * 0.2, GRID_SIZE * 0.2);
+                ctx.lineTo(0, GRID_SIZE * 0.8);
+                ctx.lineTo(-GRID_SIZE * 0.2, GRID_SIZE * 0.2);
+                ctx.lineTo(-GRID_SIZE * 0.8, 0);
+                ctx.lineTo(-GRID_SIZE * 0.2, -GRID_SIZE * 0.2);
+                ctx.closePath();
+                ctx.fill();
+                ctx.stroke();
             }
             ctx.restore();
         }
 
         // --- 게이지 표시 로직 시작 ---
-        const barWidth = GRID_SIZE * 0.8; // 게이지 너비 추가 조정
+        const barWidth = GRID_SIZE * 0.8; 
         const barHeight = 4;
         const barGap = 1;
         const barX = this.pixelX - barWidth / 2;
