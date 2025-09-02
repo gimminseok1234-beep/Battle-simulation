@@ -1653,7 +1653,7 @@ export class Unit {
         }
 
         // --- 게이지 표시 로직 시작 ---
-        const barWidth = GRID_SIZE * 1.0; // 게이지 너비 조정
+        const barWidth = GRID_SIZE * 0.8; // 게이지 너비 추가 조정
         const barHeight = 4;
         const barGap = 1;
         const barX = this.pixelX - barWidth / 2;
@@ -1674,7 +1674,7 @@ export class Unit {
 
         if (visibleBarCount > 0) {
             const totalBarsHeight = (visibleBarCount * barHeight) + ((visibleBarCount - 1) * barGap);
-            let currentBarY = this.pixelY - (GRID_SIZE / 2.5) - totalBarsHeight;
+            let currentBarY = this.pixelY - (GRID_SIZE * 0.7) - totalBarsHeight; // 유닛과 게이지바 사이 여백 추가
 
             // 1. 특수 공격 게이지 (가장 위)
             if (specialSkillIsVisible) {
