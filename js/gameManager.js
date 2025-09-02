@@ -2,8 +2,8 @@ import { getFirestore, collection, doc, getDoc, getDocs, setDoc, deleteDoc } fro
 import { AudioManager } from './audioManager.js';
 import { Unit, Weapon, Nexus, Projectile, AreaEffect, Effect, GrowingMagneticField, MagicCircle, PoisonCloud } from './gameEntities.js';
 import { TILE, TEAM, COLORS, GRID_SIZE } from './constants.js';
-// '중앙대교 혈투' 맵 데이터를 import 합니다.
-import { centralBridgeBloodbathMap } from './maps/CentralBridgeBloodbath.js';
+// 기본 맵으로 '초원 접전'을 불러옵니다.
+import { grasslandSkirmishMap } from './maps/GrasslandSkirmish.js';
 
 let instance = null;
 
@@ -32,7 +32,7 @@ export class GameManager {
         this.areaEffects = [];
         this.growingFields = [];
         this.magicCircles = [];
-        this.poisonClouds = []; // 독 장판 배열 추가
+        this.poisonClouds = [];
         this.currentTool = { tool: 'tile', type: 'FLOOR' };
         this.isPainting = false;
         this.dragStartPos = null;
@@ -210,17 +210,13 @@ export class GameManager {
             return;
         }
 
-        // 로컬 맵을 처음 저장하는 경우, 새로운 ID를 생성합니다.
-        // 이렇게 하면 '기본' 맵을 수정한 후 '내 맵'으로 저장할 수 있습니다.
         if (!this.currentMapId) {
             this.currentMapId = `map_${Date.now()}`;
-            // 맵 이름을 바꿔서 저장할 수 있도록 유도할 수 있습니다.
             const newName = prompt("새로운 맵의 이름을 입력하세요:", this.currentMapName);
             if (newName) {
                 this.currentMapName = newName;
             } else {
-                // 사용자가 이름 입력을 취소하면 저장을 중단합니다.
-                this.currentMapId = null; // ID를 다시 null로 설정
+                this.currentMapId = null; 
                 return;
             }
         }
@@ -264,8 +260,8 @@ export class GameManager {
             mapGrid.removeChild(mapGrid.firstChild);
         }
 
-        // 로컬 맵(중앙대교 혈투)을 먼저 렌더링합니다.
-        const localMapCard = this.createMapCard(centralBridgeBloodbathMap, true);
+        // 로컬 맵(초원 접전)을 먼저 렌더링합니다.
+        const localMapCard = this.createMapCard(grasslandSkirmishMap, true);
         mapGrid.insertBefore(localMapCard, addNewMapCard);
 
         maps.forEach(mapData => {
@@ -731,9 +727,12 @@ export class GameManager {
         cancelAnimationFrame(this.animationFrameId);
         this.animationFrameId = null;
         this.state = 'EDIT';
+
+        // BUG FIX: 객체 생성 시점에 좌표를 전달하도록 수정
         this.units = JSON.parse(this.initialUnitsState).map(uData => Object.assign(new Unit(uData.gridX, uData.gridY, uData.team), uData));
         this.weapons = JSON.parse(this.initialWeaponsState).map(wData => Object.assign(new Weapon(wData.gridX, wData.gridY, wData.type), wData));
         this.nexuses = JSON.parse(this.initialNexusesState).map(nData => Object.assign(new Nexus(nData.gridX, nData.gridY, nData.team), nData));
+        
         this.map = JSON.parse(this.initialMapState);
         this.growingFields = JSON.parse(this.initialGrowingFieldsState).map(fieldData => {
              const settings = {
@@ -1468,9 +1467,9 @@ export class GameManager {
         }
         
         // BUG FIX: 객체 생성 시점에 좌표를 전달하도록 수정
-        this.units = (mapData.units || []).map(u => Object.assign(new Unit(u.gridX, u.gridY, u.team), u));
-        this.weapons = (mapData.weapons || []).map(w => Object.assign(new Weapon(w.gridX, w.gridY, w.type), w));
-        this.nexuses = (mapData.nexuses || []).map(n => Object.assign(new Nexus(n.gridX, n.gridY, n.team), n));
+        this.units = (mapData.units || []).map(uData => Object.assign(new Unit(uData.gridX, uData.gridY, uData.team), uData));
+        this.weapons = (mapData.weapons || []).map(wData => Object.assign(new Weapon(wData.gridX, wData.gridY, wData.type), wData));
+        this.nexuses = (mapData.nexuses || []).map(nData => Object.assign(new Nexus(nData.gridX, nData.gridY, nData.team), nData));
         
         this.growingFields = (mapData.growingFields || []).map(fieldData => {
              const settings = {
@@ -1509,9 +1508,9 @@ export class GameManager {
         this.map = JSON.parse(mapData.map);
         
         // BUG FIX: 객체 생성 시점에 좌표를 전달하도록 수정
-        this.units = (mapData.units || []).map(u => Object.assign(new Unit(u.gridX, u.gridY, u.team), u));
-        this.weapons = (mapData.weapons || []).map(w => Object.assign(new Weapon(w.gridX, w.gridY, w.type), w));
-        this.nexuses = (mapData.nexuses || []).map(n => Object.assign(new Nexus(n.gridX, n.gridY, n.team), n));
+        this.units = (mapData.units || []).map(uData => Object.assign(new Unit(uData.gridX, uData.gridY, uData.team), uData));
+        this.weapons = (mapData.weapons || []).map(wData => Object.assign(new Weapon(wData.gridX, wData.gridY, wData.type), wData));
+        this.nexuses = (mapData.nexuses || []).map(nData => Object.assign(new Nexus(nData.gridX, nData.gridY, nData.team), nData));
         
         this.growingFields = (mapData.growingFields || []).map(fieldData => {
              const settings = {
