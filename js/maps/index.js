@@ -2,10 +2,11 @@
 // 새로운 맵을 추가하려면, 아래에 import 구문을 추가하고 localMaps 배열에 맵 변수를 추가하기만 하면 됩니다.
 
 import { grasslandSkirmishMap } from './GrasslandSkirmish.js';
-// import { centralBridgeShowdownMap } from './CentralBridgeShowdown.js'; // 예시: 다른 맵 추가
+import { centralBridgeShowdownMap } from './CentralBridgeShowdown.js'; // '중앙대교 결전' 맵 추가
 
 // 홈 화면에 표시할 기본 맵 목록
 export const localMaps = [
+    centralBridgeShowdownMap,
     grasslandSkirmishMap,
-    // centralBridgeShowdownMap, // 예시: 다른 맵 추가
 ];
+
