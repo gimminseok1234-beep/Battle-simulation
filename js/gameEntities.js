@@ -1040,10 +1040,32 @@ export class Unit {
         if (Math.abs(this.knockbackX) < 0.1) this.knockbackX = 0;
         if (Math.abs(this.knockbackY) < 0.1) this.knockbackY = 0;
 
-        // 맵 경계 밖으로 나가지 않도록 최종 위치 보정
+        // 맵 경계 충돌 처리 및 튕김 효과
         const radius = GRID_SIZE / 2.5;
-        this.pixelX = Math.max(radius, Math.min(gameManager.canvas.width - radius, this.pixelX));
-        this.pixelY = Math.max(radius, Math.min(gameManager.canvas.height - radius, this.pixelY));
+        let bounced = false;
+        if (this.pixelX < radius) {
+            this.pixelX = radius;
+            this.knockbackX = 1; 
+            bounced = true;
+        } else if (this.pixelX > gameManager.canvas.width - radius) {
+            this.pixelX = gameManager.canvas.width - radius;
+            this.knockbackX = -1;
+            bounced = true;
+        }
+
+        if (this.pixelY < radius) {
+            this.pixelY = radius;
+            this.knockbackY = 1;
+            bounced = true;
+        } else if (this.pixelY > gameManager.canvas.height - radius) {
+            this.pixelY = gameManager.canvas.height - radius;
+            this.knockbackY = -1;
+            bounced = true;
+        }
+
+        if(bounced){
+            this.moveTarget = null;
+        }
     }
 
     move() {
@@ -1070,19 +1092,10 @@ export class Unit {
                 if (collidedTile.type === TILE.CRACKED_WALL) {
                     gameManager.damageTile(nextGridX, nextGridY, 999);
                 }
-                const bounceAngle = this.facingAngle + Math.PI;
-                this.pixelX += Math.cos(bounceAngle) * 2;
-                this.pixelY += Math.sin(bounceAngle) * 2;
                 this.moveTarget = null;
                 return;
             }
-        } else {
-            const bounceAngle = this.facingAngle + Math.PI;
-            this.pixelX += Math.cos(bounceAngle) * 2;
-            this.pixelY += Math.sin(bounceAngle) * 2;
-            this.moveTarget = null;
-            return;
-        }
+        } 
         
         this.facingAngle = angle; this.pixelX = nextPixelX; this.pixelY = nextPixelY;
     }
