@@ -2,8 +2,8 @@ import { getFirestore, collection, doc, getDoc, getDocs, setDoc, deleteDoc } fro
 import { AudioManager } from './audioManager.js';
 import { Unit, Weapon, Nexus, Projectile, AreaEffect, Effect, GrowingMagneticField, MagicCircle, PoisonCloud } from './gameEntities.js';
 import { TILE, TEAM, COLORS, GRID_SIZE } from './constants.js';
-// 기본 맵으로 '초원 접전'을 불러옵니다.
-import { grasslandSkirmishMap } from './maps/GrasslandSkirmish.js';
+// maps/index.js에서 모든 기본 맵 목록을 한 번에 불러옵니다.
+import { localMaps } from './maps/index.js';
 
 let instance = null;
 
@@ -260,10 +260,13 @@ export class GameManager {
             mapGrid.removeChild(mapGrid.firstChild);
         }
 
-        // 로컬 맵(초원 접전)을 먼저 렌더링합니다.
-        const localMapCard = this.createMapCard(grasslandSkirmishMap, true);
-        mapGrid.insertBefore(localMapCard, addNewMapCard);
+        // maps/index.js에서 불러온 모든 로컬 맵을 렌더링합니다.
+        localMaps.forEach(mapData => {
+            const card = this.createMapCard(mapData, true);
+            mapGrid.insertBefore(card, addNewMapCard);
+        });
 
+        // Firebase에서 불러온 사용자 맵을 렌더링합니다.
         maps.forEach(mapData => {
             const card = this.createMapCard(mapData, false);
             mapGrid.insertBefore(card, addNewMapCard);
