@@ -1665,7 +1665,6 @@ export class Unit {
             } else if (this.weapon.type === 'staff') {
                 this.weapon.drawStaff(ctx, 0.8);
             } else if (this.weapon.type === 'lightning') {
-                // 번개가 유닛 주위를 돌도록 수정
                 const revolutionAngle = gameManager.animationFrameCounter * 0.05;
                 const orbitRadius = GRID_SIZE * 0.8;
                 const weaponX = Math.cos(revolutionAngle) * orbitRadius;
@@ -1673,7 +1672,7 @@ export class Unit {
                 
                 ctx.save();
                 ctx.translate(weaponX, weaponY);
-                this.weapon.drawLightning(ctx, 0.48, Math.PI / 2); 
+                this.weapon.drawLightning(ctx, 0.48, 0); 
                 ctx.restore();
             } else if (this.weapon.type === 'magic_spear') {
                 ctx.translate(GRID_SIZE * 0.2, GRID_SIZE * 0.4);
