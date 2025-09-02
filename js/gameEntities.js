@@ -1088,35 +1088,97 @@ export class Unit {
         if (!this.moveTarget || this.isCasting || this.isStunned > 0) return;
         const gameManager = GameManager.getInstance();
         if (!gameManager) return;
-        
-        const dx = this.moveTarget.x - this.pixelX, dy = this.moveTarget.y - this.pixelY;
+    
+        const dx = this.moveTarget.x - this.pixelX;
+        const dy = this.moveTarget.y - this.pixelY;
         const distance = Math.hypot(dx, dy);
         const currentSpeed = this.speed * gameManager.gameSpeed;
+    
         if (distance < currentSpeed) {
-            this.pixelX = this.moveTarget.x; this.pixelY = this.moveTarget.y;
-            this.moveTarget = null; return;
+            this.pixelX = this.moveTarget.x;
+            this.pixelY = this.moveTarget.y;
+            this.moveTarget = null;
+            return;
         }
+    
         const angle = Math.atan2(dy, dx);
-        const nextPixelX = this.pixelX + Math.cos(angle) * currentSpeed;
-        const nextPixelY = this.pixelY + Math.sin(angle) * currentSpeed;
-        const nextGridX = Math.floor(nextPixelX / GRID_SIZE);
-        const nextGridY = Math.floor(nextPixelY / GRID_SIZE);
-
-        if (nextGridY >= 0 && nextGridY < gameManager.ROWS && nextGridX >= 0 && nextGridX < gameManager.COLS) {
-            const collidedTile = gameManager.map[nextGridY][nextGridX];
-            if (collidedTile.type === TILE.WALL || collidedTile.type === TILE.CRACKED_WALL) {
-                if (collidedTile.type === TILE.CRACKED_WALL) {
-                    gameManager.damageTile(nextGridX, nextGridY, 999);
-                }
-                const bounceAngle = this.facingAngle + Math.PI + (Math.random() - 0.5);
-                this.knockbackX += Math.cos(bounceAngle) * 2;
-                this.knockbackY += Math.sin(bounceAngle) * 2;
-                this.moveTarget = null;
-                return;
-            }
-        } 
+        this.facingAngle = angle;
+    
+        let nextX = this.pixelX + Math.cos(angle) * currentSpeed;
+        let nextY = this.pixelY + Math.sin(angle) * currentSpeed;
         
-        this.facingAngle = angle; this.pixelX = nextPixelX; this.pixelY = nextPixelY;
+        const radius = GRID_SIZE / 2.5;
+        const currentGridX = Math.floor(this.pixelX / GRID_SIZE);
+        const currentGridY = Math.floor(this.pixelY / GRID_SIZE);
+    
+        // 벽 충돌 및 슬라이딩 로직
+        let collisionResponseX = 0;
+        let collisionResponseY = 0;
+        let collided = false;
+    
+        for (let y = currentGridY - 1; y <= currentGridY + 1; y++) {
+            for (let x = currentGridX - 1; x <= currentGridX + 1; x++) {
+                if (y >= 0 && y < gameManager.ROWS && x >= 0 && x < gameManager.COLS) {
+                    const tile = gameManager.map[y][x];
+                    if (tile.type === TILE.WALL || tile.type === TILE.CRACKED_WALL) {
+                        const wallLeft = x * GRID_SIZE;
+                        const wallRight = (x + 1) * GRID_SIZE;
+                        const wallTop = y * GRID_SIZE;
+                        const wallBottom = (y + 1) * GRID_SIZE;
+    
+                        const closestX = Math.max(wallLeft, Math.min(nextX, wallRight));
+                        const closestY = Math.max(wallTop, Math.min(nextY, wallBottom));
+    
+                        const distToWall = Math.hypot(nextX - closestX, nextY - closestY);
+    
+                        if (distToWall < radius) {
+                            if (tile.type === TILE.CRACKED_WALL && Math.random() < 0.1) {
+                                gameManager.damageTile(x, y, 1); // 부술 수 있도록 약간의 데미지
+                            }
+
+                            const overlap = radius - distToWall;
+                            const normalX = nextX - closestX;
+                            const normalY = nextY - closestY;
+                            const normalLength = Math.hypot(normalX, normalY);
+
+                            if (normalLength > 0) {
+                                const responseX = (normalX / normalLength) * overlap;
+                                const responseY = (normalY / normalLength) * overlap;
+                                collisionResponseX += responseX;
+                                collisionResponseY += responseY;
+                                collided = true;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    
+        if (collided) {
+            nextX += collisionResponseX;
+            nextY += collisionResponseY;
+        
+            // 이동 방향을 벽면에 평행하게 조정 (슬라이딩)
+            const moveVectorX = nextX - this.pixelX;
+            const moveVectorY = nextY - this.pixelY;
+            const dotProduct = moveVectorX * collisionResponseX + moveVectorY * collisionResponseY;
+            const collisionResponseMagSq = collisionResponseX * collisionResponseX + collisionResponseY * collisionResponseY;
+
+            if (collisionResponseMagSq > 0) {
+                const projectionScale = dotProduct / collisionResponseMagSq;
+                const projectedX = collisionResponseX * projectionScale;
+                const projectedY = collisionResponseY * projectionScale;
+        
+                const slideX = moveVectorX - projectedX;
+                const slideY = moveVectorY - projectedY;
+        
+                nextX = this.pixelX + slideX;
+                nextY = this.pixelY + slideY;
+            }
+        }
+    
+        this.pixelX = nextX;
+        this.pixelY = nextY;
     }
 
     attack(target) {
@@ -1385,7 +1447,7 @@ export class Unit {
             }
         } else if (this.weapon && this.weapon.type === 'boomerang' && this.boomerangCooldown <= 0) {
             const { item: closestEnemy } = this.findClosest(enemies);
-            if (closestEnemy && gameManager.hasLineOfSight(this, closestEnemy)) {
+            if (closestEnemy && gameManager.hasLineOfSight({ x: this.pixelX, y: this.pixelY }, { x: closestEnemy.pixelX, y: closestEnemy.pixelY })) {
                 const dist = Math.hypot(this.pixelX - closestEnemy.pixelX, this.pixelY - closestEnemy.pixelY);
                 if (dist <= this.attackRange) {
                     this.boomerangCooldown = 480; // 8초 쿨타임
@@ -1397,11 +1459,19 @@ export class Unit {
         let newState = 'IDLE';
         let newTarget = null;
         
+        const myPos = { x: this.pixelX, y: this.pixelY };
+
         if (this.isInMagneticField) {
             newState = 'FLEEING_FIELD';
         } else {
             const enemyNexus = gameManager.nexuses.find(n => n.team !== this.team && !n.isDestroying);
-            const { item: closestEnemy, distance: enemyDist } = this.findClosest(enemies);
+            
+            // 시야가 확보된 적만 필터링
+            const visibleEnemies = enemies.filter(enemy => 
+                gameManager.hasLineOfSight(myPos, { x: enemy.pixelX, y: enemy.pixelY })
+            );
+
+            const { item: closestEnemy, distance: enemyDist } = this.findClosest(visibleEnemies);
             const { item: targetWeapon, distance: weaponDist } = this.findClosest(weapons.filter(w => !w.isEquipped));
             const questionMarkTiles = gameManager.getTilesOfType(TILE.QUESTION_MARK);
             const questionMarkPositions = questionMarkTiles.map(pos => ({
@@ -1412,7 +1482,7 @@ export class Unit {
             const { item: closestQuestionMark, distance: questionMarkDist } = this.findClosest(questionMarkPositions);
 
             let targetEnemy = null;
-            if (closestEnemy && enemyDist <= this.detectionRange && gameManager.hasLineOfSight(this, closestEnemy)) {
+            if (closestEnemy && enemyDist <= this.detectionRange) {
                 targetEnemy = closestEnemy;
             }
 
@@ -1444,7 +1514,7 @@ export class Unit {
                 } else if (targetEnemy) {
                     newState = 'AGGRESSIVE';
                     newTarget = targetEnemy;
-                } else if (enemyNexus && gameManager.hasLineOfSight(this, enemyNexus) && Math.hypot(this.pixelX - enemyNexus.pixelX, this.pixelY - enemyNexus.pixelY) <= this.detectionRange) {
+                } else if (enemyNexus && gameManager.hasLineOfSight(myPos, { x: enemyNexus.pixelX, y: enemyNexus.pixelY }) && Math.hypot(this.pixelX - enemyNexus.pixelX, this.pixelY - enemyNexus.pixelY) <= this.detectionRange) {
                     newState = 'ATTACKING_NEXUS';
                     newTarget = enemyNexus;
                 }
@@ -1490,6 +1560,11 @@ export class Unit {
             case 'ATTACKING_NEXUS':
             case 'AGGRESSIVE':
                 if (this.target) {
+                    if (!gameManager.hasLineOfSight(myPos, { x: this.target.pixelX, y: this.target.pixelY })) {
+                        this.target = null;
+                        this.state = 'IDLE';
+                        break;
+                    }
                     let attackDistance = this.attackRange;
                     if (this.weapon && this.weapon.type === 'poison_potion') {
                         attackDistance = this.baseAttackRange;
