@@ -1404,12 +1404,6 @@ export class Unit {
         }
         this.state = newState;
         this.target = newTarget;
-        
-        if (this.weapon && this.weapon.type === 'poison_potion' && !this.isCasting && this.target) {
-            this.isCasting = true;
-            this.castingProgress = 0;
-            this.castDuration = 180; // 3초
-        }
 
         switch(this.state) {
             case 'FLEEING_FIELD':
@@ -1451,6 +1445,11 @@ export class Unit {
                     if (Math.hypot(this.pixelX - this.target.pixelX, this.pixelY - this.target.pixelY) <= attackDistance) {
                         this.moveTarget = null;
                         this.attack(this.target);
+                        if (this.weapon && this.weapon.type === 'poison_potion' && !this.isCasting) {
+                            this.isCasting = true;
+                            this.castingProgress = 0;
+                            this.castDuration = 180; // 3초
+                        }
                         this.facingAngle = Math.atan2(this.target.pixelY - this.pixelY, this.target.pixelX - this.pixelX);
                     } else { this.moveTarget = { x: this.target.pixelX, y: this.target.pixelY }; }
                 }
@@ -1662,45 +1661,51 @@ export class Unit {
         ctx.fillStyle = '#111827'; ctx.fillRect(hpBarX, currentBarY, hpBarWidth, 5);
         ctx.fillStyle = '#10b981'; ctx.fillRect(hpBarX, currentBarY, hpBarWidth * (this.hp / 100), 5);
         
-        let specialSkillDrawn = false;
         let nextBarY = currentBarY - 6;
 
-        // 특수 스킬 게이지
-        if (this.isKing && this.spawnCooldown > 0) {
-            ctx.fillStyle = '#78350f'; ctx.fillRect(hpBarX, nextBarY, hpBarWidth, 4);
-            ctx.fillStyle = '#f97316'; ctx.fillRect(hpBarX, nextBarY, hpBarWidth * ((this.spawnInterval - this.spawnCooldown) / this.spawnInterval), 4);
-            specialSkillDrawn = true;
-        } else if (this.weapon?.type === 'magic_spear' && this.magicCircleCooldown > 0) {
-            ctx.fillStyle = '#3b0764'; ctx.fillRect(hpBarX, nextBarY, hpBarWidth, 4);
-            ctx.fillStyle = '#a855f7'; ctx.fillRect(hpBarX, nextBarY, hpBarWidth * ((300 - this.magicCircleCooldown) / 300), 4);
-            specialSkillDrawn = true;
-        } else if (this.weapon?.type === 'boomerang' && this.boomerangCooldown > 0) {
-            ctx.fillStyle = '#475569'; ctx.fillRect(hpBarX, nextBarY, hpBarWidth, 4);
-            ctx.fillStyle = '#94a3b8'; ctx.fillRect(hpBarX, nextBarY, hpBarWidth * ((480 - this.boomerangCooldown) / 480), 4);
-            specialSkillDrawn = true;
-        } else if (this.weapon?.type === 'shuriken' && this.shurikenSkillCooldown > 0) {
-            ctx.fillStyle = '#475569'; ctx.fillRect(hpBarX, nextBarY, hpBarWidth, 4);
-            ctx.fillStyle = '#94a3b8'; ctx.fillRect(hpBarX, nextBarY, hpBarWidth * ((300 - this.shurikenSkillCooldown) / 300), 4);
-            specialSkillDrawn = true;
-        } else if (this.isCasting && this.weapon?.type === 'poison_potion') {
-            ctx.fillStyle = '#475569'; ctx.fillRect(hpBarX, nextBarY, hpBarWidth, 4);
-            ctx.fillStyle = '#94a3b8'; ctx.fillRect(hpBarX, nextBarY, hpBarWidth * (this.castingProgress / this.castDuration), 4);
-            specialSkillDrawn = true;
+        const specialSkillIsVisible = 
+            (this.isKing && this.spawnCooldown > 0) ||
+            (this.weapon?.type === 'magic_spear' && this.magicCircleCooldown > 0) ||
+            (this.weapon?.type === 'boomerang' && this.boomerangCooldown > 0) ||
+            (this.weapon?.type === 'shuriken' && this.shurikenSkillCooldown > 0) ||
+            (this.isCasting && this.weapon?.type === 'poison_potion');
+
+        const normalAttackIsVisible = 
+            (this.isCasting && this.weapon?.type === 'staff') ||
+            (this.attackCooldown > 0);
+
+        // 특수 스킬 게이지 (가장 위에)
+        if (specialSkillIsVisible) {
+            if (this.isKing) {
+                ctx.fillStyle = '#78350f'; ctx.fillRect(hpBarX, nextBarY, hpBarWidth, 4);
+                ctx.fillStyle = '#f97316'; ctx.fillRect(hpBarX, nextBarY, hpBarWidth * ((this.spawnInterval - this.spawnCooldown) / this.spawnInterval), 4);
+            } else if (this.weapon?.type === 'magic_spear') {
+                ctx.fillStyle = '#3b0764'; ctx.fillRect(hpBarX, nextBarY, hpBarWidth, 4);
+                ctx.fillStyle = '#a855f7'; ctx.fillRect(hpBarX, nextBarY, hpBarWidth * ((300 - this.magicCircleCooldown) / 300), 4);
+            } else if (this.weapon?.type === 'boomerang') {
+                ctx.fillStyle = '#475569'; ctx.fillRect(hpBarX, nextBarY, hpBarWidth, 4);
+                ctx.fillStyle = '#94a3b8'; ctx.fillRect(hpBarX, nextBarY, hpBarWidth * ((480 - this.boomerangCooldown) / 480), 4);
+            } else if (this.weapon?.type === 'shuriken') {
+                ctx.fillStyle = '#475569'; ctx.fillRect(hpBarX, nextBarY, hpBarWidth, 4);
+                ctx.fillStyle = '#94a3b8'; ctx.fillRect(hpBarX, nextBarY, hpBarWidth * ((300 - this.shurikenSkillCooldown) / 300), 4);
+            } else if (this.weapon?.type === 'poison_potion' && this.isCasting) {
+                ctx.fillStyle = '#475569'; ctx.fillRect(hpBarX, nextBarY, hpBarWidth, 4);
+                ctx.fillStyle = '#94a3b8'; ctx.fillRect(hpBarX, nextBarY, hpBarWidth * (this.castingProgress / this.castDuration), 4);
+            }
+        }
+
+        // 일반 공격 게이지 (중간에)
+        if (normalAttackIsVisible) {
+            let yPos = specialSkillIsVisible ? nextBarY + 5 : nextBarY;
+             if (this.isCasting && this.weapon?.type === 'staff') {
+                ctx.fillStyle = '#0c4a6e'; ctx.fillRect(hpBarX, yPos, hpBarWidth, 4);
+                ctx.fillStyle = '#38bdf8'; ctx.fillRect(hpBarX, yPos, hpBarWidth * (this.castingProgress / this.castDuration), 4);
+            } else if (this.attackCooldown > 0) {
+                ctx.fillStyle = '#0c4a6e'; ctx.fillRect(hpBarX, yPos, hpBarWidth, 4);
+                ctx.fillStyle = '#38bdf8'; ctx.fillRect(hpBarX, yPos, hpBarWidth * ((this.cooldownTime - this.attackCooldown) / this.cooldownTime), 4);
+            }
         }
         
-        if (specialSkillDrawn) {
-            nextBarY -= 5;
-        }
-
-        // 일반 공격 게이지
-        if (this.isCasting && this.weapon?.type === 'staff') {
-            ctx.fillStyle = '#0c4a6e'; ctx.fillRect(hpBarX, nextBarY, hpBarWidth, 4);
-            ctx.fillStyle = '#38bdf8'; ctx.fillRect(hpBarX, nextBarY, hpBarWidth * (this.castingProgress / this.castDuration), 4);
-        } else if (this.attackCooldown > 0) {
-            ctx.fillStyle = '#0c4a6e'; ctx.fillRect(hpBarX, nextBarY, hpBarWidth, 4);
-            ctx.fillStyle = '#38bdf8'; ctx.fillRect(hpBarX, nextBarY, hpBarWidth * ((this.cooldownTime - this.attackCooldown) / this.cooldownTime), 4);
-        }
-
         if (this.alertedCounter > 0 && !(this.weapon && (this.weapon.type === 'shuriken' || this.weapon.type === 'lightning')) && this.state !== 'FLEEING_FIELD') {
             ctx.fillStyle = 'yellow'; ctx.font = 'bold 20px Arial'; ctx.textAlign = 'center';
             ctx.fillText(this.state === 'SEEKING_HEAL_PACK' ? '+' : '!', this.pixelX, this.pixelY - GRID_SIZE);
