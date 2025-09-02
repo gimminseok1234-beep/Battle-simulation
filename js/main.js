@@ -9,7 +9,10 @@ document.addEventListener('DOMContentLoaded', () => {
     setupAuthEventListeners();
     
     // Firebase 인증 상태 변경 감지
+    // 사용자의 로그인 상태가 확인된 후에 handleAuthStateChange를 호출하여 GameManager를 초기화합니다.
+    // 이렇게 함으로써 로그인 정보가 필요한 기능들이 정상적으로 작동합니다.
     onAuthStateChanged(auth, (user) => {
         handleAuthStateChange(user, gameManager);
     });
 });
+
