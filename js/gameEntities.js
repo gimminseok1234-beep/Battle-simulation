@@ -963,7 +963,10 @@ export class Unit {
     get attackPower() { return this.baseAttackPower + (this.weapon ? this.weapon.attackPowerBonus || 0 : 0); }
     get attackRange() { return this.baseAttackRange + (this.weapon ? this.weapon.attackRangeBonus || 0 : 0); }
     get detectionRange() { return this.baseDetectionRange + (this.weapon ? this.weapon.detectionRangeBonus || 0 : 0); }
-    get cooldownTime() { return this.baseCooldownTime + (this.weapon ? this.weapon.attackCooldownBonus || 0 : 0); }
+    get cooldownTime() { 
+        if (this.weapon && this.weapon.type === 'hadoken') return 120; // 장풍 전용 쿨타임
+        return this.baseCooldownTime + (this.weapon ? this.weapon.attackCooldownBonus || 0 : 0); 
+    }
 
     equipWeapon(weaponType, isClone = false) {
         const gameManager = GameManager.getInstance();
@@ -1128,7 +1131,7 @@ export class Unit {
             } else if (this.weapon && this.weapon.type === 'hadoken') {
                 gameManager.createProjectile(this, target, 'hadoken');
                 gameManager.audioManager.play('hadokenShoot');
-                this.attackCooldown = 120; // 2초 쿨다운으로 수정
+                this.attackCooldown = this.cooldownTime;
             } else if (this.weapon && this.weapon.type === 'staff') {
                 this.isCasting = true;
                 this.castingProgress = 0;
@@ -1690,7 +1693,7 @@ export class Unit {
         if (normalAttackIsVisible) visibleBarCount++;
 
         if (visibleBarCount > 0) {
-            const kingYOffset = this.isKing ? GRID_SIZE * 0.75 : 0;
+            const kingYOffset = this.isKing ? GRID_SIZE * 0.4 : 0; // 왕 유닛 게이지바 간격 조정
             const totalBarsHeight = (visibleBarCount * barHeight) + ((visibleBarCount - 1) * barGap);
             let currentBarY = this.pixelY - (GRID_SIZE * 0.6) - totalBarsHeight - kingYOffset;
 
@@ -1701,7 +1704,7 @@ export class Unit {
                 if (this.isCasting && this.weapon?.type === 'staff') {
                     progress = this.castingProgress / this.castDuration;
                 } else {
-                    progress = 1 - (this.attackCooldown / this.cooldownTime);
+                    progress = Math.max(0, 1 - (this.attackCooldown / this.cooldownTime));
                 }
                 ctx.fillStyle = '#38bdf8';
                 ctx.fillRect(barX, currentBarY, barWidth * progress, barHeight);
