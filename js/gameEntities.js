@@ -805,7 +805,7 @@ export class Weapon {
 
         ctx.fillStyle = '#84cc16'; 
         ctx.beginPath();
-        ctx.arc(0, GRID_SIZE * 0.2, GRID_SIZE * 0.9, 0, Math.PI * 2);
+        ctx.arc(0, 0, GRID_SIZE * 0.9, 0, Math.PI * 2);
         ctx.fill();
 
         ctx.restore();
@@ -945,7 +945,10 @@ export class Unit {
         this.pixelX = x * GRID_SIZE + GRID_SIZE / 2;
         this.pixelY = y * GRID_SIZE + GRID_SIZE / 2;
         this.team = team; this.hp = 100;
-        this.baseSpeed = 1.0; this.facingAngle = Math.random() * Math.PI * 2;
+        this.baseSpeed = 1.0; 
+        this.facingAngle = Math.random() * Math.PI * 2;
+        this.moveDirection = this.facingAngle; // 이동 방향 추가
+        this.directionChangeTimer = Math.random() * 120 + 60; // 1~3초마다 방향 전환
         this.baseAttackPower = 5; this.baseAttackRange = 1.5 * GRID_SIZE;
         this.baseDetectionRange = 6 * GRID_SIZE;
         this.attackCooldown = 0; this.baseCooldownTime = 80;
@@ -968,11 +971,6 @@ export class Unit {
         this.puller = null;
         this.pullTargetPos = null;
         this.hpBarVisibleTimer = 0;
-        // AI 개선을 위한 속성 추가
-        this.stuckTimer = 0;
-        this.lastPosition = { x: this.pixelX, y: this.pixelY };
-        this.pathfindingCooldown = 0;
-        this.randomMoveTimer = Math.random() * 120 + 60; // 1~3초 후 랜덤 이동
     }
     
     get speed() {
@@ -1029,30 +1027,45 @@ export class Unit {
     applyPhysics() {
         const gameManager = GameManager.getInstance();
         if (!gameManager) return;
-
-        // Knockback 적용
-        this.pixelX += this.knockbackX * gameManager.gameSpeed;
-        this.pixelY += this.knockbackY * gameManager.gameSpeed;
-
+    
+        // 넉백 적용 및 벽 충돌 확인
+        if (this.knockbackX !== 0 || this.knockbackY !== 0) {
+            const nextX = this.pixelX + this.knockbackX * gameManager.gameSpeed;
+            const nextY = this.pixelY + this.knockbackY * gameManager.gameSpeed;
+    
+            const gridX = Math.floor(nextX / GRID_SIZE);
+            const gridY = Math.floor(nextY / GRID_SIZE);
+    
+            if (gridY >= 0 && gridY < gameManager.ROWS && gridX >= 0 && gridX < gameManager.COLS &&
+                (gameManager.map[gridY][gridX].type === TILE.WALL || gameManager.map[gridY][gridX].type === TILE.CRACKED_WALL)) {
+                // 벽에 부딪히면 넉백을 멈춤
+                this.knockbackX = 0;
+                this.knockbackY = 0;
+            } else {
+                this.pixelX = nextX;
+                this.pixelY = nextY;
+            }
+        }
+    
         this.knockbackX *= 0.9;
         this.knockbackY *= 0.9;
         if (Math.abs(this.knockbackX) < 0.1) this.knockbackX = 0;
         if (Math.abs(this.knockbackY) < 0.1) this.knockbackY = 0;
-
+    
         // 유닛 간의 충돌 및 밀어내기
         gameManager.units.forEach(otherUnit => {
             if (this !== otherUnit) {
                 const dx = otherUnit.pixelX - this.pixelX;
                 const dy = otherUnit.pixelY - this.pixelY;
                 const distance = Math.hypot(dx, dy);
-                const minDistance = (GRID_SIZE / 2.5) * 2; 
-
+                const minDistance = (GRID_SIZE / 2.5) * 2;
+    
                 if (distance < minDistance && distance > 0) {
                     const angle = Math.atan2(dy, dx);
                     const overlap = minDistance - distance;
                     const moveX = (overlap / 2) * Math.cos(angle);
                     const moveY = (overlap / 2) * Math.sin(angle);
-
+    
                     this.pixelX -= moveX;
                     this.pixelY -= moveY;
                     otherUnit.pixelX += moveX;
@@ -1060,7 +1073,7 @@ export class Unit {
                 }
             }
         });
-        
+    
         // 맵 경계 충돌 처리
         const radius = GRID_SIZE / 2.5;
         if (this.pixelX < radius) this.pixelX = radius;
@@ -1070,56 +1083,55 @@ export class Unit {
     }
 
     move() {
-        if (!this.moveTarget || this.isCasting || this.isStunned > 0) return;
+        if (this.isCasting || this.isStunned > 0) return;
         const gameManager = GameManager.getInstance();
         if (!gameManager) return;
-    
-        const dx = this.moveTarget.x - this.pixelX;
-        const dy = this.moveTarget.y - this.pixelY;
-        const distance = Math.hypot(dx, dy);
-        const currentSpeed = this.speed * gameManager.gameSpeed;
-    
-        if (distance < currentSpeed) {
-            this.pixelX = this.moveTarget.x;
-            this.pixelY = this.moveTarget.y;
-            this.moveTarget = null;
-            return;
+
+        let angle = this.facingAngle;
+        let currentSpeed = this.speed * gameManager.gameSpeed;
+
+        // 목표가 있으면 목표를 향해, 없으면 현재 방향으로
+        if (this.moveTarget) {
+            const dx = this.moveTarget.x - this.pixelX;
+            const dy = this.moveTarget.y - this.pixelY;
+            const distance = Math.hypot(dx, dy);
+            
+            if (distance < currentSpeed) {
+                this.moveTarget = null;
+                if(this.state === 'IDLE') this.state = 'IDLE'; // 목표 도달 후 다시 IDLE로
+                return;
+            }
+            angle = Math.atan2(dy, dx);
+            this.facingAngle = angle;
+        } else {
+            angle = this.moveDirection;
+            this.facingAngle = angle;
         }
-    
-        const angle = Math.atan2(dy, dx);
-        this.facingAngle = angle;
-    
+
         let nextX = this.pixelX + Math.cos(angle) * currentSpeed;
         let nextY = this.pixelY + Math.sin(angle) * currentSpeed;
-        
-        const radius = GRID_SIZE / 2.5;
-    
-        // 벽 충돌 감지 및 반응
+
         const checkGridX = Math.floor(nextX / GRID_SIZE);
         const checkGridY = Math.floor(nextY / GRID_SIZE);
 
         let collided = false;
-        if (checkGridY >= 0 && checkGridY < gameManager.ROWS && checkGridX >= 0 && checkGridX < gameManager.COLS) {
+        if (checkGridY < 0 || checkGridY >= gameManager.ROWS || checkGridX < 0 || checkGridX >= gameManager.COLS) {
+            collided = true;
+        } else {
             const tile = gameManager.map[checkGridY][checkGridX];
             if (tile.type === TILE.WALL || tile.type === TILE.CRACKED_WALL) {
                 collided = true;
             }
-        } else {
-            collided = true; // 맵 밖으로 나가려는 경우
         }
-
+        
         if (collided) {
-             // 벽에 부딪혔을 때 살짝 튕겨나오는 효과
-            const bounceAngle = this.facingAngle + Math.PI;
-            this.knockbackX += Math.cos(bounceAngle) * 1.5;
-            this.knockbackY += Math.sin(bounceAngle) * 1.5;
+            this.moveDirection += Math.PI + (Math.random() - 0.5) * 0.5; // 반대 방향으로 튕기기
+            this.directionChangeTimer = Math.random() * 60 + 30; // 0.5~1.5초 후 새 방향 탐색
             this.moveTarget = null; // 목표 상실
-            this.stuckTimer = 100; // 즉시 '막힘' 상태로 만들어 새로운 경로 탐색 유도
-            return;
+        } else {
+            this.pixelX = nextX;
+            this.pixelY = nextY;
         }
-    
-        this.pixelX = nextX;
-        this.pixelY = nextY;
     }
 
     attack(target) {
@@ -1242,8 +1254,7 @@ export class Unit {
 
         // ======================= AI 상태 업데이트 (매 프레임) =======================
         if (this.hpBarVisibleTimer > 0) this.hpBarVisibleTimer--;
-        if (this.pathfindingCooldown > 0) this.pathfindingCooldown--;
-        if (this.randomMoveTimer > 0) this.randomMoveTimer--;
+        if (this.directionChangeTimer > 0) this.directionChangeTimer--;
 
         if (this.isBeingPulled && this.puller) {
             const dx = this.pullTargetPos.x - this.pixelX;
@@ -1405,28 +1416,7 @@ export class Unit {
             }
         }
 
-        // ======================= 지능적인 길 찾기 및 상태 결정 =======================
-        
-        // '막힘' 상태 감지 및 처리
-        if (this.moveTarget) {
-            const distMoved = Math.hypot(this.pixelX - this.lastPosition.x, this.pixelY - this.lastPosition.y);
-            if (distMoved < this.speed * 0.1 * gameManager.gameSpeed) this.stuckTimer++;
-            else this.stuckTimer = 0;
-        } else {
-            this.stuckTimer = 0;
-        }
-        this.lastPosition = { x: this.pixelX, y: this.pixelY };
-
-        if (this.stuckTimer > 30) {
-            const backAngle = this.facingAngle + Math.PI;
-            this.knockbackX += Math.cos(backAngle) * 2;
-            this.knockbackY += Math.sin(backAngle) * 2;
-            this.moveTarget = null;
-            this.stuckTimer = 0;
-        }
-
-
-        // 주변 상황을 인지하고 행동 결정
+        // ======================= 지능적인 상태 결정 =======================
         let newState = 'IDLE';
         let newTarget = null;
         const myPos = { x: this.pixelX, y: this.pixelY };
@@ -1494,88 +1484,54 @@ export class Unit {
         this.state = newState;
         this.target = newTarget;
 
-        // 결정된 상태에 따라 행동 실행
-        switch(this.state) {
-            case 'FLEEING_FIELD':
-                this.moveTarget = gameManager.findClosestSafeSpot(this.pixelX, this.pixelY);
-                break;
-            case 'FLEEING':
-                if (this.target) {
-                    const fleeAngle = Math.atan2(this.pixelY - this.target.pixelY, this.pixelX - this.target.pixelX);
-                    this.moveTarget = { x: this.pixelX + Math.cos(fleeAngle) * GRID_SIZE * 5, y: this.pixelY + Math.sin(fleeAngle) * GRID_SIZE * 5 };
+        if(this.state === 'IDLE') {
+            this.moveTarget = null;
+            if(this.directionChangeTimer <= 0) {
+                this.moveDirection = Math.random() * Math.PI * 2;
+                this.directionChangeTimer = Math.random() * 120 + 60; // 1~3초 후 다시 방향 전환
+            }
+        } else if (this.state === 'AGGRESSIVE' || this.state === 'ATTACKING_NEXUS') {
+            this.moveTarget = {x: this.target.pixelX, y: this.target.pixelY};
+        } else if (this.state === 'FLEEING_FIELD') {
+            this.moveTarget = gameManager.findClosestSafeSpot(this.pixelX, this.pixelY);
+        } else if (this.state === 'FLEEING') {
+             if (this.target) {
+                const fleeAngle = Math.atan2(this.pixelY - this.target.pixelY, this.pixelX - this.target.pixelX);
+                this.moveTarget = { x: this.pixelX + Math.cos(fleeAngle) * GRID_SIZE * 5, y: this.pixelY + Math.sin(fleeAngle) * GRID_SIZE * 5 };
+            }
+        } else if (this.state === 'SEEKING_WEAPON') {
+             if (this.target) {
+                const distance = Math.hypot(this.pixelX - this.target.pixelX, this.pixelY - this.target.pixelY);
+                if (distance < GRID_SIZE * 0.8 && !this.target.isEquipped) {
+                    this.equipWeapon(this.target.type);
+                    this.target.isEquipped = true;
+                } else {
+                    this.moveTarget = { x: this.target.pixelX, y: this.target.pixelY };
                 }
-                break;
-            case 'SEEKING_HEAL_PACK':
-            case 'SEEKING_QUESTION_MARK':
-                if (this.target) this.moveTarget = { x: this.target.pixelX, y: this.target.pixelY };
-                break;
-            case 'SEEKING_WEAPON':
-                if (this.target) {
-                    const distance = Math.hypot(this.pixelX - this.target.pixelX, this.pixelY - this.target.pixelY);
-                    if (distance < GRID_SIZE * 0.8 && !this.target.isEquipped) {
-                        this.equipWeapon(this.target.type);
-                        this.target.isEquipped = true;
-                        this.target = null;
-                    } else {
-                        this.moveTarget = { x: this.target.pixelX, y: this.target.pixelY };
-                    }
-                }
-                break;
-            case 'ATTACKING_NEXUS':
-            case 'AGGRESSIVE':
-                if (this.target) {
-                    if (!gameManager.hasLineOfSight({x: this.pixelX, y: this.pixelY}, { x: this.target.pixelX, y: this.target.pixelY })) {
-                        this.target = null;
-                        this.state = 'IDLE';
-                        break;
-                    }
-                    
-                    let attackDistance = this.attackRange;
-                    if (this.weapon && (this.weapon.type === 'poison_potion' || (this.weapon.type === 'boomerang' && (this.target instanceof Nexus || this.boomerangCooldown > 0)))) {
-                        attackDistance = this.baseAttackRange;
-                    }
-
-                     if (Math.hypot(this.pixelX - this.target.pixelX, this.pixelY - this.target.pixelY) <= attackDistance) {
-                        this.moveTarget = null;
-                        this.attack(this.target);
-                        if (this.weapon && this.weapon.type === 'poison_potion' && !this.isCasting) {
-                            this.isCasting = true;
-                            this.castingProgress = 0;
-                            this.castDuration = 180; // 3초
-                        }
-                        this.facingAngle = Math.atan2(this.target.pixelY - this.pixelY, this.target.pixelX - this.pixelX);
-                    } else { 
-                        this.moveTarget = { x: this.target.pixelX, y: this.target.pixelY }; 
-                    }
-                }
-                break;
-            case 'IDLE': default:
-                if (!this.moveTarget && this.randomMoveTimer <= 0) {
-                    const wanderRadius = GRID_SIZE * 5;
-                    let validTarget = false;
-                    let newX, newY;
-                    for (let i = 0; i < 10; i++) { // 최대 10번 시도
-                        const angle = Math.random() * Math.PI * 2;
-                        newX = this.pixelX + Math.cos(angle) * wanderRadius;
-                        newY = this.pixelY + Math.sin(angle) * wanderRadius;
-                        const gridX = Math.floor(newX / GRID_SIZE);
-                        const gridY = Math.floor(newY / GRID_SIZE);
-
-                        if (gridY >= 0 && gridY < gameManager.ROWS && gridX >= 0 && gridX < gameManager.COLS) {
-                            const tile = gameManager.map[gridY][gridX];
-                            if (tile.type !== TILE.WALL && tile.type !== TILE.CRACKED_WALL) {
-                                validTarget = true;
-                                break;
-                            }
-                        }
-                    }
-                    if (validTarget) {
-                        this.moveTarget = { x: newX, y: newY };
-                    }
-                    this.randomMoveTimer = Math.random() * 120 + 60; // 1~3초 후 다시 랜덤 이동
-                }
-                break;
+            }
+        } else if (this.state === 'SEEKING_HEAL_PACK' || this.state === 'SEEKING_QUESTION_MARK') {
+             if (this.target) this.moveTarget = { x: this.target.pixelX, y: this.target.pixelY };
         }
+        
+        // 공격 가능 거리 확인
+        if((this.state === 'AGGRESSIVE' || this.state === 'ATTACKING_NEXUS') && this.target) {
+             if (!gameManager.hasLineOfSight({x: this.pixelX, y: this.pixelY}, { x: this.target.pixelX, y: this.target.pixelY })) {
+                this.target = null; this.state = 'IDLE';
+            } else {
+                let attackDistance = this.attackRange;
+                if (this.weapon && (this.weapon.type === 'poison_potion' || (this.weapon.type === 'boomerang' && (this.target instanceof Nexus || this.boomerangCooldown > 0)))) {
+                    attackDistance = this.baseAttackRange;
+                }
+                if (Math.hypot(this.pixelX - this.target.pixelX, this.pixelY - this.target.pixelY) <= attackDistance) {
+                    this.moveTarget = null;
+                    this.attack(this.target);
+                    if (this.weapon && this.weapon.type === 'poison_potion' && !this.isCasting) {
+                        this.isCasting = true; this.castingProgress = 0; this.castDuration = 180;
+                    }
+                }
+            }
+        }
+        
         this.move();
     }
 
