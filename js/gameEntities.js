@@ -999,7 +999,7 @@ export class Unit {
                 const dx = otherUnit.pixelX - this.pixelX;
                 const dy = otherUnit.pixelY - this.pixelY;
                 const distance = Math.hypot(dx, dy);
-                const minDistance = GRID_SIZE / 2; 
+                const minDistance = (GRID_SIZE / 2.5) * 2; 
 
                 if (distance < minDistance) {
                     const angle = Math.atan2(dy, dx);
@@ -1028,9 +1028,11 @@ export class Unit {
                 this.knockbackY = 0;
             }
         }
+        
+        const radius = GRID_SIZE / 2.5;
+        nextX = Math.max(radius, Math.min(gameManager.canvas.width - radius, nextX));
+        nextY = Math.max(radius, Math.min(gameManager.canvas.height - radius, nextY));
 
-        nextX = Math.max(0, Math.min(gameManager.canvas.width, nextX));
-        nextY = Math.max(0, Math.min(gameManager.canvas.height, nextY));
 
         this.pixelX = nextX;
         this.pixelY = nextY;
@@ -1131,7 +1133,7 @@ export class Unit {
             } else if (this.weapon && this.weapon.type === 'hadoken') {
                 gameManager.createProjectile(this, target, 'hadoken');
                 gameManager.audioManager.play('hadokenShoot');
-                this.attackCooldown = this.cooldownTime;
+                this.attackCooldown = this.cooldownTime; 
             } else if (this.weapon && this.weapon.type === 'staff') {
                 this.isCasting = true;
                 this.castingProgress = 0;
@@ -1539,6 +1541,7 @@ export class Unit {
                 rotation += swingProgress * Math.PI / 4;
             }
             
+            // Non-lightning weapons follow facing angle
             if (this.weapon.type !== 'lightning') {
                 ctx.rotate(rotation);
             }
@@ -1609,6 +1612,7 @@ export class Unit {
             } else if (this.weapon.type === 'staff') {
                 this.weapon.drawStaff(ctx, 0.8);
             } else if (this.weapon.type === 'lightning') {
+                // 번개가 유닛 주위를 돌도록 수정
                 const revolutionAngle = gameManager.animationFrameCounter * 0.05;
                 const orbitRadius = GRID_SIZE * 0.8;
                 const weaponX = Math.cos(revolutionAngle) * orbitRadius;
@@ -1693,7 +1697,7 @@ export class Unit {
         if (normalAttackIsVisible) visibleBarCount++;
 
         if (visibleBarCount > 0) {
-            const kingYOffset = this.isKing ? GRID_SIZE * 0.4 : 0; // 왕 유닛 게이지바 간격 조정
+            const kingYOffset = this.isKing ? GRID_SIZE * 0.4 : 0; 
             const totalBarsHeight = (visibleBarCount * barHeight) + ((visibleBarCount - 1) * barGap);
             let currentBarY = this.pixelY - (GRID_SIZE * 0.6) - totalBarsHeight - kingYOffset;
 
