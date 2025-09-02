@@ -1,11 +1,10 @@
 /**
- * 맵 제목: 중앙대교 혈투
- * 컨셉: 20명의 유닛과 2개의 넥서스가 배치된 대규모 2팀 점령전 맵입니다.
- * 중앙의 좁은 다리를 중심으로 격렬한 전투가 벌어지며,
- * 양 옆의 우회로와 다양한 특수 타일, 숨겨진 무기들이 전략적인 재미를 더합니다.
+ * 맵 제목: 중앙대교 혈투 (v2)
+ * 컨셉: 유닛 몰림 오류를 해결하고, 다양한 전략적 경로와 지형지물을 추가하여 전투의 깊이를 더한 리뉴얼 버전입니다.
+ * '부서지는 벽'으로 구성된 새로운 우회로와 재배치된 핵심 무기들이 예측 불가능한 전투를 만들어냅니다.
  */
 export const centralBridgeBloodbathMap = {
-    name: '중앙대교 혈투',
+    name: '중앙대교 혈투 v2',
     width: 460,
     height: 800,
     hadokenKnockback: 12,
@@ -23,28 +22,41 @@ export const centralBridgeBloodbathMap = {
                 // Team Bases (Top A, Bottom B)
                 if ((y >= 1 && y <= 6) || (y >= 33 && y <= 38)) {
                     if (x > 5 && x < 17) { // Base inner area
-                        if (y === 6 || y === 33) return { type: 'CRACKED_WALL', hp: 100 };
+                        if (y === 6 || y === 33) return { type: 'CRACKED_WALL', hp: 150 };
                         return { type: 'FLOOR', color: '#312e81' };
                     }
                 }
 
-                // Central Bridge
+                // Central Bridge (Widened)
                 if (y >= 18 && y <= 21) {
-                    if (x >= 8 && x <= 14) return { type: 'FLOOR', color: '#a8a29e' }; // Bridge path
-                    if (x === 7 || x === 15) return { type: 'LAVA' }; // Lava edges
+                    if (x >= 7 && x <= 15) return { type: 'FLOOR', color: '#a8a29e' }; // Bridge path
+                    if (x === 6 || x === 16) return { type: 'LAVA' }; // Lava edges
                 }
                 if (y === 19 && x === 11) return { type: 'HEAL_PACK' }; // Center heal pack
+                if ((y === 18 || y === 21) && x === 11) return { type: 'CRACKED_WALL', hp: 80 }; // Cover on bridge
 
-                // Side Paths & Jungle walls
-                if ((x === 6 || x === 16) && ((y > 6 && y < 18) || (y > 21 && y < 33))) return { type: 'WALL', color: '#44403c' };
-                if (y === 10 && (x < 5 || x > 17)) return { type: 'WALL', color: '#44403c' };
-                if (y === 29 && (x < 5 || x > 17)) return { type: 'WALL', color: '#44403c' };
-                if (x === 11 && (y === 13 || y === 26)) return { type: 'WALL', color: '#44403c' };
+                // Side Paths & new structures
+                // --- Left Side Path ---
+                if (x === 5 && y > 8 && y < 14) return { type: 'WALL', color: '#44403c' };
+                if (x === 5 && y > 25 && y < 31) return { type: 'WALL', color: '#44403c' };
+                if (y === 16 && x > 1 && x < 5) return { type: 'CRACKED_WALL', hp: 80 };
+                if (y === 23 && x > 1 && x < 5) return { type: 'CRACKED_WALL', hp: 80 };
+
+                // --- Right Side Path ---
+                if (x === 17 && y > 8 && y < 14) return { type: 'WALL', color: '#44403c' };
+                if (x === 17 && y > 25 && y < 31) return { type: 'WALL', color: '#44403c' };
+                if (y === 16 && x > 18 && x < 22) return { type: 'CRACKED_WALL', hp: 80 };
+                if (y === 23 && x > 18 && x < 22) return { type: 'CRACKED_WALL', hp: 80 };
+                
+                // Obstacles near bases
+                if ((y === 10 || y === 29) && (x === 8 || x === 14)) return { type: 'WALL', color: '#44403c' };
+
 
                 // Special Tiles in Side Paths
                 if ((x === 2 && y === 19) || (x === 20 && y === 19)) return { type: 'TELEPORTER' }; // Teleporters
                 if ((x === 11 && y === 8) || (x === 11 && y === 31)) return { type: 'REPLICATION_TILE', replicationValue: 2 };
-                if ((x === 3 && y === 3) || (x === 19 && y === 3) || (x === 3 && y === 36) || (x === 19 && y === 36)) return { type: 'QUESTION_MARK' };
+                // Relocated Question Marks
+                if ((x === 2 && y === 8) || (x === 20 && y === 31)) return { type: 'QUESTION_MARK' };
 
                 return { type: 'FLOOR', color: '#374151' };
             })
@@ -86,19 +98,20 @@ export const centralBridgeBloodbathMap = {
         { gridX: 14, gridY: 38, type: 'bow' },
         { gridX: 11, gridY: 38, type: 'crown' },
 
-        // Jungle & Side Path Weapons
-        { gridX: 3, gridY: 8, type: 'dual_swords' },
-        { gridX: 19, gridY: 8, type: 'shuriken' },
-        { gridX: 3, gridY: 31, type: 'shuriken' },
-        { gridX: 19, gridY: 31, type: 'dual_swords' },
-        { gridX: 8, gridY: 15, type: 'hadoken' },
-        { gridX: 14, gridY: 24, type: 'poison_potion' },
+        // Relocated Weapons for strategic value
+        { gridX: 3, gridY: 15, type: 'dual_swords' },
+        { gridX: 19, gridY: 15, type: 'shuriken' },
+        { gridX: 3, gridY: 24, type: 'shuriken' },
+        { gridX: 19, gridY: 24, type: 'dual_swords' },
+        { gridX: 8, gridY: 12, type: 'hadoken' },
+        { gridX: 14, gridY: 27, type: 'poison_potion' },
         
-        // Central Bridge High-Tier Weapons
-        { gridX: 9, gridY: 17, type: 'staff' },
-        { gridX: 13, gridY: 22, type: 'lightning' },
-        { gridX: 11, gridY: 15, type: 'boomerang' },
-        { gridX: 11, gridY: 24, type: 'magic_spear' },
+        // High-Tier Weapons in new structures or contested zones
+        { gridX: 2, gridY: 2, type: 'staff' },
+        { gridX: 20, gridY: 37, type: 'staff' },
+        { gridX: 8, gridY: 19, type: 'lightning' },
+        { gridX: 14, gridY: 19, type: 'boomerang' },
+        { gridX: 11, gridY: 22, type: 'magic_spear' },
     ],
     growingFields: []
 };
