@@ -972,6 +972,7 @@ export class Unit {
         this.stuckTimer = 0;
         this.lastPosition = { x: this.pixelX, y: this.pixelY };
         this.pathfindingCooldown = 0;
+        this.randomMoveTimer = Math.random() * 120 + 60; // 1~3초 후 랜덤 이동
     }
     
     get speed() {
@@ -1062,30 +1063,10 @@ export class Unit {
         
         // 맵 경계 충돌 처리
         const radius = GRID_SIZE / 2.5;
-        let bounced = false;
-        if (this.pixelX < radius) {
-            this.pixelX = radius;
-            this.knockbackX = Math.abs(this.knockbackX) * 0.5 || 1; 
-            bounced = true;
-        } else if (this.pixelX > gameManager.canvas.width - radius) {
-            this.pixelX = gameManager.canvas.width - radius;
-            this.knockbackX = -Math.abs(this.knockbackX) * 0.5 || -1;
-            bounced = true;
-        }
-
-        if (this.pixelY < radius) {
-            this.pixelY = radius;
-            this.knockbackY = Math.abs(this.knockbackY) * 0.5 || 1;
-            bounced = true;
-        } else if (this.pixelY > gameManager.canvas.height - radius) {
-            this.pixelY = gameManager.canvas.height - radius;
-            this.knockbackY = -Math.abs(this.knockbackY) * 0.5 || -1;
-            bounced = true;
-        }
-
-        if(bounced && this.state === 'IDLE'){
-            this.moveTarget = null;
-        }
+        if (this.pixelX < radius) this.pixelX = radius;
+        if (this.pixelX > gameManager.canvas.width - radius) this.pixelX = gameManager.canvas.width - radius;
+        if (this.pixelY < radius) this.pixelY = radius;
+        if (this.pixelY > gameManager.canvas.height - radius) this.pixelY = gameManager.canvas.height - radius;
     }
 
     move() {
@@ -1112,73 +1093,29 @@ export class Unit {
         let nextY = this.pixelY + Math.sin(angle) * currentSpeed;
         
         const radius = GRID_SIZE / 2.5;
-        const currentGridX = Math.floor(this.pixelX / GRID_SIZE);
-        const currentGridY = Math.floor(this.pixelY / GRID_SIZE);
     
-        // 벽 충돌 및 슬라이딩 로직
-        let collisionResponseX = 0;
-        let collisionResponseY = 0;
+        // 벽 충돌 감지 및 반응
+        const checkGridX = Math.floor(nextX / GRID_SIZE);
+        const checkGridY = Math.floor(nextY / GRID_SIZE);
+
         let collided = false;
-    
-        for (let y = currentGridY - 1; y <= currentGridY + 1; y++) {
-            for (let x = currentGridX - 1; x <= currentGridX + 1; x++) {
-                if (y >= 0 && y < gameManager.ROWS && x >= 0 && x < gameManager.COLS) {
-                    const tile = gameManager.map[y][x];
-                    if (tile.type === TILE.WALL || tile.type === TILE.CRACKED_WALL) {
-                        const wallLeft = x * GRID_SIZE;
-                        const wallRight = (x + 1) * GRID_SIZE;
-                        const wallTop = y * GRID_SIZE;
-                        const wallBottom = (y + 1) * GRID_SIZE;
-    
-                        const closestX = Math.max(wallLeft, Math.min(nextX, wallRight));
-                        const closestY = Math.max(wallTop, Math.min(nextY, wallBottom));
-    
-                        const distToWall = Math.hypot(nextX - closestX, nextY - closestY);
-    
-                        if (distToWall < radius) {
-                            if (tile.type === TILE.CRACKED_WALL && Math.random() < 0.1) {
-                                gameManager.damageTile(x, y, 1); // 부술 수 있도록 약간의 데미지
-                            }
-
-                            const overlap = radius - distToWall;
-                            const normalX = nextX - closestX;
-                            const normalY = nextY - closestY;
-                            const normalLength = Math.hypot(normalX, normalY);
-
-                            if (normalLength > 0) {
-                                const responseX = (normalX / normalLength) * overlap;
-                                const responseY = (normalY / normalLength) * overlap;
-                                collisionResponseX += responseX;
-                                collisionResponseY += responseY;
-                                collided = true;
-                            }
-                        }
-                    }
-                }
+        if (checkGridY >= 0 && checkGridY < gameManager.ROWS && checkGridX >= 0 && checkGridX < gameManager.COLS) {
+            const tile = gameManager.map[checkGridY][checkGridX];
+            if (tile.type === TILE.WALL || tile.type === TILE.CRACKED_WALL) {
+                collided = true;
             }
+        } else {
+            collided = true; // 맵 밖으로 나가려는 경우
         }
-    
-        if (collided) {
-            nextX += collisionResponseX;
-            nextY += collisionResponseY;
-        
-            // 이동 방향을 벽면에 평행하게 조정 (슬라이딩)
-            const moveVectorX = nextX - this.pixelX;
-            const moveVectorY = nextY - this.pixelY;
-            const dotProduct = moveVectorX * collisionResponseX + moveVectorY * collisionResponseY;
-            const collisionResponseMagSq = collisionResponseX * collisionResponseX + collisionResponseY * collisionResponseY;
 
-            if (collisionResponseMagSq > 0) {
-                const projectionScale = dotProduct / collisionResponseMagSq;
-                const projectedX = collisionResponseX * projectionScale;
-                const projectedY = collisionResponseY * projectionScale;
-        
-                const slideX = moveVectorX - projectedX;
-                const slideY = moveVectorY - projectedY;
-        
-                nextX = this.pixelX + slideX;
-                nextY = this.pixelY + slideY;
-            }
+        if (collided) {
+             // 벽에 부딪혔을 때 살짝 튕겨나오는 효과
+            const bounceAngle = this.facingAngle + Math.PI;
+            this.knockbackX += Math.cos(bounceAngle) * 1.5;
+            this.knockbackY += Math.sin(bounceAngle) * 1.5;
+            this.moveTarget = null; // 목표 상실
+            this.stuckTimer = 100; // 즉시 '막힘' 상태로 만들어 새로운 경로 탐색 유도
+            return;
         }
     
         this.pixelX = nextX;
@@ -1304,9 +1241,9 @@ export class Unit {
         if (!gameManager) return;
 
         // ======================= AI 상태 업데이트 (매 프레임) =======================
-
         if (this.hpBarVisibleTimer > 0) this.hpBarVisibleTimer--;
         if (this.pathfindingCooldown > 0) this.pathfindingCooldown--;
+        if (this.randomMoveTimer > 0) this.randomMoveTimer--;
 
         if (this.isBeingPulled && this.puller) {
             const dx = this.pullTargetPos.x - this.pixelX;
@@ -1470,128 +1407,97 @@ export class Unit {
 
         // ======================= 지능적인 길 찾기 및 상태 결정 =======================
         
-        // 1. '막힘' 상태 감지
+        // '막힘' 상태 감지 및 처리
         if (this.moveTarget) {
             const distMoved = Math.hypot(this.pixelX - this.lastPosition.x, this.pixelY - this.lastPosition.y);
-            // 아주 조금 움직였거나 아예 못 움직였다면 stuckTimer 증가
-            if (distMoved < this.speed * 0.2 * gameManager.gameSpeed) {
-                this.stuckTimer++;
-            } else {
-                this.stuckTimer = 0; // 잘 움직이고 있다면 초기화
-            }
+            if (distMoved < this.speed * 0.1 * gameManager.gameSpeed) this.stuckTimer++;
+            else this.stuckTimer = 0;
         } else {
             this.stuckTimer = 0;
         }
         this.lastPosition = { x: this.pixelX, y: this.pixelY };
 
-        // 2. '막힘' 상태일 때 새로운 경로 탐색
-        if (this.stuckTimer > 30 && this.pathfindingCooldown <= 0) { // 0.5초 이상 막혔을 때
-            const checkDistance = GRID_SIZE * 2;
-            
-            // 현재 방향을 기준으로 좌/우 방향 탐색
-            const rightAngle = this.facingAngle + Math.PI / 2;
-            const leftAngle = this.facingAngle - Math.PI / 2;
-
-            const rightPos = { x: this.pixelX + Math.cos(rightAngle) * checkDistance, y: this.pixelY + Math.sin(rightAngle) * checkDistance };
-            const leftPos = { x: this.pixelX + Math.cos(leftAngle) * checkDistance, y: this.pixelY + Math.sin(leftAngle) * checkDistance };
-            
-            const canGoRight = gameManager.hasLineOfSight({x: this.pixelX, y: this.pixelY}, rightPos);
-            const canGoLeft = gameManager.hasLineOfSight({x: this.pixelX, y: this.pixelY}, leftPos);
-
-            // 둘 다 갈 수 있다면, 원래 목표와 더 가까워지는 방향으로 선택
-            if (this.moveTarget && canGoRight && canGoLeft) {
-                const distToTargetFromRight = Math.hypot(this.moveTarget.x - rightPos.x, this.moveTarget.y - rightPos.y);
-                const distToTargetFromLeft = Math.hypot(this.moveTarget.x - leftPos.x, this.moveTarget.y - leftPos.y);
-                this.moveTarget = (distToTargetFromRight < distToTargetFromLeft) ? rightPos : leftPos;
-            } else if (canGoRight) {
-                this.moveTarget = rightPos;
-            } else if (canGoLeft) {
-                this.moveTarget = leftPos;
-            } else { // 둘 다 막혔다면, 뒤로
-                const backAngle = this.facingAngle + Math.PI;
-                this.moveTarget = { x: this.pixelX + Math.cos(backAngle) * checkDistance, y: this.pixelY + Math.sin(backAngle) * checkDistance };
-            }
-
+        if (this.stuckTimer > 30) {
+            const backAngle = this.facingAngle + Math.PI;
+            this.knockbackX += Math.cos(backAngle) * 2;
+            this.knockbackY += Math.sin(backAngle) * 2;
+            this.moveTarget = null;
             this.stuckTimer = 0;
-            this.pathfindingCooldown = 60; // 1초 동안은 다시 경로 탐색 안함
         }
 
-        // 3. 주변 상황을 인지하고 행동 결정 (기존 로직 + 시야 확인 강화)
-        if (this.pathfindingCooldown <= 0) { // 경로 우회 중이 아닐 때만 목표 재설정
-            let newState = 'IDLE';
-            let newTarget = null;
-            const myPos = { x: this.pixelX, y: this.pixelY };
 
-            if (this.isInMagneticField) {
-                newState = 'FLEEING_FIELD';
-            } else {
-                const enemyNexus = gameManager.nexuses.find(n => n.team !== this.team && !n.isDestroying);
-                const visibleEnemies = enemies.filter(enemy => gameManager.hasLineOfSight(myPos, { x: enemy.pixelX, y: enemy.pixelY }));
-                const { item: closestEnemy, distance: enemyDist } = this.findClosest(visibleEnemies);
-                const { item: targetWeapon, distance: weaponDist } = this.findClosest(weapons.filter(w => !w.isEquipped));
-                const questionMarkTiles = gameManager.getTilesOfType(TILE.QUESTION_MARK);
-                const questionMarkPositions = questionMarkTiles.map(pos => ({
-                    gridX: pos.x, gridY: pos.y,
-                    pixelX: pos.x * GRID_SIZE + GRID_SIZE / 2,
-                    pixelY: pos.y * GRID_SIZE + GRID_SIZE / 2
-                }));
-                const { item: closestQuestionMark, distance: questionMarkDist } = this.findClosest(questionMarkPositions);
+        // 주변 상황을 인지하고 행동 결정
+        let newState = 'IDLE';
+        let newTarget = null;
+        const myPos = { x: this.pixelX, y: this.pixelY };
 
-                 let targetEnemy = null;
-                if (closestEnemy && enemyDist <= this.detectionRange) {
-                    targetEnemy = closestEnemy;
-                }
+        if (this.isInMagneticField) {
+            newState = 'FLEEING_FIELD';
+        } else {
+            const enemyNexus = gameManager.nexuses.find(n => n.team !== this.team && !n.isDestroying);
+            const visibleEnemies = enemies.filter(enemy => gameManager.hasLineOfSight(myPos, { x: enemy.pixelX, y: enemy.pixelY }));
+            const { item: closestEnemy, distance: enemyDist } = this.findClosest(visibleEnemies);
+            const { item: targetWeapon, distance: weaponDist } = this.findClosest(weapons.filter(w => !w.isEquipped));
+            const questionMarkTiles = gameManager.getTilesOfType(TILE.QUESTION_MARK);
+            const questionMarkPositions = questionMarkTiles.map(pos => ({
+                gridX: pos.x, gridY: pos.y,
+                pixelX: pos.x * GRID_SIZE + GRID_SIZE / 2,
+                pixelY: pos.y * GRID_SIZE + GRID_SIZE / 2
+            }));
+            const { item: closestQuestionMark, distance: questionMarkDist } = this.findClosest(questionMarkPositions);
 
-                if (this.isKing && targetEnemy) {
-                    newState = 'FLEEING'; newTarget = targetEnemy;
-                } else if (this.hp < 50) {
-                    const healPacks = gameManager.getTilesOfType(TILE.HEAL_PACK);
-                    if (healPacks.length > 0) {
-                        const healPackPositions = healPacks.map(pos => ({
-                            gridX: pos.x, gridY: pos.y,
-                            pixelX: pos.x * GRID_SIZE + GRID_SIZE / 2,
-                            pixelY: pos.y * GRID_SIZE + GRID_SIZE / 2
-                        }));
-                        const { item: closestPack, distance: packDist } = this.findClosest(healPackPositions);
-                        if (closestPack && packDist < this.detectionRange * 1.5) {
-                            newState = 'SEEKING_HEAL_PACK';
-                            newTarget = closestPack;
-                        }
-                    }
-                }
-                
-                if (newState === 'IDLE') {
-                    if (closestQuestionMark && questionMarkDist <= this.detectionRange) {
-                        newState = 'SEEKING_QUESTION_MARK';
-                        newTarget = closestQuestionMark;
-                    } else if (!this.weapon && targetWeapon && weaponDist <= this.detectionRange) {
-                        newState = 'SEEKING_WEAPON';
-                        newTarget = targetWeapon;
-                    } else if (targetEnemy) {
-                        newState = 'AGGRESSIVE';
-                        newTarget = targetEnemy;
-                    } else if (enemyNexus && gameManager.hasLineOfSight(myPos, { x: enemyNexus.pixelX, y: enemyNexus.pixelY }) && Math.hypot(myPos.x - enemyNexus.pixelX, myPos.y - enemyNexus.pixelY) <= this.detectionRange) {
-                        newState = 'ATTACKING_NEXUS';
-                        newTarget = enemyNexus;
+            let targetEnemy = null;
+            if (closestEnemy && enemyDist <= this.detectionRange) {
+                targetEnemy = closestEnemy;
+            }
+
+            if (this.isKing && targetEnemy) {
+                newState = 'FLEEING'; newTarget = targetEnemy;
+            } else if (this.hp < 50) {
+                const healPacks = gameManager.getTilesOfType(TILE.HEAL_PACK);
+                if (healPacks.length > 0) {
+                    const healPackPositions = healPacks.map(pos => ({
+                        gridX: pos.x, gridY: pos.y,
+                        pixelX: pos.x * GRID_SIZE + GRID_SIZE / 2,
+                        pixelY: pos.y * GRID_SIZE + GRID_SIZE / 2
+                    }));
+                    const { item: closestPack, distance: packDist } = this.findClosest(healPackPositions);
+                    if (closestPack && packDist < this.detectionRange * 1.5) {
+                        newState = 'SEEKING_HEAL_PACK';
+                        newTarget = closestPack;
                     }
                 }
             }
-
-            if (this.state !== newState && newState !== 'IDLE' && newState !== 'FLEEING_FIELD') {
-                if (!(this.weapon && this.weapon.type === 'magic_spear' && newState === 'AGGRESSIVE')) {
-                    this.alertedCounter = 60;
+            
+            if (newState === 'IDLE') {
+                if (closestQuestionMark && questionMarkDist <= this.detectionRange) {
+                    newState = 'SEEKING_QUESTION_MARK';
+                    newTarget = closestQuestionMark;
+                } else if (!this.weapon && targetWeapon && weaponDist <= this.detectionRange) {
+                    newState = 'SEEKING_WEAPON';
+                    newTarget = targetWeapon;
+                } else if (targetEnemy) {
+                    newState = 'AGGRESSIVE';
+                    newTarget = targetEnemy;
+                } else if (enemyNexus && gameManager.hasLineOfSight(myPos, { x: enemyNexus.pixelX, y: enemyNexus.pixelY }) && Math.hypot(myPos.x - enemyNexus.pixelX, myPos.y - enemyNexus.pixelY) <= this.detectionRange) {
+                    newState = 'ATTACKING_NEXUS';
+                    newTarget = enemyNexus;
                 }
             }
-            this.state = newState;
-            this.target = newTarget;
         }
 
-        // 4. 결정된 상태에 따라 행동 실행
+        if (this.state !== newState && newState !== 'IDLE' && newState !== 'FLEEING_FIELD') {
+            if (!(this.weapon && this.weapon.type === 'magic_spear' && newState === 'AGGRESSIVE')) {
+                 this.alertedCounter = 60;
+            }
+        }
+        this.state = newState;
+        this.target = newTarget;
+
+        // 결정된 상태에 따라 행동 실행
         switch(this.state) {
             case 'FLEEING_FIELD':
-                if (!this.moveTarget || this.pathfindingCooldown <= 0) {
-                   this.moveTarget = gameManager.findClosestSafeSpot(this.pixelX, this.pixelY);
-                }
+                this.moveTarget = gameManager.findClosestSafeSpot(this.pixelX, this.pixelY);
                 break;
             case 'FLEEING':
                 if (this.target) {
@@ -1644,9 +1550,29 @@ export class Unit {
                 }
                 break;
             case 'IDLE': default:
-                if (!this.moveTarget || this.pathfindingCooldown <= 0) { // 우회 중이 아닐 때만 랜덤 이동
-                    const angle = Math.random() * Math.PI * 2;
-                    this.moveTarget = { x: this.pixelX + Math.cos(angle) * GRID_SIZE * 8, y: this.pixelY + Math.sin(angle) * GRID_SIZE * 8 };
+                if (!this.moveTarget && this.randomMoveTimer <= 0) {
+                    const wanderRadius = GRID_SIZE * 5;
+                    let validTarget = false;
+                    let newX, newY;
+                    for (let i = 0; i < 10; i++) { // 최대 10번 시도
+                        const angle = Math.random() * Math.PI * 2;
+                        newX = this.pixelX + Math.cos(angle) * wanderRadius;
+                        newY = this.pixelY + Math.sin(angle) * wanderRadius;
+                        const gridX = Math.floor(newX / GRID_SIZE);
+                        const gridY = Math.floor(newY / GRID_SIZE);
+
+                        if (gridY >= 0 && gridY < gameManager.ROWS && gridX >= 0 && gridX < gameManager.COLS) {
+                            const tile = gameManager.map[gridY][gridX];
+                            if (tile.type !== TILE.WALL && tile.type !== TILE.CRACKED_WALL) {
+                                validTarget = true;
+                                break;
+                            }
+                        }
+                    }
+                    if (validTarget) {
+                        this.moveTarget = { x: newX, y: newY };
+                    }
+                    this.randomMoveTimer = Math.random() * 120 + 60; // 1~3초 후 다시 랜덤 이동
                 }
                 break;
         }
