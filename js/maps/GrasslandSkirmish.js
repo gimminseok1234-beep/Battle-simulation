@@ -1,10 +1,10 @@
 /**
- * 맵 제목: 초원 접전 (v4)
- * 컨셉: 기본 맵 크기(460x800)를 적용하고, 전략적인 재미를 위해
- * '부서지는 벽'으로 둘러싸인 구조물을 추가하여 맵을 재설계했습니다.
+ * 맵 제목: 초원 접전 (v5)
+ * 컨셉: 기본 맵 크기를 유지하고, 바닥 색상을 기본값으로 되돌렸습니다.
+ * '부서지는 벽' 구조물로 전략적인 요소를 유지합니다.
  */
 export const grasslandSkirmishMap = {
-    name: '초원 접전 v4',
+    name: '초원 접전 v5',
     width: 460,
     height: 800,
     hadokenKnockback: 12,
@@ -17,7 +17,7 @@ export const grasslandSkirmishMap = {
     map: JSON.stringify(
         [...Array(40)].map((_, y) =>
             [...Array(23)].map((_, x) => {
-                const floor = { type: 'FLOOR', color: '#16a34a' }; // 진한 초록색 바닥
+                const floor = { type: 'FLOOR', color: '#374151' }; // 기본 바닥 색상으로 변경
                 const wall = { type: 'WALL', color: '#111827' };
 
                 // 외부 벽
@@ -91,3 +91,4 @@ export const grasslandSkirmishMap = {
     ],
     growingFields: []
 };
+
