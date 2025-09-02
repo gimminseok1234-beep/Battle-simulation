@@ -255,7 +255,7 @@ export class Nexus {
             ctx.moveTo(0, -GRID_SIZE * 0.8); ctx.lineTo(GRID_SIZE * 0.7, 0);
             ctx.lineTo(0, GRID_SIZE * 0.8); ctx.lineTo(-GRID_SIZE * 0.7, 0);
             ctx.closePath(); ctx.fill(); ctx.stroke();
-            const hpBarWidth = GRID_SIZE * 1.5;
+            const hpBarWidth = GRID_SIZE * 1.5; // 너비 원래대로 복원
             const hpBarX = -hpBarWidth / 2;
             const hpBarY = -GRID_SIZE * 1.2;
             ctx.fillStyle = '#111827'; ctx.fillRect(hpBarX, hpBarY, hpBarWidth, 8);
@@ -1653,7 +1653,7 @@ export class Unit {
         }
 
         // --- 게이지 표시 로직 시작 ---
-        const barWidth = GRID_SIZE * 1.2;
+        const barWidth = GRID_SIZE * 1.0; // 게이지 너비 조정
         const barHeight = 4;
         const barGap = 1;
         const barX = this.pixelX - barWidth / 2;
@@ -1736,3 +1736,4 @@ export class Unit {
         }
     }
 }
+
