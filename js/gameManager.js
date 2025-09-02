@@ -1471,3 +1471,4 @@ export class GameManager {
         this.draw();
     }
 }
+
