@@ -554,11 +554,34 @@ export class Effect {
     constructor(x, y, type, target, options = {}) {
         this.x = x; this.y = y; this.type = type; this.target = target;
         this.duration = 20; this.angle = Math.random() * Math.PI * 2;
+        
+        if (this.type === 'question_mark_effect') {
+            this.duration = 60;
+            this.particles = [];
+            for (let i = 0; i < 20; i++) {
+                this.particles.push({
+                    x: this.x, y: this.y,
+                    angle: Math.random() * Math.PI * 2,
+                    speed: Math.random() * 2 + 1,
+                    radius: Math.random() * 3 + 1,
+                    lifespan: 40,
+                });
+            }
+        }
     }
     update() {
         const gameManager = GameManager.getInstance();
         if (!gameManager) return;
         this.duration -= gameManager.gameSpeed;
+
+        if (this.type === 'question_mark_effect') {
+            this.particles.forEach(p => {
+                p.x += Math.cos(p.angle) * p.speed;
+                p.y += Math.sin(p.angle) * p.speed;
+                p.lifespan--;
+            });
+            this.particles = this.particles.filter(p => p.lifespan > 0);
+        }
     }
     draw(ctx) {
         const opacity = this.duration / 20;
@@ -580,6 +603,15 @@ export class Effect {
             ctx.moveTo(this.x, this.y);
             ctx.lineTo(this.target.pixelX, this.target.pixelY);
             ctx.stroke();
+        } else if (this.type === 'question_mark_effect') {
+            this.particles.forEach(p => {
+                ctx.globalAlpha = (p.lifespan / 40) * (this.duration / 60);
+                ctx.fillStyle = '#facc15';
+                ctx.beginPath();
+                ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
+                ctx.fill();
+            });
+            ctx.globalAlpha = 1.0;
         }
     }
 }
@@ -1026,23 +1058,28 @@ export class Unit {
         
         // 맵 경계 충돌 처리
         const radius = GRID_SIZE / 2.5;
+        let bounced = false;
         if (this.pixelX < radius) {
             this.pixelX = radius;
             this.knockbackX = Math.abs(this.knockbackX) * 0.5 || 1; 
-            this.moveTarget = null; // 맵 밖으로 나가려는 목표 초기화
+            bounced = true;
         } else if (this.pixelX > gameManager.canvas.width - radius) {
             this.pixelX = gameManager.canvas.width - radius;
             this.knockbackX = -Math.abs(this.knockbackX) * 0.5 || -1;
-            this.moveTarget = null;
+            bounced = true;
         }
 
         if (this.pixelY < radius) {
             this.pixelY = radius;
             this.knockbackY = Math.abs(this.knockbackY) * 0.5 || 1;
-            this.moveTarget = null;
+            bounced = true;
         } else if (this.pixelY > gameManager.canvas.height - radius) {
             this.pixelY = gameManager.canvas.height - radius;
             this.knockbackY = -Math.abs(this.knockbackY) * 0.5 || -1;
+            bounced = true;
+        }
+
+        if(bounced && this.state === 'IDLE'){
             this.moveTarget = null;
         }
     }
@@ -1326,6 +1363,11 @@ export class Unit {
                 gameManager.map[currentGridY][currentGridX] = { type: TILE.FLOOR, color: gameManager.currentFloorColor };
                 gameManager.audioManager.play('replication');
             }
+            if (currentTile.type === TILE.QUESTION_MARK) {
+                gameManager.map[currentGridY][currentGridX] = { type: TILE.FLOOR, color: gameManager.currentFloorColor };
+                gameManager.createEffect('question_mark_effect', this.pixelX, this.pixelY);
+                gameManager.spawnRandomWeaponNear({ x: this.pixelX, y: this.pixelY });
+            }
         }
         
         if (this.weapon && this.weapon.type === 'magic_spear') {
@@ -1361,6 +1403,13 @@ export class Unit {
             const enemyNexus = gameManager.nexuses.find(n => n.team !== this.team && !n.isDestroying);
             const { item: closestEnemy, distance: enemyDist } = this.findClosest(enemies);
             const { item: targetWeapon, distance: weaponDist } = this.findClosest(weapons.filter(w => !w.isEquipped));
+            const questionMarkTiles = gameManager.getTilesOfType(TILE.QUESTION_MARK);
+            const questionMarkPositions = questionMarkTiles.map(pos => ({
+                gridX: pos.x, gridY: pos.y,
+                pixelX: pos.x * GRID_SIZE + GRID_SIZE / 2,
+                pixelY: pos.y * GRID_SIZE + GRID_SIZE / 2
+            }));
+            const { item: closestQuestionMark, distance: questionMarkDist } = this.findClosest(questionMarkPositions);
 
             let targetEnemy = null;
             if (closestEnemy && enemyDist <= this.detectionRange && gameManager.hasLineOfSight(this, closestEnemy)) {
@@ -1386,7 +1435,10 @@ export class Unit {
             }
             
             if (newState === 'IDLE') {
-                if (!this.weapon && targetWeapon && weaponDist <= this.detectionRange) {
+                if (closestQuestionMark && questionMarkDist <= this.detectionRange) {
+                    newState = 'SEEKING_QUESTION_MARK';
+                    newTarget = closestQuestionMark;
+                } else if (!this.weapon && targetWeapon && weaponDist <= this.detectionRange) {
                     newState = 'SEEKING_WEAPON';
                     newTarget = targetWeapon;
                 } else if (targetEnemy) {
@@ -1418,6 +1470,9 @@ export class Unit {
                 }
                 break;
             case 'SEEKING_HEAL_PACK':
+                if (this.target) this.moveTarget = { x: this.target.pixelX, y: this.target.pixelY };
+                break;
+            case 'SEEKING_QUESTION_MARK':
                 if (this.target) this.moveTarget = { x: this.target.pixelX, y: this.target.pixelY };
                 break;
             case 'SEEKING_WEAPON':
@@ -1685,6 +1740,7 @@ export class Unit {
             (this.weapon?.type === 'shuriken' && this.shurikenSkillCooldown > 0) ||
             (this.isCasting && this.weapon?.type === 'poison_potion');
 
+        // 유닛이 일반 공격 쿨다운 중일 때는 특수 공격 게이지를 숨깁니다.
         if (this.attackCooldown > 0) {
             specialSkillIsVisible = false;
         }
