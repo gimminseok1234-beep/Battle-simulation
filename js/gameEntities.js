@@ -1674,7 +1674,7 @@ export class Unit {
 
         if (visibleBarCount > 0) {
             const totalBarsHeight = (visibleBarCount * barHeight) + ((visibleBarCount - 1) * barGap);
-            let currentBarY = this.pixelY - (GRID_SIZE * 0.7) - totalBarsHeight; // 유닛과 게이지바 사이 여백 추가
+            let currentBarY = this.pixelY - (GRID_SIZE * 0.6) - totalBarsHeight; // 유닛과 게이지바 사이 여백 조정
 
             // 1. 특수 공격 게이지 (가장 위)
             if (specialSkillIsVisible) {
