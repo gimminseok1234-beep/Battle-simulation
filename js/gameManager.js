@@ -1222,26 +1222,34 @@ export class GameManager {
         }
     }
     
-    hasLineOfSight(startUnit, endTarget) {
-        let x1 = Math.floor(startUnit.pixelX / GRID_SIZE);
-        let y1 = Math.floor(startUnit.pixelY / GRID_SIZE);
-        const x2 = Math.floor(endTarget.pixelX / GRID_SIZE);
-        const y2 = Math.floor(endTarget.pixelY / GRID_SIZE);
+    hasLineOfSight(startPos, endPos) {
+        let x1 = Math.floor(startPos.x / GRID_SIZE);
+        let y1 = Math.floor(startPos.y / GRID_SIZE);
+        const x2 = Math.floor(endPos.x / GRID_SIZE);
+        const y2 = Math.floor(endPos.y / GRID_SIZE);
         const dx = Math.abs(x2 - x1), dy = Math.abs(y2 - y1);
         const sx = (x1 < x2) ? 1 : -1, sy = (y1 < y2) ? 1 : -1;
         let err = dx - dy;
 
         while (true) {
+            if (y1 >= 0 && y1 < this.ROWS && x1 >= 0 && x1 < this.COLS) {
+                const tile = this.map[y1][x1];
+                if (tile.type === TILE.WALL || tile.type === TILE.CRACKED_WALL) {
+                    // 시작점과 끝점 자체에 벽이 있는 경우는 무시
+                    if (!(x1 === x2 && y1 === y2) && !(x1 === Math.floor(startPos.x / GRID_SIZE) && y1 === Math.floor(startPos.y / GRID_SIZE))) {
+                        return false;
+                    }
+                }
+            } else {
+                 // 맵 밖으로 나가는 경로
+                 return false;
+            }
+
             if ((x1 === x2 && y1 === y2)) break;
+            
             const e2 = 2 * err;
             if (e2 > -dy) { err -= dy; x1 += sx; }
             if (e2 < dx) { err += dx; y1 += sy; }
-            if ((x1 === x2 && y1 === y2)) break;
-            if (y1 < 0 || y1 >= this.ROWS || x1 < 0 || x1 >= this.COLS) return false;
-            const tile = this.map[y1][x1];
-            if (tile.type === TILE.WALL || tile.type === TILE.CRACKED_WALL) {
-                return false;
-            }
         }
         return true;
     }
@@ -1469,7 +1477,6 @@ export class GameManager {
             this.map = Array(this.ROWS).fill().map(() => Array(this.COLS).fill({ type: TILE.FLOOR, color: COLORS.FLOOR }));
         }
         
-        // BUG FIX: 객체 생성 시점에 좌표를 전달하도록 수정
         this.units = (mapData.units || []).map(uData => Object.assign(new Unit(uData.gridX, uData.gridY, uData.team), uData));
         this.weapons = (mapData.weapons || []).map(wData => Object.assign(new Weapon(wData.gridX, wData.gridY, wData.type), wData));
         this.nexuses = (mapData.nexuses || []).map(nData => Object.assign(new Nexus(nData.gridX, nData.gridY, nData.team), nData));
@@ -1510,7 +1517,6 @@ export class GameManager {
 
         this.map = JSON.parse(mapData.map);
         
-        // BUG FIX: 객체 생성 시점에 좌표를 전달하도록 수정
         this.units = (mapData.units || []).map(uData => Object.assign(new Unit(uData.gridX, uData.gridY, uData.team), uData));
         this.weapons = (mapData.weapons || []).map(wData => Object.assign(new Weapon(wData.gridX, wData.gridY, wData.type), wData));
         this.nexuses = (mapData.nexuses || []).map(nData => Object.assign(new Nexus(nData.gridX, nData.gridY, nData.team), nData));
@@ -1555,4 +1561,3 @@ export class GameManager {
         this.resetActionCam(true);
     }
 }
-
