@@ -1673,7 +1673,7 @@ export class Unit {
                 
                 ctx.save();
                 ctx.translate(weaponX, weaponY);
-                this.weapon.drawLightning(ctx, 0.48, Math.PI / 4); 
+                this.weapon.drawLightning(ctx, 0.48, Math.PI / 2); 
                 ctx.restore();
             } else if (this.weapon.type === 'magic_spear') {
                 ctx.translate(GRID_SIZE * 0.2, GRID_SIZE * 0.4);
@@ -1829,4 +1829,3 @@ export class Unit {
         }
     }
 }
-
