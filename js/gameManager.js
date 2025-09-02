@@ -731,9 +731,9 @@ export class GameManager {
         cancelAnimationFrame(this.animationFrameId);
         this.animationFrameId = null;
         this.state = 'EDIT';
-        this.units = JSON.parse(this.initialUnitsState).map(u => Object.assign(new Unit(0,0), u));
-        this.weapons = JSON.parse(this.initialWeaponsState).map(w => Object.assign(new Weapon(0,0), w));
-        this.nexuses = JSON.parse(this.initialNexusesState).map(n => Object.assign(new Nexus(0,0), n));
+        this.units = JSON.parse(this.initialUnitsState).map(uData => Object.assign(new Unit(uData.gridX, uData.gridY, uData.team), uData));
+        this.weapons = JSON.parse(this.initialWeaponsState).map(wData => Object.assign(new Weapon(wData.gridX, wData.gridY, wData.type), wData));
+        this.nexuses = JSON.parse(this.initialNexusesState).map(nData => Object.assign(new Nexus(nData.gridX, nData.gridY, nData.team), nData));
         this.map = JSON.parse(this.initialMapState);
         this.growingFields = JSON.parse(this.initialGrowingFieldsState).map(fieldData => {
              const settings = {
@@ -1451,7 +1451,8 @@ export class GameManager {
             this.showHomeScreen();
             return;
         }
-
+        
+        this.currentMapId = mapId; // Firebase 맵 ID 설정
         this.currentMapName = mapData.name;
         this.canvas.width = mapData.width || 600;
         this.canvas.height = mapData.height || 900;
@@ -1461,20 +1462,16 @@ export class GameManager {
         this.ROWS = Math.floor(this.canvas.height / GRID_SIZE);
 
         if (mapData.map && typeof mapData.map === 'string') {
-            let parsedMap = JSON.parse(mapData.map);
-            if (parsedMap.length > 0 && typeof parsedMap[0][0] === 'number') {
-                const tileTypes = Object.keys(TILE);
-                this.map = parsedMap.map(row => row.map(tileId => ({ type: tileTypes[tileId] || 'FLOOR' })));
-            } else {
-                this.map = parsedMap;
-            }
+            this.map = JSON.parse(mapData.map);
         } else {
             this.map = Array(this.ROWS).fill().map(() => Array(this.COLS).fill({ type: TILE.FLOOR, color: COLORS.FLOOR }));
         }
         
-        this.units = (mapData.units || []).map(u => Object.assign(new Unit(0,0), u));
-        this.weapons = (mapData.weapons || []).map(w => Object.assign(new Weapon(0,0), w));
-        this.nexuses = (mapData.nexuses || []).map(n => Object.assign(new Nexus(0,0), n));
+        // BUG FIX: 객체 생성 시점에 좌표를 전달하도록 수정
+        this.units = (mapData.units || []).map(u => Object.assign(new Unit(u.gridX, u.gridY, u.team), u));
+        this.weapons = (mapData.weapons || []).map(w => Object.assign(new Weapon(w.gridX, w.gridY, w.type), w));
+        this.nexuses = (mapData.nexuses || []).map(n => Object.assign(new Nexus(n.gridX, n.gridY, n.team), n));
+        
         this.growingFields = (mapData.growingFields || []).map(fieldData => {
              const settings = {
                  direction: fieldData.direction,
@@ -1485,35 +1482,12 @@ export class GameManager {
         });
 
         this.autoMagneticField = mapData.autoMagneticField || {
-            isActive: false,
-            safeZoneSize: 6,
-            simulationTime: 0,
-            totalShrinkTime: 60 * 60,
-            currentBounds: { minX: 0, maxX: 0, minY: 0, maxY: 0 }
+            isActive: false, safeZoneSize: 6, simulationTime: 0,
+            totalShrinkTime: 60 * 60, currentBounds: { minX: 0, maxX: 0, minY: 0, maxY: 0 }
         };
         this.hadokenKnockback = mapData.hadokenKnockback || 15;
         
-        cancelAnimationFrame(this.animationFrameId);
-        this.animationFrameId = null;
-        this.state = 'EDIT';
-        this.effects = [];
-        this.projectiles = [];
-        this.areaEffects = [];
-        this.magicCircles = [];
-        this.poisonClouds = [];
-        this.initialUnitsState = [];
-        this.initialWeaponsState = [];
-        this.initialNexusesState = [];
-        this.initialMapState = [];
-        this.initialGrowingFieldsState = [];
-        this.initialAutoFieldState = {};
-        document.getElementById('statusText').textContent = "에디터 모드";
-        document.getElementById('simStartBtn').classList.remove('hidden');
-        document.getElementById('simPauseBtn').classList.add('hidden');
-        document.getElementById('simPlayBtn').classList.add('hidden');
-        document.getElementById('simStartBtn').disabled = false;
-        document.getElementById('toolbox').style.pointerEvents = 'auto';
-        this.resetActionCam(true);
+        this.resetSimulationState();
         this.draw();
     }
 
@@ -1533,9 +1507,12 @@ export class GameManager {
         this.ROWS = Math.floor(this.canvas.height / GRID_SIZE);
 
         this.map = JSON.parse(mapData.map);
-        this.units = (mapData.units || []).map(u => Object.assign(new Unit(0,0), u));
-        this.weapons = (mapData.weapons || []).map(w => Object.assign(new Weapon(0,0), w));
-        this.nexuses = (mapData.nexuses || []).map(n => Object.assign(new Nexus(0,0), n));
+        
+        // BUG FIX: 객체 생성 시점에 좌표를 전달하도록 수정
+        this.units = (mapData.units || []).map(u => Object.assign(new Unit(u.gridX, u.gridY, u.team), u));
+        this.weapons = (mapData.weapons || []).map(w => Object.assign(new Weapon(w.gridX, w.gridY, w.type), w));
+        this.nexuses = (mapData.nexuses || []).map(n => Object.assign(new Nexus(n.gridX, n.gridY, n.team), n));
+        
         this.growingFields = (mapData.growingFields || []).map(fieldData => {
              const settings = {
                  direction: fieldData.direction,
@@ -1548,8 +1525,14 @@ export class GameManager {
         this.autoMagneticField = mapData.autoMagneticField;
         this.hadokenKnockback = mapData.hadokenKnockback;
         
+        this.resetSimulationState();
+        this.draw();
+    }
+
+    resetSimulationState() {
         cancelAnimationFrame(this.animationFrameId);
         this.animationFrameId = null;
+        this.state = 'EDIT';
         this.effects = [];
         this.projectiles = [];
         this.areaEffects = [];
@@ -1568,7 +1551,6 @@ export class GameManager {
         document.getElementById('simStartBtn').disabled = false;
         document.getElementById('toolbox').style.pointerEvents = 'auto';
         this.resetActionCam(true);
-        this.draw();
     }
 }
 
