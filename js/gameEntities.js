@@ -1652,17 +1652,17 @@ export class Unit {
             ctx.restore();
         }
         
-        const hpBarYOffset = this.isKing ? GRID_SIZE * 1.2 : GRID_SIZE * 1.0;
+        const hpBarYOffset = this.isKing ? GRID_SIZE * 1.0 : GRID_SIZE * 0.8;
         const hpBarWidth = GRID_SIZE * 1.0, hpBarX = this.pixelX - hpBarWidth / 2;
         let currentBarY = this.pixelY - hpBarYOffset;
 
-        // 체력 바 (피격 시 또는 체력이 100 미만일 때만 표시)
+        // 체력 바
         if (this.hp < 100 || this.hpBarVisibleTimer > 0) {
             ctx.fillStyle = '#111827'; ctx.fillRect(hpBarX, currentBarY, hpBarWidth, 5);
             ctx.fillStyle = '#10b981'; ctx.fillRect(hpBarX, currentBarY, hpBarWidth * (this.hp / 100), 5);
         }
         
-        let nextBarY = currentBarY - 6;
+        let barY = currentBarY - 6;
 
         const specialSkillIsVisible = 
             (this.isKing && this.spawnCooldown > 0) ||
@@ -1675,38 +1675,37 @@ export class Unit {
             (this.isCasting && this.weapon?.type === 'staff') ||
             (this.attackCooldown > 0);
 
-        // 일반 공격 게이지 (중간)
-        if (normalAttackIsVisible) {
-            let yPos = nextBarY;
-            if (specialSkillIsVisible) {
-                yPos -= 5;
+        // 특수 공격 게이지
+        if (specialSkillIsVisible) {
+            if (this.isKing) {
+                ctx.fillStyle = '#78350f'; ctx.fillRect(hpBarX, barY, hpBarWidth, 4);
+                ctx.fillStyle = '#f97316'; ctx.fillRect(hpBarX, barY, hpBarWidth * ((this.spawnInterval - this.spawnCooldown) / this.spawnInterval), 4);
+            } else if (this.weapon?.type === 'magic_spear') {
+                ctx.fillStyle = '#3b0764'; ctx.fillRect(hpBarX, barY, hpBarWidth, 4);
+                ctx.fillStyle = '#a855f7'; ctx.fillRect(hpBarX, barY, hpBarWidth * ((300 - this.magicCircleCooldown) / 300), 4);
+            } else if (this.weapon?.type === 'boomerang') {
+                ctx.fillStyle = '#475569'; ctx.fillRect(hpBarX, barY, hpBarWidth, 4);
+                ctx.fillStyle = '#94a3b8'; ctx.fillRect(hpBarX, barY, hpBarWidth * ((480 - this.boomerangCooldown) / 480), 4);
+            } else if (this.weapon?.type === 'shuriken') {
+                ctx.fillStyle = '#475569'; ctx.fillRect(hpBarX, barY, hpBarWidth, 4);
+                ctx.fillStyle = '#94a3b8'; ctx.fillRect(hpBarX, barY, hpBarWidth * ((300 - this.shurikenSkillCooldown) / 300), 4);
+            } else if (this.weapon?.type === 'poison_potion' && this.isCasting) {
+                ctx.fillStyle = '#475569'; ctx.fillRect(hpBarX, barY, hpBarWidth, 4);
+                ctx.fillStyle = '#94a3b8'; ctx.fillRect(hpBarX, barY, hpBarWidth * (this.castingProgress / this.castDuration), 4);
             }
-            if (this.isCasting && this.weapon?.type === 'staff') {
+        }
+
+        // 일반 공격 게이지
+        if (normalAttackIsVisible) {
+            // 특수 공격 게이지가 보일 때만 Y위치를 조정
+            let yPos = specialSkillIsVisible ? barY + 5 : barY;
+            
+             if (this.isCasting && this.weapon?.type === 'staff') {
                 ctx.fillStyle = '#0c4a6e'; ctx.fillRect(hpBarX, yPos, hpBarWidth, 4);
                 ctx.fillStyle = '#38bdf8'; ctx.fillRect(hpBarX, yPos, hpBarWidth * (this.castingProgress / this.castDuration), 4);
             } else if (this.attackCooldown > 0) {
                 ctx.fillStyle = '#0c4a6e'; ctx.fillRect(hpBarX, yPos, hpBarWidth, 4);
                 ctx.fillStyle = '#38bdf8'; ctx.fillRect(hpBarX, yPos, hpBarWidth * ((this.cooldownTime - this.attackCooldown) / this.cooldownTime), 4);
-            }
-        }
-
-        // 특수 스킬 게이지 (가장 위)
-        if (specialSkillIsVisible) {
-            if (this.isKing) {
-                ctx.fillStyle = '#78350f'; ctx.fillRect(hpBarX, nextBarY, hpBarWidth, 4);
-                ctx.fillStyle = '#f97316'; ctx.fillRect(hpBarX, nextBarY, hpBarWidth * ((this.spawnInterval - this.spawnCooldown) / this.spawnInterval), 4);
-            } else if (this.weapon?.type === 'magic_spear') {
-                ctx.fillStyle = '#3b0764'; ctx.fillRect(hpBarX, nextBarY, hpBarWidth, 4);
-                ctx.fillStyle = '#a855f7'; ctx.fillRect(hpBarX, nextBarY, hpBarWidth * ((300 - this.magicCircleCooldown) / 300), 4);
-            } else if (this.weapon?.type === 'boomerang') {
-                ctx.fillStyle = '#475569'; ctx.fillRect(hpBarX, nextBarY, hpBarWidth, 4);
-                ctx.fillStyle = '#94a3b8'; ctx.fillRect(hpBarX, nextBarY, hpBarWidth * ((480 - this.boomerangCooldown) / 480), 4);
-            } else if (this.weapon?.type === 'shuriken') {
-                ctx.fillStyle = '#475569'; ctx.fillRect(hpBarX, nextBarY, hpBarWidth, 4);
-                ctx.fillStyle = '#94a3b8'; ctx.fillRect(hpBarX, nextBarY, hpBarWidth * ((300 - this.shurikenSkillCooldown) / 300), 4);
-            } else if (this.weapon?.type === 'poison_potion' && this.isCasting) {
-                ctx.fillStyle = '#475569'; ctx.fillRect(hpBarX, nextBarY, hpBarWidth, 4);
-                ctx.fillStyle = '#94a3b8'; ctx.fillRect(hpBarX, nextBarY, hpBarWidth * (this.castingProgress / this.castDuration), 4);
             }
         }
         
