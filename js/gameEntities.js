@@ -529,8 +529,8 @@ export class AreaEffect {
 
             // 불기둥 범위 표시
             const grad = ctx.createRadialGradient(0, 0, this.currentRadius * 0.3, 0, 0, this.currentRadius);
-            grad.addColorStop(0, `rgba(255, 220, 150, ${opacity * 0.5})`);
-            grad.addColorStop(0.6, `rgba(255, 100, 0, ${opacity * 0.4})`);
+            grad.addColorStop(0, `rgba(255, 100, 0, ${opacity * 0.4})`);
+            grad.addColorStop(0.6, `rgba(255, 0, 0, ${opacity * 0.3})`);
             grad.addColorStop(1, `rgba(200, 0, 0, 0)`);
             ctx.fillStyle = grad;
             ctx.beginPath();
@@ -1084,7 +1084,8 @@ export class Unit {
     }
 
     attack(target) {
-        if (!target || this.attackCooldown > 0 || this.isCasting || this.isStunned > 0) return;
+        if (!target || this.attackCooldown > 0 || this.isStunned > 0) return;
+        if (this.isCasting && this.weapon.type !== 'poison_potion') return;
         const gameManager = GameManager.getInstance();
         if (!gameManager) return;
         
@@ -1279,10 +1280,11 @@ export class Unit {
             }
             if (this.castingProgress >= this.castDuration) {
                 this.isCasting = false; this.castingProgress = 0;
-                this.attackCooldown = this.cooldownTime;
+                
                 if (this.weapon.type === 'staff') {
                     gameManager.audioManager.play('fireball');
                     gameManager.castAreaSpell(this.castTargetPos, 'fire_pillar', this.attackPower, this.team);
+                    this.attackCooldown = this.cooldownTime;
                 } else if (this.weapon.type === 'poison_potion') {
                     this.hp = 0; // 자폭
                 }
@@ -1402,13 +1404,13 @@ export class Unit {
         }
         this.state = newState;
         this.target = newTarget;
-
+        
         if (this.weapon && this.weapon.type === 'poison_potion' && !this.isCasting && this.target) {
             this.isCasting = true;
             this.castingProgress = 0;
             this.castDuration = 180; // 3초
         }
-        
+
         switch(this.state) {
             case 'FLEEING_FIELD':
                 this.moveTarget = gameManager.findClosestSafeSpot(this.pixelX, this.pixelY);
@@ -1659,8 +1661,8 @@ export class Unit {
         
         let skillBarY = hpBarY - 6;
         let specialSkillDrawn = false;
-
-        // 특수 스킬 쿨타임 바
+        
+        // 특수 스킬 게이지 (위에 표시)
         if (this.isKing && this.spawnCooldown > 0) {
             ctx.fillStyle = '#78350f';
             ctx.fillRect(hpBarX, skillBarY, hpBarWidth, 4);
@@ -1686,16 +1688,22 @@ export class Unit {
             ctx.fillRect(hpBarX, skillBarY, hpBarWidth * ((300 - this.shurikenSkillCooldown) / 300), 4);
             specialSkillDrawn = true;
         } else if (this.isCasting) {
-             ctx.fillStyle = '#475569'; // 캐스팅 바 색상
+             let bgColor = '#475569';
+             let fgColor = '#94a3b8';
+             if (this.weapon?.type === 'staff') {
+                bgColor = '#0c4a6e';
+                fgColor = '#38bdf8';
+             }
+             ctx.fillStyle = bgColor; 
              ctx.fillRect(hpBarX, skillBarY, hpBarWidth, 4);
-             ctx.fillStyle = '#94a3b8'; // 캐스팅 진행 바 색상
+             ctx.fillStyle = fgColor; 
              ctx.fillRect(hpBarX, skillBarY, hpBarWidth * (this.castingProgress / this.castDuration), 4);
              specialSkillDrawn = true;
         }
 
-        // 일반 공격 쿨타임 바
+        // 일반 공격 게이지 (아래에 표시)
         let attackBarY = specialSkillDrawn ? skillBarY + 5 : skillBarY;
-        if (!this.isCasting && this.attackCooldown > 0) {
+        if (this.attackCooldown > 0 && this.weapon?.type !== 'staff') {
             ctx.fillStyle = '#0c4a6e';
             ctx.fillRect(hpBarX, attackBarY, hpBarWidth, 4);
             ctx.fillStyle = '#38bdf8';
