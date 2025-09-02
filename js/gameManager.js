@@ -130,6 +130,7 @@ export class GameManager {
                 <button class="tool-btn" data-tool="tile" data-type="CRACKED_WALL">부서지는 벽</button>
                 <button class="tool-btn" data-tool="tile" data-type="HEAL_PACK">회복 팩</button>
                 <button class="tool-btn" data-tool="tile" data-type="TELEPORTER">텔레포터</button>
+                <button class="tool-btn" data-tool="tile" data-type="QUESTION_MARK">물음표</button>
                 <div class="flex items-center gap-2 mt-1">
                     <button class="tool-btn flex-grow" data-tool="tile" data-type="REPLICATION_TILE">+N 복제</button>
                     <input type="number" id="replicationValue" value="${this.replicationValue}" min="1" class="modal-input w-16">
@@ -336,6 +337,7 @@ export class GameManager {
                         case TILE.HEAL_PACK: prevCtx.fillStyle = COLORS.HEAL_PACK; break;
                         case TILE.REPLICATION_TILE: prevCtx.fillStyle = COLORS.REPLICATION_TILE; break;
                         case TILE.TELEPORTER: prevCtx.fillStyle = COLORS.TELEPORTER; break;
+                        case TILE.QUESTION_MARK: prevCtx.fillStyle = COLORS.QUESTION_MARK; break;
                         default: prevCtx.fillStyle = COLORS.FLOOR; break;
                     }
                     prevCtx.fillRect(x * pixelSizeX, y * pixelSizeY, pixelSizeX + 0.5, pixelSizeY + 0.5);
@@ -1112,6 +1114,7 @@ export class GameManager {
                 else if (tile.type === TILE.CRACKED_WALL) this.ctx.fillStyle = COLORS.CRACKED_WALL;
                 else if (tile.type === TILE.HEAL_PACK) this.ctx.fillStyle = COLORS.HEAL_PACK;
                 else if (tile.type === TILE.REPLICATION_TILE) this.ctx.fillStyle = COLORS.REPLICATION_TILE;
+                else if (tile.type === TILE.QUESTION_MARK) this.ctx.fillStyle = COLORS.QUESTION_MARK;
                 else {
                     this.ctx.fillStyle = COLORS.FLOOR;
                 }
@@ -1155,6 +1158,12 @@ export class GameManager {
                 if(tile.type === TILE.REPLICATION_TILE) {
                     this.ctx.fillStyle = 'black'; this.ctx.font = 'bold 12px Arial'; this.ctx.textAlign = 'center';
                     this.ctx.fillText(`+${tile.replicationValue}`, x * GRID_SIZE + 10, y * GRID_SIZE + 14);
+                }
+                if (tile.type === TILE.QUESTION_MARK) {
+                    this.ctx.fillStyle = 'black';
+                    this.ctx.font = 'bold 16px Arial';
+                    this.ctx.textAlign = 'center';
+                    this.ctx.fillText('?', x * GRID_SIZE + 10, y * GRID_SIZE + 16);
                 }
 
                 if (this.state === 'EDIT') {
@@ -1366,6 +1375,26 @@ export class GameManager {
         if (availableTiles.length > 0) {
             const pos = availableTiles[Math.floor(Math.random() * availableTiles.length)];
             this.magicCircles.push(new MagicCircle(pos.x, pos.y, team));
+        }
+    }
+
+    spawnRandomWeaponNear(pos) {
+        const weaponTypes = ['sword', 'bow', 'dual_swords', 'staff', 'lightning', 'magic_spear', 'boomerang', 'poison_potion', 'hadoken', 'shuriken', 'crown'];
+        const randomType = weaponTypes[Math.floor(Math.random() * weaponTypes.length)];
+
+        for (let i = 0; i < 10; i++) { // 최대 10번 시도
+            const angle = Math.random() * Math.PI * 2;
+            const radius = GRID_SIZE * (Math.random() * 2 + 1); // 1~3타일 반경
+            const spawnX = Math.floor((pos.x + Math.cos(angle) * radius) / GRID_SIZE);
+            const spawnY = Math.floor((pos.y + Math.sin(angle) * radius) / GRID_SIZE);
+
+            if (spawnY >= 0 && spawnY < this.ROWS && spawnX >= 0 && spawnX < this.COLS && this.map[spawnY][spawnX].type === TILE.FLOOR) {
+                const isOccupied = this.weapons.some(w => w.gridX === spawnX && w.gridY === spawnY);
+                if (!isOccupied) {
+                    this.weapons.push(this.createWeapon(spawnX, spawnY, randomType));
+                    return;
+                }
+            }
         }
     }
 
