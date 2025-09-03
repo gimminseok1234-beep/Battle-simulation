@@ -324,7 +324,8 @@ export class Projectile {
 
         if (gridY >= 0 && gridY < gameManager.ROWS && gridX >= 0 && gridX < gameManager.COLS) {
             const tile = gameManager.map[gridY][gridX];
-            if (tile.type === TILE.WALL || tile.type === TILE.CRACKED_WALL) {
+            // 마법창 특수 공격은 벽을 통과하도록 수정
+            if (this.type !== 'magic_spear_special' && (tile.type === TILE.WALL || tile.type === TILE.CRACKED_WALL)) {
                 if (tile.type === TILE.CRACKED_WALL) {
                     gameManager.damageTile(gridX, gridY, this.damage);
                 }
@@ -1145,8 +1146,8 @@ export class Unit {
                     gameManager.damageTile(nextGridX, nextGridY, 999);
                 }
                 const bounceAngle = this.facingAngle + Math.PI + (Math.random() - 0.5);
-                this.knockbackX += Math.cos(bounceAngle) * 2;
-                this.knockbackY += Math.sin(bounceAngle) * 2;
+                this.knockbackX += Math.cos(bounceAngle) * 1.5; // 반동을 2에서 1.5로 줄임
+                this.knockbackY += Math.sin(bounceAngle) * 1.5; // 반동을 2에서 1.5로 줄임
                 this.moveTarget = null;
                 return;
             }
