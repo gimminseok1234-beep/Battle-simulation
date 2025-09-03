@@ -461,7 +461,7 @@ export class Projectile {
             ctx.save();
             ctx.translate(this.pixelX, this.pixelY);
             ctx.rotate(this.rotationAngle);
-            this.owner.weapon.drawBoomerang(ctx, 0.6, 0, '#18181b'); // 검은색 부메랑
+            this.owner.weapon.drawBoomerang(ctx, 0.3, 0, '#18181b'); // 검은색 부메랑, 크기 50% 감소
             ctx.restore();
         }
     }
@@ -1391,7 +1391,7 @@ export class Unit {
             if (currentTile.type === TILE.LAVA) this.hp -= 0.2 * gameManager.gameSpeed;
             if (currentTile.type === TILE.HEAL_PACK) {
                 this.hp = 100;
-                gameManager.map[currentGridY][currentGridX] = { type: TILE.FLOOR, color: gameManager.currentFloorColor };
+                gameManager.map[currentGridY][currentGridX] = { type: TILE.FLOOR };
                 gameManager.audioManager.play('heal');
             }
             if (currentTile.type === TILE.TELEPORTER && this.teleportCooldown <= 0) {
@@ -1410,11 +1410,11 @@ export class Unit {
                 for(let i = 0; i < currentTile.replicationValue; i++) {
                     gameManager.spawnUnit(this, true);
                 }
-                gameManager.map[currentGridY][currentGridX] = { type: TILE.FLOOR, color: gameManager.currentFloorColor };
+                gameManager.map[currentGridY][currentGridX] = { type: TILE.FLOOR };
                 gameManager.audioManager.play('replication');
             }
             if (currentTile.type === TILE.QUESTION_MARK) {
-                gameManager.map[currentGridY][currentGridX] = { type: TILE.FLOOR, color: gameManager.currentFloorColor };
+                gameManager.map[currentGridY][currentGridX] = { type: TILE.FLOOR };
                 gameManager.createEffect('question_mark_effect', this.pixelX, this.pixelY);
                 gameManager.spawnRandomWeaponNear({ x: this.pixelX, y: this.pixelY });
             }
@@ -1873,3 +1873,4 @@ export class Unit {
         }
     }
 }
+
