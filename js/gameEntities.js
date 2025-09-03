@@ -1166,7 +1166,7 @@ export class Unit {
         if (this.weapon && this.weapon.type === 'staff' && (target instanceof Unit || target instanceof Nexus)) {
             this.isCasting = true;
             this.castingProgress = 0;
-            this.castDuration = 120; // 2초 시전 시간
+            this.castDuration = 240; // 4초 시전 시간으로 변경
             this.castTargetPos = { x: target.pixelX, y: target.pixelY };
             this.target = target;
             return; 
@@ -1364,7 +1364,7 @@ export class Unit {
                 if (this.weapon.type === 'staff') {
                     gameManager.audioManager.play('fireball');
                     gameManager.castAreaSpell(this.castTargetPos, 'fire_pillar', this.attackPower, this.team);
-                    this.attackCooldown = this.cooldownTime;
+                    this.attackCooldown = 0; // 재사용 대기시간 제거
                 } else if (this.weapon.type === 'poison_potion') {
                     this.hp = 0; // 자폭
                 }
@@ -1772,7 +1772,7 @@ export class Unit {
         const barX = this.pixelX - barWidth / 2;
         
         const healthBarIsVisible = this.hp < 100 || this.hpBarVisibleTimer > 0;
-        const normalAttackIsVisible = (this.isCasting && this.weapon?.type === 'staff') || this.attackCooldown > 0;
+        const normalAttackIsVisible = (this.isCasting && this.weapon?.type === 'staff') || (this.attackCooldown > 0 && this.weapon?.type !== 'staff');
         let specialSkillIsVisible = 
             (this.isKing && this.spawnCooldown > 0) ||
             (this.weapon?.type === 'magic_spear' && this.magicCircleCooldown > 0) ||
@@ -1869,4 +1869,3 @@ export class Unit {
         }
     }
 }
-
