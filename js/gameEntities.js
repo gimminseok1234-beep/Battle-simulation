@@ -1405,12 +1405,7 @@ export class Unit {
         
         const currentGridX = Math.floor(this.pixelX / GRID_SIZE);
         const currentGridY = Math.floor(this.pixelY / GRID_SIZE);
-
-        this.isInMagneticField = gameManager.isPosInAnyField(currentGridX, currentGridY);
-        if(this.isInMagneticField) {
-            this.takeDamage(0.3 * gameManager.gameSpeed);
-        }
-
+        
         if (this.isCasting) {
             this.castingProgress += gameManager.gameSpeed;
             if (!this.target || (this.target instanceof Unit && this.target.hp <= 0)) {
@@ -1477,6 +1472,9 @@ export class Unit {
             }
         }
         
+        // 물리 효과 적용을 로직의 마지막 부분으로 이동
+        this.applyPhysics();
+        
         if (this.weapon && this.weapon.type === 'magic_spear') {
             if (this.magicCircleCooldown <= 0) {
                 gameManager.spawnMagicCircle(this.team);
@@ -1504,7 +1502,8 @@ export class Unit {
         let newState = 'IDLE';
         let newTarget = null;
         
-        if (this.isInMagneticField) {
+        this.isInMagneticField = gameManager.isPosInAnyField(currentGridX, currentGridY);
+        if(this.isInMagneticField) {
             newState = 'FLEEING_FIELD';
         } else {
             const enemyNexus = gameManager.nexuses.find(n => n.team !== this.team && !n.isDestroying);
@@ -1621,7 +1620,6 @@ export class Unit {
                 break;
         }
         this.move();
-        this.applyPhysics();
     }
 
     draw(ctx) {
