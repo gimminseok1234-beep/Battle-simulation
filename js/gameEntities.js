@@ -996,6 +996,7 @@ export class Unit {
     get attackRange() { return this.baseAttackRange + (this.weapon ? this.weapon.attackRangeBonus || 0 : 0); }
     get detectionRange() { return this.baseDetectionRange + (this.weapon ? this.weapon.detectionRangeBonus || 0 : 0); }
     get cooldownTime() { 
+        if (this.weapon && this.weapon.type === 'staff') return 120; // 스태프 쿨다운 2초로 고정
         if (this.weapon && this.weapon.type === 'hadoken') return 120; // 장풍 전용 쿨타임
         return this.baseCooldownTime + (this.weapon ? this.weapon.attackCooldownBonus || 0 : 0); 
     }
@@ -1025,7 +1026,7 @@ export class Unit {
         const gameManager = GameManager.getInstance();
         if (!gameManager) return;
     
-        // 넉백 적용 및 벽 충돌 확인 (장풍 오류 수정)
+        // Knockback 적용
         if (this.knockbackX !== 0 || this.knockbackY !== 0) {
             const nextX = this.pixelX + this.knockbackX * gameManager.gameSpeed;
             const nextY = this.pixelY + this.knockbackY * gameManager.gameSpeed;
@@ -1035,7 +1036,6 @@ export class Unit {
     
             if (gridY >= 0 && gridY < gameManager.ROWS && gridX >= 0 && gridX < gameManager.COLS &&
                 (gameManager.map[gridY][gridX].type === TILE.WALL || gameManager.map[gridY][gridX].type === TILE.CRACKED_WALL)) {
-                // 벽에 부딪히면 넉백을 멈춤
                 this.knockbackX = 0;
                 this.knockbackY = 0;
             } else {
@@ -1062,11 +1062,32 @@ export class Unit {
                     const overlap = minDistance - distance;
                     const moveX = (overlap / 2) * Math.cos(angle);
                     const moveY = (overlap / 2) * Math.sin(angle);
-    
-                    this.pixelX -= moveX;
-                    this.pixelY -= moveY;
-                    otherUnit.pixelX += moveX;
-                    otherUnit.pixelY += moveY;
+                    
+                    // 벽 끼임 방지 로직 추가
+                    const myNextX = this.pixelX - moveX;
+                    const myNextY = this.pixelY - moveY;
+                    const otherNextX = otherUnit.pixelX + moveX;
+                    const otherNextY = otherUnit.pixelY + moveY;
+
+                    const myGridX = Math.floor(myNextX / GRID_SIZE);
+                    const myGridY = Math.floor(myNextY / GRID_SIZE);
+                    const otherGridX = Math.floor(otherNextX / GRID_SIZE);
+                    const otherGridY = Math.floor(otherNextY / GRID_SIZE);
+
+                    const isMyNextPosWall = (myGridY < 0 || myGridY >= gameManager.ROWS || myGridX < 0 || myGridX >= gameManager.COLS) ||
+                                          (gameManager.map[myGridY][myGridX].type === TILE.WALL || gameManager.map[myGridY][myGridX].type === TILE.CRACKED_WALL);
+
+                    const isOtherNextPosWall = (otherGridY < 0 || otherGridY >= gameManager.ROWS || otherGridX < 0 || otherGridX >= gameManager.COLS) ||
+                                             (gameManager.map[otherGridY][otherGridX].type === TILE.WALL || gameManager.map[otherGridY][otherGridX].type === TILE.CRACKED_WALL);
+                    
+                    if (!isMyNextPosWall) {
+                        this.pixelX = myNextX;
+                        this.pixelY = myNextY;
+                    }
+                     if (!isOtherNextPosWall) {
+                        otherUnit.pixelX = otherNextX;
+                        otherUnit.pixelY = otherNextY;
+                    }
                 }
             }
         });
@@ -1140,14 +1161,14 @@ export class Unit {
         const gameManager = GameManager.getInstance();
         if (!gameManager) return;
 
-        // 스태프 유닛은 캐스팅 로직을 최우선으로 실행합니다. (스태프 오류 수정)
+        // 스태프 유닛은 캐스팅 로직을 최우선으로 실행합니다.
         if (this.weapon && this.weapon.type === 'staff' && (target instanceof Unit || target instanceof Nexus)) {
             this.isCasting = true;
             this.castingProgress = 0;
-            this.castDuration = 120; // 2초
+            this.castDuration = 120; // 2초 시전 시간
             this.castTargetPos = { x: target.pixelX, y: target.pixelY };
             this.target = target;
-            return; // 캐스팅을 시작했으므로 여기서 함수를 종료합니다.
+            return; 
         }
         
         const currentAttackPower = this.attackPower;
@@ -1759,7 +1780,7 @@ export class Unit {
             (this.isCasting && this.weapon?.type === 'poison_potion');
 
         // 유닛이 일반 공격 쿨다운 중일 때는 특수 공격 게이지를 숨깁니다.
-        if (this.attackCooldown > 0) {
+        if (this.attackCooldown > 0 && !this.isCasting) {
             specialSkillIsVisible = false;
         }
         
