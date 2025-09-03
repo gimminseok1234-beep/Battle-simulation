@@ -1057,14 +1057,12 @@ export class GameManager {
                     }
                 }
             }
-
+            
             if (hit && p.type === 'lightning_bolt' && primaryTarget instanceof Unit) {
-                // Find the next closest enemy to the primary target
                 let closestEnemy = null;
                 let minDistance = Infinity;
 
                 this.units.forEach(unit => {
-                    // Must be an enemy, not the one that was just hit, and alive
                     if (unit.team !== p.owner.team && unit !== primaryTarget && unit.hp > 0) {
                         const distance = Math.hypot(primaryTarget.pixelX - unit.pixelX, primaryTarget.pixelY - unit.pixelY);
                         if (distance < minDistance) {
@@ -1074,17 +1072,10 @@ export class GameManager {
                     }
                 });
 
-                // If another target is found, create a new projectile
                 if (closestEnemy) {
-                    // Create a new projectile originating from the hit target
                     const newProjectile = new Projectile(p.owner, closestEnemy, 'lightning_bolt');
                     newProjectile.pixelX = primaryTarget.pixelX;
                     newProjectile.pixelY = primaryTarget.pixelY;
-                    
-                    // Add a visual effect for the chain
-                    this.createEffect('chain_lightning', primaryTarget.pixelX, primaryTarget.pixelY, closestEnemy);
-                    
-                    // Add the new projectile to the simulation
                     this.projectiles.push(newProjectile);
                 }
             }
