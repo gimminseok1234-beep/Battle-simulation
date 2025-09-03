@@ -57,6 +57,9 @@ export class GameManager {
         this.growingFieldSettings = {
             direction: 'DOWN', speed: 4, delay: 0
         };
+        this.dashTileSettings = { // 돌진 타일 설정 추가
+            direction: 'RIGHT'
+        };
         this.autoMagneticField = {
             isActive: false,
             safeZoneSize: 6,
@@ -136,6 +139,10 @@ export class GameManager {
                 <div class="flex items-center gap-2 mt-1">
                     <button class="tool-btn flex-grow" data-tool="tile" data-type="REPLICATION_TILE">+N 복제</button>
                     <input type="number" id="replicationValue" value="${this.replicationValue}" min="1" class="modal-input w-16">
+                </div>
+                <div class="flex items-center gap-1 mt-1">
+                    <button class="tool-btn flex-grow" data-tool="tile" data-type="DASH_TILE">돌진 타일</button>
+                    <button id="dashTileSettingsBtn" class="p-2 rounded hover:bg-gray-600">⚙️</button>
                 </div>
                 <div class="flex items-center gap-1 mt-1">
                     <button class="tool-btn flex-grow" data-tool="growing_field">성장형 자기장</button>
@@ -383,6 +390,7 @@ export class GameManager {
                         case TILE.REPLICATION_TILE: prevCtx.fillStyle = COLORS.REPLICATION_TILE; break;
                         case TILE.TELEPORTER: prevCtx.fillStyle = COLORS.TELEPORTER; break;
                         case TILE.QUESTION_MARK: prevCtx.fillStyle = COLORS.QUESTION_MARK; break;
+                        case TILE.DASH_TILE: prevCtx.fillStyle = COLORS.DASH_TILE; break;
                         default: prevCtx.fillStyle = COLORS.FLOOR; break;
                     }
                     prevCtx.fillRect(x * pixelSizeX, y * pixelSizeY, pixelSizeX + 0.5, pixelSizeY + 0.5);
@@ -464,6 +472,10 @@ export class GameManager {
         document.getElementById('cancelRenameBtn').addEventListener('click', () => document.getElementById('renameMapModal').classList.remove('show-modal'));
         document.getElementById('cancelDeleteBtn').addEventListener('click', () => document.getElementById('deleteConfirmModal').classList.remove('show-modal'));
         document.getElementById('closeMapSettingsModal').addEventListener('click', () => document.getElementById('mapSettingsModal').classList.remove('show-modal'));
+        document.getElementById('closeDashTileModal').addEventListener('click', () => { // 돌진 타일 모달 닫기
+            this.dashTileSettings.direction = document.getElementById('dashTileDirection').value;
+            document.getElementById('dashTileModal').classList.remove('show-modal');
+        });
 
         // Home screen
         document.getElementById('addNewMapCard').addEventListener('click', () => {
@@ -582,6 +594,9 @@ export class GameManager {
                 document.getElementById('fieldSpeed').value = this.growingFieldSettings.speed;
                 document.getElementById('fieldDelay').value = this.growingFieldSettings.delay;
                 document.getElementById('growingFieldModal').classList.add('show-modal');
+            } else if (target.id === 'dashTileSettingsBtn' || target.parentElement.id === 'dashTileSettingsBtn') { // 돌진 타일 설정
+                document.getElementById('dashTileDirection').value = this.dashTileSettings.direction;
+                document.getElementById('dashTileModal').classList.add('show-modal');
             } else if (target.id === 'autoFieldSettingsBtn' || target.parentElement.id === 'autoFieldSettingsBtn') {
                  document.getElementById('autoFieldActiveToggle').checked = this.autoMagneticField.isActive;
                 document.getElementById('autoFieldShrinkTime').value = this.autoMagneticField.totalShrinkTime / 60;
@@ -822,7 +837,8 @@ export class GameManager {
                 type: tileType,
                 hp: tileType === TILE.CRACKED_WALL ? 50 : undefined,
                 color: tileType === TILE.WALL ? this.currentWallColor : (tileType === TILE.FLOOR ? this.currentFloorColor : undefined),
-                replicationValue: tileType === TILE.REPLICATION_TILE ? this.replicationValue : undefined
+                replicationValue: tileType === TILE.REPLICATION_TILE ? this.replicationValue : undefined,
+                direction: tileType === TILE.DASH_TILE ? this.dashTileSettings.direction : undefined // 돌진 타일 방향 저장
             };
         } else if (this.currentTool.tool === 'unit' && !itemExists) {
             this.units.push(new Unit(x, y, this.currentTool.team));
@@ -1154,18 +1170,15 @@ export class GameManager {
                 if (!this.map || !this.map[y] || !this.map[y][x]) continue;
                 const tile = this.map[y][x];
                 
-                if (tile.type === TILE.WALL) {
-                    this.ctx.fillStyle = tile.color || COLORS.WALL;
-                } else if (tile.type === TILE.FLOOR) {
-                    this.ctx.fillStyle = tile.color || COLORS.FLOOR;
-                } else if (tile.type === TILE.LAVA) this.ctx.fillStyle = COLORS.LAVA;
+                if (tile.type === TILE.WALL) this.ctx.fillStyle = tile.color || COLORS.WALL;
+                else if (tile.type === TILE.FLOOR) this.ctx.fillStyle = tile.color || COLORS.FLOOR;
+                else if (tile.type === TILE.LAVA) this.ctx.fillStyle = COLORS.LAVA;
                 else if (tile.type === TILE.CRACKED_WALL) this.ctx.fillStyle = COLORS.CRACKED_WALL;
                 else if (tile.type === TILE.HEAL_PACK) this.ctx.fillStyle = COLORS.HEAL_PACK;
                 else if (tile.type === TILE.REPLICATION_TILE) this.ctx.fillStyle = COLORS.REPLICATION_TILE;
                 else if (tile.type === TILE.QUESTION_MARK) this.ctx.fillStyle = COLORS.QUESTION_MARK;
-                else {
-                    this.ctx.fillStyle = COLORS.FLOOR;
-                }
+                else if (tile.type === TILE.DASH_TILE) this.ctx.fillStyle = COLORS.DASH_TILE;
+                else this.ctx.fillStyle = COLORS.FLOOR;
                 
                 this.ctx.fillRect(x * GRID_SIZE, y * GRID_SIZE, GRID_SIZE, GRID_SIZE);
 
@@ -1212,6 +1225,27 @@ export class GameManager {
                     this.ctx.font = 'bold 16px Arial';
                     this.ctx.textAlign = 'center';
                     this.ctx.fillText('?', x * GRID_SIZE + 10, y * GRID_SIZE + 16);
+                }
+                if (tile.type === TILE.DASH_TILE) {
+                    this.ctx.save();
+                    this.ctx.translate(x * GRID_SIZE + GRID_SIZE / 2, y * GRID_SIZE + GRID_SIZE / 2);
+                    let angle = 0;
+                    switch(tile.direction) {
+                        case 'RIGHT': angle = 0; break;
+                        case 'LEFT': angle = Math.PI; break;
+                        case 'DOWN': angle = Math.PI / 2; break;
+                        case 'UP': angle = -Math.PI / 2; break;
+                    }
+                    this.ctx.rotate(angle);
+                    this.ctx.fillStyle = 'black';
+                    this.ctx.beginPath();
+                    this.ctx.moveTo(-6, -6);
+                    this.ctx.lineTo(4, 0);
+                    this.ctx.lineTo(-6, 6);
+                    this.ctx.lineTo(-4, 0);
+                    this.ctx.closePath();
+                    this.ctx.fill();
+                    this.ctx.restore();
                 }
 
                 if (this.state === 'EDIT') {
@@ -1555,4 +1589,3 @@ export class GameManager {
         this.resetActionCam(true);
     }
 }
-
