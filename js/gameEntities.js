@@ -978,16 +978,16 @@ export class Unit {
         this.puller = null;
         this.pullTargetPos = null;
         this.hpBarVisibleTimer = 0;
-        this.isDashing = false; // 돌진 상태
-        this.dashDirection = null; // 돌진 방향
-        this.dashDistanceRemaining = 0; // 남은 돌진 거리
-        this.dashSpeed = 5; // 돌진 속도
-        this.dashTrail = []; // 돌진 잔상 효과
+        this.isDashing = false;
+        this.dashSpeed = 8;
+        this.dashDistanceRemaining = 0;
+        this.dashDirection = null;
+        this.dashTrail = [];
     }
     
     get speed() {
         const gameManager = GameManager.getInstance();
-        if (!gameManager || this.isStunned > 0 || this.isDashing) return 0;
+        if (!gameManager || this.isStunned > 0) return 0;
 
         let speedModifier = 0;
         if (this.isInMagneticField) speedModifier = -0.7;
@@ -1403,8 +1403,6 @@ export class Unit {
             }
         }
         
-        this.applyPhysics();
-
         const currentGridX = Math.floor(this.pixelX / GRID_SIZE);
         const currentGridY = Math.floor(this.pixelY / GRID_SIZE);
 
@@ -1623,34 +1621,33 @@ export class Unit {
                 break;
         }
         this.move();
+        this.applyPhysics();
     }
 
     draw(ctx) {
         const gameManager = GameManager.getInstance();
         if (!gameManager) return;
+
+        if (this.isDashing) {
+            this.dashTrail.forEach((pos, index) => {
+                const opacity = (index / this.dashTrail.length) * 0.5;
+                ctx.save();
+                ctx.globalAlpha = opacity;
+                switch(this.team) {
+                    case TEAM.A: ctx.fillStyle = COLORS.TEAM_A; break;
+                    case TEAM.B: ctx.fillStyle = COLORS.TEAM_B; break;
+                    case TEAM.C: ctx.fillStyle = COLORS.TEAM_C; break;
+                    case TEAM.D: ctx.fillStyle = COLORS.TEAM_D; break;
+                }
+                ctx.beginPath(); ctx.arc(pos.x, pos.y, GRID_SIZE / 2.5, 0, Math.PI * 2); ctx.fill();
+                ctx.restore();
+            });
+        }
         
         ctx.save();
 
-        if (this.isStunned > 0 || this.isDashing) {
+        if (this.isStunned > 0) {
             ctx.globalAlpha = 0.7;
-        }
-
-        // Draw dash trail
-        if (this.isDashing) {
-            for (let i = 0; i < this.dashTrail.length; i++) {
-                const pos = this.dashTrail[i];
-                const alpha = (i / this.dashTrail.length) * 0.5;
-                
-                switch(this.team) {
-                    case TEAM.A: ctx.fillStyle = `rgba(239, 68, 68, ${alpha})`; break;
-                    case TEAM.B: ctx.fillStyle = `rgba(59, 130, 246, ${alpha})`; break;
-                    case TEAM.C: ctx.fillStyle = `rgba(16, 185, 129, ${alpha})`; break;
-                    case TEAM.D: ctx.fillStyle = `rgba(250, 204, 21, ${alpha})`; break;
-                }
-                ctx.beginPath();
-                ctx.arc(pos.x, pos.y, (GRID_SIZE / 2.5) * (i / this.dashTrail.length), 0, Math.PI * 2);
-                ctx.fill();
-            }
         }
 
         switch(this.team) {
@@ -1950,3 +1947,4 @@ export class Unit {
         }
     }
 }
+
