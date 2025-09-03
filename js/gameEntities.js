@@ -978,11 +978,16 @@ export class Unit {
         this.puller = null;
         this.pullTargetPos = null;
         this.hpBarVisibleTimer = 0;
+        this.isDashing = false; // 돌진 상태
+        this.dashDirection = null; // 돌진 방향
+        this.dashDistanceRemaining = 0; // 남은 돌진 거리
+        this.dashSpeed = 5; // 돌진 속도
+        this.dashTrail = []; // 돌진 잔상 효과
     }
     
     get speed() {
         const gameManager = GameManager.getInstance();
-        if (!gameManager || this.isStunned > 0) return 0;
+        if (!gameManager || this.isStunned > 0 || this.isDashing) return 0;
 
         let speedModifier = 0;
         if (this.isInMagneticField) speedModifier = -0.7;
@@ -1283,6 +1288,52 @@ export class Unit {
         const gameManager = GameManager.getInstance();
         if (!gameManager) return;
         
+        if (this.isDashing) {
+            this.dashTrail.push({x: this.pixelX, y: this.pixelY});
+            if (this.dashTrail.length > 5) this.dashTrail.shift();
+    
+            let moveX = 0, moveY = 0;
+            switch(this.dashDirection) {
+                case 'RIGHT': moveX = this.dashSpeed; break;
+                case 'LEFT':  moveX = -this.dashSpeed; break;
+                case 'DOWN':  moveY = this.dashSpeed; break;
+                case 'UP':    moveY = -this.dashSpeed; break;
+            }
+    
+            for (let i = 0; i < gameManager.gameSpeed; i++) {
+                const nextX = this.pixelX + moveX;
+                const nextY = this.pixelY + moveY;
+                const gridX = Math.floor(nextX / GRID_SIZE);
+                const gridY = Math.floor(nextY / GRID_SIZE);
+    
+                if (gridY < 0 || gridY >= gameManager.ROWS || gridX < 0 || gridX >= gameManager.COLS) {
+                    this.isDashing = false;
+                    break;
+                }
+    
+                const tile = gameManager.map[gridY][gridX];
+                if (tile.type === TILE.WALL) {
+                    this.isDashing = false;
+                    break;
+                }
+    
+                if (tile.type === TILE.CRACKED_WALL) {
+                    gameManager.damageTile(gridX, gridY, 999);
+                }
+    
+                this.pixelX = nextX;
+                this.pixelY = nextY;
+                this.dashDistanceRemaining -= this.dashSpeed;
+    
+                if (this.dashDistanceRemaining <= 0) {
+                    this.isDashing = false;
+                    break;
+                }
+            }
+            if (!this.isDashing) this.dashTrail = [];
+            return;
+        }
+        
         if (this.hpBarVisibleTimer > 0) this.hpBarVisibleTimer--;
 
         if (this.isBeingPulled && this.puller) {
@@ -1417,6 +1468,14 @@ export class Unit {
                 gameManager.map[currentGridY][currentGridX] = { type: TILE.FLOOR };
                 gameManager.createEffect('question_mark_effect', this.pixelX, this.pixelY);
                 gameManager.spawnRandomWeaponNear({ x: this.pixelX, y: this.pixelY });
+            }
+            if (currentTile.type === TILE.DASH_TILE) {
+                this.isDashing = true;
+                this.dashDirection = currentTile.direction;
+                this.dashDistanceRemaining = 5 * GRID_SIZE;
+                this.state = 'IDLE';
+                this.moveTarget = null;
+                return;
             }
         }
         
@@ -1572,8 +1631,26 @@ export class Unit {
         
         ctx.save();
 
-        if (this.isStunned > 0) {
+        if (this.isStunned > 0 || this.isDashing) {
             ctx.globalAlpha = 0.7;
+        }
+
+        // Draw dash trail
+        if (this.isDashing) {
+            for (let i = 0; i < this.dashTrail.length; i++) {
+                const pos = this.dashTrail[i];
+                const alpha = (i / this.dashTrail.length) * 0.5;
+                
+                switch(this.team) {
+                    case TEAM.A: ctx.fillStyle = `rgba(239, 68, 68, ${alpha})`; break;
+                    case TEAM.B: ctx.fillStyle = `rgba(59, 130, 246, ${alpha})`; break;
+                    case TEAM.C: ctx.fillStyle = `rgba(16, 185, 129, ${alpha})`; break;
+                    case TEAM.D: ctx.fillStyle = `rgba(250, 204, 21, ${alpha})`; break;
+                }
+                ctx.beginPath();
+                ctx.arc(pos.x, pos.y, (GRID_SIZE / 2.5) * (i / this.dashTrail.length), 0, Math.PI * 2);
+                ctx.fill();
+            }
         }
 
         switch(this.team) {
@@ -1873,4 +1950,3 @@ export class Unit {
         }
     }
 }
-
