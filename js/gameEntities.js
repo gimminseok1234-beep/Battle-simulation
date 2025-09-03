@@ -283,7 +283,7 @@ export class Projectile {
         if (type === 'hadoken') this.speed = 4;
         else if (type === 'shuriken') this.speed = 2;
         else if (type === 'lightning_bolt') this.speed = 8;
-        else if (type === 'boomerang_projectile') this.speed = 5;
+        else if (type === 'boomerang_projectile' || type === 'boomerang_normal_projectile') this.speed = 5;
         else this.speed = 6;
 
         this.damage = owner.attackPower;
@@ -293,7 +293,10 @@ export class Projectile {
             this.damage = (owner.weapon?.normalAttackPowerBonus || 0) + owner.baseAttackPower;
         } else if (type === 'boomerang_projectile') {
             this.damage = 0;
+        } else if (type === 'boomerang_normal_projectile') {
+            this.damage = 12;
         }
+
 
         this.knockback = (type === 'hadoken') ? gameManager.hadokenKnockback : 0;
         const inaccuracy = (type === 'shuriken' || type === 'lightning_bolt') ? 0 : GRID_SIZE * 0.8;
@@ -313,7 +316,7 @@ export class Projectile {
             this.trail.push({x: this.pixelX, y: this.pixelY});
             if (this.trail.length > 10) this.trail.shift();
         }
-        if (this.type === 'shuriken' || this.type === 'boomerang_projectile') {
+        if (this.type === 'shuriken' || this.type === 'boomerang_projectile' || this.type === 'boomerang_normal_projectile') {
             this.rotationAngle += 0.4 * gameManager.gameSpeed;
         }
 
@@ -453,6 +456,12 @@ export class Projectile {
             ctx.translate(this.pixelX, this.pixelY);
             ctx.rotate(this.rotationAngle); 
             this.owner.weapon.drawBoomerang(ctx, 0.6); 
+            ctx.restore();
+        } else if (this.type === 'boomerang_normal_projectile') {
+            ctx.save();
+            ctx.translate(this.pixelX, this.pixelY);
+            ctx.rotate(this.rotationAngle);
+            this.owner.weapon.drawBoomerang(ctx, 0.6, 0, '#18181b'); // 검은색 부메랑
             ctx.restore();
         }
     }
@@ -741,7 +750,7 @@ export class Weapon {
         ctx.restore();
     }
     
-    drawBoomerang(ctx, scale = 1.0, rotation = 0) {
+    drawBoomerang(ctx, scale = 1.0, rotation = 0, color = null) {
         ctx.save();
         ctx.rotate(rotation);
         ctx.scale(scale, scale);
@@ -750,7 +759,7 @@ export class Weapon {
         grad.addColorStop(0, '#e5e7eb'); // Light Silver
         grad.addColorStop(1, '#9ca3af'); // Dark Silver
 
-        ctx.fillStyle = grad;
+        ctx.fillStyle = color || grad;
         ctx.strokeStyle = '#18181b';
         ctx.lineWidth = 2 / scale;
         ctx.lineJoin = 'round';
@@ -1224,8 +1233,8 @@ export class Unit {
                 gameManager.createProjectile(this, target, 'magic_spear_normal');
                  this.attackCooldown = this.cooldownTime;
             } else if (this.weapon && this.weapon.type === 'boomerang') {
-                target.takeDamage(15); 
-                 this.attackCooldown = this.cooldownTime;
+                gameManager.createProjectile(this, target, 'boomerang_normal_projectile');
+                this.attackCooldown = this.cooldownTime;
             } else if (this.weapon && this.weapon.type === 'poison_potion') {
                 target.takeDamage(15);
                 this.attackCooldown = this.cooldownTime;
@@ -1534,11 +1543,6 @@ export class Unit {
                     let attackDistance = this.attackRange;
                     if (this.weapon && this.weapon.type === 'poison_potion') {
                         attackDistance = this.baseAttackRange;
-                    }
-                    if (this.weapon && this.weapon.type === 'boomerang') {
-                        if (this.target instanceof Nexus || this.boomerangCooldown > 0) {
-                            attackDistance = this.baseAttackRange;
-                        }
                     }
                     if (Math.hypot(this.pixelX - this.target.pixelX, this.pixelY - this.target.pixelY) <= attackDistance) {
                         this.moveTarget = null;
@@ -1869,4 +1873,3 @@ export class Unit {
         }
     }
 }
-
