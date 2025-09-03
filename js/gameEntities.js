@@ -1361,6 +1361,7 @@ export class Unit {
         
         if (this.isStunned > 0) {
             this.isStunned -= gameManager.gameSpeed;
+            this.applyPhysics(); // 기절 중에도 물리 효과는 적용
             return;
         }
 
@@ -1403,9 +1404,6 @@ export class Unit {
             }
         }
         
-        const currentGridX = Math.floor(this.pixelX / GRID_SIZE);
-        const currentGridY = Math.floor(this.pixelY / GRID_SIZE);
-        
         if (this.isCasting) {
             this.castingProgress += gameManager.gameSpeed;
             if (!this.target || (this.target instanceof Unit && this.target.hp <= 0)) {
@@ -1422,6 +1420,7 @@ export class Unit {
                     this.hp = 0; // 자폭
                 }
             }
+            this.applyPhysics(); // 시전 중에도 물리효과 적용
             return;
         }
 
@@ -1429,51 +1428,6 @@ export class Unit {
             gameManager.spawnUnit(this, false);
             this.spawnCooldown = this.spawnInterval;
         }
-        
-        if(currentGridY >= 0 && currentGridY < gameManager.ROWS && currentGridX >= 0 && currentGridX < gameManager.COLS) {
-            const currentTile = gameManager.map[currentGridY][currentGridX];
-            if (currentTile.type === TILE.LAVA) this.hp -= 0.2 * gameManager.gameSpeed;
-            if (currentTile.type === TILE.HEAL_PACK) {
-                this.hp = 100;
-                gameManager.map[currentGridY][currentGridX] = { type: TILE.FLOOR };
-                gameManager.audioManager.play('heal');
-            }
-            if (currentTile.type === TILE.TELEPORTER && this.teleportCooldown <= 0) {
-                const teleporters = gameManager.getTilesOfType(TILE.TELEPORTER);
-                if (teleporters.length > 1) {
-                    const otherTeleporter = teleporters.find(t => t.x !== currentGridX || t.y !== currentGridY);
-                    if (otherTeleporter) {
-                        this.pixelX = otherTeleporter.x * GRID_SIZE + GRID_SIZE / 2;
-                        this.pixelY = otherTeleporter.y * GRID_SIZE + GRID_SIZE / 2;
-                        this.teleportCooldown = 120;
-                        gameManager.audioManager.play('teleport');
-                    }
-                }
-            }
-            if (currentTile.type === TILE.REPLICATION_TILE && !this.isKing) {
-                for(let i = 0; i < currentTile.replicationValue; i++) {
-                    gameManager.spawnUnit(this, true);
-                }
-                gameManager.map[currentGridY][currentGridX] = { type: TILE.FLOOR };
-                gameManager.audioManager.play('replication');
-            }
-            if (currentTile.type === TILE.QUESTION_MARK) {
-                gameManager.map[currentGridY][currentGridX] = { type: TILE.FLOOR };
-                gameManager.createEffect('question_mark_effect', this.pixelX, this.pixelY);
-                gameManager.spawnRandomWeaponNear({ x: this.pixelX, y: this.pixelY });
-            }
-            if (currentTile.type === TILE.DASH_TILE) {
-                this.isDashing = true;
-                this.dashDirection = currentTile.direction;
-                this.dashDistanceRemaining = 5 * GRID_SIZE;
-                this.state = 'IDLE';
-                this.moveTarget = null;
-                return;
-            }
-        }
-        
-        // 물리 효과 적용을 로직의 마지막 부분으로 이동
-        this.applyPhysics();
         
         if (this.weapon && this.weapon.type === 'magic_spear') {
             if (this.magicCircleCooldown <= 0) {
@@ -1501,8 +1455,12 @@ export class Unit {
 
         let newState = 'IDLE';
         let newTarget = null;
+
+        // 자기장 데미지를 AI 로직 이전에 계산해야 유닛이 올바르게 반응합니다.
+        const currentGridXBeforeMove = Math.floor(this.pixelX / GRID_SIZE);
+        const currentGridYBeforeMove = Math.floor(this.pixelY / GRID_SIZE);
+        this.isInMagneticField = gameManager.isPosInAnyField(currentGridXBeforeMove, currentGridYBeforeMove);
         
-        this.isInMagneticField = gameManager.isPosInAnyField(currentGridX, currentGridY);
         if(this.isInMagneticField) {
             newState = 'FLEEING_FIELD';
         } else {
@@ -1619,7 +1577,64 @@ export class Unit {
                 }
                 break;
         }
+
+        // 1. 유닛 이동
         this.move();
+        
+        // 2. 물리 효과 및 경계 충돌 적용
+        this.applyPhysics();
+
+        // 3. 최종 위치 확정 후 환경 데미지 및 타일 효과 적용
+        const finalGridX = Math.floor(this.pixelX / GRID_SIZE);
+        const finalGridY = Math.floor(this.pixelY / GRID_SIZE);
+
+        // 자기장 데미지
+        if (this.isInMagneticField) {
+            this.takeDamage(0.3 * gameManager.gameSpeed);
+        }
+
+        // 타일 효과
+        if(finalGridY >= 0 && finalGridY < gameManager.ROWS && finalGridX >= 0 && finalGridX < gameManager.COLS) {
+            const currentTile = gameManager.map[finalGridY][finalGridX];
+            if (currentTile.type === TILE.LAVA) this.takeDamage(0.2 * gameManager.gameSpeed);
+            if (currentTile.type === TILE.HEAL_PACK) {
+                this.hp = 100;
+                gameManager.map[finalGridY][finalGridX] = { type: TILE.FLOOR };
+                gameManager.audioManager.play('heal');
+            }
+            if (currentTile.type === TILE.TELEPORTER && this.teleportCooldown <= 0) {
+                const teleporters = gameManager.getTilesOfType(TILE.TELEPORTER);
+                if (teleporters.length > 1) {
+                    const otherTeleporter = teleporters.find(t => t.x !== finalGridX || t.y !== finalGridY);
+                    if (otherTeleporter) {
+                        this.pixelX = otherTeleporter.x * GRID_SIZE + GRID_SIZE / 2;
+                        this.pixelY = otherTeleporter.y * GRID_SIZE + GRID_SIZE / 2;
+                        this.teleportCooldown = 120;
+                        gameManager.audioManager.play('teleport');
+                    }
+                }
+            }
+            if (currentTile.type === TILE.REPLICATION_TILE && !this.isKing) {
+                for(let i = 0; i < currentTile.replicationValue; i++) {
+                    gameManager.spawnUnit(this, true);
+                }
+                gameManager.map[finalGridY][finalGridX] = { type: TILE.FLOOR };
+                gameManager.audioManager.play('replication');
+            }
+            if (currentTile.type === TILE.QUESTION_MARK) {
+                gameManager.map[finalGridY][finalGridX] = { type: TILE.FLOOR };
+                gameManager.createEffect('question_mark_effect', this.pixelX, this.pixelY);
+                gameManager.spawnRandomWeaponNear({ x: this.pixelX, y: this.pixelY });
+            }
+            if (currentTile.type === TILE.DASH_TILE) {
+                this.isDashing = true;
+                this.dashDirection = currentTile.direction;
+                this.dashDistanceRemaining = 5 * GRID_SIZE;
+                this.state = 'IDLE';
+                this.moveTarget = null;
+                return;
+            }
+        }
     }
 
     draw(ctx) {
