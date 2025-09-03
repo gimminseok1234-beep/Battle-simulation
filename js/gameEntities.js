@@ -1166,7 +1166,7 @@ export class Unit {
         if (this.weapon && this.weapon.type === 'staff' && (target instanceof Unit || target instanceof Nexus)) {
             this.isCasting = true;
             this.castingProgress = 0;
-            this.castDuration = 240; // 4초 시전 시간으로 변경
+            this.castDuration = 180; // 3초 시전 시간으로 변경
             this.castTargetPos = { x: target.pixelX, y: target.pixelY };
             this.target = target;
             return; 
@@ -1869,3 +1869,4 @@ export class Unit {
         }
     }
 }
+
