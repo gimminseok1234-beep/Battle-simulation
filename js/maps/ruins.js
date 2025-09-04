@@ -1,9 +1,9 @@
 // js/maps/ruins.js
 
 /**
- * 맵 제목: 폐허 (Ruins) - 재설계 버전
- * 컨셉: 중앙의 용암 지대를 중심으로 한 대칭형 구조의 전장입니다.
- * 전략적인 위치에 배치된 벽과 아이템을 활용하여 전투를 유리하게 이끌 수 있습니다.
+ * 맵 제목: 폐허 (Ruins) - 최종 수정본
+ * 컨셉: 중앙 용암 지대를 중심으로 한 대칭형 전장.
+ * 규칙 준수: 겹침 방지, 기본 맵 크기, 유닛과 무기 수량 일치(각 10개)
  */
 
 // 각 타일 문자열을 객체로 변환하는 함수
@@ -67,16 +67,18 @@ export const ruinsMap = {
             })
         )
     ),
+    // 총 유닛: 10
     units: [
-        // Team A
+        // Team A (5)
         { gridX: 10, gridY: 2, team: 'A' }, { gridX: 12, gridY: 2, team: 'A' },
         { gridX: 9, gridY: 3, team: 'A' }, { gridX: 13, gridY: 3, team: 'A' },
         { gridX: 11, gridY: 4, team: 'A' },
-        // Team B
+        // Team B (5)
         { gridX: 10, gridY: 37, team: 'B' }, { gridX: 12, gridY: 37, team: 'B' },
         { gridX: 9, gridY: 36, team: 'B' }, { gridX: 13, gridY: 36, team: 'B' },
         { gridX: 11, gridY: 35, team: 'B' },
     ],
+    // 총 무기: 10 (유닛 수와 일치)
     weapons: [
         // 외곽 지역 무기
         { gridX: 2, gridY: 10, type: 'sword' }, { gridX: 20, gridY: 10, type: 'bow' },
@@ -84,11 +86,11 @@ export const ruinsMap = {
         
         // 중앙 지역 고급 무기
         { gridX: 8, gridY: 19, type: 'dual_swords' }, { gridX: 14, gridY: 20, type: 'dual_swords' },
-        { gridX: 11, gridY: 15, type: 'staff' }, { gridX: 11, gridY: 24, type: 'shuriken' },
-
+        { gridX: 11, gridY: 15, type: 'staff' },
+        
         // 시작 지점 근처 무기
         { gridX: 6, gridY: 5, type: 'sword' }, { gridX: 16, gridY: 5, type: 'bow' },
-        { gridX: 6, gridY: 34, type: 'bow' }, { gridX: 16, gridY: 34, type: 'sword' },
+        { gridX: 11, gridY: 34, type: 'shuriken' },
     ],
     growingFields: [],
 };
