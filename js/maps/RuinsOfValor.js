@@ -50,7 +50,7 @@ export const RuinsOfValor = {
         { x: 8, y: 8, type: 'dual_swords' },
         // Blue Team Side (5 weapons)
         { x: 29, y: 10, type: 'dual_swords' },
-        { x: 25, y: 18, type: 'staff' },
+        { x: 25, y: 17, type: 'staff' }, // 수정된 위치
         { x: 18, y: 14, type: 'bow' },
         { x: 30, y: 12, type: 'dual_swords' },
         { x: 23, y: 12, type: 'sword' },
