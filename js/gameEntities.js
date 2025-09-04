@@ -307,6 +307,12 @@ export class Projectile {
         this.destroyed = false;
         this.trail = [];
         this.rotationAngle = 0;
+
+        // BUG FIX: hitTargets Set 추가
+        this.hitTargets = options.hitTargets || new Set();
+        if (type === 'lightning_bolt' && options.initialTarget) {
+            this.hitTargets.add(options.initialTarget);
+        }
     }
     update() {
         const gameManager = GameManager.getInstance();
@@ -1960,4 +1966,3 @@ export class Unit {
         }
     }
 }
-
