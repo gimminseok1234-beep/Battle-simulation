@@ -899,22 +899,22 @@ export class GameManager {
             let gameOver = false;
             let winner = null;
 
+            // [수정] 새로운 승리 판정 로직
             if (this.initialNexusCount >= 2) {
-                if (activeNexusTeams.size === 1) {
+                // 넥서스가 하나 파괴되거나, 한 팀의 유닛이 전멸하면 게임 종료
+                if (activeNexusTeams.size < 2 || activeUnitTeams.size <= 1) {
                     gameOver = true;
-                    winner = activeNexusTeams.values().next().value;
-                } else if (activeNexusTeams.size === 0) {
-                    gameOver = true; 
-                    winner = null; 
+                    // 넥서스가 파괴된 경우, 남은 넥서스 팀이 승리
+                    if (activeNexusTeams.size < 2) {
+                        winner = activeNexusTeams.values().next().value || null;
+                    }
+                    // 유닛이 전멸한 경우, 남은 유닛 팀이 승리
+                    else {
+                        winner = activeUnitTeams.values().next().value || null;
+                    }
                 }
-            } else if (this.initialNexusCount === 1) {
-                if (activeNexusTeams.size === 0) {
-                    gameOver = true;
-                    winner = activeUnitTeams.size > 0 ? activeUnitTeams.values().next().value : null;
-                }
-            }
-
-            if (!gameOver) {
+            } else {
+                // 기존 로직 (넥서스가 1개 이하일 때)
                 const allRemainingTeams = new Set([...activeNexusTeams, ...activeUnitTeams]);
                 if (allRemainingTeams.size <= 1) {
                     const initialTeams = new Set(JSON.parse(this.initialNexusesState).map(n => n.team).concat(JSON.parse(this.initialUnitsState).map(u => u.team)));
