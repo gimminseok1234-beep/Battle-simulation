@@ -1,81 +1,94 @@
 // js/maps/ruins.js
 
 /**
- * 맵 제목: 폐허 (ruins)
- * 컨셉: 복잡한 구조와 다양한 타일을 특징으로 하는 맵입니다.
+ * 맵 제목: 폐허 (Ruins) - 재설계 버전
+ * 컨셉: 중앙의 용암 지대를 중심으로 한 대칭형 구조의 전장입니다.
+ * 전략적인 위치에 배치된 벽과 아이템을 활용하여 전투를 유리하게 이끌 수 있습니다.
  */
 
 // 각 타일 문자열을 객체로 변환하는 함수
 const parseTile = (tileString) => {
-    const [type, direction] = tileString.split(':');
+    const [type] = tileString.split(':');
     const tileObject = { type };
 
-    // 오류 수정을 위해 타일 유형에 따라 'color' 속성을 추가합니다.
+    // 타일 유형에 따라 색상 정보를 부여합니다.
     switch (type) {
         case 'FLOOR':
-            tileObject.color = '#374151'; // 다른 맵과 동일한 바닥 색상
+            tileObject.color = '#374151';
             break;
         case 'WALL':
-            tileObject.color = '#111827'; // 다른 맵과 동일한 벽 색상
+            tileObject.color = '#111827';
             break;
-    }
-
-    // 대시 타일의 경우 방향 정보를 추가합니다.
-    if (type === 'DASH_TILE') {
-        tileObject.direction = direction || 'RIGHT';
+        case 'LAVA':
+            tileObject.color = '#FF4500';
+            break;
+        case 'CRACKED_WALL':
+            tileObject.color = '#4a5568';
+            break;
     }
     return tileObject;
 };
 
-// 맵 데이터 정의
+// 재설계된 ruinsMap 데이터
 export const ruinsMap = {
     name: "ruins",
-    width: 640,
-    height: 420,
+    width: 460, // 기본 맵 너비
+    height: 800, // 기본 맵 높이
     hadokenKnockback: 15,
     autoMagneticField: { isActive: false },
-    nexuses: [
-        { gridX: 4, gridY: 2, team: 'A' },
-        { gridX: 27, gridY: 18, team: 'B' },
-    ],
+    nexuses: [], // 넥서스 제거
     map: JSON.stringify(
-        [
-            ["WALL","WALL","WALL","WALL","WALL","WALL","WALL","WALL","WALL","WALL","WALL","WALL","WALL","WALL","WALL","WALL","WALL","WALL","WALL","WALL","WALL","WALL","WALL","WALL","WALL","WALL","WALL","WALL","WALL","WALL","WALL","WALL"],
-            ["WALL","FLOOR","FLOOR","FLOOR","FLOOR","FLOOR","FLOOR","FLOOR","WALL","FLOOR","FLOOR","FLOOR","FLOOR","FLOOR","FLOOR","FLOOR","FLOOR","FLOOR","FLOOR","FLOOR","FLOOR","FLOOR","WALL","FLOOR","FLOOR","FLOOR","FLOOR","FLOOR","FLOOR","FLOOR","FLOOR","WALL"],
-            ["WALL","FLOOR","FLOOR","FLOOR","FLOOR","WALL","FLOOR","FLOOR","WALL","FLOOR","FLOOR","FLOOR","FLOOR","CRACKED_WALL","LAVA","LAVA","LAVA","LAVA","CRACKED_WALL","FLOOR","FLOOR","FLOOR","WALL","FLOOR","FLOOR","WALL","FLOOR","FLOOR","FLOOR","FLOOR","FLOOR","WALL"],
-            ["WALL","FLOOR","FLOOR","FLOOR","FLOOR","WALL","FLOOR","FLOOR","FLOOR","FLOOR","FLOOR","CRACKED_WALL","LAVA","LAVA","LAVA","LAVA","LAVA","LAVA","LAVA","LAVA","CRACKED_WALL","FLOOR","FLOOR","FLOOR","FLOOR","WALL","FLOOR","FLOOR","FLOOR","FLOOR","WALL"],
-            ["WALL","FLOOR","FLOOR","FLOOR","FLOOR","WALL","DASH_TILE:UP","FLOOR","FLOOR","CRACKED_WALL","LAVA","LAVA","LAVA","LAVA","FLOOR","FLOOR","FLOOR","FLOOR","LAVA","LAVA","LAVA","LAVA","CRACKED_WALL","FLOOR","FLOOR","DASH_TILE:UP","WALL","FLOOR","FLOOR","FLOOR","FLOOR","WALL"],
-            ["WALL","WALL","WALL","FLOOR","FLOOR","WALL","FLOOR","FLOOR","WALL","WALL","WALL","WALL","LAVA","LAVA","FLOOR","FLOOR","FLOOR","FLOOR","LAVA","LAVA","WALL","WALL","WALL","WALL","FLOOR","FLOOR","WALL","WALL","WALL","WALL","WALL","WALL"],
-            ["WALL","FLOOR","FLOOR","FLOOR","FLOOR","FLOOR","FLOOR","FLOOR","FLOOR","FLOOR","FLOOR","WALL","LAVA","FLOOR","FLOOR","CRACKED_WALL","CRACKED_WALL","FLOOR","FLOOR","LAVA","WALL","FLOOR","FLOOR","FLOOR","FLOOR","FLOOR","FLOOR","FLOOR","FLOOR","FLOOR","FLOOR","WALL"],
-            ["WALL","FLOOR","FLOOR","FLOOR","FLOOR","FLOOR","FLOOR","FLOOR","FLOOR","FLOOR","FLOOR","CRACKED_WALL","FLOOR","FLOOR","CRACKED_WALL","FLOOR","FLOOR","CRACKED_WALL","FLOOR","FLOOR","CRACKED_WALL","FLOOR","FLOOR","FLOOR","FLOOR","FLOOR","FLOOR","FLOOR","FLOOR","FLOOR","FLOOR","WALL"],
-            ["WALL","FLOOR","FLOOR","WALL","WALL","WALL","WALL","WALL","FLOOR","FLOOR","FLOOR","FLOOR","FLOOR","FLOOR","FLOOR","FLOOR","FLOOR","FLOOR","FLOOR","FLOOR","FLOOR","FLOOR","FLOOR","WALL","WALL","WALL","WALL","WALL","FLOOR","FLOOR","FLOOR","WALL"],
-            ["WALL","FLOOR","FLOOR","FLOOR","FLOOR","FLOOR","FLOOR","FLOOR","FLOOR","FLOOR","FLOOR","FLOOR","FLOOR","FLOOR","LAVA","LAVA","LAVA","LAVA","FLOOR","FLOOR","FLOOR","FLOOR","FLOOR","FLOOR","FLOOR","FLOOR","FLOOR","FLOOR","FLOOR","FLOOR","FLOOR","WALL"],
-            ["WALL","FLOOR","FLOOR","WALL","WALL","WALL","WALL","WALL","FLOOR","FLOOR","FLOOR","FLOOR","FLOOR","FLOOR","FLOOR","FLOOR","FLOOR","FLOOR","FLOOR","FLOOR","FLOOR","FLOOR","FLOOR","WALL","WALL","WALL","WALL","WALL","FLOOR","FLOOR","FLOOR","WALL"],
-            ["WALL","FLOOR","FLOOR","FLOOR","FLOOR","FLOOR","FLOOR","FLOOR","FLOOR","FLOOR","FLOOR","FLOOR","FLOOR","FLOOR","LAVA","LAVA","LAVA","LAVA","FLOOR","FLOOR","FLOOR","FLOOR","FLOOR","FLOOR","FLOOR","FLOOR","FLOOR","FLOOR","FLOOR","FLOOR","FLOOR","WALL"],
-            ["WALL","FLOOR","FLOOR","WALL","WALL","WALL","WALL","WALL","FLOOR","FLOOR","FLOOR","FLOOR","FLOOR","FLOOR","FLOOR","FLOOR","FLOOR","FLOOR","FLOOR","FLOOR","FLOOR","FLOOR","FLOOR","WALL","WALL","WALL","WALL","WALL","FLOOR","FLOOR","FLOOR","WALL"],
-            ["WALL","FLOOR","FLOOR","FLOOR","FLOOR","FLOOR","FLOOR","FLOOR","FLOOR","FLOOR","FLOOR","CRACKED_WALL","FLOOR","FLOOR","CRACKED_WALL","FLOOR","FLOOR","CRACKED_WALL","FLOOR","FLOOR","CRACKED_WALL","FLOOR","FLOOR","FLOOR","FLOOR","FLOOR","FLOOR","FLOOR","FLOOR","FLOOR","FLOOR","WALL"],
-            ["WALL","FLOOR","FLOOR","FLOOR","FLOOR","FLOOR","FLOOR","FLOOR","FLOOR","FLOOR","FLOOR","WALL","LAVA","FLOOR","FLOOR","CRACKED_WALL","CRACKED_WALL","FLOOR","FLOOR","LAVA","WALL","FLOOR","FLOOR","FLOOR","FLOOR","FLOOR","FLOOR","FLOOR","FLOOR","FLOOR","FLOOR","WALL"],
-            ["WALL","WALL","WALL","FLOOR","FLOOR","WALL","FLOOR","FLOOR","WALL","WALL","WALL","WALL","LAVA","LAVA","FLOOR","FLOOR","FLOOR","FLOOR","LAVA","LAVA","WALL","WALL","WALL","WALL","FLOOR","FLOOR","WALL","WALL","WALL","WALL","WALL","WALL"],
-            ["WALL","FLOOR","FLOOR","FLOOR","FLOOR","WALL","DASH_TILE:DOWN","FLOOR","FLOOR","CRACKED_WALL","LAVA","LAVA","LAVA","LAVA","FLOOR","FLOOR","FLOOR","FLOOR","LAVA","LAVA","LAVA","LAVA","CRACKED_WALL","FLOOR","FLOOR","DASH_TILE:DOWN","WALL","FLOOR","FLOOR","FLOOR","FLOOR","WALL"],
-            ["WALL","FLOOR","FLOOR","FLOOR","FLOOR","WALL","FLOOR","FLOOR","FLOOR","FLOOR","FLOOR","CRACKED_WALL","LAVA","LAVA","LAVA","LAVA","LAVA","LAVA","LAVA","LAVA","CRACKED_WALL","FLOOR","FLOOR","FLOOR","FLOOR","WALL","FLOOR","FLOOR","FLOOR","FLOOR","WALL"],
-            ["WALL","FLOOR","FLOOR","FLOOR","FLOOR","WALL","FLOOR","FLOOR","WALL","FLOOR","FLOOR","FLOOR","FLOOR","CRACKED_WALL","LAVA","LAVA","LAVA","LAVA","CRACKED_WALL","FLOOR","FLOOR","FLOOR","WALL","FLOOR","FLOOR","WALL","FLOOR","FLOOR","FLOOR","FLOOR","FLOOR","WALL"],
-            ["WALL","FLOOR","FLOOR","FLOOR","FLOOR","FLOOR","FLOOR","FLOOR","WALL","FLOOR","FLOOR","FLOOR","FLOOR","FLOOR","FLOOR","FLOOR","FLOOR","FLOOR","FLOOR","FLOOR","FLOOR","FLOOR","WALL","FLOOR","FLOOR","FLOOR","FLOOR","FLOOR","FLOOR","FLOOR","FLOOR","WALL"],
-            ["WALL","WALL","WALL","WALL","WALL","WALL","WALL","WALL","WALL","WALL","WALL","WALL","WALL","WALL","WALL","WALL","WALL","WALL","WALL","WALL","WALL","WALL","WALL","WALL","WALL","WALL","WALL","WALL","WALL","WALL","WALL","WALL"],
-        ].map(row => row.map(tileString => parseTile(tileString)))
+        [...Array(40)].map((_, y) =>
+            [...Array(23)].map((_, x) => {
+                // 외벽 생성
+                if (y === 0 || y === 39 || x === 0 || x === 22) return parseTile("WALL");
+
+                // 중앙 용암 지대
+                if (y >= 16 && y <= 23 && x >= 7 && x <= 15) {
+                    if (y === 16 || y === 23 || x === 7 || x === 15) {
+                        return parseTile("CRACKED_WALL"); // 용암 주변은 부서지는 벽
+                    }
+                    return parseTile("LAVA");
+                }
+
+                // 중앙 상단/하단 구조물
+                if ((y === 12 || y === 27) && (x >= 9 && x <= 13)) return parseTile("WALL");
+
+                // 양쪽 대칭 벽 구조물
+                if ((x === 5 || x === 17) && ((y >= 8 && y <= 14) || (y >= 25 && y <= 31))) {
+                    return parseTile("WALL");
+                }
+                
+                // 맵 중앙 부서지는 벽
+                if ((y === 19 || y === 20) && (x === 4 || x === 18)) return parseTile("CRACKED_WALL");
+
+
+                return parseTile("FLOOR");
+            })
+        )
     ),
     units: [
-        { gridX: 2, gridY: 2, team: 'A' }, { gridX: 3, gridY: 3, team: 'A' },
-        { gridX: 4, gridY: 2, team: 'A' }, { gridX: 3, gridY: 5, team: 'A' },
-        { gridX: 5, gridY: 5, team: 'A' }, { gridX: 29, gridY: 18, team: 'B' },
-        { gridX: 28, gridY: 17, team: 'B' }, { gridX: 27, gridY: 18, team: 'B' },
-        { gridX: 29, gridY: 15, team: 'B' }, { gridX: 28, gridY: 15, team: 'B' },
+        // Team A
+        { gridX: 10, gridY: 2, team: 'A' }, { gridX: 12, gridY: 2, team: 'A' },
+        { gridX: 9, gridY: 3, team: 'A' }, { gridX: 13, gridY: 3, team: 'A' },
+        { gridX: 11, gridY: 4, team: 'A' },
+        // Team B
+        { gridX: 10, gridY: 37, team: 'B' }, { gridX: 12, gridY: 37, team: 'B' },
+        { gridX: 9, gridY: 36, team: 'B' }, { gridX: 13, gridY: 36, team: 'B' },
+        { gridX: 11, gridY: 35, team: 'B' },
     ],
     weapons: [
-        { gridX: 2, gridY: 10, type: 'sword' }, { gridX: 6, gridY: 2, type: 'bow' },
-        { gridX: 13, gridY: 6, type: 'staff' }, { gridX: 1, gridY: 8, type: 'sword' },
-        { gridX: 8, gridY: 8, type: 'dual_swords' }, { gridX: 29, gridY: 10, type: 'dual_swords' },
-        { gridX: 25, gridY: 17, type: 'staff' }, { gridX: 18, gridY: 14, type: 'bow' },
-        { gridX: 30, gridY: 12, type: 'dual_swords' }, { gridX: 23, gridY: 12, type: 'sword' },
+        // 외곽 지역 무기
+        { gridX: 2, gridY: 10, type: 'sword' }, { gridX: 20, gridY: 10, type: 'bow' },
+        { gridX: 2, gridY: 29, type: 'bow' }, { gridX: 20, gridY: 29, type: 'sword' },
+        
+        // 중앙 지역 고급 무기
+        { gridX: 8, gridY: 19, type: 'dual_swords' }, { gridX: 14, gridY: 20, type: 'dual_swords' },
+        { gridX: 11, gridY: 15, type: 'staff' }, { gridX: 11, gridY: 24, type: 'shuriken' },
+
+        // 시작 지점 근처 무기
+        { gridX: 6, gridY: 5, type: 'sword' }, { gridX: 16, gridY: 5, type: 'bow' },
+        { gridX: 6, gridY: 34, type: 'bow' }, { gridX: 16, gridY: 34, type: 'sword' },
     ],
     growingFields: [],
 };
