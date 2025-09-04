@@ -2,7 +2,6 @@ import { getFirestore, collection, doc, getDoc, getDocs, setDoc, deleteDoc } fro
 import { AudioManager } from './audioManager.js';
 import { Unit, Weapon, Nexus, Projectile, AreaEffect, Effect, GrowingMagneticField, MagicCircle, PoisonCloud } from './gameEntities.js';
 import { TILE, TEAM, COLORS, GRID_SIZE } from './constants.js';
-// maps/index.js에서 모든 기본 맵 목록을 한 번에 불러옵니다.
 import { localMaps } from './maps/index.js';
 
 let instance = null;
@@ -57,7 +56,7 @@ export class GameManager {
         this.growingFieldSettings = {
             direction: 'DOWN', speed: 4, delay: 0
         };
-        this.dashTileSettings = { // 돌진 타일 설정 추가
+        this.dashTileSettings = {
             direction: 'RIGHT'
         };
         this.autoMagneticField = {
@@ -258,23 +257,24 @@ export class GameManager {
 
     async renderMapCards() {
         document.getElementById('loadingStatus').textContent = "맵 목록을 불러오는 중...";
-        const maps = await this.getAllMaps();
+        const userMaps = await this.getAllMaps();
         document.getElementById('loadingStatus').style.display = 'none';
         
+        const basicMapGrid = document.getElementById('basicMapGrid');
         const mapGrid = document.getElementById('mapGrid');
         const addNewMapCard = document.getElementById('addNewMapCard');
+        
+        basicMapGrid.innerHTML = '';
         while (mapGrid.firstChild && mapGrid.firstChild !== addNewMapCard) {
             mapGrid.removeChild(mapGrid.firstChild);
         }
 
-        // maps/index.js에서 불러온 모든 로컬 맵을 렌더링합니다.
         localMaps.forEach(mapData => {
             const card = this.createMapCard(mapData, true);
-            mapGrid.insertBefore(card, addNewMapCard);
+            basicMapGrid.appendChild(card);
         });
 
-        // Firebase에서 불러온 사용자 맵을 렌더링합니다.
-        maps.forEach(mapData => {
+        userMaps.forEach(mapData => {
             const card = this.createMapCard(mapData, false);
             mapGrid.insertBefore(card, addNewMapCard);
         });
@@ -467,17 +467,22 @@ export class GameManager {
     }
     
     setupEventListeners() {
-        // Modal buttons
+        document.getElementById('basicMapsHeader').addEventListener('click', () => {
+            const grid = document.getElementById('basicMapGrid');
+            const arrow = document.getElementById('basicMapsArrow');
+            grid.classList.toggle('hidden');
+            arrow.classList.toggle('rotate-90');
+        });
+
         document.getElementById('cancelNewMapBtn').addEventListener('click', () => document.getElementById('newMapModal').classList.remove('show-modal'));
         document.getElementById('cancelRenameBtn').addEventListener('click', () => document.getElementById('renameMapModal').classList.remove('show-modal'));
         document.getElementById('cancelDeleteBtn').addEventListener('click', () => document.getElementById('deleteConfirmModal').classList.remove('show-modal'));
         document.getElementById('closeMapSettingsModal').addEventListener('click', () => document.getElementById('mapSettingsModal').classList.remove('show-modal'));
-        document.getElementById('closeDashTileModal').addEventListener('click', () => { // 돌진 타일 모달 닫기
+        document.getElementById('closeDashTileModal').addEventListener('click', () => {
             this.dashTileSettings.direction = document.getElementById('dashTileDirection').value;
             document.getElementById('dashTileModal').classList.remove('show-modal');
         });
 
-        // Home screen
         document.getElementById('addNewMapCard').addEventListener('click', () => {
             document.getElementById('newMapName').value = '';
             document.getElementById('newMapWidth').value = '460';
@@ -511,7 +516,6 @@ export class GameManager {
             }
         });
 
-        // Editor screen
         document.getElementById('backToHomeBtn').addEventListener('click', () => this.showHomeScreen());
         document.getElementById('saveMapBtn').addEventListener('click', () => this.saveCurrentMap());
         document.getElementById('mapSettingsBtn').addEventListener('click', () => {
@@ -594,7 +598,7 @@ export class GameManager {
                 document.getElementById('fieldSpeed').value = this.growingFieldSettings.speed;
                 document.getElementById('fieldDelay').value = this.growingFieldSettings.delay;
                 document.getElementById('growingFieldModal').classList.add('show-modal');
-            } else if (target.id === 'dashTileSettingsBtn' || target.parentElement.id === 'dashTileSettingsBtn') { // 돌진 타일 설정
+            } else if (target.id === 'dashTileSettingsBtn' || target.parentElement.id === 'dashTileSettingsBtn') {
                 document.getElementById('dashTileDirection').value = this.dashTileSettings.direction;
                 document.getElementById('dashTileModal').classList.add('show-modal');
             } else if (target.id === 'autoFieldSettingsBtn' || target.parentElement.id === 'autoFieldSettingsBtn') {
@@ -746,7 +750,6 @@ export class GameManager {
         this.animationFrameId = null;
         this.state = 'EDIT';
 
-        // BUG FIX: 객체 생성 시점에 좌표를 전달하도록 수정
         this.units = JSON.parse(this.initialUnitsState).map(uData => Object.assign(new Unit(uData.gridX, uData.gridY, uData.team), uData));
         this.weapons = JSON.parse(this.initialWeaponsState).map(wData => Object.assign(new Weapon(wData.gridX, wData.gridY, wData.type), wData));
         this.nexuses = JSON.parse(this.initialNexusesState).map(nData => Object.assign(new Nexus(nData.gridX, nData.gridY, nData.team), nData));
@@ -838,7 +841,7 @@ export class GameManager {
                 hp: tileType === TILE.CRACKED_WALL ? 50 : undefined,
                 color: tileType === TILE.WALL ? this.currentWallColor : (tileType === TILE.FLOOR ? this.currentFloorColor : undefined),
                 replicationValue: tileType === TILE.REPLICATION_TILE ? this.replicationValue : undefined,
-                direction: tileType === TILE.DASH_TILE ? this.dashTileSettings.direction : undefined // 돌진 타일 방향 저장
+                direction: tileType === TILE.DASH_TILE ? this.dashTileSettings.direction : undefined
             };
         } else if (this.currentTool.tool === 'unit' && !itemExists) {
             this.units.push(new Unit(x, y, this.currentTool.team));
@@ -899,22 +902,33 @@ export class GameManager {
             let gameOver = false;
             let winner = null;
 
-            // [수정] 새로운 승리 판정 로직
             if (this.initialNexusCount >= 2) {
-                // 넥서스가 하나 파괴되거나, 한 팀의 유닛이 전멸하면 게임 종료
-                if (activeNexusTeams.size < 2 || activeUnitTeams.size <= 1) {
-                    gameOver = true;
-                    // 넥서스가 파괴된 경우, 남은 넥서스 팀이 승리
-                    if (activeNexusTeams.size < 2) {
-                        winner = activeNexusTeams.values().next().value || null;
+                const initialNexusTeams = new Set(JSON.parse(this.initialNexusesState).map(n => n.team));
+                const initialUnitTeams = new Set(JSON.parse(this.initialUnitsState).map(u => u.team));
+                
+                let remainingNexusTeams = new Set(this.nexuses.filter(n => !n.isDestroying).map(n => n.team));
+                
+                for(const team of initialNexusTeams) {
+                    const hasNexus = remainingNexusTeams.has(team);
+                    const hasUnits = this.units.some(u => u.team === team);
+
+                    if(!hasNexus && !hasUnits) { // 넥서스도 없고 유닛도 없으면 패배
+                       gameOver = true;
+                       winner = [...initialNexusTeams].find(t => t !== team) || null;
+                       break;
                     }
-                    // 유닛이 전멸한 경우, 남은 유닛 팀이 승리
-                    else {
-                        winner = activeUnitTeams.values().next().value || null;
+                    if(!hasNexus && this.units.every(u => u.team !== team)) { // 넥서스가 파괴되고 유닛이 전멸
+                        gameOver = true;
+                        winner = [...activeUnitTeams].find(t => t !== team) || null;
+                        break;
                     }
                 }
+                if (!gameOver && (remainingNexusTeams.size < 2 || activeUnitTeams.size < 2)) {
+                     gameOver = true;
+                     winner = remainingNexusTeams.values().next().value || activeUnitTeams.values().next().value || null;
+                }
+
             } else {
-                // 기존 로직 (넥서스가 1개 이하일 때)
                 const allRemainingTeams = new Set([...activeNexusTeams, ...activeUnitTeams]);
                 if (allRemainingTeams.size <= 1) {
                     const initialTeams = new Set(JSON.parse(this.initialNexusesState).map(n => n.team).concat(JSON.parse(this.initialUnitsState).map(u => u.team)));
@@ -1026,7 +1040,6 @@ export class GameManager {
             let hit = false;
         
             for (const unit of this.units) {
-                // BUG FIX: 이미 공격한 대상인지 확인
                 if (p.owner.team !== unit.team && !p.hitTargets.has(unit) && Math.hypot(p.pixelX - unit.pixelX, p.pixelY - unit.pixelY) < GRID_SIZE / 2) {
                     p.hitTargets.add(unit);
                     hit = true;
@@ -1047,14 +1060,9 @@ export class GameManager {
                         if (p.type === 'hadoken') this.audioManager.play('hadokenHit');
                     }
         
-                    // BUG FIX: 연쇄 번개 로직 수정
                     if (p.type === 'lightning_bolt') {
-                        p.destroyed = true; // 현재 투사체는 소멸 처리
-        
-                        const potentialTargets = this.units.filter(u =>
-                            u.team !== p.owner.team && !p.hitTargets.has(u) && u.hp > 0
-                        );
-        
+                        p.destroyed = true; 
+                        const potentialTargets = this.units.filter(u => u.team !== p.owner.team && !p.hitTargets.has(u) && u.hp > 0);
                         if (potentialTargets.length > 0) {
                             let closestEnemy = potentialTargets[0];
                             let minDistance = Math.hypot(unit.pixelX - closestEnemy.pixelX, unit.pixelY - closestEnemy.pixelY);
@@ -1067,16 +1075,14 @@ export class GameManager {
                                 }
                             }
         
-                            const newProjectile = new Projectile(p.owner, closestEnemy, 'lightning_bolt', {
-                                hitTargets: p.hitTargets // 기존 hitTargets 정보를 넘겨줌
-                            });
+                            const newProjectile = new Projectile(p.owner, closestEnemy, 'lightning_bolt', { hitTargets: p.hitTargets });
                             newProjectile.pixelX = unit.pixelX;
                             newProjectile.pixelY = unit.pixelY;
                             this.projectiles.push(newProjectile);
                         }
                     }
         
-                    if (p.type !== 'lightning_bolt') { // 번개가 아니면 단일 타겟이므로 루프 종료
+                    if (p.type !== 'lightning_bolt') {
                         break;
                     }
                 }
@@ -1112,8 +1118,8 @@ export class GameManager {
             for (let i = this.magicCircles.length - 1; i >= 0; i--) {
                 const circle = this.magicCircles[i];
                 if (circle.gridX === gridX && circle.gridY === gridY && circle.team !== unit.team) {
-                    unit.takeDamage(0, { stun: 120 }); // 2초 기절
-                    this.magicCircles.splice(i, 1); // 밟으면 사라짐
+                    unit.takeDamage(0, { stun: 120 });
+                    this.magicCircles.splice(i, 1);
                 }
             }
         }
@@ -1305,7 +1311,6 @@ export class GameManager {
         return true;
     }
 
-    // 무기 감지를 위한 새로운 시야 확인 함수
     hasLineOfSightForWeapon(startUnit, endTarget) {
         let x1 = Math.floor(startUnit.pixelX / GRID_SIZE);
         let y1 = Math.floor(startUnit.pixelY / GRID_SIZE);
@@ -1323,7 +1328,6 @@ export class GameManager {
             if ((x1 === x2 && y1 === y2)) break;
             if (y1 < 0 || y1 >= this.ROWS || x1 < 0 || x1 >= this.COLS) return false;
             const tile = this.map[y1][x1];
-            // 부서지지 않는 벽만 시야를 가립니다.
             if (tile.type === TILE.WALL) {
                 return false;
             }
@@ -1366,8 +1370,8 @@ export class GameManager {
             weapon.normalAttackPowerBonus = 5;
             weapon.specialAttackPowerBonus = 15;
         } else if (type === 'boomerang') {
-            weapon.attackPowerBonus = 10; // 일반 공격 데미지 15
-            weapon.attackRangeBonus = 7 * GRID_SIZE; // 활보다 2칸 긴 사거리
+            weapon.attackPowerBonus = 10;
+            weapon.attackRangeBonus = 7 * GRID_SIZE;
             weapon.detectionRangeBonus = 6 * GRID_SIZE;
         } else if (type === 'poison_potion') {
             weapon.attackPowerBonus = 10;
@@ -1515,9 +1519,9 @@ export class GameManager {
         const weaponTypes = ['sword', 'bow', 'dual_swords', 'staff', 'lightning', 'magic_spear', 'boomerang', 'poison_potion', 'hadoken', 'shuriken', 'crown'];
         const randomType = weaponTypes[Math.floor(Math.random() * weaponTypes.length)];
 
-        for (let i = 0; i < 10; i++) { // 최대 10번 시도
+        for (let i = 0; i < 10; i++) {
             const angle = Math.random() * Math.PI * 2;
-            const radius = GRID_SIZE * (Math.random() * 2 + 1); // 1~3타일 반경
+            const radius = GRID_SIZE * (Math.random() * 2 + 1);
             const spawnX = Math.floor((pos.x + Math.cos(angle) * radius) / GRID_SIZE);
             const spawnY = Math.floor((pos.y + Math.sin(angle) * radius) / GRID_SIZE);
 
@@ -1539,7 +1543,7 @@ export class GameManager {
             return;
         }
         
-        this.currentMapId = mapId; // Firebase 맵 ID 설정
+        this.currentMapId = mapId;
         this.currentMapName = mapData.name;
         this.canvas.width = mapData.width || 600;
         this.canvas.height = mapData.height || 900;
@@ -1554,7 +1558,6 @@ export class GameManager {
             this.map = Array(this.ROWS).fill().map(() => Array(this.COLS).fill({ type: TILE.FLOOR, color: COLORS.FLOOR }));
         }
         
-        // BUG FIX: 객체 생성 시점에 좌표를 전달하도록 수정
         this.units = (mapData.units || []).map(uData => Object.assign(new Unit(uData.gridX, uData.gridY, uData.team), uData));
         this.weapons = (mapData.weapons || []).map(wData => Object.assign(new Weapon(wData.gridX, wData.gridY, wData.type), wData));
         this.nexuses = (mapData.nexuses || []).map(nData => Object.assign(new Nexus(nData.gridX, nData.gridY, nData.team), nData));
@@ -1580,7 +1583,7 @@ export class GameManager {
 
     async loadLocalMapForEditing(mapData) {
         this.state = 'EDIT';
-        this.currentMapId = null; // 로컬 맵은 ID가 없습니다.
+        this.currentMapId = null;
         document.getElementById('homeScreen').style.display = 'none';
         document.getElementById('editorScreen').style.display = 'flex';
         await this.audioManager.init();
@@ -1595,7 +1598,6 @@ export class GameManager {
 
         this.map = JSON.parse(mapData.map);
         
-        // BUG FIX: 객체 생성 시점에 좌표를 전달하도록 수정
         this.units = (mapData.units || []).map(uData => Object.assign(new Unit(uData.gridX, uData.gridY, uData.team), uData));
         this.weapons = (mapData.weapons || []).map(wData => Object.assign(new Weapon(wData.gridX, wData.gridY, wData.type), wData));
         this.nexuses = (mapData.nexuses || []).map(nData => Object.assign(new Nexus(nData.gridX, nData.gridY, nData.team), nData));
