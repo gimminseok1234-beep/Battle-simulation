@@ -1022,18 +1022,21 @@ export class GameManager {
         this.projectiles = this.projectiles.filter(p => !p.destroyed);
 
         for (let i = this.projectiles.length - 1; i >= 0; i--) {
-            const p = this.projectiles[i]; let hit = false;
-            let primaryTarget = null;
+            const p = this.projectiles[i];
+            let hit = false;
+        
             for (const unit of this.units) {
-                 if (p.owner.team !== unit.team && Math.hypot(p.pixelX - unit.pixelX, p.pixelY - unit.pixelY) < GRID_SIZE / 2) {
-                    primaryTarget = unit;
+                // BUG FIX: 이미 공격한 대상인지 확인
+                if (p.owner.team !== unit.team && !p.hitTargets.has(unit) && Math.hypot(p.pixelX - unit.pixelX, p.pixelY - unit.pixelY) < GRID_SIZE / 2) {
+                    p.hitTargets.add(unit);
+                    hit = true;
+        
                     if (p.type === 'boomerang_projectile') {
                         unit.isBeingPulled = true;
                         unit.puller = p.owner;
                         const pullToX = p.owner.pixelX + Math.cos(p.owner.facingAngle) * GRID_SIZE;
                         const pullToY = p.owner.pixelY + Math.sin(p.owner.facingAngle) * GRID_SIZE;
                         unit.pullTargetPos = { x: pullToX, y: pullToY };
-                        hit = true; 
                     } else {
                         const effectInfo = {
                             interrupt: p.type === 'hadoken',
@@ -1042,11 +1045,43 @@ export class GameManager {
                         };
                         unit.takeDamage(p.damage, effectInfo);
                         if (p.type === 'hadoken') this.audioManager.play('hadokenHit');
-                        hit = true;
                     }
-                    break;
+        
+                    // BUG FIX: 연쇄 번개 로직 수정
+                    if (p.type === 'lightning_bolt') {
+                        p.destroyed = true; // 현재 투사체는 소멸 처리
+        
+                        const potentialTargets = this.units.filter(u =>
+                            u.team !== p.owner.team && !p.hitTargets.has(u) && u.hp > 0
+                        );
+        
+                        if (potentialTargets.length > 0) {
+                            let closestEnemy = potentialTargets[0];
+                            let minDistance = Math.hypot(unit.pixelX - closestEnemy.pixelX, unit.pixelY - closestEnemy.pixelY);
+        
+                            for (let j = 1; j < potentialTargets.length; j++) {
+                                const distance = Math.hypot(unit.pixelX - potentialTargets[j].pixelX, unit.pixelY - potentialTargets[j].pixelY);
+                                if (distance < minDistance) {
+                                    minDistance = distance;
+                                    closestEnemy = potentialTargets[j];
+                                }
+                            }
+        
+                            const newProjectile = new Projectile(p.owner, closestEnemy, 'lightning_bolt', {
+                                hitTargets: p.hitTargets // 기존 hitTargets 정보를 넘겨줌
+                            });
+                            newProjectile.pixelX = unit.pixelX;
+                            newProjectile.pixelY = unit.pixelY;
+                            this.projectiles.push(newProjectile);
+                        }
+                    }
+        
+                    if (p.type !== 'lightning_bolt') { // 번개가 아니면 단일 타겟이므로 루프 종료
+                        break;
+                    }
                 }
             }
+        
             if (!hit) {
                 for (const nexus of this.nexuses) {
                     if (p.owner.team !== nexus.team && Math.hypot(p.pixelX - nexus.pixelX, p.pixelY - nexus.pixelY) < GRID_SIZE) {
@@ -1057,33 +1092,13 @@ export class GameManager {
                     }
                 }
             }
-            
-            if (hit && p.type === 'lightning_bolt' && primaryTarget instanceof Unit) {
-                let closestEnemy = null;
-                let minDistance = Infinity;
-
-                this.units.forEach(unit => {
-                    if (unit.team !== p.owner.team && unit !== primaryTarget && unit.hp > 0) {
-                        const distance = Math.hypot(primaryTarget.pixelX - unit.pixelX, primaryTarget.pixelY - unit.pixelY);
-                        if (distance < minDistance) {
-                            minDistance = distance;
-                            closestEnemy = unit;
-                        }
-                    }
-                });
-
-                if (closestEnemy) {
-                    const newProjectile = new Projectile(p.owner, closestEnemy, 'lightning_bolt');
-                    newProjectile.pixelX = primaryTarget.pixelX;
-                    newProjectile.pixelY = primaryTarget.pixelY;
-                    this.projectiles.push(newProjectile);
-                }
-            }
-
+        
             if (hit || p.pixelX < 0 || p.pixelX > this.canvas.width || p.pixelY < 0 || p.pixelY > this.canvas.height) {
-                this.projectiles.splice(i, 1);
+                p.destroyed = true;
             }
         }
+        
+        this.projectiles = this.projectiles.filter(p => !p.destroyed);
         
         this.magicCircles.forEach(circle => circle.update());
         this.magicCircles = this.magicCircles.filter(c => c.duration > 0);
@@ -1599,4 +1614,3 @@ export class GameManager {
         this.resetActionCam(true);
     }
 }
-
