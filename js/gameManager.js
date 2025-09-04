@@ -1305,6 +1305,32 @@ export class GameManager {
         return true;
     }
 
+    // 무기 감지를 위한 새로운 시야 확인 함수
+    hasLineOfSightForWeapon(startUnit, endTarget) {
+        let x1 = Math.floor(startUnit.pixelX / GRID_SIZE);
+        let y1 = Math.floor(startUnit.pixelY / GRID_SIZE);
+        const x2 = Math.floor(endTarget.pixelX / GRID_SIZE);
+        const y2 = Math.floor(endTarget.pixelY / GRID_SIZE);
+        const dx = Math.abs(x2 - x1), dy = Math.abs(y2 - y1);
+        const sx = (x1 < x2) ? 1 : -1, sy = (y1 < y2) ? 1 : -1;
+        let err = dx - dy;
+
+        while (true) {
+            if ((x1 === x2 && y1 === y2)) break;
+            const e2 = 2 * err;
+            if (e2 > -dy) { err -= dy; x1 += sx; }
+            if (e2 < dx) { err += dx; y1 += sy; }
+            if ((x1 === x2 && y1 === y2)) break;
+            if (y1 < 0 || y1 >= this.ROWS || x1 < 0 || x1 >= this.COLS) return false;
+            const tile = this.map[y1][x1];
+            // 부서지지 않는 벽만 시야를 가립니다.
+            if (tile.type === TILE.WALL) {
+                return false;
+            }
+        }
+        return true;
+    }
+
     createWeapon(x, y, type) {
         const weapon = new Weapon(x, y, type);
         if (type === 'sword') {
