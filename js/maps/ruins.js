@@ -4,14 +4,15 @@
  * 맵 제목: 폐허 (Ruins) - 최종 수정본
  * 컨셉: 중앙 용암 지대를 중심으로 한 대칭형 전장.
  * 규칙 준수: 겹침 방지, 기본 맵 크기, 유닛과 무기 수량 일치(각 10개)
+ * 오류 수정: 부서지는 벽(CRACKED_WALL)에 hp 속성을 추가하여 유닛이 파괴할 수 있도록 수정
  */
 
-// 각 타일 문자열을 객체로 변환하는 함수
+// 각 타일 문자열을 객체로 변환하는 함수 (수정됨)
 const parseTile = (tileString) => {
     const [type] = tileString.split(':');
     const tileObject = { type };
 
-    // 타일 유형에 따라 색상 정보를 부여합니다.
+    // 타일 유형에 따라 속성을 부여합니다.
     switch (type) {
         case 'FLOOR':
             tileObject.color = '#374151';
@@ -24,6 +25,7 @@ const parseTile = (tileString) => {
             break;
         case 'CRACKED_WALL':
             tileObject.color = '#4a5568';
+            tileObject.hp = 100; // 오류 해결: 부서지는 벽에 기본 체력(hp) 부여
             break;
     }
     return tileObject;
