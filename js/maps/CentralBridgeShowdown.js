@@ -1,10 +1,12 @@
+// js/maps/CentralBridgeShowdown.js
+
 /**
- * 맵 제목: 중앙대교 요새 (Central Bridge Fortress)
- * 컨셉: '중앙대교 혈투' 맵을 기반으로, 중앙 다리의 용암을 검은색 벽으로 교체하여
- * 방어적인 플레이와 전략성을 강화한 버전입니다.
+ * 맵 제목: 중앙대교 혈투 (Central Bridge Showdown)
+ * 컨셉: 중앙 다리를 중심으로 한 대칭형 전장입니다.
+ * 중앙의 용암 지대는 위험하지만, 강력한 무기를 얻을 수 있는 기회를 제공합니다.
  */
-export const centralBridgeFortressMap = {
-    name: '중앙대교 요새',
+export const CentralBridgeShowdown = { // 변수 이름을 CentralBridgeShowdown으로 수정
+    name: '중앙대교 혈투',
     width: 460,
     height: 800,
     hadokenKnockback: 12,
@@ -18,6 +20,7 @@ export const centralBridgeFortressMap = {
             [...Array(23)].map((_, x) => {
                 const floor = { type: 'FLOOR', color: '#374151' };
                 const wall = { type: 'WALL', color: '#111827' };
+                const lava = { type: 'LAVA' };
 
                 // Outer walls
                 if (y === 0 || y === 39 || x === 0 || x === 22) return wall;
@@ -30,13 +33,14 @@ export const centralBridgeFortressMap = {
                     }
                 }
 
-                // Central Bridge (Lava replaced with Walls)
+                // Central Bridge
                 if (y >= 18 && y <= 21) {
                     if (x >= 7 && x <= 15) return floor;
-                    if (x === 6 || x === 16) return wall; // LAVA replaced with WALL
+                    if (x === 6 || x === 16) return lava;
                 }
                 if (y === 19 && x === 11) return { type: 'HEAL_PACK' };
                 if ((y === 18 || y === 21) && x === 11) return { type: 'CRACKED_WALL', hp: 80 };
+
 
                 // Side Paths & Structures
                 if (x === 5 && y > 8 && y < 14) return wall;
