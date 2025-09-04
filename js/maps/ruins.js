@@ -1,15 +1,33 @@
 // js/maps/ruins.js
 
+/**
+ * 맵 제목: 폐허 (ruins)
+ * 컨셉: 복잡한 구조와 다양한 타일을 특징으로 하는 맵입니다.
+ */
+
+// 각 타일 문자열을 객체로 변환하는 함수
 const parseTile = (tileString) => {
     const [type, direction] = tileString.split(':');
     const tileObject = { type };
+
+    // 오류 수정을 위해 타일 유형에 따라 'color' 속성을 추가합니다.
+    switch (type) {
+        case 'FLOOR':
+            tileObject.color = '#374151'; // 다른 맵과 동일한 바닥 색상
+            break;
+        case 'WALL':
+            tileObject.color = '#111827'; // 다른 맵과 동일한 벽 색상
+            break;
+    }
+
+    // 대시 타일의 경우 방향 정보를 추가합니다.
     if (type === 'DASH_TILE') {
         tileObject.direction = direction || 'RIGHT';
     }
     return tileObject;
 };
 
-// 변수명을 ruinsMap으로 수정
+// 맵 데이터 정의
 export const ruinsMap = {
     name: "ruins",
     width: 640,
