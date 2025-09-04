@@ -1,12 +1,12 @@
 // js/maps/index.js
 
-import { grasslandSkirmishMap } from './GrasslandSkirmish.js'; // 수정: grasslandSkirmishMap으로 가져옵니다.
+import { grasslandSkirmishMap } from './GrasslandSkirmish.js';
 import { CentralBridgeShowdown } from './CentralBridgeShowdown.js';
 import { RuinsOfValor } from './RuinsOfValor.js';
 
-export const maps = {
-    // 수정: 키 이름을 GrasslandSkirmish로 하고, 값으로 grasslandSkirmishMap을 할당합니다.
-    GrasslandSkirmish: grasslandSkirmishMap, 
+// gameManager.js에서 localMaps로 import 하므로 변수 이름을 수정합니다.
+export const localMaps = [
+    grasslandSkirmishMap,
     CentralBridgeShowdown,
     RuinsOfValor,
-};
+];
