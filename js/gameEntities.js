@@ -336,6 +336,7 @@ export class Projectile {
             // 마법창 특수 공격은 벽을 통과하도록 수정
             if (this.type !== 'magic_spear_special' && (tile.type === TILE.WALL || tile.type === TILE.CRACKED_WALL)) {
                 if (tile.type === TILE.CRACKED_WALL) {
+                    // [수정] 부서지는 벽에 데미지를 줍니다.
                     gameManager.damageTile(gridX, gridY, this.damage);
                 }
                 this.destroyed = true;
@@ -1472,7 +1473,11 @@ export class Unit {
         } else {
             const enemyNexus = gameManager.nexuses.find(n => n.team !== this.team && !n.isDestroying);
             const { item: closestEnemy, distance: enemyDist } = this.findClosest(enemies);
-            const { item: targetWeapon, distance: weaponDist } = this.findClosest(weapons.filter(w => !w.isEquipped));
+            
+            // [수정] 시야가 확보된 무기만 필터링합니다.
+            const visibleWeapons = weapons.filter(w => !w.isEquipped && gameManager.hasLineOfSightForWeapon(this, w));
+            const { item: targetWeapon, distance: weaponDist } = this.findClosest(visibleWeapons);
+
             const questionMarkTiles = gameManager.getTilesOfType(TILE.QUESTION_MARK);
             const questionMarkPositions = questionMarkTiles.map(pos => ({
                 gridX: pos.x, gridY: pos.y,
