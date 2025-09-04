@@ -7,8 +7,9 @@
  */
 function createSymmetricalMap(topHalf) {
     const halfHeight = topHalf.length;
+    const height = (halfHeight - 1) * 2 + 1;
     const width = topHalf[0].length;
-    const fullMap = Array.from({ length: halfHeight * 2 - 2 }, () => Array(width).fill("FLOOR"));
+    const fullMap = Array.from({ length: height }, () => Array(width).fill("FLOOR"));
 
     for (let y = 0; y < halfHeight; y++) {
         for (let x = 0; x < width; x++) {
@@ -16,11 +17,16 @@ function createSymmetricalMap(topHalf) {
             if (y < halfHeight - 1) {
                 fullMap[y][x] = topHalf[y][x];
             }
-            // 하단 절반 대칭 생성
-            const mirrorY = fullMap.length - 1 - y;
+            // 중앙 라인 복사
+            if (y === halfHeight - 1) {
+                fullMap[y][x] = topHalf[y][x];
+            }
+
+            // 하단 절반 대칭 복사
+            const mirrorY = height - 1 - y;
             let tile = topHalf[y][x];
 
-            // 방향성 타일 대칭 처리
+            // 대칭 시 DASH_TILE 방향 반전
             if (tile === "DASH_TILE:UP") {
                 tile = "DASH_TILE:DOWN";
             } else if (tile === "DASH_TILE:DOWN") {
@@ -32,7 +38,8 @@ function createSymmetricalMap(topHalf) {
     return fullMap;
 }
 
-// 맵의 상단 절반 + 중앙 라인 정의
+
+// 맵의 상단 절반과 중앙 라인 (총 11줄)
 const topHalfAndCenter = [
     ["WALL", "WALL", "WALL", "WALL", "WALL", "WALL", "WALL", "WALL", "WALL", "WALL", "WALL", "WALL", "WALL", "WALL", "WALL", "WALL", "WALL", "WALL", "WALL", "WALL", "WALL", "WALL", "WALL", "WALL", "WALL", "WALL", "WALL", "WALL", "WALL", "WALL", "WALL", "WALL"],
     ["WALL", "FLOOR", "FLOOR", "FLOOR", "FLOOR", "FLOOR", "FLOOR", "FLOOR", "WALL", "FLOOR", "FLOOR", "FLOOR", "FLOOR", "FLOOR", "FLOOR", "FLOOR", "FLOOR", "FLOOR", "FLOOR", "FLOOR", "FLOOR", "FLOOR", "WALL", "FLOOR", "FLOOR", "FLOOR", "FLOOR", "FLOOR", "FLOOR", "FLOOR", "FLOOR", "WALL"],
@@ -44,7 +51,7 @@ const topHalfAndCenter = [
     ["WALL", "FLOOR", "FLOOR", "FLOOR", "FLOOR", "FLOOR", "FLOOR", "FLOOR", "FLOOR", "FLOOR", "FLOOR", "CRACKED_WALL", "FLOOR", "FLOOR", "CRACKED_WALL", "FLOOR", "FLOOR", "CRACKED_WALL", "FLOOR", "FLOOR", "CRACKED_WALL", "FLOOR", "FLOOR", "FLOOR", "FLOOR", "FLOOR", "FLOOR", "FLOOR", "FLOOR", "FLOOR", "FLOOR", "WALL"],
     ["WALL", "FLOOR", "FLOOR", "WALL", "WALL", "WALL", "WALL", "WALL", "FLOOR", "FLOOR", "FLOOR", "FLOOR", "FLOOR", "FLOOR", "FLOOR", "FLOOR", "FLOOR", "FLOOR", "FLOOR", "FLOOR", "FLOOR", "FLOOR", "FLOOR", "WALL", "WALL", "WALL", "WALL", "WALL", "FLOOR", "FLOOR", "FLOOR", "WALL"],
     ["WALL", "FLOOR", "FLOOR", "FLOOR", "FLOOR", "FLOOR", "FLOOR", "FLOOR", "FLOOR", "FLOOR", "FLOOR", "FLOOR", "FLOOR", "FLOOR", "LAVA", "LAVA", "LAVA", "LAVA", "FLOOR", "FLOOR", "FLOOR", "FLOOR", "FLOOR", "FLOOR", "FLOOR", "FLOOR", "FLOOR", "FLOOR", "FLOOR", "FLOOR", "FLOOR", "WALL"],
-    ["WALL", "FLOOR", "FLOOR", "FLOOR", "FLOOR", "FLOOR", "FLOOR", "FLOOR", "FLOOR", "FLOOR", "FLOOR", "FLOOR", "FLOOR", "FLOOR", "LAVA", "LAVA", "LAVA", "LAVA", "FLOOR", "FLOOR", "FLOOR", "FLOOR", "FLOOR", "FLOOR", "FLOOR", "FLOOR", "FLOOR", "FLOOR", "FLOOR", "FLOOR", "FLOOR", "WALL"],
+    ["WALL", "FLOOR", "FLOOR", "WALL", "WALL", "WALL", "WALL", "WALL", "FLOOR", "FLOOR", "FLOOR", "FLOOR", "FLOOR", "FLOOR", "FLOOR", "FLOOR", "FLOOR", "FLOOR", "FLOOR", "FLOOR", "FLOOR", "FLOOR", "FLOOR", "WALL", "WALL", "WALL", "WALL", "WALL", "FLOOR", "FLOOR", "FLOOR", "WALL"]
 ];
 
 
@@ -55,14 +62,14 @@ export const RuinsOfValor = {
     units: [
         // Red Team
         { x: 2, y: 2, team: 'A' },
-        { x: 3, y: 2, team: 'A' },
+        { x: 3, y: 3, team: 'A' },
         { x: 4, y: 2, team: 'A' },
-        { x: 2, y: 4, team: 'A' },
-        { x: 3, y: 4, team: 'A' },
+        { x: 3, y: 5, team: 'A' },
+        { x: 5, y: 5, team: 'A' },
         // Blue Team
-        { x: 29, y: 17, team: 'B' },
+        { x: 29, y: 18, team: 'B' },
         { x: 28, y: 17, team: 'B' },
-        { x: 27, y: 17, team: 'B' },
+        { x: 27, y: 18, team: 'B' },
         { x: 29, y: 15, team: 'B' },
         { x: 28, y: 15, team: 'B' },
     ],
@@ -86,3 +93,4 @@ export const RuinsOfValor = {
     ],
     magneticFields: [],
 };
+
