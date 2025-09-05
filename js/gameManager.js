@@ -282,12 +282,6 @@ export class GameManager {
             mapGrid.removeChild(mapGrid.firstChild);
         }
 
-        // maps/index.js에서 불러온 모든 로컬 맵을 렌더링합니다.
-        localMaps.forEach(mapData => {
-            const card = this.createMapCard(mapData, true);
-            mapGrid.insertBefore(card, addNewMapCard);
-        });
-
         // Firebase에서 불러온 사용자 맵을 렌더링합니다.
         maps.forEach(mapData => {
             const card = this.createMapCard(mapData, false);
@@ -1617,6 +1611,7 @@ export class GameManager {
         this.state = 'EDIT';
         this.currentMapId = null; // 로컬 맵은 ID가 없습니다.
         document.getElementById('homeScreen').style.display = 'none';
+        document.getElementById('defaultMapsScreen').style.display = 'none';
         document.getElementById('editorScreen').style.display = 'flex';
         await this.audioManager.init();
         
@@ -1676,3 +1671,4 @@ export class GameManager {
         this.resetActionCam(true);
     }
 }
+
