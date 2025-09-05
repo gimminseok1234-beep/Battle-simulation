@@ -3,15 +3,40 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>배틀 시뮬레이터</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.7.77/Tone.js"></script>
+    <title>Battle Simulation</title>
+    <link href="https://cdn.tailwindcss.com/dist/tailwind.min.css" rel="stylesheet">
     <link rel="stylesheet" href="css/styles.css">
 </head>
 <body class="bg-gray-900 text-gray-200 p-4">
 
-    <div id="homeScreen" class="relative w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <!-- Header Section -->
+    <div id="authScreen" class="min-h-screen flex items-center justify-center">
+        <div class="bg-gray-800 p-8 rounded-lg shadow-lg w-full max-w-sm text-center">
+            <h2 class="text-2xl font-bold mb-6 text-white">Battle Simulator</h2>
+            <div id="auth-container" class="space-y-4">
+                <button id="googleSignInBtn" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded transition duration-300 flex items-center justify-center">
+                    <svg class="w-5 h-5 mr-2" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path fill="#FFF" d="M21.35 11.1h-9.1v2.7h5.2c-.2 1.8-1.5 3.2-3.3 3.2-2.3 0-4.2-1.9-4.2-4.2s1.9-4.2 4.2-4.2c1.1 0 2.1.4 2.8 1.2l2.1-2.1c-1.6-1.5-3.8-2.4-6-2.4-5 0-9 4-9 9s4 9 9 9c5.1 0 8.7-3.6 8.7-8.7 0-.6-.1-1.1-.2-1.7z"/></svg>
+                    Google 계정으로 로그인
+                </button>
+                <div class="relative flex py-2 items-center">
+                    <div class="flex-grow border-t border-gray-600"></div>
+                    <span class="flex-shrink mx-4 text-gray-400">또는</span>
+                    <div class="flex-grow border-t border-gray-600"></div>
+                </div>
+                <button id="anonymousSignInBtn" class="w-full bg-gray-600 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded transition duration-300">
+                    익명으로 계속하기
+                </button>
+            </div>
+            <div id="user-info" class="hidden text-center">
+                <p id="user-email" class="mb-4"></p>
+                <button id="signOutBtn" class="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded transition duration-300">
+                    로그아웃
+                </button>
+            </div>
+            <p id="authLoadingStatus" class="hidden mt-4 text-gray-400">인증 중...</p>
+        </div>
+    </div>
+    
+    <div id="homeScreen" class="relative w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 hidden">
         <header class="relative py-8">
             <div class="text-center">
                 <h1 class="text-3xl font-bold text-white">배틀 시뮬레이터</h1>
@@ -32,7 +57,6 @@
             </div>
         </header>
         
-        <!-- Map Grid Section -->
         <div id="mapGrid" class="pt-8 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-6 w-full">
             <button id="addNewMapCard" class="flex flex-col items-center justify-center p-4 rounded-lg border-2 border-dashed border-gray-600 hover:bg-gray-800 hover:border-gray-500 transition-colors aspect-[3/4] hidden">
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-12 w-12 text-gray-500 mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" /></svg>
@@ -192,3 +216,4 @@
     <script type="module" src="js/main.js"></script>
 </body>
 </html>
+
