@@ -1,6 +1,6 @@
 import { getFirestore, collection, doc, getDoc, getDocs, setDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/10.9.0/firebase-firestore.js";
 import { AudioManager } from './audioManager.js';
-import { Unit, Weapon, Nexus, Projectile, AreaEffect, Effect, GrowingMagneticField, MagicCircle, PoisonCloud } from './gameEntities.js';
+import { Unit, Weapon, Nexus, Projectile, AreaEffect, Effect, GrowingMagneticField, MagicCircle, PoisonCloud, Particle } from './gameEntities.js';
 import { TILE, TEAM, COLORS, GRID_SIZE } from './constants.js';
 // maps/index.js에서 모든 기본 맵 목록을 한 번에 불러옵니다.
 import { localMaps } from './maps/index.js';
@@ -33,6 +33,7 @@ export class GameManager {
         this.growingFields = [];
         this.magicCircles = [];
         this.poisonClouds = [];
+        this.particles = [];
         this.currentTool = { tool: 'tile', type: 'FLOOR' };
         this.isPainting = false;
         this.dragStartPos = null;
@@ -77,6 +78,10 @@ export class GameManager {
 
     static getInstance() {
         return instance;
+    }
+
+    addParticle(options) {
+        this.particles.push(new Particle(options));
     }
 
     setCurrentUser(user) {
@@ -699,7 +704,7 @@ export class GameManager {
         this.state = 'EDIT';
         this.map = Array(this.ROWS).fill().map(() => Array(this.COLS).fill().map(() => ({ type: TILE.FLOOR, color: this.currentFloorColor })));
         this.units = []; this.weapons = []; this.nexuses = []; this.growingFields = [];
-        this.effects = []; this.projectiles = []; this.areaEffects = []; this.magicCircles = []; this.poisonClouds = [];
+        this.effects = []; this.projectiles = []; this.areaEffects = []; this.magicCircles = []; this.poisonClouds = []; this.particles = [];
         this.initialUnitsState = []; this.initialWeaponsState = [];
         this.initialNexusesState = []; this.initialMapState = [];
         this.initialGrowingFieldsState = [];
@@ -726,6 +731,7 @@ export class GameManager {
         this.winnerTeam = null;
         this.magicCircles = [];
         this.poisonClouds = [];
+        this.particles = [];
 
         this.state = 'SIMULATE';
         document.getElementById('statusText').textContent = "시뮬레이션 진행 중...";
@@ -761,7 +767,7 @@ export class GameManager {
             return new GrowingMagneticField(fieldData.id, fieldData.gridX, fieldData.gridY, fieldData.width, fieldData.height, settings);
         });
         this.autoMagneticField = JSON.parse(this.initialAutoFieldState);
-        this.effects = []; this.projectiles = []; this.areaEffects = []; this.magicCircles = []; this.poisonClouds = [];
+        this.effects = []; this.projectiles = []; this.areaEffects = []; this.magicCircles = []; this.poisonClouds = []; this.particles = [];
         document.getElementById('statusText').textContent = "에디터 모드";
         document.getElementById('simStartBtn').classList.remove('hidden');
         document.getElementById('simPauseBtn').classList.add('hidden');
@@ -1124,6 +1130,9 @@ export class GameManager {
         this.effects = this.effects.filter(e => e.duration > 0);
         this.areaEffects.forEach(e => e.update());
         this.areaEffects = this.areaEffects.filter(e => e.duration > 0);
+
+        this.particles.forEach(p => p.update(this.gameSpeed));
+        this.particles = this.particles.filter(p => p.isAlive());
     }
     
     draw(mouseEvent = null) {
@@ -1172,6 +1181,7 @@ export class GameManager {
         this.units.forEach(u => u.draw(this.ctx));
         this.effects.forEach(e => e.draw(this.ctx));
         this.areaEffects.forEach(e => e.draw(this.ctx));
+        this.particles.forEach(p => p.draw(this.ctx));
 
         if (this.state === 'EDIT' && this.currentTool.tool === 'growing_field' && this.dragStartPos && this.isPainting && mouseEvent) {
             const currentPos = this.getMousePos(mouseEvent);
@@ -1625,6 +1635,7 @@ export class GameManager {
         this.areaEffects = [];
         this.magicCircles = [];
         this.poisonClouds = [];
+        this.particles = [];
         this.initialUnitsState = [];
         this.initialWeaponsState = [];
         this.initialNexusesState = [];
