@@ -31,13 +31,37 @@
                 </div>
             </div>
         </header>
+
+        <!-- Default Maps Button -->
+        <div class="flex justify-center py-4">
+            <button id="defaultMapsBtn" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-6 rounded-lg text-lg transition-transform transform hover:scale-105">
+                기본 맵 보관함
+            </button>
+        </div>
         
         <!-- Map Grid Section -->
-        <div id="mapGrid" class="pt-8 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-6 w-full">
+        <div id="mapGrid" class="pt-2 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-6 w-full">
             <button id="addNewMapCard" class="flex flex-col items-center justify-center p-4 rounded-lg border-2 border-dashed border-gray-600 hover:bg-gray-800 hover:border-gray-500 transition-colors aspect-[3/4] hidden">
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-12 w-12 text-gray-500 mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" /></svg>
                 <span class="text-gray-400 font-semibold">새 맵 추가</span>
             </button>
+        </div>
+    </div>
+
+    <!-- Default Maps Screen -->
+    <div id="defaultMapsScreen" class="hidden relative w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <header class="relative py-8 flex items-center justify-between">
+            <button id="backToHomeFromDefaultBtn" class="bg-gray-600 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded">
+                &larr; 홈으로 돌아가기
+            </button>
+            <div class="text-center flex-grow">
+                <h1 class="text-3xl font-bold text-white">기본 맵 보관함</h1>
+            </div>
+            <div class="w-40"></div> <!-- Spacer to keep title centered -->
+        </header>
+    
+        <div id="defaultMapGrid" class="pt-8 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-6 w-full">
+            <!-- Default map cards will be inserted here -->
         </div>
     </div>
 
