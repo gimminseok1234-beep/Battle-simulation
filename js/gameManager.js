@@ -1,8 +1,9 @@
 import { getFirestore, collection, doc, getDoc, getDocs, setDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/10.9.0/firebase-firestore.js";
 import { AudioManager } from './audioManager.js';
-import { Unit, Weapon, Nexus, Projectile, AreaEffect, Effect, GrowingMagneticField, MagicCircle, PoisonCloud } from './gameEntities.js';
+// [수정] gameEntities.js에서 가져오는 클래스 목록을 정리하고, 새로운 효과 파일을 가져옵니다.
+import { Unit, Weapon, Nexus, GrowingMagneticField, MagicCircle } from './gameEntities.js';
+import { EnhancedProjectile, EnhancedCombatAnimations, EnhancedEnvironmentalEffects } from './enhancedEffects.js';
 import { TILE, TEAM, COLORS, GRID_SIZE } from './constants.js';
-// maps/index.js에서 모든 기본 맵 목록을 한 번에 불러옵니다.
 import { localMaps } from './maps/index.js';
 
 let instance = null;
@@ -27,12 +28,18 @@ export class GameManager {
         this.units = [];
         this.weapons = [];
         this.nexuses = [];
-        this.effects = [];
         this.projectiles = [];
-        this.areaEffects = [];
         this.growingFields = [];
         this.magicCircles = [];
-        this.poisonClouds = [];
+        
+        // [신규] 새로운 시각 효과들을 관리하기 위한 배열들
+        this.particles = [];
+        this.shockwaves = [];
+        this.lineEffects = [];
+        this.floatingTexts = [];
+        this.castingEffects = [];
+        this.areaEffects = []; // 기존 poisonClouds, areaEffects를 통합
+
         this.currentTool = { tool: 'tile', type: 'FLOOR' };
         this.isPainting = false;
         this.dragStartPos = null;
@@ -54,10 +61,11 @@ export class GameManager {
             target: { x: 0, y: 0, scale: 1 },
             isAnimating: false
         };
+        this.screenShake = { intensity: 0, duration: 0 }; // 화면 흔들림 효과
         this.growingFieldSettings = {
             direction: 'DOWN', speed: 4, delay: 0
         };
-        this.dashTileSettings = { // 돌진 타일 설정 추가
+        this.dashTileSettings = {
             direction: 'RIGHT'
         };
         this.autoMagneticField = {
@@ -79,6 +87,18 @@ export class GameManager {
         return instance;
     }
 
+    // [신규] 각종 시각 효과를 추가하기 위한 헬퍼 함수들
+    addParticle(options) { this.particles.push(options); }
+    addShockwave(options) { this.shockwaves.push(options); }
+    addLineEffect(options) { this.lineEffects.push(options); }
+    addFloatingText(options) { this.floatingTexts.push(options); }
+    addCastingEffect(options) { this.castingEffects.push(options); }
+    addScreenShake(options) {
+        this.screenShake.intensity = Math.max(this.screenShake.intensity, options.intensity);
+        this.screenShake.duration = Math.max(this.screenShake.duration, options.duration);
+    }
+    
+    // ... 기존 코드 (setCurrentUser, init, showHomeScreen, showEditorScreen, createToolboxUI) ...
     setCurrentUser(user) {
         this.currentUser = user;
     }
@@ -258,23 +278,27 @@ export class GameManager {
 
     async renderMapCards() {
         document.getElementById('loadingStatus').textContent = "맵 목록을 불러오는 중...";
-        const maps = await this.getAllMaps();
+        const userMaps = await this.getAllMaps();
         document.getElementById('loadingStatus').style.display = 'none';
         
+        const basicMapGrid = document.getElementById('basicMapGrid');
         const mapGrid = document.getElementById('mapGrid');
         const addNewMapCard = document.getElementById('addNewMapCard');
+        
+        // 그리드 비우기
+        basicMapGrid.innerHTML = '';
         while (mapGrid.firstChild && mapGrid.firstChild !== addNewMapCard) {
             mapGrid.removeChild(mapGrid.firstChild);
         }
 
-        // maps/index.js에서 불러온 모든 로컬 맵을 렌더링합니다.
+        // 기본 맵을 'basicMapGrid'에 렌더링
         localMaps.forEach(mapData => {
             const card = this.createMapCard(mapData, true);
-            mapGrid.insertBefore(card, addNewMapCard);
+            basicMapGrid.appendChild(card);
         });
 
-        // Firebase에서 불러온 사용자 맵을 렌더링합니다.
-        maps.forEach(mapData => {
+        // 유저 맵을 'mapGrid'에 렌더링
+        userMaps.forEach(mapData => {
             const card = this.createMapCard(mapData, false);
             mapGrid.insertBefore(card, addNewMapCard);
         });
@@ -467,6 +491,14 @@ export class GameManager {
     }
     
     setupEventListeners() {
+        // 기본 맵 폴더 여닫기 이벤트 리스너
+        document.getElementById('basicMapsHeader').addEventListener('click', () => {
+            const grid = document.getElementById('basicMapGrid');
+            const arrow = document.getElementById('basicMapsArrow');
+            grid.classList.toggle('hidden');
+            arrow.classList.toggle('rotate-90');
+        });
+
         // Modal buttons
         document.getElementById('cancelNewMapBtn').addEventListener('click', () => document.getElementById('newMapModal').classList.remove('show-modal'));
         document.getElementById('cancelRenameBtn').addEventListener('click', () => document.getElementById('renameMapModal').classList.remove('show-modal'));
@@ -693,17 +725,22 @@ export class GameManager {
         this.resetMap();
     }
 
+    // [수정] resetMap에서 새로운 효과 배열들을 초기화합니다.
     resetMap() {
         cancelAnimationFrame(this.animationFrameId);
         this.animationFrameId = null;
         this.state = 'EDIT';
         this.map = Array(this.ROWS).fill().map(() => Array(this.COLS).fill().map(() => ({ type: TILE.FLOOR, color: this.currentFloorColor })));
         this.units = []; this.weapons = []; this.nexuses = []; this.growingFields = [];
-        this.effects = []; this.projectiles = []; this.areaEffects = []; this.magicCircles = []; this.poisonClouds = [];
+        this.projectiles = []; this.magicCircles = [];
+        
+        this.particles = []; this.shockwaves = []; this.lineEffects = []; this.floatingTexts = []; this.castingEffects = []; this.areaEffects = [];
+
         this.initialUnitsState = []; this.initialWeaponsState = [];
         this.initialNexusesState = []; this.initialMapState = [];
         this.initialGrowingFieldsState = [];
         this.initialAutoFieldState = {};
+        this.screenShake = { intensity: 0, duration: 0 };
         document.getElementById('statusText').textContent = "에디터 모드";
         document.getElementById('simStartBtn').classList.remove('hidden');
         document.getElementById('simPauseBtn').classList.add('hidden');
@@ -725,7 +762,6 @@ export class GameManager {
         this.initialNexusCount = this.nexuses.length;
         this.winnerTeam = null;
         this.magicCircles = [];
-        this.poisonClouds = [];
 
         this.state = 'SIMULATE';
         document.getElementById('statusText').textContent = "시뮬레이션 진행 중...";
@@ -735,7 +771,8 @@ export class GameManager {
         document.getElementById('toolbox').style.pointerEvents = 'none';
         this.gameLoop();
     }
-
+    
+    // [수정] resetPlacement에서 새로운 효과 배열들을 초기화합니다.
     resetPlacement() {
         if (this.initialUnitsState.length === 0) {
             console.warn("배치 초기화를 하려면 먼저 시뮬레이션을 한 번 시작해야 합니다.");
@@ -746,7 +783,6 @@ export class GameManager {
         this.animationFrameId = null;
         this.state = 'EDIT';
 
-        // BUG FIX: 객체 생성 시점에 좌표를 전달하도록 수정
         this.units = JSON.parse(this.initialUnitsState).map(uData => Object.assign(new Unit(uData.gridX, uData.gridY, uData.team), uData));
         this.weapons = JSON.parse(this.initialWeaponsState).map(wData => Object.assign(new Weapon(wData.gridX, wData.gridY, wData.type), wData));
         this.nexuses = JSON.parse(this.initialNexusesState).map(nData => Object.assign(new Nexus(nData.gridX, nData.gridY, nData.team), nData));
@@ -761,7 +797,11 @@ export class GameManager {
             return new GrowingMagneticField(fieldData.id, fieldData.gridX, fieldData.gridY, fieldData.width, fieldData.height, settings);
         });
         this.autoMagneticField = JSON.parse(this.initialAutoFieldState);
-        this.effects = []; this.projectiles = []; this.areaEffects = []; this.magicCircles = []; this.poisonClouds = [];
+        
+        this.projectiles = []; this.magicCircles = [];
+        this.particles = []; this.shockwaves = []; this.lineEffects = []; this.floatingTexts = []; this.castingEffects = []; this.areaEffects = [];
+        this.screenShake = { intensity: 0, duration: 0 };
+        
         document.getElementById('statusText').textContent = "에디터 모드";
         document.getElementById('simStartBtn').classList.remove('hidden');
         document.getElementById('simPauseBtn').classList.add('hidden');
@@ -772,6 +812,7 @@ export class GameManager {
         this.draw();
     }
     
+    // ... (getMousePos, selectTool, applyTool 등 다른 함수들은 이전과 동일)
     selectTool(button) {
         const { tool, team, type } = button.dataset;
 
@@ -869,6 +910,7 @@ export class GameManager {
         this.gameLoop();
     }
 
+    // [수정] gameLoop에서 새로운 효과들을 업데이트하고 그립니다.
     gameLoop() {
         this.animationFrameCounter++;
         
@@ -898,23 +940,17 @@ export class GameManager {
             
             let gameOver = false;
             let winner = null;
-
-            // [수정] 새로운 승리 판정 로직
+            
             if (this.initialNexusCount >= 2) {
-                // 넥서스가 하나 파괴되거나, 한 팀의 유닛이 전멸하면 게임 종료
                 if (activeNexusTeams.size < 2 || activeUnitTeams.size <= 1) {
                     gameOver = true;
-                    // 넥서스가 파괴된 경우, 남은 넥서스 팀이 승리
                     if (activeNexusTeams.size < 2) {
                         winner = activeNexusTeams.values().next().value || null;
-                    }
-                    // 유닛이 전멸한 경우, 남은 유닛 팀이 승리
-                    else {
+                    } else {
                         winner = activeUnitTeams.values().next().value || null;
                     }
                 }
             } else {
-                // 기존 로직 (넥서스가 1개 이하일 때)
                 const allRemainingTeams = new Set([...activeNexusTeams, ...activeUnitTeams]);
                 if (allRemainingTeams.size <= 1) {
                     const initialTeams = new Set(JSON.parse(this.initialNexusesState).map(n => n.team).concat(JSON.parse(this.initialUnitsState).map(u => u.team)));
@@ -958,7 +994,8 @@ export class GameManager {
             this.animationFrameId = requestAnimationFrame(() => this.gameLoop());
         }
     }
-
+    
+    // [수정] update에서 새로운 효과들을 업데이트합니다.
     update() {
         if (this.state === 'PAUSED' || this.state === 'DONE') return;
 
@@ -966,10 +1003,17 @@ export class GameManager {
             this.nexuses.forEach(n => n.update());
             this.projectiles.forEach(p => p.update());
             this.projectiles = this.projectiles.filter(p => !p.destroyed);
+            this.particles.forEach(p => p.update());
+            this.particles = this.particles.filter(p => p.life > 0);
             return;
         }
 
         this.gameSpeed = 1;
+
+        if (this.screenShake.duration > 0) {
+            this.screenShake.duration--;
+            if (this.screenShake.duration <= 0) this.screenShake.intensity = 0;
+        }
 
         if (this.autoMagneticField.isActive) {
             this.autoMagneticField.simulationTime++;
@@ -1026,7 +1070,6 @@ export class GameManager {
             let hit = false;
         
             for (const unit of this.units) {
-                // BUG FIX: 이미 공격한 대상인지 확인
                 if (p.owner.team !== unit.team && !p.hitTargets.has(unit) && Math.hypot(p.pixelX - unit.pixelX, p.pixelY - unit.pixelY) < GRID_SIZE / 2) {
                     p.hitTargets.add(unit);
                     hit = true;
@@ -1047,10 +1090,8 @@ export class GameManager {
                         if (p.type === 'hadoken') this.audioManager.play('hadokenHit');
                     }
         
-                    // BUG FIX: 연쇄 번개 로직 수정
                     if (p.type === 'lightning_bolt') {
-                        p.destroyed = true; // 현재 투사체는 소멸 처리
-        
+                        p.destroyed = true; 
                         const potentialTargets = this.units.filter(u =>
                             u.team !== p.owner.team && !p.hitTargets.has(u) && u.hp > 0
                         );
@@ -1067,8 +1108,8 @@ export class GameManager {
                                 }
                             }
         
-                            const newProjectile = new Projectile(p.owner, closestEnemy, 'lightning_bolt', {
-                                hitTargets: p.hitTargets // 기존 hitTargets 정보를 넘겨줌
+                            const newProjectile = new EnhancedProjectile(p.owner, closestEnemy, 'lightning_bolt', {
+                                hitTargets: p.hitTargets
                             });
                             newProjectile.pixelX = unit.pixelX;
                             newProjectile.pixelY = unit.pixelY;
@@ -1076,7 +1117,7 @@ export class GameManager {
                         }
                     }
         
-                    if (p.type !== 'lightning_bolt') { // 번개가 아니면 단일 타겟이므로 루프 종료
+                    if (p.type !== 'lightning_bolt') {
                         break;
                     }
                 }
@@ -1103,33 +1144,57 @@ export class GameManager {
         this.magicCircles.forEach(circle => circle.update());
         this.magicCircles = this.magicCircles.filter(c => c.duration > 0);
         
-        this.poisonClouds.forEach(cloud => cloud.update());
-        this.poisonClouds = this.poisonClouds.filter(c => c.duration > 0);
-
         for (const unit of this.units) {
             const gridX = Math.floor(unit.pixelX / GRID_SIZE);
             const gridY = Math.floor(unit.pixelY / GRID_SIZE);
             for (let i = this.magicCircles.length - 1; i >= 0; i--) {
                 const circle = this.magicCircles[i];
                 if (circle.gridX === gridX && circle.gridY === gridY && circle.team !== unit.team) {
-                    unit.takeDamage(0, { stun: 120 }); // 2초 기절
-                    this.magicCircles.splice(i, 1); // 밟으면 사라짐
+                    unit.takeDamage(0, { stun: 120 });
+                    this.magicCircles.splice(i, 1);
                 }
             }
         }
 
         this.weapons = this.weapons.filter(w => !w.isEquipped);
+        
+        // 새로운 효과 업데이트
+        this.particles.forEach(p => {
+            p.x += p.vx; p.y += p.vy;
+            if (p.gravity) p.vy += p.gravity;
+            if (p.expansion) p.size += p.expansion;
+            p.life -= p.decay || 0.02;
+        });
+        this.particles = this.particles.filter(p => p.life > 0);
 
-        this.effects.forEach(e => e.update());
-        this.effects = this.effects.filter(e => e.duration > 0);
+        this.shockwaves.forEach(s => { s.currentRadius += 2; s.opacity = 1 - (s.currentRadius / s.maxRadius); });
+        this.shockwaves = this.shockwaves.filter(s => s.currentRadius < s.maxRadius);
+        
+        this.lineEffects.forEach(l => l.life--);
+        this.lineEffects = this.lineEffects.filter(l => l.life > 0);
+
+        this.floatingTexts.forEach(t => { t.y += t.vy; t.vy += 0.05; t.life--; });
+        this.floatingTexts = this.floatingTexts.filter(t => t.life > 0);
+        
+        this.castingEffects.forEach(c => c.update());
+        this.castingEffects = this.castingEffects.filter(c => c.duration > 0);
+
         this.areaEffects.forEach(e => e.update());
         this.areaEffects = this.areaEffects.filter(e => e.duration > 0);
     }
     
+    // [수정] draw에서 새로운 효과들을 그립니다.
     draw(mouseEvent = null) {
         this.ctx.save();
         this.ctx.fillStyle = '#1f2937';
         this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+
+        // 화면 흔들림 적용
+        if (this.screenShake.duration > 0) {
+            const dx = (Math.random() - 0.5) * this.screenShake.intensity;
+            const dy = (Math.random() - 0.5) * this.screenShake.intensity;
+            this.ctx.translate(dx, dy);
+        }
 
         const cam = this.actionCam;
         this.ctx.translate(this.canvas.width / 2, this.canvas.height / 2);
@@ -1137,8 +1202,9 @@ export class GameManager {
         this.ctx.translate(-cam.current.x, -cam.current.y);
 
         this.drawMap();
+        this.shockwaves.forEach(s => this.drawShockwave(s));
         this.magicCircles.forEach(c => c.draw(this.ctx));
-        this.poisonClouds.forEach(c => c.draw(this.ctx));
+        this.areaEffects.forEach(e => e.draw(this.ctx));
         
         if (this.state === 'SIMULATE' || this.state === 'PAUSED' || this.state === 'ENDING') {
             if (this.autoMagneticField.isActive) {
@@ -1168,10 +1234,16 @@ export class GameManager {
         this.growingFields.forEach(w => w.draw(this.ctx));
         this.weapons.forEach(w => w.draw(this.ctx));
         this.nexuses.forEach(n => n.draw(this.ctx));
+        
+        // 파티클은 유닛보다 먼저 그려서 유닛 뒤에 나타나도록 함
+        this.particles.forEach(p => this.drawParticle(p));
+        
         this.projectiles.forEach(p => p.draw(this.ctx));
         this.units.forEach(u => u.draw(this.ctx));
-        this.effects.forEach(e => e.draw(this.ctx));
-        this.areaEffects.forEach(e => e.draw(this.ctx));
+        
+        this.lineEffects.forEach(l => this.drawLineEffect(l));
+        this.castingEffects.forEach(c => this.drawCastingEffect(c));
+        this.floatingTexts.forEach(t => this.drawFloatingText(t));
 
         if (this.state === 'EDIT' && this.currentTool.tool === 'growing_field' && this.dragStartPos && this.isPainting && mouseEvent) {
             const currentPos = this.getMousePos(mouseEvent);
@@ -1188,7 +1260,61 @@ export class GameManager {
 
         this.ctx.restore();
     }
+    
+    // [신규] 각종 효과를 그리는 헬퍼 함수들
+    drawParticle(p) {
+        this.ctx.save();
+        this.ctx.globalAlpha = p.life;
+        this.ctx.fillStyle = p.color;
+        this.ctx.beginPath();
+        this.ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+        this.ctx.fill();
+        this.ctx.restore();
+    }
+    
+    drawShockwave(s) {
+        this.ctx.strokeStyle = s.color.replace(')', `, ${s.opacity})`);
+        this.ctx.lineWidth = 4;
+        this.ctx.beginPath();
+        this.ctx.arc(s.x, s.y, s.currentRadius, 0, Math.PI * 2);
+        this.ctx.stroke();
+    }
 
+    drawLineEffect(l) {
+        this.ctx.globalAlpha = l.life / 20;
+        this.ctx.strokeStyle = l.color;
+        this.ctx.lineWidth = l.width;
+        this.ctx.beginPath();
+        this.ctx.moveTo(l.startX, l.startY);
+        this.ctx.lineTo(l.endX, l.endY);
+        this.ctx.stroke();
+        this.ctx.globalAlpha = 1.0;
+    }
+    
+    drawFloatingText(t) {
+        this.ctx.save();
+        this.ctx.globalAlpha = t.life / 60;
+        this.ctx.fillStyle = t.color;
+        this.ctx.font = `bold ${t.size}px Arial`;
+        this.ctx.textAlign = 'center';
+        this.ctx.shadowColor = 'black';
+        this.ctx.shadowBlur = 4;
+        this.ctx.fillText(t.text, t.x, t.y);
+        this.ctx.restore();
+    }
+
+    drawCastingEffect(c) {
+        c.particles.forEach(p => {
+            const x = c.x + Math.cos(p.angle) * p.distance;
+            const y = c.y + Math.sin(p.angle) * p.distance;
+            this.ctx.fillStyle = p.color;
+            this.ctx.beginPath();
+            this.ctx.arc(x, y, p.size, 0, Math.PI * 2);
+            this.ctx.fill();
+        });
+    }
+
+    // ... 기존 코드 (drawMap, hasLineOfSight, hasLineOfSightForWeapon 등) ...
     drawMap() {
         for (let y = 0; y < this.ROWS; y++) {
             for (let x = 0; x < this.COLS; x++) {
@@ -1304,8 +1430,7 @@ export class GameManager {
         }
         return true;
     }
-
-    // 무기 감지를 위한 새로운 시야 확인 함수
+    
     hasLineOfSightForWeapon(startUnit, endTarget) {
         let x1 = Math.floor(startUnit.pixelX / GRID_SIZE);
         let y1 = Math.floor(startUnit.pixelY / GRID_SIZE);
@@ -1323,7 +1448,6 @@ export class GameManager {
             if ((x1 === x2 && y1 === y2)) break;
             if (y1 < 0 || y1 >= this.ROWS || x1 < 0 || x1 >= this.COLS) return false;
             const tile = this.map[y1][x1];
-            // 부서지지 않는 벽만 시야를 가립니다.
             if (tile.type === TILE.WALL) {
                 return false;
             }
@@ -1366,8 +1490,8 @@ export class GameManager {
             weapon.normalAttackPowerBonus = 5;
             weapon.specialAttackPowerBonus = 15;
         } else if (type === 'boomerang') {
-            weapon.attackPowerBonus = 10; // 일반 공격 데미지 15
-            weapon.attackRangeBonus = 7 * GRID_SIZE; // 활보다 2칸 긴 사거리
+            weapon.attackPowerBonus = 10;
+            weapon.attackRangeBonus = 7 * GRID_SIZE;
             weapon.detectionRangeBonus = 6 * GRID_SIZE;
         } else if (type === 'poison_potion') {
             weapon.attackPowerBonus = 10;
@@ -1398,20 +1522,20 @@ export class GameManager {
         }
     }
     
-    createEffect(type, x, y, target, options = {}) { this.effects.push(new Effect(x, y, type, target, options)); }
-    createProjectile(owner, target, type, options = {}) { this.projectiles.push(new Projectile(owner, target, type, options)); }
+    // [수정] 향상된 발사체 클래스를 사용하도록 변경
+    createProjectile(owner, target, type, options = {}) { 
+        this.projectiles.push(new EnhancedProjectile(owner, target, type, options));
+    }
     
+    // [수정] 향상된 환경 효과 클래스를 사용하도록 변경
     castAreaSpell(pos, type, ...args) {
         if (type === 'poison_cloud') {
             const ownerTeam = args[0];
-            this.poisonClouds.push(new PoisonCloud(pos.x, pos.y, ownerTeam));
+            this.areaEffects.push(EnhancedEnvironmentalEffects.createEnhancedPoisonCloud(pos.x, pos.y, ownerTeam));
         } else if (type === 'fire_pillar') {
             const damage = args[0];
             const ownerTeam = args[1];
-            this.areaEffects.push(new AreaEffect(pos.x, pos.y, type, { damage, ownerTeam }));
-        } else {
-            const options = args[0] || {};
-            this.areaEffects.push(new AreaEffect(pos.x, pos.y, type, options));
+            this.areaEffects.push(EnhancedEnvironmentalEffects.createEnhancedFirePillar(pos.x, pos.y, damage, ownerTeam));
         }
     }
 
@@ -1539,7 +1663,7 @@ export class GameManager {
             return;
         }
         
-        this.currentMapId = mapId; // Firebase 맵 ID 설정
+        this.currentMapId = mapId;
         this.currentMapName = mapData.name;
         this.canvas.width = mapData.width || 600;
         this.canvas.height = mapData.height || 900;
@@ -1554,7 +1678,6 @@ export class GameManager {
             this.map = Array(this.ROWS).fill().map(() => Array(this.COLS).fill({ type: TILE.FLOOR, color: COLORS.FLOOR }));
         }
         
-        // BUG FIX: 객체 생성 시점에 좌표를 전달하도록 수정
         this.units = (mapData.units || []).map(uData => Object.assign(new Unit(uData.gridX, uData.gridY, uData.team), uData));
         this.weapons = (mapData.weapons || []).map(wData => Object.assign(new Weapon(wData.gridX, wData.gridY, wData.type), wData));
         this.nexuses = (mapData.nexuses || []).map(nData => Object.assign(new Nexus(nData.gridX, nData.gridY, nData.team), nData));
@@ -1580,7 +1703,7 @@ export class GameManager {
 
     async loadLocalMapForEditing(mapData) {
         this.state = 'EDIT';
-        this.currentMapId = null; // 로컬 맵은 ID가 없습니다.
+        this.currentMapId = null;
         document.getElementById('homeScreen').style.display = 'none';
         document.getElementById('editorScreen').style.display = 'flex';
         await this.audioManager.init();
@@ -1595,7 +1718,6 @@ export class GameManager {
 
         this.map = JSON.parse(mapData.map);
         
-        // BUG FIX: 객체 생성 시점에 좌표를 전달하도록 수정
         this.units = (mapData.units || []).map(uData => Object.assign(new Unit(uData.gridX, uData.gridY, uData.team), uData));
         this.weapons = (mapData.weapons || []).map(wData => Object.assign(new Weapon(wData.gridX, wData.gridY, wData.type), wData));
         this.nexuses = (mapData.nexuses || []).map(nData => Object.assign(new Nexus(nData.gridX, nData.gridY, nData.team), nData));
@@ -1615,22 +1737,24 @@ export class GameManager {
         this.resetSimulationState();
         this.draw();
     }
-
+    
+    // [수정] resetSimulationState에서 새로운 효과 배열들을 초기화합니다.
     resetSimulationState() {
         cancelAnimationFrame(this.animationFrameId);
         this.animationFrameId = null;
         this.state = 'EDIT';
-        this.effects = [];
         this.projectiles = [];
-        this.areaEffects = [];
         this.magicCircles = [];
-        this.poisonClouds = [];
+
+        this.particles = []; this.shockwaves = []; this.lineEffects = []; this.floatingTexts = []; this.castingEffects = []; this.areaEffects = [];
+        
         this.initialUnitsState = [];
         this.initialWeaponsState = [];
         this.initialNexusesState = [];
         this.initialMapState = [];
         this.initialGrowingFieldsState = [];
         this.initialAutoFieldState = {};
+        this.screenShake = { intensity: 0, duration: 0 };
         document.getElementById('statusText').textContent = "에디터 모드";
         document.getElementById('simStartBtn').classList.remove('hidden');
         document.getElementById('simPauseBtn').classList.add('hidden');
@@ -1640,3 +1764,4 @@ export class GameManager {
         this.resetActionCam(true);
     }
 }
+
