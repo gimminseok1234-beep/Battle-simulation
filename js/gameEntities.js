@@ -1523,6 +1523,13 @@ export class Unit {
                 if (dist <= this.attackRange) {
                     this.boomerangCooldown = 480; // 8초 쿨타임
                     gameManager.createProjectile(this, closestEnemy, 'boomerang_projectile');
+                    // 특수 공격 후 즉시 함수를 종료하여 일반 공격을 막습니다.
+                    // 이 return문이 없으면 바로 아래 로직에서 일반 공격을 하게 됩니다.
+                    this.state = 'IDLE'; 
+                    this.moveTarget = null;
+                    this.attackCooldown = 60; // 짧은 쿨타임을 주어 바로 일반공격하지 않도록 함
+                    this.applyPhysics();
+                    return; 
                 }
             }
         }
