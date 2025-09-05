@@ -43,7 +43,8 @@ export class Particle {
  * @param {Unit | Nexus} target 
  */
 function createPhysicalHitEffect(gameManager, target) {
-    const particleCount = 8;
+    // 파티클 수를 8개에서 6개로 줄입니다.
+    const particleCount = 6;
     for (let i = 0; i < particleCount; i++) {
         const angle = Math.random() * Math.PI * 2;
         const speed = 2 + Math.random() * 3;
@@ -141,7 +142,7 @@ export class PoisonCloud {
                 const dy = Math.abs(target.pixelY - this.pixelY);
                 if (dx < GRID_SIZE * 2.5 && dy < GRID_SIZE * 2.5) {
                     if(target instanceof Unit) {
-                        target.takeDamage(0, { poison: { damage: this.damage * gameManager.gameSpeed } });
+                        target.takeDamage(0, { poison: { damage: this.damage * gameManager.gameSpeed }, isTileDamage: true });
                     } else if (target instanceof Nexus && !target.isDestroying) {
                         target.takeDamage(this.damage * gameManager.gameSpeed);
                     }
@@ -1324,7 +1325,7 @@ export class Unit {
 
     takeDamage(damage, effectInfo = {}) {
         const gameManager = GameManager.getInstance();
-        if (gameManager && damage > 0) {
+        if (gameManager && damage > 0 && !effectInfo.isTileDamage) {
             createPhysicalHitEffect(gameManager, this);
         }
         this.hp -= damage;
@@ -1451,7 +1452,7 @@ export class Unit {
         
         if (this.poisonEffect.active) {
             this.poisonEffect.duration -= gameManager.gameSpeed;
-            this.takeDamage(this.poisonEffect.damage);
+            this.takeDamage(this.poisonEffect.damage, { isTileDamage: true });
             if (this.poisonEffect.duration <= 0) {
                 this.poisonEffect.active = false;
             }
@@ -1675,13 +1676,13 @@ export class Unit {
 
         // 자기장 데미지
         if (this.isInMagneticField) {
-            this.takeDamage(0.3 * gameManager.gameSpeed);
+            this.takeDamage(0.3 * gameManager.gameSpeed, { isTileDamage: true });
         }
 
         // 타일 효과
         if(finalGridY >= 0 && finalGridY < gameManager.ROWS && finalGridX >= 0 && finalGridX < gameManager.COLS) {
             const currentTile = gameManager.map[finalGridY][finalGridX];
-            if (currentTile.type === TILE.LAVA) this.takeDamage(0.2 * gameManager.gameSpeed);
+            if (currentTile.type === TILE.LAVA) this.takeDamage(0.2 * gameManager.gameSpeed, { isTileDamage: true });
             if (currentTile.type === TILE.HEAL_PACK) {
                 this.hp = 100;
                 gameManager.map[finalGridY][finalGridX] = { type: TILE.FLOOR };
