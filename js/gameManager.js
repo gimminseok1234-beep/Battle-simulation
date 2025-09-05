@@ -98,7 +98,6 @@ export class GameManager {
         this.screenShake.duration = Math.max(this.screenShake.duration, options.duration);
     }
     
-    // ... 기존 코드 (setCurrentUser, init, showHomeScreen, showEditorScreen, createToolboxUI) ...
     setCurrentUser(user) {
         this.currentUser = user;
     }
@@ -275,7 +274,7 @@ export class GameManager {
             alert('맵 저장에 실패했습니다.');
         }
     }
-
+    
     async renderMapCards() {
         document.getElementById('loadingStatus').textContent = "맵 목록을 불러오는 중...";
         const userMaps = await this.getAllMaps();
@@ -285,19 +284,16 @@ export class GameManager {
         const mapGrid = document.getElementById('mapGrid');
         const addNewMapCard = document.getElementById('addNewMapCard');
         
-        // 그리드 비우기
         basicMapGrid.innerHTML = '';
         while (mapGrid.firstChild && mapGrid.firstChild !== addNewMapCard) {
             mapGrid.removeChild(mapGrid.firstChild);
         }
 
-        // 기본 맵을 'basicMapGrid'에 렌더링
         localMaps.forEach(mapData => {
             const card = this.createMapCard(mapData, true);
             basicMapGrid.appendChild(card);
         });
 
-        // 유저 맵을 'mapGrid'에 렌더링
         userMaps.forEach(mapData => {
             const card = this.createMapCard(mapData, false);
             mapGrid.insertBefore(card, addNewMapCard);
@@ -491,7 +487,6 @@ export class GameManager {
     }
     
     setupEventListeners() {
-        // 기본 맵 폴더 여닫기 이벤트 리스너
         document.getElementById('basicMapsHeader').addEventListener('click', () => {
             const grid = document.getElementById('basicMapGrid');
             const arrow = document.getElementById('basicMapsArrow');
@@ -499,24 +494,20 @@ export class GameManager {
             arrow.classList.toggle('rotate-90');
         });
 
-        // Modal buttons
         document.getElementById('cancelNewMapBtn').addEventListener('click', () => document.getElementById('newMapModal').classList.remove('show-modal'));
         document.getElementById('cancelRenameBtn').addEventListener('click', () => document.getElementById('renameMapModal').classList.remove('show-modal'));
         document.getElementById('cancelDeleteBtn').addEventListener('click', () => document.getElementById('deleteConfirmModal').classList.remove('show-modal'));
         document.getElementById('closeMapSettingsModal').addEventListener('click', () => document.getElementById('mapSettingsModal').classList.remove('show-modal'));
-        document.getElementById('closeDashTileModal').addEventListener('click', () => { // 돌진 타일 모달 닫기
+        document.getElementById('closeDashTileModal').addEventListener('click', () => {
             this.dashTileSettings.direction = document.getElementById('dashTileDirection').value;
             document.getElementById('dashTileModal').classList.remove('show-modal');
         });
-
-        // Home screen
         document.getElementById('addNewMapCard').addEventListener('click', () => {
             document.getElementById('newMapName').value = '';
             document.getElementById('newMapWidth').value = '460';
             document.getElementById('newMapHeight').value = '800';
             document.getElementById('newMapModal').classList.add('show-modal');
         });
-
         document.getElementById('confirmNewMapBtn').addEventListener('click', async () => {
             if (!this.currentUser) return;
             const name = document.getElementById('newMapName').value.trim() || '새로운 맵';
@@ -542,8 +533,6 @@ export class GameManager {
                 console.error("Error creating new map: ", error);
             }
         });
-
-        // Editor screen
         document.getElementById('backToHomeBtn').addEventListener('click', () => this.showHomeScreen());
         document.getElementById('saveMapBtn').addEventListener('click', () => this.saveCurrentMap());
         document.getElementById('mapSettingsBtn').addEventListener('click', () => {
@@ -554,8 +543,7 @@ export class GameManager {
         document.getElementById('killSoundToggle').addEventListener('change', (e) => {
             this.audioManager.toggleKillSound(e.target.checked);
         });
-         document.getElementById('muteBtn').addEventListener('click', () => this.audioManager.toggleMute());
-
+        document.getElementById('muteBtn').addEventListener('click', () => this.audioManager.toggleMute());
 
         this.canvas.addEventListener('mousedown', (e) => {
             if (this.isActionCam) {
@@ -626,7 +614,7 @@ export class GameManager {
                 document.getElementById('fieldSpeed').value = this.growingFieldSettings.speed;
                 document.getElementById('fieldDelay').value = this.growingFieldSettings.delay;
                 document.getElementById('growingFieldModal').classList.add('show-modal');
-            } else if (target.id === 'dashTileSettingsBtn' || target.parentElement.id === 'dashTileSettingsBtn') { // 돌진 타일 설정
+            } else if (target.id === 'dashTileSettingsBtn' || target.parentElement.id === 'dashTileSettingsBtn') {
                 document.getElementById('dashTileDirection').value = this.dashTileSettings.direction;
                 document.getElementById('dashTileModal').classList.add('show-modal');
             } else if (target.id === 'autoFieldSettingsBtn' || target.parentElement.id === 'autoFieldSettingsBtn') {
@@ -724,8 +712,6 @@ export class GameManager {
         
         this.resetMap();
     }
-
-    // [수정] resetMap에서 새로운 효과 배열들을 초기화합니다.
     resetMap() {
         cancelAnimationFrame(this.animationFrameId);
         this.animationFrameId = null;
@@ -772,7 +758,6 @@ export class GameManager {
         this.gameLoop();
     }
     
-    // [수정] resetPlacement에서 새로운 효과 배열들을 초기화합니다.
     resetPlacement() {
         if (this.initialUnitsState.length === 0) {
             console.warn("배치 초기화를 하려면 먼저 시뮬레이션을 한 번 시작해야 합니다.");
@@ -812,7 +797,6 @@ export class GameManager {
         this.draw();
     }
     
-    // ... (getMousePos, selectTool, applyTool 등 다른 함수들은 이전과 동일)
     selectTool(button) {
         const { tool, team, type } = button.dataset;
 
@@ -856,8 +840,8 @@ export class GameManager {
         }
 
         const itemExists = this.units.some(u => u.gridX === x && u.gridY === y) || 
-                         this.weapons.some(w => w.gridX === x && w.gridY === y) || 
-                         this.nexuses.some(n => n.gridX === x && n.gridY === y);
+                         this.weapons.some(w => w.gridX !== x || w.gridY !== y) || 
+                         this.nexuses.some(n => n.gridX !== x || n.gridY !== y);
 
         if (this.currentTool.tool === 'growing_field' && this.dragStartPos) {
              const startX = Math.min(this.dragStartPos.gridX, x);
@@ -879,7 +863,7 @@ export class GameManager {
                 hp: tileType === TILE.CRACKED_WALL ? 50 : undefined,
                 color: tileType === TILE.WALL ? this.currentWallColor : (tileType === TILE.FLOOR ? this.currentFloorColor : undefined),
                 replicationValue: tileType === TILE.REPLICATION_TILE ? this.replicationValue : undefined,
-                direction: tileType === TILE.DASH_TILE ? this.dashTileSettings.direction : undefined // 돌진 타일 방향 저장
+                direction: tileType === TILE.DASH_TILE ? this.dashTileSettings.direction : undefined
             };
         } else if (this.currentTool.tool === 'unit' && !itemExists) {
             this.units.push(new Unit(x, y, this.currentTool.team));
@@ -910,7 +894,6 @@ export class GameManager {
         this.gameLoop();
     }
 
-    // [수정] gameLoop에서 새로운 효과들을 업데이트하고 그립니다.
     gameLoop() {
         this.animationFrameCounter++;
         
@@ -995,7 +978,6 @@ export class GameManager {
         }
     }
     
-    // [수정] update에서 새로운 효과들을 업데이트합니다.
     update() {
         if (this.state === 'PAUSED' || this.state === 'DONE') return;
 
@@ -1003,7 +985,12 @@ export class GameManager {
             this.nexuses.forEach(n => n.update());
             this.projectiles.forEach(p => p.update());
             this.projectiles = this.projectiles.filter(p => !p.destroyed);
-            this.particles.forEach(p => p.update());
+            this.particles.forEach(p => {
+                p.x += p.vx; p.y += p.vy;
+                if (p.gravity) p.vy += p.gravity;
+                if (p.expansion) p.size += p.expansion;
+                p.life -= p.decay || 0.02;
+            });
             this.particles = this.particles.filter(p => p.life > 0);
             return;
         }
@@ -1158,7 +1145,6 @@ export class GameManager {
 
         this.weapons = this.weapons.filter(w => !w.isEquipped);
         
-        // 새로운 효과 업데이트
         this.particles.forEach(p => {
             p.x += p.vx; p.y += p.vy;
             if (p.gravity) p.vy += p.gravity;
@@ -1183,13 +1169,11 @@ export class GameManager {
         this.areaEffects = this.areaEffects.filter(e => e.duration > 0);
     }
     
-    // [수정] draw에서 새로운 효과들을 그립니다.
     draw(mouseEvent = null) {
         this.ctx.save();
         this.ctx.fillStyle = '#1f2937';
         this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
 
-        // 화면 흔들림 적용
         if (this.screenShake.duration > 0) {
             const dx = (Math.random() - 0.5) * this.screenShake.intensity;
             const dy = (Math.random() - 0.5) * this.screenShake.intensity;
@@ -1235,7 +1219,6 @@ export class GameManager {
         this.weapons.forEach(w => w.draw(this.ctx));
         this.nexuses.forEach(n => n.draw(this.ctx));
         
-        // 파티클은 유닛보다 먼저 그려서 유닛 뒤에 나타나도록 함
         this.particles.forEach(p => this.drawParticle(p));
         
         this.projectiles.forEach(p => p.draw(this.ctx));
@@ -1261,7 +1244,6 @@ export class GameManager {
         this.ctx.restore();
     }
     
-    // [신규] 각종 효과를 그리는 헬퍼 함수들
     drawParticle(p) {
         this.ctx.save();
         this.ctx.globalAlpha = p.life;
@@ -1314,7 +1296,6 @@ export class GameManager {
         });
     }
 
-    // ... 기존 코드 (drawMap, hasLineOfSight, hasLineOfSightForWeapon 등) ...
     drawMap() {
         for (let y = 0; y < this.ROWS; y++) {
             for (let x = 0; x < this.COLS; x++) {
@@ -1522,12 +1503,10 @@ export class GameManager {
         }
     }
     
-    // [수정] 향상된 발사체 클래스를 사용하도록 변경
     createProjectile(owner, target, type, options = {}) { 
         this.projectiles.push(new EnhancedProjectile(owner, target, type, options));
     }
     
-    // [수정] 향상된 환경 효과 클래스를 사용하도록 변경
     castAreaSpell(pos, type, ...args) {
         if (type === 'poison_cloud') {
             const ownerTeam = args[0];
@@ -1738,7 +1717,6 @@ export class GameManager {
         this.draw();
     }
     
-    // [수정] resetSimulationState에서 새로운 효과 배열들을 초기화합니다.
     resetSimulationState() {
         cancelAnimationFrame(this.animationFrameId);
         this.animationFrameId = null;
