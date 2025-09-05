@@ -1456,6 +1456,7 @@ export class Unit {
                 if (dist <= this.attackRange) {
                     this.boomerangCooldown = 480; // 8초 쿨타임
                     gameManager.createProjectile(this, closestEnemy, 'boomerang_projectile');
+                    return; // [수정] 특수 공격 시전 후 즉시 행동 종료
                 }
             }
         }
