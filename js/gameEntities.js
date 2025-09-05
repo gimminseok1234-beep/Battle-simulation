@@ -1,6 +1,66 @@
 import { TILE, TEAM, COLORS, GRID_SIZE } from './constants.js';
 import { GameManager } from './gameManager.js'; 
 
+// 파티클 클래스 (effects.js에서 통합)
+export class Particle {
+    constructor(options) {
+        this.x = options.x;
+        this.y = options.y;
+        this.vx = options.vx;
+        this.vy = options.vy;
+        this.life = options.life; // in seconds
+        this.initialLife = options.life;
+        this.color = options.color;
+        this.size = options.size;
+        this.gravity = options.gravity || 0;
+    }
+
+    isAlive() {
+        return this.life > 0;
+    }
+
+    update(gameSpeed = 1) {
+        this.x += this.vx * gameSpeed;
+        this.y += this.vy * gameSpeed;
+        this.vy += this.gravity * gameSpeed;
+        this.life -= (1 / 60) * gameSpeed; // Assuming 60 FPS
+    }
+
+    draw(ctx) {
+        ctx.save();
+        ctx.globalAlpha = Math.max(0, this.life / this.initialLife);
+        ctx.fillStyle = this.color;
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+    }
+}
+
+/**
+ * 물리적 타격 효과 생성 함수 (effects.js에서 통합)
+ * @param {object} gameManager 
+ * @param {Unit | Nexus} target 
+ */
+function createPhysicalHitEffect(gameManager, target) {
+    const particleCount = 8;
+    for (let i = 0; i < particleCount; i++) {
+        const angle = Math.random() * Math.PI * 2;
+        const speed = 2 + Math.random() * 3;
+        gameManager.addParticle({
+            x: target.pixelX,
+            y: target.pixelY,
+            vx: Math.cos(angle) * speed,
+            vy: Math.sin(angle) * speed,
+            life: 0.7,
+            color: '#ef4444',
+            size: Math.random() * 2.5 + 1.5,
+            gravity: 0.1
+        });
+    }
+}
+
+
 // 마법진 클래스
 export class MagicCircle {
     constructor(x, y, team) {
@@ -207,8 +267,11 @@ export class Nexus {
     }
     takeDamage(damage) {
         if (this.isDestroying) return;
-        this.hp -= damage;
         const gameManager = GameManager.getInstance();
+        if (gameManager && damage > 0) {
+            createPhysicalHitEffect(gameManager, this);
+        }
+        this.hp -= damage;
         if (this.hp <= 0) {
             this.hp = 0;
             this.isDestroying = true;
@@ -1260,6 +1323,10 @@ export class Unit {
     }
 
     takeDamage(damage, effectInfo = {}) {
+        const gameManager = GameManager.getInstance();
+        if (gameManager && damage > 0) {
+            createPhysicalHitEffect(gameManager, this);
+        }
         this.hp -= damage;
         this.hpBarVisibleTimer = 180; // 3초간 체력바 표시
         if (effectInfo.interrupt) {
@@ -1971,3 +2038,4 @@ export class Unit {
         }
     }
 }
+
