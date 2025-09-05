@@ -101,13 +101,23 @@ export class GameManager {
         this.currentMapName = null;
         document.getElementById('homeScreen').style.display = 'block';
         document.getElementById('editorScreen').style.display = 'none';
+        document.getElementById('defaultMapsScreen').style.display = 'none';
         this.renderMapCards();
+    }
+
+    showDefaultMapsScreen() {
+        this.state = 'DEFAULT_MAPS_VIEW';
+        document.getElementById('homeScreen').style.display = 'none';
+        document.getElementById('editorScreen').style.display = 'none';
+        document.getElementById('defaultMapsScreen').style.display = 'block';
+        this.renderDefaultMapCards();
     }
 
     async showEditorScreen(mapId) {
         this.state = 'EDIT';
         this.currentMapId = mapId;
         document.getElementById('homeScreen').style.display = 'none';
+        document.getElementById('defaultMapsScreen').style.display = 'none';
         document.getElementById('editorScreen').style.display = 'flex';
         await this.audioManager.init();
 
@@ -291,6 +301,18 @@ export class GameManager {
                 });
             }
         }, true);
+    }
+
+    renderDefaultMapCards() {
+        const defaultMapGrid = document.getElementById('defaultMapGrid');
+        while (defaultMapGrid.firstChild) {
+            defaultMapGrid.removeChild(defaultMapGrid.firstChild);
+        }
+
+        localMaps.forEach(mapData => {
+            const card = this.createMapCard(mapData, true);
+            defaultMapGrid.appendChild(card);
+        });
     }
 
     createMapCard(mapData, isLocal) {
@@ -489,6 +511,9 @@ export class GameManager {
             document.getElementById('newMapHeight').value = '800';
             document.getElementById('newMapModal').classList.add('show-modal');
         });
+
+        document.getElementById('defaultMapsBtn').addEventListener('click', () => this.showDefaultMapsScreen());
+        document.getElementById('backToHomeFromDefaultBtn').addEventListener('click', () => this.showHomeScreen());
 
         document.getElementById('confirmNewMapBtn').addEventListener('click', async () => {
             if (!this.currentUser) return;
