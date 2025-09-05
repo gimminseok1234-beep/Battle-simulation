@@ -1,6 +1,9 @@
 import { TILE, TEAM, COLORS, GRID_SIZE } from './constants.js';
-// [수정] 순환 참조 오류를 유발하는 아래 줄을 삭제했습니다.
-// import { GameManager } from './gameManager.js'; 
+// [수정] GameManager.getInstance()를 사용하기 위해 GameManager를 import해야 합니다.
+// ES6 모듈은 순환 종속성을 처리할 수 있으므로, 올바르게 import하는 것이 맞습니다.
+import { GameManager } from './gameManager.js';
+// [수정] EnhancedFirePillar 내에서 Unit과 Nexus 클래스를 instanceof로 확인하기 때문에 import가 필요합니다.
+import { Unit, Nexus } from './gameEntities.js';
 
 // 향상된 발사체 클래스
 export class EnhancedProjectile {
@@ -1245,4 +1248,3 @@ class EnhancedPoisonCloud {
         ctx.restore();
     }
 }
-
