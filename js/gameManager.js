@@ -1,6 +1,5 @@
 import { getFirestore, collection, doc, getDoc, getDocs, setDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/10.9.0/firebase-firestore.js";
 import { AudioManager } from './audioManager.js';
-// [수정] gameEntities.js에서 가져오는 클래스 목록을 정리하고, 새로운 효과 파일을 가져옵니다.
 import { Unit, Weapon, Nexus, GrowingMagneticField, MagicCircle } from './gameEntities.js';
 import { EnhancedProjectile, EnhancedCombatAnimations, EnhancedEnvironmentalEffects } from './enhancedEffects.js';
 import { TILE, TEAM, COLORS, GRID_SIZE } from './constants.js';
@@ -32,13 +31,12 @@ export class GameManager {
         this.growingFields = [];
         this.magicCircles = [];
         
-        // [신규] 새로운 시각 효과들을 관리하기 위한 배열들
         this.particles = [];
         this.shockwaves = [];
         this.lineEffects = [];
         this.floatingTexts = [];
         this.castingEffects = [];
-        this.areaEffects = []; // 기존 poisonClouds, areaEffects를 통합
+        this.areaEffects = [];
 
         this.currentTool = { tool: 'tile', type: 'FLOOR' };
         this.isPainting = false;
@@ -61,7 +59,7 @@ export class GameManager {
             target: { x: 0, y: 0, scale: 1 },
             isAnimating: false
         };
-        this.screenShake = { intensity: 0, duration: 0 }; // 화면 흔들림 효과
+        this.screenShake = { intensity: 0, duration: 0 };
         this.growingFieldSettings = {
             direction: 'DOWN', speed: 4, delay: 0
         };
@@ -86,8 +84,7 @@ export class GameManager {
     static getInstance() {
         return instance;
     }
-
-    // [신규] 각종 시각 효과를 추가하기 위한 헬퍼 함수들
+    
     addParticle(options) { this.particles.push(options); }
     addShockwave(options) { this.shockwaves.push(options); }
     addLineEffect(options) { this.lineEffects.push(options); }
@@ -280,18 +277,16 @@ export class GameManager {
         const userMaps = await this.getAllMaps();
         document.getElementById('loadingStatus').style.display = 'none';
         
-        const basicMapGrid = document.getElementById('basicMapGrid');
         const mapGrid = document.getElementById('mapGrid');
         const addNewMapCard = document.getElementById('addNewMapCard');
         
-        basicMapGrid.innerHTML = '';
         while (mapGrid.firstChild && mapGrid.firstChild !== addNewMapCard) {
             mapGrid.removeChild(mapGrid.firstChild);
         }
 
         localMaps.forEach(mapData => {
             const card = this.createMapCard(mapData, true);
-            basicMapGrid.appendChild(card);
+            mapGrid.insertBefore(card, addNewMapCard);
         });
 
         userMaps.forEach(mapData => {
@@ -487,13 +482,6 @@ export class GameManager {
     }
     
     setupEventListeners() {
-        document.getElementById('basicMapsHeader').addEventListener('click', () => {
-            const grid = document.getElementById('basicMapGrid');
-            const arrow = document.getElementById('basicMapsArrow');
-            grid.classList.toggle('hidden');
-            arrow.classList.toggle('rotate-90');
-        });
-
         document.getElementById('cancelNewMapBtn').addEventListener('click', () => document.getElementById('newMapModal').classList.remove('show-modal'));
         document.getElementById('cancelRenameBtn').addEventListener('click', () => document.getElementById('renameMapModal').classList.remove('show-modal'));
         document.getElementById('cancelDeleteBtn').addEventListener('click', () => document.getElementById('deleteConfirmModal').classList.remove('show-modal'));
