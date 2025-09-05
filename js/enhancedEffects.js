@@ -1,5 +1,6 @@
 import { TILE, TEAM, COLORS, GRID_SIZE } from './constants.js';
-import { GameManager } from './gameManager.js'; 
+// [수정] 순환 참조 오류를 유발하는 아래 줄을 삭제했습니다.
+// import { GameManager } from './gameManager.js'; 
 
 // 향상된 발사체 클래스
 export class EnhancedProjectile {
