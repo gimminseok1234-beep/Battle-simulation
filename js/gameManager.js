@@ -94,7 +94,6 @@ export class GameManager {
 
     init() {
         if (!this.currentUser) return;
-        this.loadRecentColors();
         this.createToolboxUI();
         this.setupEventListeners();
         this.showHomeScreen();
@@ -224,8 +223,6 @@ export class GameManager {
                  <button class="tool-btn" data-tool="erase">지우개</button>
             </div>
         `;
-        this.renderRecentColors('floor');
-        this.renderRecentColors('wall');
     }
 
     async getAllMaps() {
@@ -277,6 +274,8 @@ export class GameManager {
             hadokenKnockback: this.hadokenKnockback,
             floorColor: this.currentFloorColor,
             wallColor: this.currentWallColor,
+            recentFloorColors: this.recentFloorColors,
+            recentWallColors: this.recentWallColors,
         };
 
         const mapDocRef = doc(this.db, "maps", this.currentUser.uid, "userMaps", this.currentMapId);
@@ -542,7 +541,8 @@ export class GameManager {
                 height: height,
                 map: JSON.stringify(Array(Math.floor(height / GRID_SIZE)).fill().map(() => Array(Math.floor(width / GRID_SIZE)).fill({ type: TILE.FLOOR, color: COLORS.FLOOR }))),
                 units: [], weapons: [], nexuses: [], growingFields: [],
-                floorColor: COLORS.FLOOR, wallColor: COLORS.WALL
+                floorColor: COLORS.FLOOR, wallColor: COLORS.WALL,
+                recentFloorColors: [], recentWallColors: []
             };
             
             const newMapDocRef = doc(this.db, "maps", this.currentUser.uid, "userMaps", newMapId);
@@ -703,12 +703,16 @@ export class GameManager {
 
         document.getElementById('toolbox').addEventListener('input', (e) => {
             if (e.target.id === 'replicationValue') this.replicationValue = parseInt(e.target.value) || 1;
-            else if (e.target.id === 'wallColorPicker') {
-                this.setCurrentColor(e.target.value, 'wall');
-            } else if (e.target.id === 'floorColorPicker') {
-                this.setCurrentColor(e.target.value, 'floor');
-            }
         });
+        
+        // 색상 선택기 이벤트 리스너 분리 (드래그 오류 수정)
+        const floorColorPicker = document.getElementById('floorColorPicker');
+        const wallColorPicker = document.getElementById('wallColorPicker');
+        
+        floorColorPicker.addEventListener('input', () => this.setCurrentColor(floorColorPicker.value, 'floor', false));
+        floorColorPicker.addEventListener('change', () => this.addRecentColor(floorColorPicker.value, 'floor'));
+        wallColorPicker.addEventListener('input', () => this.setCurrentColor(wallColorPicker.value, 'wall', false));
+        wallColorPicker.addEventListener('change', () => this.addRecentColor(wallColorPicker.value, 'wall'));
     }
 
     resetActionCam(isInstant = true) {
@@ -1631,12 +1635,14 @@ export class GameManager {
         this.hadokenKnockback = mapData.hadokenKnockback || 15;
         
         this.resetSimulationState();
+        this.renderRecentColors('floor');
+        this.renderRecentColors('wall');
         this.draw();
     }
 
     async loadLocalMapForEditing(mapData) {
         this.state = 'EDIT';
-        this.currentMapId = null; // 로컬 맵은 ID가 없습니다.
+        this.currentMapId = `local_${mapData.name}`; // 로컬 맵도 고유 ID 부여
         document.getElementById('homeScreen').style.display = 'none';
         document.getElementById('defaultMapsScreen').style.display = 'none';
         document.getElementById('editorScreen').style.display = 'flex';
@@ -1671,6 +1677,8 @@ export class GameManager {
         this.hadokenKnockback = mapData.hadokenKnockback;
         
         this.resetSimulationState();
+        this.renderRecentColors('floor');
+        this.renderRecentColors('wall');
         this.draw();
     }
 
@@ -1700,16 +1708,6 @@ export class GameManager {
     }
 
     // --- 색상 관리 로직 ---
-    loadRecentColors() {
-        this.recentFloorColors = JSON.parse(localStorage.getItem('recentFloorColors')) || [];
-        this.recentWallColors = JSON.parse(localStorage.getItem('recentWallColors')) || [];
-    }
-
-    saveRecentColors() {
-        localStorage.setItem('recentFloorColors', JSON.stringify(this.recentFloorColors));
-        localStorage.setItem('recentWallColors', JSON.stringify(this.recentWallColors));
-    }
-
     addRecentColor(color, type) {
         const recentColors = type === 'floor' ? this.recentFloorColors : this.recentWallColors;
         const index = recentColors.indexOf(color);
@@ -1720,7 +1718,6 @@ export class GameManager {
         if (recentColors.length > MAX_RECENT_COLORS) {
             recentColors.pop();
         }
-        this.saveRecentColors();
         this.renderRecentColors(type);
     }
 
@@ -1744,10 +1741,12 @@ export class GameManager {
     setCurrentColor(color, type, addToRecent = true) {
         if (type === 'floor') {
             this.currentFloorColor = color;
-            document.getElementById('floorColorPicker').value = color;
+            const picker = document.getElementById('floorColorPicker');
+            if (picker.value !== color) picker.value = color;
         } else {
             this.currentWallColor = color;
-            document.getElementById('wallColorPicker').value = color;
+            const picker = document.getElementById('wallColorPicker');
+            if (picker.value !== color) picker.value = color;
         }
         if (addToRecent) {
             this.addRecentColor(color, type);
@@ -1756,11 +1755,13 @@ export class GameManager {
     }
 
     handleMapColors(mapData) {
-        if (mapData.floorColor && mapData.wallColor) {
-            this.setCurrentColor(mapData.floorColor, 'floor');
-            this.setCurrentColor(mapData.wallColor, 'wall');
-        } else {
-            // 코드로 제작된 맵 또는 이전 버전 맵의 색상을 분석
+        this.recentFloorColors = mapData.recentFloorColors || [];
+        this.recentWallColors = mapData.recentWallColors || [];
+        
+        let floorColor = mapData.floorColor;
+        let wallColor = mapData.wallColor;
+
+        if (!floorColor || !wallColor) {
             const mapGridData = (typeof mapData.map === 'string') ? JSON.parse(mapData.map) : mapData.map;
             const floorColors = {};
             const wallColors = {};
@@ -1778,8 +1779,12 @@ export class GameManager {
             const mostCommonFloor = Object.keys(floorColors).reduce((a, b) => floorColors[a] > floorColors[b] ? a : b, null);
             const mostCommonWall = Object.keys(wallColors).reduce((a, b) => wallColors[a] > wallColors[b] ? a : b, null);
 
-            this.setCurrentColor(mostCommonFloor || COLORS.FLOOR, 'floor');
-            this.setCurrentColor(mostCommonWall || COLORS.WALL, 'wall');
+            floorColor = mostCommonFloor || COLORS.FLOOR;
+            wallColor = mostCommonWall || COLORS.WALL;
         }
+        
+        this.setCurrentColor(floorColor, 'floor');
+        this.setCurrentColor(wallColor, 'wall');
     }
 }
+
