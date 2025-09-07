@@ -1738,7 +1738,7 @@ export class GameManager {
         });
     }
 
-    setCurrentColor(color, type, addToRecent = true) {
+    setCurrentColor(color, type, addToRecent = false) {
         if (type === 'floor') {
             this.currentFloorColor = color;
             const picker = document.getElementById('floorColorPicker');
@@ -1783,8 +1783,8 @@ export class GameManager {
             wallColor = mostCommonWall || COLORS.WALL;
         }
         
-        this.setCurrentColor(floorColor, 'floor');
-        this.setCurrentColor(wallColor, 'wall');
+        this.setCurrentColor(floorColor, 'floor', false);
+        this.setCurrentColor(wallColor, 'wall', false);
     }
 }
 
