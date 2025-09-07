@@ -6,9 +6,8 @@
  * 중앙의 부서지는 벽과 돌진 타일이 전략적인 변수를 창출합니다.
  */
 
-// [수정] 맵 변수 이름을 소문자로 변경 (hadokenArenaMap -> hadokenarenamap)
 export const hadokenarenamap = {
-    name: "hadokenarena", // [수정] name 속성을 소문자로 변경
+    name: "hadokenarena",
     width: 460,
     height: 800,
     hadokenKnockback: 25,
@@ -19,7 +18,7 @@ export const hadokenarenamap = {
         const COLS = 23;
         const wall = { type: 'WALL', color: '#1A202C' };
         const floor = { type: 'FLOOR', color: '#4A5568' };
-        const lava = { type: 'LAVA' };
+        const lava = { type: 'LAVA', color: '#f97316' }; // color 속성 추가
 
         const map = [...Array(ROWS)].map(() => Array(COLS).fill(null));
 
@@ -27,14 +26,9 @@ export const hadokenarenamap = {
             for (let x = 0; x < COLS; x++) {
                 if (y === 0 || y === ROWS - 1 || x === 0 || x === COLS - 1) {
                     map[y][x] = { ...wall };
-                }
-                else if (y >= 1 && y <= 4) {
+                } else if (y >= 1 && y <= 4 || y >= ROWS - 5 && y <= ROWS - 2) {
                     map[y][x] = { ...lava };
-                }
-                else if (y >= ROWS - 5 && y <= ROWS - 2) {
-                    map[y][x] = { ...lava };
-                }
-                else {
+                } else {
                     map[y][x] = { ...floor };
                 }
             }
