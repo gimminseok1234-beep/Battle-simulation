@@ -20,30 +20,27 @@ export const vortexmap = {
         const floor = { type: 'FLOOR', color: '#3c3a80' };
         const map = [...Array(ROWS)].map(() => [...Array(COLS)].map(() => ({ ...wall })));
 
-        let x = 1, y = 1, dx = 1, dy = 0, len = COLS - 2, passed = 0;
-        while (len > 0) {
-            for (let i = 0; i < len; i++) {
-                map[y][x] = { ...floor };
-                map[y+1][x+1] = { ...floor };
-                if (Math.random() < 0.05) map[y][x] = { type: 'LAVA' };
+        let x = 1, y = 1, dx = 1, dy = 0, len = COLS - 1, passed = 0;
+        while (len > 1) {
+            for (let i = 0; i < len -1; i++) {
+                if (map[y] && map[y][x]) {
+                    map[y][x] = { ...floor };
+                    if(map[y+1] && map[y+1][x+1]) map[y+1][x+1] = { ...floor };
+                    if (i > 1 && Math.random() < 0.05) map[y][x] = { type: 'LAVA', color: '#f97316' };
+                }
                 x += dx; y += dy;
             }
-            [dx, dy] = [-dy, dx]; // 90도 회전
+            [dx, dy] = [-dy, dx];
             passed++;
             if (passed % 2 === 0) len -= 2;
         }
 
-        // 중앙 제단
         for(let i = 18; i < 22; i++) {
-            for (let j = 10; j < 13; j++) {
-                 map[i][j] = { ...floor };
-            }
+            for (let j = 10; j < 13; j++) map[i][j] = { ...floor };
         }
         map[19][11] = { type: 'HEAL_PACK', color: '#22c55e' };
         map[20][11] = { type: 'HEAL_PACK', color: '#22c55e' };
 
-
-        // 돌진 타일 (지름길)
         map[5][5] = { type: 'DASH_TILE', direction: 'RIGHT', color: '#ffffff' };
         map[34][17] = { type: 'DASH_TILE', direction: 'LEFT', color: '#ffffff' };
         
