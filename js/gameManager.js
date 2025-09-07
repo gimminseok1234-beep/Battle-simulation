@@ -635,11 +635,11 @@ export class GameManager {
             if (toolButton) {
                 this.selectTool(toolButton);
             } else if (recentColorSwatch) {
-                this.setCurrentColor(recentColorSwatch.dataset.color, recentColorSwatch.dataset.type);
+                this.setCurrentColor(recentColorSwatch.dataset.color, recentColorSwatch.dataset.type, true);
             } else if (target.id === 'defaultFloorColorBtn') {
-                this.setCurrentColor(COLORS.FLOOR, 'floor');
+                this.setCurrentColor(COLORS.FLOOR, 'floor', true);
             } else if (target.id === 'defaultWallColorBtn') {
-                this.setCurrentColor(COLORS.WALL, 'wall');
+                this.setCurrentColor(COLORS.WALL, 'wall', true);
             } else if (target.id === 'growingFieldSettingsBtn' || target.parentElement.id === 'growingFieldSettingsBtn') {
                 document.getElementById('fieldDirection').value = this.growingFieldSettings.direction;
                 document.getElementById('fieldSpeed').value = this.growingFieldSettings.speed;
@@ -858,7 +858,7 @@ export class GameManager {
     applyTool(pos) {
         const {gridX: x, gridY: y} = pos;
         if (x < 0 || x >= this.COLS || y < 0 || y >= this.ROWS) return;
-        
+
         if (this.currentTool.tool === 'erase') {
             this.map[y][x] = { type: TILE.FLOOR, color: this.currentFloorColor };
             this.units = this.units.filter(u => u.gridX !== x || u.gridY !== y);
@@ -867,6 +867,20 @@ export class GameManager {
             this.growingFields = this.growingFields.filter(zone => !(x >= zone.gridX && x < zone.gridX + zone.width && y >= zone.gridY && y < zone.gridY + zone.height));
             this.draw();
             return;
+        }
+
+        const placingWall = this.currentTool.tool === 'tile' && this.currentTool.type === 'WALL';
+        
+        // If placing a wall, clear the spot first.
+        if (placingWall) {
+            this.units = this.units.filter(u => u.gridX !== x || u.gridY !== y);
+            this.weapons = this.weapons.filter(w => w.gridX !== x || w.gridY !== y);
+            this.nexuses = this.nexuses.filter(n => n.gridX !== x || n.gridY !== y);
+        } else {
+            // If NOT placing a wall, check if the target tile is a wall. If so, block placement.
+            if (this.map[y][x].type === TILE.WALL) {
+                return;
+            }
         }
 
         const itemExists = this.units.some(u => u.gridX === x && u.gridY === y) || 
@@ -885,7 +899,9 @@ export class GameManager {
              this.growingFields.push(newZone);
              this.dragStartPos = null;
         } else if (this.currentTool.tool === 'tile') {
-            if (itemExists) return;
+            // If placing a non-wall tile, it cannot be placed on an existing item.
+            if (!placingWall && itemExists) return;
+            
             const tileType = TILE[this.currentTool.type];
             if (tileType === TILE.TELEPORTER && this.getTilesOfType(TILE.TELEPORTER).length >= 2) { return; }
             this.map[y][x] = {
@@ -893,7 +909,7 @@ export class GameManager {
                 hp: tileType === TILE.CRACKED_WALL ? 50 : undefined,
                 color: tileType === TILE.WALL ? this.currentWallColor : (tileType === TILE.FLOOR ? this.currentFloorColor : undefined),
                 replicationValue: tileType === TILE.REPLICATION_TILE ? this.replicationValue : undefined,
-                direction: tileType === TILE.DASH_TILE ? this.dashTileSettings.direction : undefined // 돌진 타일 방향 저장
+                direction: tileType === TILE.DASH_TILE ? this.dashTileSettings.direction : undefined
             };
         } else if (this.currentTool.tool === 'unit' && !itemExists) {
             this.units.push(new Unit(x, y, this.currentTool.team));
