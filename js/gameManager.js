@@ -7,6 +7,8 @@ import { localMaps } from './maps/index.js';
 
 let instance = null;
 
+const MAX_RECENT_COLORS = 8;
+
 export class GameManager {
     constructor(db) {
         if (instance) {
@@ -48,6 +50,8 @@ export class GameManager {
         this.gameSpeed = 1;
         this.currentWallColor = COLORS.WALL;
         this.currentFloorColor = COLORS.FLOOR;
+        this.recentWallColors = [];
+        this.recentFloorColors = [];
         this.replicationValue = 2;
         this.isActionCam = false;
         this.actionCam = {
@@ -90,6 +94,7 @@ export class GameManager {
 
     init() {
         if (!this.currentUser) return;
+        this.loadRecentColors();
         this.createToolboxUI();
         this.setupEventListeners();
         this.showHomeScreen();
@@ -139,9 +144,18 @@ export class GameManager {
             <div class="category-header collapsed" data-target="category-basic-tiles">기본 타일</div>
             <div id="category-basic-tiles" class="category-content collapsed">
                 <button class="tool-btn selected" data-tool="tile" data-type="FLOOR">바닥</button>
-                <input type="color" id="floorColorPicker" value="${this.currentFloorColor}" class="w-full h-8 p-1 rounded my-1">
+                <div class="flex items-center gap-2 my-1">
+                    <input type="color" id="floorColorPicker" value="${this.currentFloorColor}" class="w-full h-8 p-1 rounded">
+                    <button id="defaultFloorColorBtn" class="p-2 rounded bg-gray-600 hover:bg-gray-500" title="기본값으로">🔄</button>
+                </div>
+                <div id="recentFloorColors" class="grid grid-cols-4 gap-1 mb-2"></div>
+                
                 <button class="tool-btn" data-tool="tile" data-type="WALL">벽</button>
-                <input type="color" id="wallColorPicker" value="${this.currentWallColor}" class="w-full h-8 p-1 rounded my-1">
+                <div class="flex items-center gap-2 my-1">
+                    <input type="color" id="wallColorPicker" value="${this.currentWallColor}" class="w-full h-8 p-1 rounded">
+                    <button id="defaultWallColorBtn" class="p-2 rounded bg-gray-600 hover:bg-gray-500" title="기본값으로">🔄</button>
+                </div>
+                <div id="recentWallColors" class="grid grid-cols-4 gap-1 mb-2"></div>
             </div>
 
             <div class="category-header collapsed" data-target="category-special-tiles">특수 타일</div>
@@ -210,8 +224,10 @@ export class GameManager {
                  <button class="tool-btn" data-tool="erase">지우개</button>
             </div>
         `;
+        this.renderRecentColors('floor');
+        this.renderRecentColors('wall');
     }
-    
+
     async getAllMaps() {
         if (!this.currentUser) return [];
         const mapsColRef = collection(this.db, "maps", this.currentUser.uid, "userMaps");
@@ -259,6 +275,8 @@ export class GameManager {
             growingFields: plainGrowingFields,
             autoMagneticField: this.autoMagneticField,
             hadokenKnockback: this.hadokenKnockback,
+            floorColor: this.currentFloorColor,
+            wallColor: this.currentWallColor,
         };
 
         const mapDocRef = doc(this.db, "maps", this.currentUser.uid, "userMaps", this.currentMapId);
@@ -282,7 +300,6 @@ export class GameManager {
             mapGrid.removeChild(mapGrid.firstChild);
         }
 
-        // Firebase에서 불러온 사용자 맵을 렌더링합니다.
         maps.forEach(mapData => {
             const card = this.createMapCard(mapData, false);
             mapGrid.insertBefore(card, addNewMapCard);
@@ -400,11 +417,13 @@ export class GameManager {
         
         const mapGridData = (typeof mapData.map === 'string') ? JSON.parse(mapData.map) : mapData.map;
         if (mapGridData) {
+            const floorColor = mapData.floorColor || COLORS.FLOOR;
+            const wallColor = mapData.wallColor || COLORS.WALL;
             mapGridData.forEach((row, y) => {
                 row.forEach((tile, x) => {
                     switch(tile.type) {
-                        case TILE.WALL: prevCtx.fillStyle = tile.color || COLORS.WALL; break;
-                        case TILE.FLOOR: prevCtx.fillStyle = tile.color || COLORS.FLOOR; break;
+                        case TILE.WALL: prevCtx.fillStyle = tile.color || wallColor; break;
+                        case TILE.FLOOR: prevCtx.fillStyle = tile.color || floorColor; break;
                         case TILE.LAVA: prevCtx.fillStyle = COLORS.LAVA; break;
                         case TILE.CRACKED_WALL: prevCtx.fillStyle = COLORS.CRACKED_WALL; break;
                         case TILE.HEAL_PACK: prevCtx.fillStyle = COLORS.HEAL_PACK; break;
@@ -412,7 +431,7 @@ export class GameManager {
                         case TILE.TELEPORTER: prevCtx.fillStyle = COLORS.TELEPORTER; break;
                         case TILE.QUESTION_MARK: prevCtx.fillStyle = COLORS.QUESTION_MARK; break;
                         case TILE.DASH_TILE: prevCtx.fillStyle = COLORS.DASH_TILE; break;
-                        default: prevCtx.fillStyle = COLORS.FLOOR; break;
+                        default: prevCtx.fillStyle = floorColor; break;
                     }
                     prevCtx.fillRect(x * pixelSizeX, y * pixelSizeY, pixelSizeX + 0.5, pixelSizeY + 0.5);
                 });
@@ -522,7 +541,8 @@ export class GameManager {
                 width: width,
                 height: height,
                 map: JSON.stringify(Array(Math.floor(height / GRID_SIZE)).fill().map(() => Array(Math.floor(width / GRID_SIZE)).fill({ type: TILE.FLOOR, color: COLORS.FLOOR }))),
-                units: [], weapons: [], nexuses: [], growingFields: []
+                units: [], weapons: [], nexuses: [], growingFields: [],
+                floorColor: COLORS.FLOOR, wallColor: COLORS.WALL
             };
             
             const newMapDocRef = doc(this.db, "maps", this.currentUser.uid, "userMaps", newMapId);
@@ -610,9 +630,16 @@ export class GameManager {
             const target = e.target;
             const toolButton = target.closest('.tool-btn');
             const categoryHeader = target.closest('.category-header');
-            
+            const recentColorSwatch = target.closest('.recent-color-swatch');
+
             if (toolButton) {
                 this.selectTool(toolButton);
+            } else if (recentColorSwatch) {
+                this.setCurrentColor(recentColorSwatch.dataset.color, recentColorSwatch.dataset.type);
+            } else if (target.id === 'defaultFloorColorBtn') {
+                this.setCurrentColor(COLORS.FLOOR, 'floor');
+            } else if (target.id === 'defaultWallColorBtn') {
+                this.setCurrentColor(COLORS.WALL, 'wall');
             } else if (target.id === 'growingFieldSettingsBtn' || target.parentElement.id === 'growingFieldSettingsBtn') {
                 document.getElementById('fieldDirection').value = this.growingFieldSettings.direction;
                 document.getElementById('fieldSpeed').value = this.growingFieldSettings.speed;
@@ -677,9 +704,9 @@ export class GameManager {
         document.getElementById('toolbox').addEventListener('input', (e) => {
             if (e.target.id === 'replicationValue') this.replicationValue = parseInt(e.target.value) || 1;
             else if (e.target.id === 'wallColorPicker') {
-                this.currentWallColor = e.target.value; this.draw();
+                this.setCurrentColor(e.target.value, 'wall');
             } else if (e.target.id === 'floorColorPicker') {
-                this.currentFloorColor = e.target.value; this.draw();
+                this.setCurrentColor(e.target.value, 'floor');
             }
         });
     }
@@ -771,7 +798,6 @@ export class GameManager {
         this.animationFrameId = null;
         this.state = 'EDIT';
 
-        // BUG FIX: 객체 생성 시점에 좌표를 전달하도록 수정
         this.units = JSON.parse(this.initialUnitsState).map(uData => Object.assign(new Unit(uData.gridX, uData.gridY, uData.team), uData));
         this.weapons = JSON.parse(this.initialWeaponsState).map(wData => Object.assign(new Weapon(wData.gridX, wData.gridY, wData.type), wData));
         this.nexuses = JSON.parse(this.initialNexusesState).map(nData => Object.assign(new Nexus(nData.gridX, nData.gridY, nData.team), nData));
@@ -1224,15 +1250,15 @@ export class GameManager {
                 if (!this.map || !this.map[y] || !this.map[y][x]) continue;
                 const tile = this.map[y][x];
                 
-                if (tile.type === TILE.WALL) this.ctx.fillStyle = tile.color || COLORS.WALL;
-                else if (tile.type === TILE.FLOOR) this.ctx.fillStyle = tile.color || COLORS.FLOOR;
+                if (tile.type === TILE.WALL) this.ctx.fillStyle = tile.color || this.currentWallColor;
+                else if (tile.type === TILE.FLOOR) this.ctx.fillStyle = tile.color || this.currentFloorColor;
                 else if (tile.type === TILE.LAVA) this.ctx.fillStyle = COLORS.LAVA;
                 else if (tile.type === TILE.CRACKED_WALL) this.ctx.fillStyle = COLORS.CRACKED_WALL;
                 else if (tile.type === TILE.HEAL_PACK) this.ctx.fillStyle = COLORS.HEAL_PACK;
                 else if (tile.type === TILE.REPLICATION_TILE) this.ctx.fillStyle = COLORS.REPLICATION_TILE;
                 else if (tile.type === TILE.QUESTION_MARK) this.ctx.fillStyle = COLORS.QUESTION_MARK;
                 else if (tile.type === TILE.DASH_TILE) this.ctx.fillStyle = COLORS.DASH_TILE;
-                else this.ctx.fillStyle = COLORS.FLOOR;
+                else this.ctx.fillStyle = this.currentFloorColor;
                 
                 this.ctx.fillRect(x * GRID_SIZE, y * GRID_SIZE, GRID_SIZE, GRID_SIZE);
 
@@ -1577,13 +1603,14 @@ export class GameManager {
         this.COLS = Math.floor(this.canvas.width / GRID_SIZE);
         this.ROWS = Math.floor(this.canvas.height / GRID_SIZE);
 
+        this.handleMapColors(mapData);
+
         if (mapData.map && typeof mapData.map === 'string') {
             this.map = JSON.parse(mapData.map);
         } else {
-            this.map = Array(this.ROWS).fill().map(() => Array(this.COLS).fill({ type: TILE.FLOOR, color: COLORS.FLOOR }));
+            this.map = Array(this.ROWS).fill().map(() => Array(this.COLS).fill({ type: TILE.FLOOR, color: this.currentFloorColor }));
         }
         
-        // BUG FIX: 객체 생성 시점에 좌표를 전달하도록 수정
         this.units = (mapData.units || []).map(uData => Object.assign(new Unit(uData.gridX, uData.gridY, uData.team), uData));
         this.weapons = (mapData.weapons || []).map(wData => Object.assign(new Weapon(wData.gridX, wData.gridY, wData.type), wData));
         this.nexuses = (mapData.nexuses || []).map(nData => Object.assign(new Nexus(nData.gridX, nData.gridY, nData.team), nData));
@@ -1623,9 +1650,10 @@ export class GameManager {
         this.COLS = Math.floor(this.canvas.width / GRID_SIZE);
         this.ROWS = Math.floor(this.canvas.height / GRID_SIZE);
 
+        this.handleMapColors(mapData);
+
         this.map = JSON.parse(mapData.map);
         
-        // BUG FIX: 객체 생성 시점에 좌표를 전달하도록 수정
         this.units = (mapData.units || []).map(uData => Object.assign(new Unit(uData.gridX, uData.gridY, uData.team), uData));
         this.weapons = (mapData.weapons || []).map(wData => Object.assign(new Weapon(wData.gridX, wData.gridY, wData.type), wData));
         this.nexuses = (mapData.nexuses || []).map(nData => Object.assign(new Nexus(nData.gridX, nData.gridY, nData.team), nData));
@@ -1670,5 +1698,88 @@ export class GameManager {
         document.getElementById('toolbox').style.pointerEvents = 'auto';
         this.resetActionCam(true);
     }
-}
 
+    // --- 색상 관리 로직 ---
+    loadRecentColors() {
+        this.recentFloorColors = JSON.parse(localStorage.getItem('recentFloorColors')) || [];
+        this.recentWallColors = JSON.parse(localStorage.getItem('recentWallColors')) || [];
+    }
+
+    saveRecentColors() {
+        localStorage.setItem('recentFloorColors', JSON.stringify(this.recentFloorColors));
+        localStorage.setItem('recentWallColors', JSON.stringify(this.recentWallColors));
+    }
+
+    addRecentColor(color, type) {
+        const recentColors = type === 'floor' ? this.recentFloorColors : this.recentWallColors;
+        const index = recentColors.indexOf(color);
+        if (index > -1) {
+            recentColors.splice(index, 1);
+        }
+        recentColors.unshift(color);
+        if (recentColors.length > MAX_RECENT_COLORS) {
+            recentColors.pop();
+        }
+        this.saveRecentColors();
+        this.renderRecentColors(type);
+    }
+
+    renderRecentColors(type) {
+        const containerId = type === 'floor' ? 'recentFloorColors' : 'recentWallColors';
+        const container = document.getElementById(containerId);
+        const recentColors = type === 'floor' ? this.recentFloorColors : this.recentWallColors;
+        
+        if (!container) return;
+        container.innerHTML = '';
+        recentColors.forEach(color => {
+            const swatch = document.createElement('div');
+            swatch.className = 'recent-color-swatch w-full h-6 rounded cursor-pointer border-2 border-gray-700 hover:border-gray-400';
+            swatch.style.backgroundColor = color;
+            swatch.dataset.color = color;
+            swatch.dataset.type = type;
+            container.appendChild(swatch);
+        });
+    }
+
+    setCurrentColor(color, type, addToRecent = true) {
+        if (type === 'floor') {
+            this.currentFloorColor = color;
+            document.getElementById('floorColorPicker').value = color;
+        } else {
+            this.currentWallColor = color;
+            document.getElementById('wallColorPicker').value = color;
+        }
+        if (addToRecent) {
+            this.addRecentColor(color, type);
+        }
+        this.draw();
+    }
+
+    handleMapColors(mapData) {
+        if (mapData.floorColor && mapData.wallColor) {
+            this.setCurrentColor(mapData.floorColor, 'floor');
+            this.setCurrentColor(mapData.wallColor, 'wall');
+        } else {
+            // 코드로 제작된 맵 또는 이전 버전 맵의 색상을 분석
+            const mapGridData = (typeof mapData.map === 'string') ? JSON.parse(mapData.map) : mapData.map;
+            const floorColors = {};
+            const wallColors = {};
+            
+            mapGridData.forEach(row => {
+                row.forEach(tile => {
+                    if (tile.type === TILE.FLOOR && tile.color) {
+                        floorColors[tile.color] = (floorColors[tile.color] || 0) + 1;
+                    } else if (tile.type === TILE.WALL && tile.color) {
+                        wallColors[tile.color] = (wallColors[tile.color] || 0) + 1;
+                    }
+                });
+            });
+
+            const mostCommonFloor = Object.keys(floorColors).reduce((a, b) => floorColors[a] > floorColors[b] ? a : b, null);
+            const mostCommonWall = Object.keys(wallColors).reduce((a, b) => wallColors[a] > wallColors[b] ? a : b, null);
+
+            this.setCurrentColor(mostCommonFloor || COLORS.FLOOR, 'floor');
+            this.setCurrentColor(mostCommonWall || COLORS.WALL, 'wall');
+        }
+    }
+}
