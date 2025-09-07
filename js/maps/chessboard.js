@@ -20,40 +20,38 @@ export const chessboardmap = {
         const floor = { type: 'FLOOR', color: '#A0AEC0' };
         const map = [...Array(ROWS)].map(() => [...Array(COLS)].map(() => ({ ...wall })));
 
-        // 3x5 격자의 방 생성
         for (let roomY = 0; roomY < 5; roomY++) {
             for (let roomX = 0; roomX < 3; roomX++) {
-                const startX = roomX * 7 + 2;
-                const startY = roomY * 7 + 3;
-                // 방 내부 바닥
-                for (let y = startY; y < startY + 5; y++) {
-                    for (let x = startX; x < startX + 5; x++) {
-                        map[y][x] = { ...floor };
+                const startX = roomX * 7 + 1;
+                const startY = roomY * 8;
+                for (let y = startY + 1; y < startY + 7; y++) {
+                    for (let x = startX + 1; x < startX + 6; x++) {
+                        if (y < ROWS -1 && x < COLS -1) map[y][x] = { ...floor };
                     }
                 }
-                // 문 생성
-                if (roomX < 2) map[startY + 2][startX + 4] = { ...floor }; // 오른쪽 문
-                if (roomY < 4) map[startY + 4][startX + 2] = { ...floor }; // 아래쪽 문
+                // [오류 수정] 문 위치를 정확한 벽 좌표로 수정
+                if (roomX < 2) {
+                    map[startY + 3][startX + 6] = { ...floor };
+                    map[startY + 4][startX + 6] = { ...floor };
+                }
+                if (roomY < 4) {
+                    map[startY + 7][startX + 3] = { ...floor };
+                }
             }
         }
-
-        // 특수 방 설정
-        // 용암 방
-        const lavaRoomX = 2, lavaRoomY = 2;
-        for (let y = lavaRoomY * 7 + 3; y < lavaRoomY * 7 + 8; y++) {
-            for (let x = lavaRoomX * 7 + 2; x < lavaRoomX * 7 + 7; x++) {
-                 if(map[y][x].type == 'FLOOR') map[y][x] = { type: 'LAVA' };
-            }
-        }
-        // 치료실
-        map[1 * 7 + 5][0 * 7 + 4] = { type: 'HEAL_PACK', color: '#22c55e' };
         
-        // 고립실 (부서지는 벽)
-        map[3 * 7 + 5][1 * 7 + 6] = { type: 'CRACKED_WALL', hp: 200, color: '#718096' };
+        const lavaRoomX = 2, lavaRoomY = 2;
+        for (let y = lavaRoomY * 8 + 1; y < lavaRoomY * 8 + 7; y++) {
+            for (let x = lavaRoomX * 7 + 2; x < lavaRoomX * 7 + 7; x++) {
+                 if(map[y][x].type === 'FLOOR') map[y][x] = { type: 'LAVA', color: '#f97316' };
+            }
+        }
+        
+        map[1 * 8 + 4][0 * 7 + 4] = { type: 'HEAL_PACK', color: '#22c55e' };
+        map[3 * 8 + 7][1 * 7 + 4] = { type: 'CRACKED_WALL', hp: 200, color: '#718096' };
 
-        // 텔레포터 방
-        map[0 * 7 + 5][2 * 7 + 4] = { type: 'TELEPORTER', color: '#8b5cf6' };
-        map[4 * 7 + 5][0 * 7 + 4] = { type: 'TELEPORTER', color: '#8b5cf6' };
+        map[0 * 8 + 4][2 * 7 + 4] = { type: 'TELEPORTER', color: '#8b5cf6' };
+        map[4 * 8 + 4][0 * 7 + 4] = { type: 'TELEPORTER', color: '#8b5cf6' };
 
         return map;
     })()),
