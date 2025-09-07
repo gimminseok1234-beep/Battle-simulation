@@ -24,7 +24,7 @@ export const TEAM = {
 export const COLORS = {
     GRID: 'rgba(255, 255, 255, 0.1)',
     FLOOR: '#374151',
-    WALL: '#9ca3af',
+    WALL: '#111827', // 기본 벽 색상을 검은색 계열로 변경
     LAVA: '#f97316',
     CRACKED_WALL: '#a8a29e',
     HEAL_PACK: '#22c55e',
