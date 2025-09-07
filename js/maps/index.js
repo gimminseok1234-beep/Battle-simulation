@@ -3,11 +3,14 @@
 import { grasslandMap } from './grassland.js';
 import { bridgeMap } from './bridge.js';
 import { ruinsMap } from './ruins.js';
-import { mazeMap } from './maze.js'; // 새로 추가된 미로 맵 import
+import { mazeMap } from './maze.js';
+// [수정] 파일 경로와 변수 이름을 소문자로 변경
+import { hadokenarenamap } from './hadokenarena.js'; 
 
 export const localMaps = [
     grasslandMap,
     bridgeMap,
     ruinsMap,
-    mazeMap, // 배열에 미로 맵 추가
+    mazeMap,
+    hadokenarenamap, // [수정] 배열에 추가되는 변수 이름 변경
 ];
