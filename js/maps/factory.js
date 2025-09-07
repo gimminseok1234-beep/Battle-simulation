@@ -1,9 +1,9 @@
 // js/maps/factory.js
 
 /**
- * 맵 제목: 자동화 공장 (factory)
- * 컨셉: 돌진 타일을 '컨베이어 벨트'처럼 활용하여 강제 이동 기믹을 가진 맵.
- * 벨트 끝의 함정과 교차로에서의 전투가 핵심 전략 요소입니다.
+ * 맵 제목: 자동화 공장 (factory) - 고품질 버전
+ * 컨셉: 예측 불가능한 돌진 타일과 위험한 함정이 가득한 혼돈의 공장.
+ * 긴 컨베이어 벨트를 제거하고, 변칙적인 전투를 유도하는 무작위 타일 배치를 적용했습니다.
  */
 
 export const factorymap = {
@@ -12,58 +12,62 @@ export const factorymap = {
     height: 800,
     hadokenKnockback: 15,
     autoMagneticField: { isActive: false },
-    nexuses: [],
+    nexuses: [], // 넥서스는 사용자가 직접 배치
     map: JSON.stringify((() => {
         const ROWS = 40;
         const COLS = 23;
-        const wall = { type: 'WALL', color: '#2d3748' };
-        const floor = { type: 'FLOOR', color: '#4a5568' };
+        const wall = { type: 'WALL', color: '#2d3748' }; // 공장 외벽
+        const floor = { type: 'FLOOR', color: '#4a5568' }; // 공장 바닥
         const lava = { type: 'LAVA', color: '#f97316' };
         const map = [...Array(ROWS)].map(() => [...Array(COLS)].map(() => ({ ...floor })));
 
+        // 1. 외벽 생성
         for (let y = 0; y < ROWS; y++) {
-            if (y === 0 || y === ROWS - 1) {
-                for (let x = 0; x < COLS; x++) map[y][x] = { ...wall };
-            }
-            map[y][0] = { ...wall };
-            map[y][COLS - 1] = { ...wall };
-        }
-        
-        const placeDashLine = (x, y, length, direction) => {
-            for (let i = 0; i < length; i++) {
-                let cX = x, cY = y;
-                if (direction === 'RIGHT') cX += i; else if (direction === 'LEFT') cX -= i;
-                if (direction === 'DOWN') cY += i; else if (direction === 'UP') cY -= i;
-                if (map[cY] && map[cY][cX]) {
-                    map[cY][cX] = { type: 'DASH_TILE', direction, color: '#CBD5E0' };
+            for (let x = 0; x < COLS; x++) {
+                if (y === 0 || y === ROWS - 1 || x === 0 || x === COLS - 1) {
+                    map[y][x] = { ...wall };
                 }
             }
-        };
-
-        placeDashLine(1, 10, 21, 'RIGHT');
-        placeDashLine(21, 29, 21, 'LEFT');
-        placeDashLine(5, 1, 38, 'DOWN');
-        placeDashLine(17, 38, 38, 'UP');
-
-        map[15][11] = { type: 'DASH_TILE', direction: 'UP', color: '#ffffff' };
-        map[24][11] = { type: 'DASH_TILE', direction: 'DOWN', color: '#ffffff' };
-        map[20][8] = { type: 'DASH_TILE', direction: 'LEFT', color: '#ffffff' };
-        map[20][14] = { type: 'DASH_TILE', direction: 'RIGHT', color: '#ffffff' };
+        }
         
-        for (let i = 1; i < 5; i++) map[10][i] = { ...lava };
-        for (let i = 18; i < 22; i++) map[29][i] = { ...lava };
+        // 2. 중앙을 제외한 전장에 무작위 타일 배치 (돌진, 벽, 용암)
+        const directions = ['UP', 'DOWN', 'LEFT', 'RIGHT'];
+        for (let y = 1; y < ROWS - 1; y++) {
+            for (let x = 1; x < COLS - 1; x++) {
+                // 시작 지점(상하 6칸)과 중앙 통로(가로 5칸)는 안전 구역으로 확보
+                if (y <= 6 || y >= ROWS - 7 || (x >= 9 && x <= 13)) continue;
+                
+                const rand = Math.random();
+                if (rand < 0.08) { // 돌진 타일 (비율 높음)
+                    const dir = directions[Math.floor(Math.random() * directions.length)];
+                    map[y][x] = { type: 'DASH_TILE', direction: dir, color: '#CBD5E0' };
+                } else if (rand < 0.12) { // 일반 벽
+                    map[y][x] = { ...wall };
+                } else if (rand < 0.16) { // 용암 함정
+                    map[y][x] = { ...lava };
+                }
+            }
+        }
 
-        map[18][10] = { ...wall }; map[18][12] = { ...wall };
-        map[21][10] = { ...wall }; map[21][12] = { ...wall };
+        // 3. 중앙 지역 구조물 및 특수 타일 배치
+        // 중앙 전투 공간 확보 및 장애물 배치
+        for (let y = 15; y < 25; y++) {
+             map[y][10] = { type: 'CRACKED_WALL', hp: 150, color: '#718096'};
+             map[y][12] = { type: 'CRACKED_WALL', hp: 150, color: '#718096'};
+        }
+        
+        // 중앙 보상
+        map[19][11] = { type: 'HEAL_PACK', color: '#22c55e' };
+        map[20][11] = { type: 'HEAL_PACK', color: '#22c55e' };
 
+
+        // 4. 외곽 지역 텔레포터 배치 (기습 경로)
         map[3][3] = { type: 'TELEPORTER', color: '#8b5cf6' };
         map[36][19] = { type: 'TELEPORTER', color: '#8b5cf6' };
-        
-        map[20][11] = { type: 'HEAL_PACK', color: '#22c55e' };
 
         return map;
     })()),
-    units: [],
-    weapons: [],
+    units: [],    // 유닛은 사용자가 직접 배치
+    weapons: [],  // 무기는 사용자가 직접 배치
     growingFields: [],
 };
