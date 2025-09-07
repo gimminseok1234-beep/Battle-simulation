@@ -4,13 +4,20 @@ import { grasslandMap } from './grassland.js';
 import { bridgeMap } from './bridge.js';
 import { ruinsMap } from './ruins.js';
 import { mazeMap } from './maze.js';
-// [수정] 파일 경로와 변수 이름을 소문자로 변경
-import { hadokenarenamap } from './hadokenarena.js'; 
+import { hadokenarenamap } from './hadokenarena.js';
+import { factorymap } from './factory.js';
+import { vortexmap } from './vortex.js';       // 소용돌이 맵 import
+import { chessboardmap } from './chessboard.js'; // 체스판 맵 import
+import { rivermap } from './river.js';         // 강변 맵 import
 
 export const localMaps = [
     grasslandMap,
     bridgeMap,
     ruinsMap,
     mazeMap,
-    hadokenarenamap, // [수정] 배열에 추가되는 변수 이름 변경
+    hadokenarenamap,
+    factorymap,
+    vortexmap,      // 소용돌이 맵 추가
+    chessboardmap,  // 체스판 맵 추가
+    rivermap,       // 강변 맵 추가
 ];
