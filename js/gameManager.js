@@ -859,6 +859,7 @@ export class GameManager {
         const {gridX: x, gridY: y} = pos;
         if (x < 0 || x >= this.COLS || y < 0 || y >= this.ROWS) return;
 
+        // Erase tool is a special case that clears everything.
         if (this.currentTool.tool === 'erase') {
             this.map[y][x] = { type: TILE.FLOOR, color: this.currentFloorColor };
             this.units = this.units.filter(u => u.gridX !== x || u.gridY !== y);
@@ -871,16 +872,16 @@ export class GameManager {
 
         const placingWall = this.currentTool.tool === 'tile' && this.currentTool.type === 'WALL';
         
-        // If placing a wall, clear the spot first.
+        // If the tool is NOT the wall tool, check if the target tile is a wall. If so, block placement.
+        if (!placingWall && this.map[y][x].type === TILE.WALL) {
+            return; 
+        }
+        
+        // If placing a wall, it should clear any existing items on that tile first.
         if (placingWall) {
             this.units = this.units.filter(u => u.gridX !== x || u.gridY !== y);
             this.weapons = this.weapons.filter(w => w.gridX !== x || w.gridY !== y);
             this.nexuses = this.nexuses.filter(n => n.gridX !== x || n.gridY !== y);
-        } else {
-            // If NOT placing a wall, check if the target tile is a wall. If so, block placement.
-            if (this.map[y][x].type === TILE.WALL) {
-                return;
-            }
         }
 
         const itemExists = this.units.some(u => u.gridX === x && u.gridY === y) || 
@@ -899,8 +900,7 @@ export class GameManager {
              this.growingFields.push(newZone);
              this.dragStartPos = null;
         } else if (this.currentTool.tool === 'tile') {
-            // If placing a non-wall tile, it cannot be placed on an existing item.
-            if (!placingWall && itemExists) return;
+            if (itemExists) return;
             
             const tileType = TILE[this.currentTool.type];
             if (tileType === TILE.TELEPORTER && this.getTilesOfType(TILE.TELEPORTER).length >= 2) { return; }
