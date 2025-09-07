@@ -1685,7 +1685,7 @@ export class Unit {
             if (currentTile.type === TILE.LAVA) this.takeDamage(0.2 * gameManager.gameSpeed, { isTileDamage: true });
             if (currentTile.type === TILE.HEAL_PACK) {
                 this.hp = 100;
-                gameManager.map[finalGridY][finalGridX] = { type: TILE.FLOOR };
+                gameManager.map[finalGridY][finalGridX] = { type: TILE.FLOOR, color: gameManager.currentFloorColor };
                 gameManager.audioManager.play('heal');
             }
             if (currentTile.type === TILE.TELEPORTER && this.teleportCooldown <= 0) {
@@ -1704,11 +1704,11 @@ export class Unit {
                 for(let i = 0; i < currentTile.replicationValue; i++) {
                     gameManager.spawnUnit(this, true);
                 }
-                gameManager.map[finalGridY][finalGridX] = { type: TILE.FLOOR };
+                gameManager.map[finalGridY][finalGridX] = { type: TILE.FLOOR, color: gameManager.currentFloorColor };
                 gameManager.audioManager.play('replication');
             }
             if (currentTile.type === TILE.QUESTION_MARK) {
-                gameManager.map[finalGridY][finalGridX] = { type: TILE.FLOOR };
+                gameManager.map[finalGridY][finalGridX] = { type: TILE.FLOOR, color: gameManager.currentFloorColor };
                 gameManager.createEffect('question_mark_effect', this.pixelX, this.pixelY);
                 gameManager.spawnRandomWeaponNear({ x: this.pixelX, y: this.pixelY });
             }
@@ -2046,4 +2046,3 @@ export class Unit {
         }
     }
 }
-
