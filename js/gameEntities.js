@@ -400,7 +400,7 @@ export class Projectile {
             const isCollidableWall = tile.type === TILE.WALL || tile.type === TILE.CRACKED_WALL;
             if (this.type !== 'magic_spear_special' && isCollidableWall) {
                 if (tile.type === TILE.CRACKED_WALL) {
-                    gameManager.damageTile(gridX, gridY, this.damage);
+                    gameManager.damageTile(gridX, gridY, 999);
                 }
                 this.destroyed = true;
                 return;
