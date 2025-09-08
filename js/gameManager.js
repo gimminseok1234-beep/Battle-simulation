@@ -160,6 +160,7 @@ export class GameManager {
             <div class="category-header collapsed" data-target="category-special-tiles">특수 타일</div>
             <div id="category-special-tiles" class="category-content collapsed">
                 <button class="tool-btn" data-tool="tile" data-type="LAVA">용암</button>
+                <button class="tool-btn" data-tool="tile" data-type="GLASS_WALL">유리벽</button>
                 <button class="tool-btn" data-tool="tile" data-type="CRACKED_WALL">부서지는 벽</button>
                 <button class="tool-btn" data-tool="tile" data-type="HEAL_PACK">회복 팩</button>
                 <button class="tool-btn" data-tool="tile" data-type="TELEPORTER">텔레포터</button>
@@ -430,6 +431,7 @@ export class GameManager {
                         case TILE.TELEPORTER: prevCtx.fillStyle = COLORS.TELEPORTER; break;
                         case TILE.QUESTION_MARK: prevCtx.fillStyle = COLORS.QUESTION_MARK; break;
                         case TILE.DASH_TILE: prevCtx.fillStyle = COLORS.DASH_TILE; break;
+                        case TILE.GLASS_WALL: prevCtx.fillStyle = COLORS.GLASS_WALL; break;
                         default: prevCtx.fillStyle = floorColor; break;
                     }
                     prevCtx.fillRect(x * pixelSizeX, y * pixelSizeY, pixelSizeX + 0.5, pixelSizeY + 0.5);
@@ -756,8 +758,7 @@ export class GameManager {
         this.units = []; this.weapons = []; this.nexuses = []; this.growingFields = [];
         this.effects = []; this.projectiles = []; this.areaEffects = []; this.magicCircles = []; this.poisonClouds = []; this.particles = [];
         this.initialUnitsState = []; this.initialWeaponsState = [];
-        this.initialNexusesState = [];
-        this.initialMapState = [];
+        this.initialNexusesState = []; this.initialMapState = [];
         this.initialGrowingFieldsState = [];
         this.initialAutoFieldState = {};
         document.getElementById('statusText').textContent = "에디터 모드";
@@ -871,15 +872,15 @@ export class GameManager {
             return;
         }
 
-        const placingWall = this.currentTool.tool === 'tile' && this.currentTool.type === 'WALL';
-        
-        // If the tool is NOT the wall tool, check if the target tile is a wall. If so, block placement.
-        if (!placingWall && this.map[y][x].type === TILE.WALL) {
+        const isWallTypeTool = this.currentTool.tool === 'tile' && (this.currentTool.type === 'WALL' || this.currentTool.type === 'GLASS_WALL');
+
+        // If the tool is NOT a wall tool, check if the target tile is a wall. If so, block placement.
+        if (!isWallTypeTool && (this.map[y][x].type === TILE.WALL || this.map[y][x].type === TILE.GLASS_WALL)) {
             return; 
         }
         
         // If placing a wall, it should clear any existing items on that tile first.
-        if (placingWall) {
+        if (isWallTypeTool) {
             this.units = this.units.filter(u => u.gridX !== x || u.gridY !== y);
             this.weapons = this.weapons.filter(w => w.gridX !== x || w.gridY !== y);
             this.nexuses = this.nexuses.filter(n => n.gridX !== x || n.gridY !== y);
@@ -1271,24 +1272,28 @@ export class GameManager {
                 if (!this.map || !this.map[y] || !this.map[y][x]) continue;
                 const tile = this.map[y][x];
                 
-                if (tile.type === TILE.WALL) this.ctx.fillStyle = tile.color || this.currentWallColor;
-                else if (tile.type === TILE.FLOOR) this.ctx.fillStyle = tile.color || this.currentFloorColor;
-                else if (tile.type === TILE.LAVA) this.ctx.fillStyle = COLORS.LAVA;
-                else if (tile.type === TILE.CRACKED_WALL) this.ctx.fillStyle = COLORS.CRACKED_WALL;
-                else if (tile.type === TILE.HEAL_PACK) this.ctx.fillStyle = COLORS.HEAL_PACK;
-                else if (tile.type === TILE.REPLICATION_TILE) this.ctx.fillStyle = COLORS.REPLICATION_TILE;
-                else if (tile.type === TILE.QUESTION_MARK) this.ctx.fillStyle = COLORS.QUESTION_MARK;
-                else if (tile.type === TILE.DASH_TILE) this.ctx.fillStyle = COLORS.DASH_TILE;
-                else this.ctx.fillStyle = this.currentFloorColor;
+                switch(tile.type) {
+                    case TILE.WALL: this.ctx.fillStyle = tile.color || this.currentWallColor; break;
+                    case TILE.FLOOR: this.ctx.fillStyle = tile.color || this.currentFloorColor; break;
+                    case TILE.LAVA: this.ctx.fillStyle = COLORS.LAVA; break;
+                    case TILE.CRACKED_WALL: this.ctx.fillStyle = COLORS.CRACKED_WALL; break;
+                    case TILE.HEAL_PACK: this.ctx.fillStyle = COLORS.HEAL_PACK; break;
+                    case TILE.REPLICATION_TILE: this.ctx.fillStyle = COLORS.REPLICATION_TILE; break;
+                    case TILE.QUESTION_MARK: this.ctx.fillStyle = COLORS.QUESTION_MARK; break;
+                    case TILE.DASH_TILE: this.ctx.fillStyle = COLORS.DASH_TILE; break;
+                    case TILE.GLASS_WALL: this.ctx.fillStyle = COLORS.GLASS_WALL; break;
+                    case TILE.TELEPORTER: this.ctx.fillStyle = this.currentFloorColor; break; // Teleporter base
+                    default: this.ctx.fillStyle = this.currentFloorColor;
+                }
                 
                 this.ctx.fillRect(x * GRID_SIZE, y * GRID_SIZE, GRID_SIZE, GRID_SIZE);
 
+                // Draw details on top
                 if(tile.type === TILE.LAVA) {
                     const flicker = Math.sin(this.animationFrameCounter * 0.1 + x + y) * 10 + 10;
                     this.ctx.fillStyle = `rgba(255, 255, 0, 0.3)`;
                     this.ctx.beginPath(); this.ctx.arc(x * GRID_SIZE + 10, y * GRID_SIZE + 10, flicker / 4, 0, Math.PI * 2); this.ctx.fill();
-                }
-                if(tile.type === TILE.CRACKED_WALL) {
+                } else if(tile.type === TILE.CRACKED_WALL) {
                     this.ctx.strokeStyle = 'rgba(0,0,0,0.7)'; this.ctx.lineWidth = 1.5;
                     this.ctx.beginPath();
                     this.ctx.moveTo(x * GRID_SIZE + 4, y * GRID_SIZE + 4); this.ctx.lineTo(x * GRID_SIZE + 10, y * GRID_SIZE + 10);
@@ -1296,8 +1301,7 @@ export class GameManager {
                     this.ctx.moveTo(x * GRID_SIZE + 16, y * GRID_SIZE + 5); this.ctx.lineTo(x * GRID_SIZE + 10, y * GRID_SIZE + 9);
                     this.ctx.moveTo(x * GRID_SIZE + 10, y * GRID_SIZE + 9); this.ctx.lineTo(x * GRID_SIZE + 15, y * GRID_SIZE + 17);
                     this.ctx.stroke();
-                }
-                 if(tile.type === TILE.TELEPORTER) {
+                } else if(tile.type === TILE.TELEPORTER) {
                     const angle = this.animationFrameCounter * 0.05;
                     this.ctx.save();
                     this.ctx.translate(x * GRID_SIZE + GRID_SIZE / 2, y * GRID_SIZE + GRID_SIZE / 2);
@@ -1309,25 +1313,21 @@ export class GameManager {
                         this.ctx.fill(); this.ctx.rotate(Math.PI / 3);
                     }
                     this.ctx.restore();
-                }
-                if(tile.type === TILE.HEAL_PACK) {
+                } else if(tile.type === TILE.HEAL_PACK) {
                     this.ctx.fillStyle = 'white';
                     const plusWidth = 4;
                     const plusLength = GRID_SIZE - 8;
                     this.ctx.fillRect(x * GRID_SIZE + (GRID_SIZE - plusWidth) / 2, y * GRID_SIZE + 4, plusWidth, plusLength);
                     this.ctx.fillRect(x * GRID_SIZE + 4, y * GRID_SIZE + (GRID_SIZE - plusWidth) / 2, plusLength, plusWidth);
-                }
-                if(tile.type === TILE.REPLICATION_TILE) {
+                } else if(tile.type === TILE.REPLICATION_TILE) {
                     this.ctx.fillStyle = 'black'; this.ctx.font = 'bold 12px Arial'; this.ctx.textAlign = 'center';
                     this.ctx.fillText(`+${tile.replicationValue}`, x * GRID_SIZE + 10, y * GRID_SIZE + 14);
-                }
-                if (tile.type === TILE.QUESTION_MARK) {
+                } else if (tile.type === TILE.QUESTION_MARK) {
                     this.ctx.fillStyle = 'black';
                     this.ctx.font = 'bold 16px Arial';
                     this.ctx.textAlign = 'center';
                     this.ctx.fillText('?', x * GRID_SIZE + 10, y * GRID_SIZE + 16);
-                }
-                if (tile.type === TILE.DASH_TILE) {
+                } else if (tile.type === TILE.DASH_TILE) {
                     this.ctx.save();
                     this.ctx.translate(x * GRID_SIZE + GRID_SIZE / 2, y * GRID_SIZE + GRID_SIZE / 2);
                     let angle = 0;
@@ -1347,6 +1347,13 @@ export class GameManager {
                     this.ctx.closePath();
                     this.ctx.fill();
                     this.ctx.restore();
+                } else if(tile.type === TILE.GLASS_WALL) {
+                    this.ctx.strokeStyle = 'rgba(255, 255, 255, 0.4)';
+                    this.ctx.lineWidth = 1.5;
+                    this.ctx.beginPath();
+                    this.ctx.moveTo(x * GRID_SIZE + 4, y * GRID_SIZE + 4);
+                    this.ctx.lineTo(x * GRID_SIZE + GRID_SIZE - 4, y * GRID_SIZE + GRID_SIZE - 4);
+                    this.ctx.stroke();
                 }
 
                 if (this.state === 'EDIT') {
