@@ -920,8 +920,8 @@ export class GameManager {
         }
 
         const itemExists = this.units.some(u => u.gridX === x && u.gridY === y) || 
-                         this.weapons.some(w => w.gridX === x && w.gridY === y) || 
-                         this.nexuses.some(n => n.gridX === x && n.gridY === y);
+                         this.weapons.some(w => w.gridX === x && w.gridY !== y) || 
+                         this.nexuses.some(n => n.gridX === x && n.gridY !== y);
 
         if (this.currentTool.tool === 'growing_field' && this.dragStartPos) {
              const startX = Math.min(this.dragStartPos.gridX, x);
@@ -1397,54 +1397,44 @@ export class GameManager {
         }
     }
     
-    hasLineOfSight(startUnit, endTarget) {
-        let x1 = Math.floor(startUnit.pixelX / GRID_SIZE);
-        let y1 = Math.floor(startUnit.pixelY / GRID_SIZE);
-        const x2 = Math.floor(endTarget.pixelX / GRID_SIZE);
-        const y2 = Math.floor(endTarget.pixelY / GRID_SIZE);
-        const dx = Math.abs(x2 - x1), dy = Math.abs(y2 - y1);
-        const sx = (x1 < x2) ? 1 : -1, sy = (y1 < y2) ? 1 : -1;
-        let err = dx - dy;
+    hasLineOfSight(startUnit, endTarget, isWeaponCheck = false) {
+        let x1 = startUnit.pixelX;
+        let y1 = startUnit.pixelY;
+        const x2 = endTarget.pixelX;
+        const y2 = endTarget.pixelY;
 
-        while (true) {
-            if ((x1 === x2 && y1 === y2)) break;
-            const e2 = 2 * err;
-            if (e2 > -dy) { err -= dy; x1 += sx; }
-            if (e2 < dx) { err += dx; y1 += sy; }
-            if ((x1 === x2 && y1 === y2)) break;
-            if (y1 < 0 || y1 >= this.ROWS || x1 < 0 || x1 >= this.COLS) return false;
-            const tile = this.map[y1][x1];
-            if (tile.type === TILE.WALL || tile.type === TILE.CRACKED_WALL) {
-                return false;
+        const dx = x2 - x1;
+        const dy = y2 - y1;
+        const distance = Math.hypot(dx, dy);
+        const step = GRID_SIZE / 4; // Check every quarter of a tile
+
+        for (let i = step; i < distance; i += step) {
+            const currentX = x1 + (dx / distance) * i;
+            const currentY = y1 + (dy / distance) * i;
+
+            const gridX = Math.floor(currentX / GRID_SIZE);
+            const gridY = Math.floor(currentY / GRID_SIZE);
+
+            if (gridY < 0 || gridY >= this.ROWS || gridX < 0 || gridX >= this.COLS) return false;
+
+            const tile = this.map[gridY][gridX];
+            
+            // For weapon checking, ignore CRACKED_WALL and GLASS_WALL.
+            if (isWeaponCheck) {
+                if (tile.type === TILE.WALL) return false;
+            } else {
+                // For unit/nexus targeting, all walls block sight.
+                if (tile.type === TILE.WALL || tile.type === TILE.CRACKED_WALL || tile.type === TILE.GLASS_WALL) {
+                    return false;
+                }
             }
         }
         return true;
     }
 
-    // 무기 감지를 위한 새로운 시야 확인 함수
+    // Wrapper for weapon checking
     hasLineOfSightForWeapon(startUnit, endTarget) {
-        let x1 = Math.floor(startUnit.pixelX / GRID_SIZE);
-        let y1 = Math.floor(startUnit.pixelY / GRID_SIZE);
-        const x2 = Math.floor(endTarget.pixelX / GRID_SIZE);
-        const y2 = Math.floor(endTarget.pixelY / GRID_SIZE);
-        const dx = Math.abs(x2 - x1), dy = Math.abs(y2 - y1);
-        const sx = (x1 < x2) ? 1 : -1, sy = (y1 < y2) ? 1 : -1;
-        let err = dx - dy;
-
-        while (true) {
-            if ((x1 === x2 && y1 === y2)) break;
-            const e2 = 2 * err;
-            if (e2 > -dy) { err -= dy; x1 += sx; }
-            if (e2 < dx) { err += dx; y1 += sy; }
-            if ((x1 === x2 && y1 === y2)) break;
-            if (y1 < 0 || y1 >= this.ROWS || x1 < 0 || x1 >= this.COLS) return false;
-            const tile = this.map[y1][x1];
-            // 부서지지 않는 벽만 시야를 가립니다.
-            if (tile.type === TILE.WALL) {
-                return false;
-            }
-        }
-        return true;
+        return this.hasLineOfSight(startUnit, endTarget, true);
     }
 
     createWeapon(x, y, type) {
