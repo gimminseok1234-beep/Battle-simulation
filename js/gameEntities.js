@@ -1553,13 +1553,17 @@ export class Unit {
             const visibleWeapons = weapons.filter(w => !w.isEquipped && gameManager.hasLineOfSightForWeapon(this, w));
             const { item: targetWeapon, distance: weaponDist } = this.findClosest(visibleWeapons);
 
-            const questionMarkTiles = gameManager.getTilesOfType(TILE.QUESTION_MARK);
-            const questionMarkPositions = questionMarkTiles.map(pos => ({
-                gridX: pos.x, gridY: pos.y,
-                pixelX: pos.x * GRID_SIZE + GRID_SIZE / 2,
-                pixelY: pos.y * GRID_SIZE + GRID_SIZE / 2
-            }));
-            const { item: closestQuestionMark, distance: questionMarkDist } = this.findClosest(questionMarkPositions);
+            let closestQuestionMark = null;
+            let questionMarkDist = Infinity;
+            if (!this.weapon) {
+                const questionMarkTiles = gameManager.getTilesOfType(TILE.QUESTION_MARK);
+                const questionMarkPositions = questionMarkTiles.map(pos => ({
+                    gridX: pos.x, gridY: pos.y,
+                    pixelX: pos.x * GRID_SIZE + GRID_SIZE / 2,
+                    pixelY: pos.y * GRID_SIZE + GRID_SIZE / 2
+                }));
+                ({ item: closestQuestionMark, distance: questionMarkDist } = this.findClosest(questionMarkPositions));
+            }
 
             let targetEnemy = null;
             if (closestEnemy && enemyDist <= this.detectionRange && gameManager.hasLineOfSight(this, closestEnemy)) {
@@ -2046,3 +2050,4 @@ export class Unit {
         }
     }
 }
+
