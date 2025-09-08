@@ -82,6 +82,11 @@ export class GameManager {
         this.isUnitOutlineEnabled = true;
         this.unitOutlineWidth = 1.5;
 
+        // 이름표 기능 설정 추가
+        this.isNametagEnabled = false;
+        this.nametagList = [];
+        this.editingUnit = null;
+
         instance = this;
     }
 
@@ -102,6 +107,7 @@ export class GameManager {
         this.createToolboxUI();
         this.setupEventListeners();
         this.showHomeScreen();
+        this.loadNametagSettings();
     }
    
     showHomeScreen() {
@@ -622,6 +628,16 @@ export class GameManager {
             }
             if (this.state === 'EDIT') {
                 const pos = this.getMousePos(e);
+                
+                // 유닛 이름 수정 로직
+                const clickedUnit = this.units.find(u => Math.hypot(u.pixelX - pos.pixelX, u.pixelY - pos.pixelY) < GRID_SIZE / 2);
+                if (clickedUnit) {
+                    this.editingUnit = clickedUnit;
+                    document.getElementById('unitNameInput').value = clickedUnit.name || '';
+                    document.getElementById('unitNameModal').classList.add('show-modal');
+                    return;
+                }
+
                 this.isPainting = true;
                 if (this.currentTool.tool === 'growing_field') this.dragStartPos = pos;
                 else this.applyTool(pos);
@@ -747,6 +763,38 @@ export class GameManager {
         floorColorPicker.addEventListener('change', () => this.addRecentColor(floorColorPicker.value, 'floor'));
         wallColorPicker.addEventListener('input', () => this.setCurrentColor(wallColorPicker.value, 'wall', false));
         wallColorPicker.addEventListener('change', () => this.addRecentColor(wallColorPicker.value, 'wall'));
+
+        // 이름표 설정 모달 이벤트 리스너
+        document.getElementById('nametagSettingsBtn').addEventListener('click', () => {
+            document.getElementById('nametagSettingsModal').classList.add('show-modal');
+        });
+        document.getElementById('closeNametagSettingsModal').addEventListener('click', () => {
+            document.getElementById('nametagSettingsModal').classList.remove('show-modal');
+        });
+        document.getElementById('saveNametagSettingsBtn').addEventListener('click', () => {
+            this.saveNametagSettings();
+            document.getElementById('nametagSettingsModal').classList.remove('show-modal');
+        });
+        document.getElementById('nameFileUpload').addEventListener('change', (e) => this.handleNametagFileUpload(e));
+        document.getElementById('addNameBtn').addEventListener('click', () => this.addNametagManually());
+        document.getElementById('nametagListContainer').addEventListener('click', (e) => {
+            if (e.target.classList.contains('nametag-delete-btn')) {
+                this.deleteNametag(e.target.parentElement.textContent.slice(0, -1).trim());
+            }
+        });
+
+        // 유닛 이름 수정 모달 이벤트 리스너
+        document.getElementById('cancelUnitNameBtn').addEventListener('click', () => {
+             document.getElementById('unitNameModal').classList.remove('show-modal');
+        });
+        document.getElementById('confirmUnitNameBtn').addEventListener('click', () => {
+            if (this.editingUnit) {
+                this.editingUnit.name = document.getElementById('unitNameInput').value;
+                this.editingUnit = null;
+                this.draw();
+            }
+            document.getElementById('unitNameModal').classList.remove('show-modal');
+        });
     }
 
     resetActionCam(isInstant = true) {
@@ -806,6 +854,15 @@ export class GameManager {
     
     startSimulation() {
         if (this.state !== 'EDIT') return;
+
+        // 이름표 기능이 켜져 있으면 랜덤 이름 할당
+        if (this.isNametagEnabled && this.nametagList.length > 0) {
+            const shuffledNames = [...this.nametagList].sort(() => 0.5 - Math.random());
+            this.units.forEach((unit, index) => {
+                unit.name = shuffledNames[index % shuffledNames.length];
+            });
+        }
+
         this.initialUnitsState = JSON.stringify(this.units.map(u => ({...u, weapon: u.weapon ? {type: u.weapon.type} : null})));
         this.initialWeaponsState = JSON.stringify(this.weapons.map(w => ({...w})));
         this.initialNexusesState = JSON.stringify(this.nexuses.map(n => ({...n})));
@@ -1832,6 +1889,68 @@ export class GameManager {
         
         this.setCurrentColor(floorColor, 'floor', false);
         this.setCurrentColor(wallColor, 'wall', false);
+    }
+    
+    // --- 이름표 관리 로직 ---
+    loadNametagSettings() {
+        const enabled = localStorage.getItem('nametagEnabled');
+        this.isNametagEnabled = enabled === 'true';
+        document.getElementById('nametagToggle').checked = this.isNametagEnabled;
+        
+        this.nametagList = JSON.parse(localStorage.getItem('nametagList')) || [];
+        this.renderNametagList();
+    }
+    
+    saveNametagSettings() {
+        this.isNametagEnabled = document.getElementById('nametagToggle').checked;
+        localStorage.setItem('nametagEnabled', this.isNametagEnabled);
+        localStorage.setItem('nametagList', JSON.stringify(this.nametagList));
+        alert('이름표 설정이 저장되었습니다.');
+    }
+    
+    renderNametagList() {
+        const container = document.getElementById('nametagListContainer');
+        const countSpan = document.getElementById('nameCount');
+        container.innerHTML = '';
+        this.nametagList.forEach(name => {
+            const item = document.createElement('div');
+            item.className = 'nametag-item';
+            item.innerHTML = `<span>${name}</span><button class="nametag-delete-btn">X</button>`;
+            container.appendChild(item);
+        });
+        countSpan.textContent = this.nametagList.length;
+    }
+
+    handleNametagFileUpload(event) {
+        const file = event.target.files[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            const text = e.target.result;
+            const names = text.split(/[\r\n]+/).filter(name => name.trim() !== '');
+            this.nametagList.push(...names);
+            // 중복 제거
+            this.nametagList = [...new Set(this.nametagList)];
+            this.renderNametagList();
+            event.target.value = ''; // 파일 입력 초기화
+        };
+        reader.readAsText(file);
+    }
+    
+    addNametagManually() {
+        const input = document.getElementById('addNameInput');
+        const name = input.value.trim();
+        if (name && !this.nametagList.includes(name)) {
+            this.nametagList.push(name);
+            this.renderNametagList();
+            input.value = '';
+        }
+    }
+    
+    deleteNametag(nameToDelete) {
+        this.nametagList = this.nametagList.filter(name => name !== nameToDelete);
+        this.renderNametagList();
     }
 }
 
