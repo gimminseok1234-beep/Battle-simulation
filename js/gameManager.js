@@ -1557,6 +1557,16 @@ export class GameManager {
                     const isOccupied = this.units.some(u => u.gridX === newX && u.gridY === newY) || this.weapons.some(w => w.gridX === newX && w.gridY === newY) || this.nexuses.some(n => n.gridX === newX && n.gridY === newY);
                     if (!isOccupied) {
                         const newUnit = new Unit(newX, newY, spawner.team);
+                        
+                        // 왕이 생성한 유닛에게도 랜덤 이름 할당
+                        if (this.isNametagEnabled && this.nametagList.length > 0) {
+                            const usedNames = new Set(this.units.map(u => u.name).filter(Boolean));
+                            const availableNames = this.nametagList.filter(name => !usedNames.has(name));
+                            if (availableNames.length > 0) {
+                                newUnit.name = availableNames[Math.floor(Math.random() * availableNames.length)];
+                            }
+                        }
+
                         if (cloneWeapon && spawner.weapon) {
                             newUnit.equipWeapon(spawner.weapon.type, true);
                         }
