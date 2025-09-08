@@ -6,9 +6,10 @@ import { ruinsMap } from './ruins.js';
 import { mazeMap } from './maze.js';
 import { hadokenarenamap } from './hadokenarena.js';
 import { factorymap } from './factory.js';
-import { vortexmap } from './vortex.js';       // 소용돌이 맵 import
-import { chessboardmap } from './chessboard.js'; // 체스판 맵 import
-import { rivermap } from './river.js';         // 강변 맵 import
+import { vortexmap } from './vortex.js';
+import { chessboardmap } from './chessboard.js';
+import { rivermap } from './river.js';
+import { siegemap } from './siege.js'; // 새로 추가된 공성전 맵 import
 
 export const localMaps = [
     grasslandMap,
@@ -17,7 +18,8 @@ export const localMaps = [
     mazeMap,
     hadokenarenamap,
     factorymap,
-    vortexmap,      // 소용돌이 맵 추가
-    chessboardmap,  // 체스판 맵 추가
-    rivermap,       // 강변 맵 추가
+    vortexmap,
+    chessboardmap,
+    rivermap,
+    siegemap, // 배열에 공성전 맵 추가
 ];
