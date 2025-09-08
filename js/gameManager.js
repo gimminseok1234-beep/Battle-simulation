@@ -62,7 +62,7 @@ export class GameManager {
         this.growingFieldSettings = {
             direction: 'DOWN', speed: 4, delay: 0
         };
-        this.dashTileSettings = { // 돌진 타일 설정 추가
+        this.dashTileSettings = {
             direction: 'RIGHT'
         };
         this.autoMagneticField = {
@@ -77,6 +77,11 @@ export class GameManager {
         this.winnerTeam = null;
 
         this.audioManager = new AudioManager();
+        
+        // 유닛 테두리 설정 추가
+        this.isUnitOutlineEnabled = true;
+        this.unitOutlineWidth = 1.5;
+
         instance = this;
     }
 
@@ -131,6 +136,17 @@ export class GameManager {
             document.getElementById('killSoundToggle').checked = isEnabled;
             this.audioManager.toggleKillSound(isEnabled);
         }
+        
+        // 유닛 테두리 설정 불러오기
+        const outlineEnabledPref = localStorage.getItem('unitOutlineEnabled');
+        this.isUnitOutlineEnabled = outlineEnabledPref !== null ? (outlineEnabledPref === 'true') : true;
+        document.getElementById('unitOutlineToggle').checked = this.isUnitOutlineEnabled;
+
+        const outlineWidthPref = localStorage.getItem('unitOutlineWidth');
+        this.unitOutlineWidth = outlineWidthPref !== null ? parseFloat(outlineWidthPref) : 1.5;
+        document.getElementById('unitOutlineWidthControl').value = this.unitOutlineWidth;
+        document.getElementById('unitOutlineWidthValue').textContent = this.unitOutlineWidth.toFixed(1);
+
 
         await this.loadMapForEditing(mapId);
     }
@@ -568,7 +584,23 @@ export class GameManager {
         document.getElementById('killSoundToggle').addEventListener('change', (e) => {
             this.audioManager.toggleKillSound(e.target.checked);
         });
-         document.getElementById('muteBtn').addEventListener('click', () => this.audioManager.toggleMute());
+        document.getElementById('volumeControl').addEventListener('input', (e) => {
+            this.audioManager.setVolume(parseFloat(e.target.value));
+        });
+        document.getElementById('unitOutlineToggle').addEventListener('change', (e) => {
+            this.isUnitOutlineEnabled = e.target.checked;
+            localStorage.setItem('unitOutlineEnabled', this.isUnitOutlineEnabled);
+            this.draw();
+        });
+        document.getElementById('unitOutlineWidthControl').addEventListener('input', (e) => {
+            this.unitOutlineWidth = parseFloat(e.target.value);
+            document.getElementById('unitOutlineWidthValue').textContent = this.unitOutlineWidth.toFixed(1);
+            localStorage.setItem('unitOutlineWidth', this.unitOutlineWidth);
+            if (this.isUnitOutlineEnabled) {
+                this.draw();
+            }
+        });
+        document.getElementById('muteBtn').addEventListener('click', () => this.audioManager.toggleMute());
 
 
         this.canvas.addEventListener('mousedown', (e) => {
@@ -758,7 +790,8 @@ export class GameManager {
         this.units = []; this.weapons = []; this.nexuses = []; this.growingFields = [];
         this.effects = []; this.projectiles = []; this.areaEffects = []; this.magicCircles = []; this.poisonClouds = []; this.particles = [];
         this.initialUnitsState = []; this.initialWeaponsState = [];
-        this.initialNexusesState = []; this.initialMapState = [];
+        this.initialNexusesState = [];
+        this.initialMapState = [];
         this.initialGrowingFieldsState = [];
         this.initialAutoFieldState = {};
         document.getElementById('statusText').textContent = "에디터 모드";
@@ -1245,7 +1278,7 @@ export class GameManager {
         this.weapons.forEach(w => w.draw(this.ctx));
         this.nexuses.forEach(n => n.draw(this.ctx));
         this.projectiles.forEach(p => p.draw(this.ctx));
-        this.units.forEach(u => u.draw(this.ctx));
+        this.units.forEach(u => u.draw(this.ctx, this.isUnitOutlineEnabled, this.unitOutlineWidth));
         this.effects.forEach(e => e.draw(this.ctx));
         this.areaEffects.forEach(e => e.draw(this.ctx));
         this.particles.forEach(p => p.draw(this.ctx));
