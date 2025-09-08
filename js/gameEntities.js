@@ -397,10 +397,10 @@ export class Projectile {
 
         if (gridY >= 0 && gridY < gameManager.ROWS && gridX >= 0 && gridX < gameManager.COLS) {
             const tile = gameManager.map[gridY][gridX];
-            // 마법창 특수 공격은 벽을 통과하도록 수정
-            if (this.type !== 'magic_spear_special' && (tile.type === TILE.WALL || tile.type === TILE.CRACKED_WALL)) {
+            // 마법창 특수 공격은 벽을 통과, 유리벽은 모든 투사체 통과
+            const isCollidableWall = tile.type === TILE.WALL || tile.type === TILE.CRACKED_WALL;
+            if (this.type !== 'magic_spear_special' && isCollidableWall) {
                 if (tile.type === TILE.CRACKED_WALL) {
-                    // [수정] 부서지는 벽에 데미지를 줍니다.
                     gameManager.damageTile(gridX, gridY, this.damage);
                 }
                 this.destroyed = true;
@@ -1120,13 +1120,15 @@ export class Unit {
             const gridX = Math.floor(nextX / GRID_SIZE);
             const gridY = Math.floor(nextY / GRID_SIZE);
     
-            if (gridY >= 0 && gridY < gameManager.ROWS && gridX >= 0 && gridX < gameManager.COLS &&
-                (gameManager.map[gridY][gridX].type === TILE.WALL || gameManager.map[gridY][gridX].type === TILE.CRACKED_WALL)) {
-                this.knockbackX = 0;
-                this.knockbackY = 0;
-            } else {
-                this.pixelX = nextX;
-                this.pixelY = nextY;
+            if (gridY >= 0 && gridY < gameManager.ROWS && gridX >= 0 && gridX < gameManager.COLS) {
+                 const tile = gameManager.map[gridY][gridX];
+                if (tile.type === TILE.WALL || tile.type === TILE.CRACKED_WALL || tile.type === TILE.GLASS_WALL) {
+                    this.knockbackX = 0;
+                    this.knockbackY = 0;
+                } else {
+                    this.pixelX = nextX;
+                    this.pixelY = nextY;
+                }
             }
         }
     
@@ -1226,7 +1228,7 @@ export class Unit {
 
         if (nextGridY >= 0 && nextGridY < gameManager.ROWS && nextGridX >= 0 && nextGridX < gameManager.COLS) {
             const collidedTile = gameManager.map[nextGridY][nextGridX];
-            if (collidedTile.type === TILE.WALL || collidedTile.type === TILE.CRACKED_WALL) {
+            if (collidedTile.type === TILE.WALL || collidedTile.type === TILE.CRACKED_WALL || collidedTile.type === TILE.GLASS_WALL) {
                 if (collidedTile.type === TILE.CRACKED_WALL) {
                     gameManager.damageTile(nextGridX, nextGridY, 999);
                 }
@@ -1343,7 +1345,7 @@ export class Unit {
             this.knockbackY += Math.sin(effectInfo.angle) * effectInfo.force;
         }
         if (effectInfo.stun) {
-            if (this.isStunned <= 0) {
+            if (this.isStunned <= 0) { // 기절 상태가 아닐 때만 효과음 재생
                 gameManager.audioManager.play('stern');
             }
             this.isStunned = Math.max(this.isStunned, effectInfo.stun);
