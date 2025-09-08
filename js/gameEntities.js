@@ -397,7 +397,6 @@ export class Projectile {
 
         if (gridY >= 0 && gridY < gameManager.ROWS && gridX >= 0 && gridX < gameManager.COLS) {
             const tile = gameManager.map[gridY][gridX];
-            // 마법창 특수 공격은 벽을 통과, 유리벽은 모든 투사체 통과
             const isCollidableWall = tile.type === TILE.WALL || tile.type === TILE.CRACKED_WALL;
             if (this.type !== 'magic_spear_special' && isCollidableWall) {
                 if (tile.type === TILE.CRACKED_WALL) {
@@ -1122,7 +1121,7 @@ export class Unit {
     
             if (gridY >= 0 && gridY < gameManager.ROWS && gridX >= 0 && gridX < gameManager.COLS) {
                  const tile = gameManager.map[gridY][gridX];
-                if (tile.type === TILE.WALL || tile.type === TILE.CRACKED_WALL || tile.type === TILE.GLASS_WALL) {
+                if (tile.type === TILE.WALL || tile.type === TILE.CRACKED_WALL || (tile.type === TILE.GLASS_WALL && !this.isBeingPulled) ) {
                     this.knockbackX = 0;
                     this.knockbackY = 0;
                 } else {
@@ -1739,7 +1738,7 @@ export class Unit {
         }
     }
 
-    draw(ctx) {
+    draw(ctx, isOutlineEnabled, outlineWidth) {
         const gameManager = GameManager.getInstance();
         if (!gameManager) return;
 
@@ -1772,7 +1771,12 @@ export class Unit {
             case TEAM.D: ctx.fillStyle = COLORS.TEAM_D; break;
         }
         ctx.beginPath(); ctx.arc(this.pixelX, this.pixelY, GRID_SIZE / 2.5, 0, Math.PI * 2); ctx.fill();
-        ctx.strokeStyle = 'black'; ctx.lineWidth = 1; ctx.stroke();
+        
+        if (isOutlineEnabled) {
+            ctx.strokeStyle = 'black'; 
+            ctx.lineWidth = outlineWidth;
+            ctx.stroke();
+        }
         
         ctx.restore(); 
 
