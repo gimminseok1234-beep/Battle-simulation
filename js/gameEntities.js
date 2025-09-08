@@ -1303,13 +1303,15 @@ export class Unit {
                 this.attackCooldown = this.cooldownTime; 
             } else if (this.weapon && this.weapon.type === 'lightning') {
                 gameManager.createProjectile(this, target, 'lightning_bolt');
-                gameManager.audioManager.play('lightningShoot');
-                 this.attackCooldown = this.cooldownTime;
+                gameManager.audioManager.play('electricity');
+                this.attackCooldown = this.cooldownTime;
             } else if (this.weapon && this.weapon.type === 'magic_spear') {
                 gameManager.createProjectile(this, target, 'magic_spear_normal');
-                 this.attackCooldown = this.cooldownTime;
+                gameManager.audioManager.play('punch');
+                this.attackCooldown = this.cooldownTime;
             } else if (this.weapon && this.weapon.type === 'boomerang') {
                 gameManager.createProjectile(this, target, 'boomerang_normal_projectile');
+                gameManager.audioManager.play('punch');
                 this.attackCooldown = this.cooldownTime;
             } else if (this.weapon && this.weapon.type === 'poison_potion') {
                 target.takeDamage(15);
@@ -1341,6 +1343,9 @@ export class Unit {
             this.knockbackY += Math.sin(effectInfo.angle) * effectInfo.force;
         }
         if (effectInfo.stun) {
+            if (this.isStunned <= 0) {
+                gameManager.audioManager.play('stern');
+            }
             this.isStunned = Math.max(this.isStunned, effectInfo.stun);
         }
         if(effectInfo.poison){
@@ -1492,6 +1497,7 @@ export class Unit {
                     gameManager.castAreaSpell(this.castTargetPos, 'fire_pillar', this.attackPower, this.team);
                     this.attackCooldown = 0; // 재사용 대기시간 제거
                 } else if (this.weapon.type === 'poison_potion') {
+                    gameManager.audioManager.play('poison');
                     this.hp = 0; // 자폭
                 }
             }
@@ -1514,6 +1520,7 @@ export class Unit {
                 this.alertedCounter = 60;
                 this.target = stunnedEnemy;
                 gameManager.createProjectile(this, stunnedEnemy, 'magic_spear_special');
+                gameManager.audioManager.play('spear');
                 this.attackCooldown = this.cooldownTime;
                 return;
             }
@@ -1524,6 +1531,7 @@ export class Unit {
                 if (dist <= this.attackRange) {
                     this.boomerangCooldown = 480; // 8초 쿨타임
                     gameManager.createProjectile(this, closestEnemy, 'boomerang_projectile');
+                    gameManager.audioManager.play('boomerang');
                     // 특수 공격 후 즉시 함수를 종료하여 일반 공격을 막습니다.
                     // 이 return문이 없으면 바로 아래 로직에서 일반 공격을 하게 됩니다.
                     this.state = 'IDLE'; 
@@ -1714,6 +1722,7 @@ export class Unit {
             if (currentTile.type === TILE.QUESTION_MARK) {
                 gameManager.map[finalGridY][finalGridX] = { type: TILE.FLOOR, color: gameManager.currentFloorColor };
                 gameManager.createEffect('question_mark_effect', this.pixelX, this.pixelY);
+                gameManager.audioManager.play('questionmark');
                 gameManager.spawnRandomWeaponNear({ x: this.pixelX, y: this.pixelY });
             }
             if (currentTile.type === TILE.DASH_TILE) {
@@ -1722,6 +1731,7 @@ export class Unit {
                 this.dashDistanceRemaining = 5 * GRID_SIZE;
                 this.state = 'IDLE';
                 this.moveTarget = null;
+                gameManager.audioManager.play('rush');
                 return;
             }
         }
