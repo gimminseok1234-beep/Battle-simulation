@@ -155,3 +155,35 @@ body {
     border-color: #3b82f6; 
     box-shadow: 0 0 5px #3b82f6;
 }
+
+/* 이름표 목록 아이템 스타일 */
+.nametag-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.5rem 0.75rem;
+    border-radius: 0.25rem;
+    color: #e5e7eb;
+    margin-bottom: 0.25rem;
+    transition: background-color 0.2s;
+}
+
+.nametag-item:hover {
+    background-color: #374151; /* bg-gray-700 */
+}
+
+.nametag-delete-btn {
+    background-color: #dc2626; /* bg-red-600 */
+    color: white;
+    border: none;
+    border-radius: 9999px; /* rounded-full */
+    width: 1.5rem;
+    height: 1.5rem;
+    font-weight: bold;
+    cursor: pointer;
+    transition: background-color 0.2s;
+}
+
+.nametag-delete-btn:hover {
+    background-color: #b91c1c; /* hover:bg-red-700 */
+}
