@@ -1781,12 +1781,12 @@ export class Unit {
         
         ctx.restore(); 
 
-        // Draw Nametag
+        // 이름표 그리기 (유닛 아래)
         if (this.name) {
             ctx.fillStyle = 'black';
             ctx.font = 'bold 10px Arial';
             ctx.textAlign = 'center';
-            ctx.fillText(this.name, this.pixelX, this.pixelY - GRID_SIZE * 0.8);
+            ctx.fillText(this.name, this.pixelX, this.pixelY + GRID_SIZE);
         }
 
 
@@ -2001,7 +2001,6 @@ export class Unit {
             const kingYOffset = this.isKing ? GRID_SIZE * 0.4 : 0; 
             const totalBarsHeight = (visibleBarCount * barHeight) + ((visibleBarCount - 1) * barGap);
             let currentBarY = this.pixelY - (GRID_SIZE * 0.6) - totalBarsHeight - kingYOffset;
-            if (this.name) currentBarY -= 10; // 이름표 공간 확보
 
             if (normalAttackIsVisible) {
                 ctx.fillStyle = '#0c4a6e'; 
@@ -2072,7 +2071,7 @@ export class Unit {
         }
         
         if (this.alertedCounter > 0 && !(this.weapon && (this.weapon.type === 'shuriken' || this.weapon.type === 'lightning')) && this.state !== 'FLEEING_FIELD') {
-            const yOffset = this.name ? -GRID_SIZE - 10 : -GRID_SIZE;
+            const yOffset = -GRID_SIZE;
             ctx.fillStyle = 'yellow'; ctx.font = 'bold 20px Arial'; ctx.textAlign = 'center';
             ctx.fillText(this.state === 'SEEKING_HEAL_PACK' ? '+' : '!', this.pixelX, this.pixelY + yOffset);
         }
