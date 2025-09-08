@@ -857,10 +857,17 @@ export class GameManager {
 
         // 이름표 기능이 켜져 있으면 랜덤 이름 할당
         if (this.isNametagEnabled && this.nametagList.length > 0) {
+            // 모든 유닛의 이름을 초기화
+            this.units.forEach(unit => unit.name = '');
+
             const shuffledNames = [...this.nametagList].sort(() => 0.5 - Math.random());
-            this.units.forEach((unit, index) => {
-                unit.name = shuffledNames[index % shuffledNames.length];
-            });
+            const shuffledUnits = [...this.units].sort(() => 0.5 - Math.random());
+            
+            const assignmentCount = Math.min(shuffledUnits.length, shuffledNames.length);
+
+            for (let i = 0; i < assignmentCount; i++) {
+                shuffledUnits[i].name = shuffledNames[i];
+            }
         }
 
         this.initialUnitsState = JSON.stringify(this.units.map(u => ({...u, weapon: u.weapon ? {type: u.weapon.type} : null})));
