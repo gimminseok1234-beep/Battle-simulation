@@ -4,6 +4,7 @@ export class AudioManager {
         this.isMuted = false;
         this.isKillSoundEnabled = true;
         this.players = {};
+        this.volume = 0; // 데시벨 단위
 
         this.soundFiles = {
             replication: './sounds/2+.mp3',
@@ -44,6 +45,14 @@ export class AudioManager {
                 });
             });
             await Promise.all(loadPromises);
+
+            const savedVolume = localStorage.getItem('gameVolume');
+            if (savedVolume !== null) {
+                this.setVolume(parseFloat(savedVolume));
+            } else {
+                this.setVolume(0); // 기본 볼륨
+            }
+            
             this.isInitialized = true;
             console.log("Audio Initialized and all sounds pre-loaded.");
         } catch (e) {
@@ -64,6 +73,21 @@ export class AudioManager {
             player.start();
         }
     }
+    
+    setVolume(db) {
+        this.volume = db;
+        Tone.Destination.volume.value = db;
+        localStorage.setItem('gameVolume', db);
+
+        // UI 업데이트
+        const volumeSlider = document.getElementById('volumeControl');
+        const volumeValue = document.getElementById('volumeValue');
+        if (volumeSlider) volumeSlider.value = db;
+        if(volumeValue) {
+             const percentage = Math.round(((db + 30) / 30) * 100);
+             volumeValue.textContent = percentage;
+        }
+    }
 
     toggleMute() {
         this.isMuted = !this.isMuted;
@@ -78,3 +102,4 @@ export class AudioManager {
         localStorage.setItem('arenaKillSoundEnabled', isEnabled);
     }
 }
+
