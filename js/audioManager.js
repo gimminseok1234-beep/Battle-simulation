@@ -21,6 +21,14 @@ export class AudioManager {
             swordHit: './sounds/sword.mp3',
             teleport: './sounds/teleport.mp3',
             hadokenHit: './sounds/punch.mp3',
+            // 요청하신 효과음 추가
+            boomerang: './sounds/boomerang.mp3',
+            poison: './sounds/Poison.mp3',
+            questionmark: './sounds/questionmark.mp3',
+            rush: './sounds/rush.mp3',
+            spear: './sounds/spear.mp3',
+            stern: './sounds/Stern.mp3',
+            electricity: './sounds/electricity.mp3',
         };
     }
 
