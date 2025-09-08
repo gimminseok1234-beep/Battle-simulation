@@ -756,7 +756,8 @@ export class GameManager {
         this.units = []; this.weapons = []; this.nexuses = []; this.growingFields = [];
         this.effects = []; this.projectiles = []; this.areaEffects = []; this.magicCircles = []; this.poisonClouds = []; this.particles = [];
         this.initialUnitsState = []; this.initialWeaponsState = [];
-        this.initialNexusesState = []; this.initialMapState = [];
+        this.initialNexusesState = [];
+        this.initialMapState = [];
         this.initialGrowingFieldsState = [];
         this.initialAutoFieldState = {};
         document.getElementById('statusText').textContent = "에디터 모드";
@@ -1587,7 +1588,7 @@ export class GameManager {
     }
 
     spawnRandomWeaponNear(pos) {
-        const weaponTypes = ['sword', 'bow', 'dual_swords', 'staff', 'lightning', 'magic_spear', 'boomerang', 'poison_potion', 'hadoken', 'shuriken', 'crown'];
+        const weaponTypes = ['sword', 'bow', 'dual_swords', 'staff', 'lightning', 'magic_spear', 'boomerang', 'poison_potion', 'hadoken', 'shuriken'];
         const randomType = weaponTypes[Math.floor(Math.random() * weaponTypes.length)];
 
         for (let i = 0; i < 10; i++) { // 최대 10번 시도
