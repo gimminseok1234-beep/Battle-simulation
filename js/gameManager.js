@@ -998,8 +998,8 @@ export class GameManager {
         }
 
         const itemExists = this.units.some(u => u.gridX === x && u.gridY === y) || 
-                         this.weapons.some(w => w.gridX === x && w.gridY !== y) || 
-                         this.nexuses.some(n => n.gridX === x && n.gridY !== y);
+                         this.weapons.some(w => w.gridX === x && w.gridY === y) || 
+                         this.nexuses.some(n => n.gridX === x && n.gridY === y);
 
         if (this.currentTool.tool === 'growing_field' && this.dragStartPos) {
              const startX = Math.min(this.dragStartPos.gridX, x);
@@ -1986,4 +1986,5 @@ export class GameManager {
         this.renderNametagList();
     }
 }
+
 
