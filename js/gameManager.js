@@ -244,6 +244,7 @@ export class GameManager {
             <div class="category-header bg-slate-800 collapsed" data-target="category-utils">기타</div>
             <div id="category-utils" class="category-content collapsed">
                  <button class="tool-btn" data-tool="erase">지우개</button>
+                 <button class="tool-btn" data-tool="nametag">이름표</button>
             </div>
         `;
     }
@@ -629,13 +630,14 @@ export class GameManager {
             if (this.state === 'EDIT') {
                 const pos = this.getMousePos(e);
                 
-                // 유닛 이름 수정 로직
-                const clickedUnit = this.units.find(u => Math.hypot(u.pixelX - pos.pixelX, u.pixelY - pos.pixelY) < GRID_SIZE / 2);
-                if (clickedUnit) {
-                    this.editingUnit = clickedUnit;
-                    document.getElementById('unitNameInput').value = clickedUnit.name || '';
-                    document.getElementById('unitNameModal').classList.add('show-modal');
-                    return;
+                if (this.currentTool.tool === 'nametag') {
+                    const clickedUnit = this.units.find(u => Math.hypot(u.pixelX - pos.pixelX, u.pixelY - pos.pixelY) < GRID_SIZE / 2);
+                    if (clickedUnit) {
+                        this.editingUnit = clickedUnit;
+                        document.getElementById('unitNameInput').value = clickedUnit.name || '';
+                        document.getElementById('unitNameModal').classList.add('show-modal');
+                        return;
+                    }
                 }
 
                 this.isPainting = true;
