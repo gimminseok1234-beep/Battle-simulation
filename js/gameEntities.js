@@ -2027,7 +2027,7 @@ export class Unit {
         // --- 특수 스킬 게이지 ---
         if (specialSkillIsVisible) {
             if (this.isKing) {
-                 const kingSpecialGaugeY = this.pixelY + GRID_SIZE + 12; // 이름표와 겹치지 않도록 Y 좌표 조정
+                 const kingSpecialGaugeY = this.pixelY + GRID_SIZE + 2; // 이름표와 겹치지 않도록 Y 좌표 조정
                  const progress = 1 - (this.spawnCooldown / this.spawnInterval);
                  ctx.fillStyle = '#111827';
                  ctx.fillRect(barX, kingSpecialGaugeY, barWidth, barHeight);
