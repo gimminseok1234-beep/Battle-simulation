@@ -863,14 +863,15 @@ export class GameManager {
 
         // 이름표 기능이 켜져 있으면 랜덤 이름 할당
         if (this.isNametagEnabled && this.nametagList.length > 0) {
-            // 모든 유닛의 이름을 초기화
+            // 수동으로 설정된 이름들을 먼저 used Set에 추가
             this.units.forEach(unit => {
                 if (unit.name) {
                     this.usedNametagsInSim.add(unit.name);
                 }
             });
 
-            const shuffledNames = [...this.nametagList].filter(name => !this.usedNametagsInSim.has(name)).sort(() => 0.5 - Math.random());
+            const availableNames = this.nametagList.filter(name => !this.usedNametagsInSim.has(name));
+            const shuffledNames = [...availableNames].sort(() => 0.5 - Math.random());
             const unitsWithoutNames = this.units.filter(u => !u.name);
             
             const assignmentCount = Math.min(unitsWithoutNames.length, shuffledNames.length);
@@ -1986,5 +1987,4 @@ export class GameManager {
         this.renderNametagList();
     }
 }
-
 
