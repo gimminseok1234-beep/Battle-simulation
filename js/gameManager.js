@@ -85,6 +85,7 @@ export class GameManager {
         // 이름표 기능 설정 추가
         this.isNametagEnabled = false;
         this.nametagList = [];
+        this.usedNametagsInSim = new Set(); // 현재 시뮬레이션에서 사용된 이름 추적
         this.editingUnit = null;
 
         instance = this;
@@ -844,6 +845,7 @@ export class GameManager {
         this.initialMapState = [];
         this.initialGrowingFieldsState = [];
         this.initialAutoFieldState = {};
+        this.usedNametagsInSim.clear();
         document.getElementById('statusText').textContent = "에디터 모드";
         document.getElementById('simStartBtn').classList.remove('hidden');
         document.getElementById('simPauseBtn').classList.add('hidden');
@@ -856,19 +858,28 @@ export class GameManager {
     
     startSimulation() {
         if (this.state !== 'EDIT') return;
+        
+        this.usedNametagsInSim.clear();
 
         // 이름표 기능이 켜져 있으면 랜덤 이름 할당
         if (this.isNametagEnabled && this.nametagList.length > 0) {
             // 모든 유닛의 이름을 초기화
-            this.units.forEach(unit => unit.name = '');
+            this.units.forEach(unit => {
+                if (unit.name) {
+                    this.usedNametagsInSim.add(unit.name);
+                }
+            });
 
-            const shuffledNames = [...this.nametagList].sort(() => 0.5 - Math.random());
-            const shuffledUnits = [...this.units].sort(() => 0.5 - Math.random());
+            const shuffledNames = [...this.nametagList].filter(name => !this.usedNametagsInSim.has(name)).sort(() => 0.5 - Math.random());
+            const unitsWithoutNames = this.units.filter(u => !u.name);
             
-            const assignmentCount = Math.min(shuffledUnits.length, shuffledNames.length);
+            const assignmentCount = Math.min(unitsWithoutNames.length, shuffledNames.length);
 
             for (let i = 0; i < assignmentCount; i++) {
-                shuffledUnits[i].name = shuffledNames[i];
+                const unit = unitsWithoutNames[i];
+                const name = shuffledNames[i];
+                unit.name = name;
+                this.usedNametagsInSim.add(name);
             }
         }
 
@@ -918,6 +929,7 @@ export class GameManager {
         });
         this.autoMagneticField = JSON.parse(this.initialAutoFieldState);
         this.effects = []; this.projectiles = []; this.areaEffects = []; this.magicCircles = []; this.poisonClouds = []; this.particles = [];
+        this.usedNametagsInSim.clear();
         document.getElementById('statusText').textContent = "에디터 모드";
         document.getElementById('simStartBtn').classList.remove('hidden');
         document.getElementById('simPauseBtn').classList.add('hidden');
@@ -1562,10 +1574,11 @@ export class GameManager {
                         
                         // 왕이 생성한 유닛에게도 랜덤 이름 할당
                         if (this.isNametagEnabled && this.nametagList.length > 0) {
-                            const usedNames = new Set(this.units.map(u => u.name).filter(Boolean));
-                            const availableNames = this.nametagList.filter(name => !usedNames.has(name));
+                            const availableNames = this.nametagList.filter(name => !this.usedNametagsInSim.has(name));
                             if (availableNames.length > 0) {
-                                newUnit.name = availableNames[Math.floor(Math.random() * availableNames.length)];
+                                const randomName = availableNames[Math.floor(Math.random() * availableNames.length)];
+                                newUnit.name = randomName;
+                                this.usedNametagsInSim.add(randomName);
                             }
                         }
 
@@ -1821,6 +1834,7 @@ export class GameManager {
         this.initialMapState = [];
         this.initialGrowingFieldsState = [];
         this.initialAutoFieldState = {};
+        this.usedNametagsInSim.clear();
         document.getElementById('statusText').textContent = "에디터 모드";
         document.getElementById('simStartBtn').classList.remove('hidden');
         document.getElementById('simPauseBtn').classList.add('hidden');
