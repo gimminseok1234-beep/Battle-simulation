@@ -138,7 +138,7 @@ export class GameManager {
         document.getElementById('editorScreen').style.display = 'none';
         document.getElementById('defaultMapsScreen').style.display = 'none';
         document.getElementById('replayScreen').style.display = 'none';
-        this.updateUIToEditorMode();
+        this.updateUIToEditorMode(); 
         this.resetActionCam(true);
         this.renderMapCards();
     }
@@ -188,7 +188,7 @@ export class GameManager {
         this.resetActionCam(true);
 
         if (mapId !== 'replay') {
-             this.updateUIToEditorMode();
+             this.updateUIToEditorMode(); 
              await this.loadMapForEditing(mapId);
         }
     }
@@ -221,6 +221,7 @@ export class GameManager {
                 <button class="tool-btn" data-tool="tile" data-type="GLASS_WALL">유리벽</button>
                 <button class="tool-btn" data-tool="tile" data-type="CRACKED_WALL">부서지는 벽</button>
                 <button class="tool-btn" data-tool="tile" data-type="HEAL_PACK">회복 팩</button>
+                <button class="tool-btn" data-tool="tile" data-type="AWAKENING_POTION">각성 물약</button>
                 <button class="tool-btn" data-tool="tile" data-type="TELEPORTER">텔레포터</button>
                 <button class="tool-btn" data-tool="tile" data-type="QUESTION_MARK">물음표</button>
                 <div class="flex items-center gap-2 mt-1">
@@ -489,6 +490,7 @@ export class GameManager {
                         case TILE.LAVA: prevCtx.fillStyle = COLORS.LAVA; break;
                         case TILE.CRACKED_WALL: prevCtx.fillStyle = COLORS.CRACKED_WALL; break;
                         case TILE.HEAL_PACK: prevCtx.fillStyle = COLORS.HEAL_PACK; break;
+                        case TILE.AWAKENING_POTION: prevCtx.fillStyle = COLORS.AWAKENING_POTION; break;
                         case TILE.REPLICATION_TILE: prevCtx.fillStyle = COLORS.REPLICATION_TILE; break;
                         case TILE.TELEPORTER: prevCtx.fillStyle = COLORS.TELEPORTER; break;
                         case TILE.QUESTION_MARK: prevCtx.fillStyle = COLORS.QUESTION_MARK; break;
@@ -1073,7 +1075,7 @@ export class GameManager {
         }
 
         const itemExists = this.units.some(u => u.gridX === x && u.gridY === y) || 
-                         this.weapons.some(w => w.gridX === x && w.gridY !== y) || 
+                         this.weapons.some(w => w.gridX === x && w.gridY === y) || 
                          this.nexuses.some(n => n.gridX === x && n.gridY === y);
 
         if (this.currentTool.tool === 'growing_field' && this.dragStartPos) {
@@ -1474,6 +1476,7 @@ export class GameManager {
                     case TILE.LAVA: this.ctx.fillStyle = COLORS.LAVA; break;
                     case TILE.CRACKED_WALL: this.ctx.fillStyle = COLORS.CRACKED_WALL; break;
                     case TILE.HEAL_PACK: this.ctx.fillStyle = COLORS.HEAL_PACK; break;
+                    case TILE.AWAKENING_POTION: this.ctx.fillStyle = COLORS.AWAKENING_POTION; break;
                     case TILE.REPLICATION_TILE: this.ctx.fillStyle = COLORS.REPLICATION_TILE; break;
                     case TILE.QUESTION_MARK: this.ctx.fillStyle = COLORS.QUESTION_MARK; break;
                     case TILE.DASH_TILE: this.ctx.fillStyle = COLORS.DASH_TILE; break;
@@ -1514,6 +1517,16 @@ export class GameManager {
                     const plusLength = GRID_SIZE - 8;
                     this.ctx.fillRect(x * GRID_SIZE + (GRID_SIZE - plusWidth) / 2, y * GRID_SIZE + 4, plusWidth, plusLength);
                     this.ctx.fillRect(x * GRID_SIZE + 4, y * GRID_SIZE + (GRID_SIZE - plusWidth) / 2, plusLength, plusWidth);
+                } else if (tile.type === TILE.AWAKENING_POTION) {
+                    this.ctx.fillStyle = '#A9A9A9'; // Potion color (light gray)
+                    this.ctx.beginPath();
+                    this.ctx.arc(x * GRID_SIZE + GRID_SIZE / 2, y * GRID_SIZE + GRID_SIZE / 2, GRID_SIZE / 3, 0, Math.PI * 2);
+                    this.ctx.fill();
+                    const flicker = Math.sin(this.animationFrameCounter * 0.15 + x + y) * 2 + 3;
+                    this.ctx.fillStyle = `rgba(255, 255, 255, 0.7)`;
+                    this.ctx.beginPath();
+                    this.ctx.arc(x * GRID_SIZE + GRID_SIZE / 2, y * GRID_SIZE + GRID_SIZE / 2, flicker, 0, Math.PI * 2);
+                    this.ctx.fill();
                 } else if(tile.type === TILE.REPLICATION_TILE) {
                     this.ctx.fillStyle = 'black'; this.ctx.font = 'bold 12px Arial'; this.ctx.textAlign = 'center';
                     this.ctx.fillText(`+${tile.replicationValue}`, x * GRID_SIZE + 10, y * GRID_SIZE + 14);
