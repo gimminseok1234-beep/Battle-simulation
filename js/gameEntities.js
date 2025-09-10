@@ -698,60 +698,43 @@ export class Effect {
 
 /**
  * [수정] 마법 단검 아이콘을 그리는 함수입니다.
- * 요청하신 대로 흰색 곡선 칼날과 검은색 손잡이 디자인으로 변경되었습니다.
- * 장착 여부와 관계없이 동일한 디자인을 사용하도록 통일되었습니다.
+ * 요청하신 대로 더 좁고 날카로우며, 손잡이와 날이 일직선이 되도록 디자인을 수정했습니다.
  */
 function drawMagicDaggerIcon(ctx) {
     ctx.save();
     
-    const scale = GRID_SIZE * 0.08;
-    ctx.strokeStyle = '#000000'; // 요청에 따른 검은색 테두리
-    ctx.lineWidth = 1.5;
+    const scale = GRID_SIZE * 0.075; 
+    ctx.strokeStyle = '#000000';
+    ctx.lineWidth = 2;
 
-    // --- Blade (칼날) ---
-    ctx.fillStyle = '#FFFFFF'; // 요청에 따른 흰색 칼날
-    ctx.beginPath();
-    // 손잡이와 만나는 칼날 하단에서 시작
-    ctx.moveTo(0, 0);
-    // 베지어 곡선을 사용하여 부드러운 칼날 곡선 표현
-    ctx.bezierCurveTo(5 * scale, 1 * scale, 8 * scale, -6 * scale, 3 * scale, -12 * scale);
-    // 칼끝에서 칼등으로 이어지는 부분
-    ctx.lineTo(-2 * scale, -8 * scale);
-    // 완만한 곡선의 칼등
-    ctx.quadraticCurveTo(-1 * scale, -2 * scale, 0, 0);
-    ctx.closePath();
-    ctx.fill();
-    ctx.stroke();
+    // --- 손잡이 (Handle) ---
+    ctx.fillStyle = '#111827'; 
+    const handleWidth = 2.5 * scale;
+    const handleHeight = 7 * scale;
+    const handleX = -handleWidth / 2;
+    const handleY = 0;
+    ctx.fillRect(handleX, handleY, handleWidth, handleHeight);
+    ctx.strokeRect(handleX, handleY, handleWidth, handleHeight);
 
-    // --- Guard (가드) ---
-    ctx.fillStyle = '#ADB5BD'; // 은색 가드
-    ctx.beginPath();
-    ctx.moveTo(-1 * scale, 2 * scale);
-    ctx.lineTo(1.5 * scale, -0.5 * scale);
-    ctx.lineTo(2.5 * scale, 0.5 * scale);
-    ctx.lineTo(0 * scale, 3 * scale);
-    ctx.closePath();
-    ctx.fill();
-    ctx.stroke();
+    // --- 가드 (Guard) ---
+    ctx.fillStyle = '#ADB5BD'; 
+    const guardWidth = 5 * scale;
+    const guardHeight = 1.5 * scale;
+    const guardX = -guardWidth / 2;
+    const guardY = -guardHeight / 2;
+    ctx.fillRect(guardX, guardY, guardWidth, guardHeight);
+    ctx.strokeRect(guardX, guardY, guardWidth, guardHeight);
 
-    // --- Handle (손잡이) ---
-    ctx.fillStyle = '#111827'; // 요청에 따른 검은색 손잡이
+    // --- 칼날 (Blade) ---
+    ctx.fillStyle = '#FFFFFF'; 
+    const bladeBaseY = -guardHeight / 2;
+    const bladeTipY = -11 * scale;
+    const bladeWidth = 3.5 * scale;
+    
     ctx.beginPath();
-    ctx.moveTo(0 * scale, 3 * scale);
-    ctx.lineTo(1.5 * scale, 0.5 * scale);
-    ctx.lineTo(5 * scale, 4 * scale);
-    ctx.lineTo(3.5 * scale, 6.5 * scale);
-    ctx.closePath();
-    ctx.fill();
-    ctx.stroke();
-
-    // --- Pommel (손잡이 끝) ---
-    ctx.fillStyle = '#ADB5BD'; // 은색 폼멜
-    ctx.beginPath();
-    ctx.moveTo(3.5 * scale, 6.5 * scale);
-    ctx.lineTo(5 * scale, 4 * scale);
-    ctx.lineTo(6 * scale, 5 * scale);
-    ctx.lineTo(4.5 * scale, 7.5 * scale);
+    ctx.moveTo(-bladeWidth / 2, bladeBaseY);
+    ctx.lineTo(bladeWidth / 2, bladeBaseY); 
+    ctx.lineTo(0, bladeTipY);              
     ctx.closePath();
     ctx.fill();
     ctx.stroke();
@@ -2313,3 +2296,4 @@ export class Unit {
         }
     }
 }
+
