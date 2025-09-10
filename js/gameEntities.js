@@ -705,13 +705,13 @@ function drawMagicDaggerIcon(ctx, pixelX, pixelY) {
     ctx.strokeStyle = '#000000';
     ctx.lineWidth = 2;
     ctx.beginPath();
-    ctx.moveTo(-GRID_SIZE * 0.2, GRID_SIZE * 0.5);
+    ctx.moveTo(-GRID_SIZE * 0.2, GRID_SIZE * 0.5); // 손잡이 쪽 시작점 (직선 부분)
     ctx.bezierCurveTo(
-        GRID_SIZE * 0.4, GRID_SIZE * 0.3,
-        GRID_SIZE * 0.6, -GRID_SIZE * 0.2,
-        GRID_SIZE * 0.2, -GRID_SIZE * 0.6
+        GRID_SIZE * 0.4, GRID_SIZE * 0.3,  // Control point 1
+        GRID_SIZE * 0.6, -GRID_SIZE * 0.2, // Control point 2
+        GRID_SIZE * 0.2, -GRID_SIZE * 0.6  // 칼날 끝점
     );
-    // [수정] 직선 형태로 변경
+    // [수정] 한쪽 면을 직선으로 변경하여 날카로운 느낌을 강조
     ctx.lineTo(-GRID_SIZE * 0.4, GRID_SIZE * 0.4);
     ctx.closePath();
     ctx.fill();
@@ -724,8 +724,8 @@ function drawMagicDaggerIcon(ctx, pixelX, pixelY) {
     ctx.closePath();
     ctx.fill();
     ctx.stroke();
-    // 링 구멍
-    ctx.fillStyle = '#1f2937';
+    // 링 구멍 (배경색으로 채워 뚫린 것처럼 보이게 함)
+    ctx.fillStyle = '#1f2937'; 
     ctx.beginPath();
     ctx.arc(-GRID_SIZE * 0.4, GRID_SIZE * 0.6, GRID_SIZE * 0.1, 0, Math.PI * 2);
     ctx.closePath();
