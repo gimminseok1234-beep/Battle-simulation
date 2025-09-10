@@ -1772,7 +1772,7 @@ export class Unit {
             ctx.translate(this.pixelX, this.pixelY);
             ctx.scale(scale, scale);
 
-            const auraRadius = (GRID_SIZE / 1.8) * scale;
+            const auraRadius = (GRID_SIZE / 1.4) * scale;
             const gradient = ctx.createRadialGradient(0, 0, auraRadius * 0.5, 0, 0, auraRadius);
             gradient.addColorStop(0, 'rgba(255, 255, 255, 0.6)');
             gradient.addColorStop(1, 'rgba(255, 255, 255, 0)');
@@ -1874,22 +1874,29 @@ export class Unit {
             }
 
             if (this.weapon.type === 'sword') {
-                ctx.translate(GRID_SIZE * 0.5, 0);
-                const bladeGradient = ctx.createLinearGradient(0, -GRID_SIZE, 0, 0);
-                bladeGradient.addColorStop(0, '#f3f4f6'); bladeGradient.addColorStop(1, '#9ca3af');
+                ctx.translate(GRID_SIZE * 0.4, 0);
+
+                ctx.strokeStyle = 'black'; // Set outline color to black
+                
+                const bladeGradient = ctx.createLinearGradient(0, -2, 0, 2);
+                bladeGradient.addColorStop(0, '#E5E7EB'); 
+                bladeGradient.addColorStop(0.5, '#9CA3AF'); 
+                bladeGradient.addColorStop(1, '#E5E7EB');
                 ctx.fillStyle = bladeGradient;
+                
                 ctx.beginPath();
-                ctx.moveTo(-2, GRID_SIZE * 0.3); ctx.lineTo(-2, -GRID_SIZE * 1.0);
-                ctx.lineTo(0, -GRID_SIZE * 1.2); ctx.lineTo(2, -GRID_SIZE * 1.0);
-                ctx.lineTo(2, GRID_SIZE * 0.3);
-                ctx.closePath(); ctx.fill(); ctx.stroke();
-                ctx.fillStyle = '#374151';
-                ctx.beginPath();
-                ctx.moveTo(-GRID_SIZE * 0.4, GRID_SIZE * 0.3); ctx.lineTo(GRID_SIZE * 0.4, GRID_SIZE * 0.3);
-                ctx.lineTo(GRID_SIZE * 0.5, GRID_SIZE * 0.3 + 3); ctx.lineTo(-GRID_SIZE * 0.5, GRID_SIZE * 0.3 + 3);
-                ctx.closePath(); ctx.fill(); ctx.stroke();
-                ctx.fillStyle = '#1f2937';
-                ctx.fillRect(-1.5, GRID_SIZE * 0.3 + 3, 3, GRID_SIZE * 0.3); ctx.strokeRect(-1.5, GRID_SIZE * 0.3 + 3, 3, GRID_SIZE * 0.3);
+                ctx.moveTo(0, -2);
+                ctx.lineTo(GRID_SIZE, -2);
+                ctx.lineTo(GRID_SIZE + 4, 0);
+                ctx.lineTo(GRID_SIZE, 2);
+                ctx.lineTo(0, 2);
+                ctx.closePath();
+                ctx.fill();
+                ctx.stroke();
+
+                ctx.fillStyle = '#4B5563';
+                ctx.fillRect(-3, -4, 3, 8);
+                ctx.strokeRect(-3, -4, 3, 8);
             } else if (this.weapon.type === 'bow') {
                 ctx.translate(GRID_SIZE * 0.4, 0);
                 ctx.rotate(-Math.PI / 4);
