@@ -358,7 +358,7 @@ export class Projectile {
         }
 
 
-        this.knockback = (type === 'hadoken') ? gameManager.hadokenKnockback : 0;
+        this.knockback = (type === 'hadoken') ? this.gameManager.hadokenKnockback : 0;
         const inaccuracy = (type === 'shuriken' || type === 'lightning_bolt') ? 0 : GRID_SIZE * 0.8;
         const targetX = target.pixelX + (this.gameManager.random() - 0.5) * inaccuracy;
         const targetY = target.pixelY + (this.gameManager.random() - 0.5) * inaccuracy;
@@ -1017,7 +1017,9 @@ export class Unit {
         this.isCasting = false; this.castingProgress = 0; this.castTargetPos = null;
         this.castDuration = 180; 
         this.teleportCooldown = 0;
-        this.isKing = false; this.spawnCooldown = 0; this.spawnInterval = 420;
+        this.isKing = false; this.spawnCooldown = 0;
+        // [수정] 왕 유닛 생성 속도를 10초(600프레임)로 변경
+        this.spawnInterval = 600;
         this.knockbackX = 0; this.knockbackY = 0;
         this.isInMagneticField = false;
         this.evasionCooldown = 0; 
@@ -1040,7 +1042,7 @@ export class Unit {
     }
     
     get speed() {
-        if (!this.gameManager || this.isStunned > 0) return 0;
+        if (this.isStunned > 0) return 0;
 
         let speedModifier = 0;
         if (this.isInMagneticField) speedModifier = -0.7;
@@ -1176,11 +1178,7 @@ export class Unit {
         }
 
         if(bounced && this.state === 'IDLE'){
-            const bounceAngle = this.facingAngle + Math.PI + (this.gameManager.random() - 0.5);
-            this.moveTarget = { 
-                x: this.pixelX + Math.cos(bounceAngle) * GRID_SIZE * 3, 
-                y: this.pixelY + Math.sin(bounceAngle) * GRID_SIZE * 3 
-            };
+            this.moveTarget = null;
         }
     }
 
@@ -2023,3 +2021,4 @@ export class Unit {
         }
     }
 }
+
