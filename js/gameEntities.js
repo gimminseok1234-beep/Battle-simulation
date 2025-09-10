@@ -1039,13 +1039,8 @@ export class Unit {
         this.dashDistanceRemaining = 0;
         this.dashDirection = null;
         this.dashTrail = [];
-        this.name = '';
-        
-        // 각성 물약 관련 속성 추가
-        this.awakeningLevel = 0; // 각성 물약 섭취 횟수 (최대 2)
-        this.awakeningBoostsApplied = 0; // 실제 능력치 상승 적용 횟수
-        this.awakeningTimer = 0; // 능력치 상승까지의 시간 카운터
-        this.currentSize = GRID_SIZE / 2.5; // 유닛의 현재 크기
+        this.name = ''; // 이름표 속성 추가
+        this.awakeningEffect = { active: false, stacks: 0, timer: 0 }; // 각성 효과 속성 추가
     }
     
     get speed() {
@@ -1427,26 +1422,26 @@ export class Unit {
         }
         
         if (this.isStunned > 0) {
-            this.isStunned -= this.gameManager.gameSpeed;
-            this.applyPhysics();
+            this.isStunned -= gameManager.gameSpeed;
+            this.applyPhysics(); // 기절 중에도 물리 효과는 적용
             return;
         }
 
-        if (this.attackCooldown > 0) this.attackCooldown -= this.gameManager.gameSpeed;
-        if (this.teleportCooldown > 0) this.teleportCooldown -= this.gameManager.gameSpeed;
-        if (this.alertedCounter > 0) this.alertedCounter -= this.gameManager.gameSpeed;
-        if (this.isKing && this.spawnCooldown > 0) this.spawnCooldown -= this.gameManager.gameSpeed;
-        if (this.evasionCooldown > 0) this.evasionCooldown -= this.gameManager.gameSpeed;
-        if (this.attackAnimationTimer > 0) this.attackAnimationTimer -= this.gameManager.gameSpeed;
-        if (this.magicCircleCooldown > 0) this.magicCircleCooldown -= this.gameManager.gameSpeed;
-        if (this.boomerangCooldown > 0) this.boomerangCooldown -= this.gameManager.gameSpeed;
-        if (this.shurikenSkillCooldown > 0) this.shurikenSkillCooldown -= this.gameManager.gameSpeed;
-        
-        if (this.poisonEffect.active) {
-            this.poisonEffect.duration -= this.gameManager.gameSpeed;
-            this.takeDamage(this.poisonEffect.damage, { isTileDamage: true });
-            if (this.poisonEffect.duration <= 0) {
-                this.poisonEffect.active = false;
+        // [각성 물약] 효과 처리 로직 추가
+        if (this.awakeningEffect.active && this.awakeningEffect.stacks < 2) {
+            this.awakeningEffect.timer += gameManager.gameSpeed;
+            if (this.awakeningEffect.timer >= 300) { // 5초마다 (60fps * 5)
+                this.awakeningEffect.timer = 0;
+                this.awakeningEffect.stacks++;
+                this.hp = Math.min(100, this.hp + 30); // 체력 30 증가 (최대 100)
+                this.baseAttackPower += 3; // 공격력 3 증가
+                // 여기에 시각/사운드 효과 추가 가능
+            }
+        }
+
+
+        if (this.attackCooldown > 0) this.attackCooldown -= gameManager.gameSpeed;
+        if (this.teleportCooldown > 0) this.teleportCooldown -= gameManager.gameSpeed;
             }
         }
         
@@ -1719,8 +1714,15 @@ export class Unit {
                 this.dashDistanceRemaining = 5 * GRID_SIZE;
                 this.state = 'IDLE';
                 this.moveTarget = null;
-                this.gameManager.audioManager.play('rush');
+                gameManager.audioManager.play('rush');
                 return;
+            }
+            if (currentTile.type === TILE.AWAKENING_POTION && !this.awakeningEffect.active) {
+                this.awakeningEffect.active = true;
+                this.awakeningEffect.stacks = 0;
+                this.awakeningEffect.timer = -1; // 즉시 1스택 적용을 위해 -1로 설정
+                gameManager.map[finalGridY][finalGridX] = { type: TILE.FLOOR, color: gameManager.currentFloorColor };
+                // gameManager.audioManager.play('powerup'); // 추후 사운드 추가
             }
         }
     }
@@ -1743,6 +1745,31 @@ export class Unit {
         }
         
         ctx.save();
+        
+        // [각성 물약] 크기 및 오오라 효과 적용
+        const scale = 1 + this.awakeningEffect.stacks * 0.2;
+        if (this.awakeningEffect.active) {
+            ctx.save();
+            ctx.translate(this.pixelX, this.pixelY);
+            ctx.scale(scale, scale);
+
+            // 오오라 효과
+            const auraRadius = GRID_SIZE / 1.8 * scale;
+            const gradient = ctx.createRadialGradient(0, 0, auraRadius * 0.5, 0, 0, auraRadius);
+            gradient.addColorStop(0, 'rgba(255, 255, 255, 0.6)');
+            gradient.addColorStop(1, 'rgba(255, 255, 255, 0)');
+            ctx.fillStyle = gradient;
+            ctx.beginPath();
+            ctx.arc(0, 0, auraRadius, 0, Math.PI * 2);
+            ctx.fill();
+
+            ctx.restore();
+        }
+
+        ctx.translate(this.pixelX, this.pixelY);
+        ctx.scale(scale, scale);
+        ctx.translate(-this.pixelX, -this.pixelY);
+
 
         if (this.isStunned > 0) {
             ctx.globalAlpha = 0.7;
@@ -2075,4 +2102,5 @@ export class Unit {
         }
     }
 }
+
 
