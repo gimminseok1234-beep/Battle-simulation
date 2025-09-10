@@ -962,6 +962,8 @@ export class Weapon {
             this.drawBoomerang(ctx, 1.0, -Math.PI / 6);
         } else if (this.type === 'poison_potion') {
             this.drawPoisonPotion(ctx, scale);
+        } else if (this.type === 'magic_dagger') {
+            drawMagicDaggerIcon(ctx, 0, 0);
         } else if (this.type === 'hadoken') {
             ctx.rotate(Math.PI / 4);
             const grad = ctx.createRadialGradient(0, 0, 1, 0, 0, GRID_SIZE * 1.2);
@@ -1052,6 +1054,7 @@ export class Unit {
         this.dashTrail = [];
         this.name = ''; 
         this.awakeningEffect = { active: false, stacks: 0, timer: 0 };
+        this.magicDaggerSkillCooldown = 0;
     }
     
     get speed() {
@@ -1266,7 +1269,7 @@ export class Unit {
             gameManager.damageTile(targetGridX, targetGridY, currentAttackPower);
              this.attackCooldown = this.cooldownTime;
         } else if (target instanceof Unit || target instanceof Nexus) {
-            if (this.weapon && (this.weapon.type === 'sword' || this.weapon.type === 'dual_swords' || this.weapon.type === 'boomerang' || this.weapon.type === 'poison_potion')) {
+            if (this.weapon && (this.weapon.type === 'sword' || this.weapon.type === 'dual_swords' || this.weapon.type === 'boomerang' || this.weapon.type === 'poison_potion' || this.weapon.type === 'magic_dagger')) {
                 this.attackAnimationTimer = 15;
             }
             
@@ -1274,6 +1277,11 @@ export class Unit {
                 target.takeDamage(currentAttackPower); gameManager.createEffect('slash', this.pixelX, this.pixelY, target);
                 gameManager.audioManager.play('swordHit');
                 this.attackCooldown = this.cooldownTime;
+            } else if (this.weapon && this.weapon.type === 'magic_dagger') {
+                target.takeDamage(currentAttackPower);
+                gameManager.createEffect('slash', this.pixelX, this.pixelY, target);
+                gameManager.audioManager.play('swordHit');
+                this.attackCooldown = 120; // 2초 쿨타임
             } else if (this.weapon && this.weapon.type === 'bow') {
                 gameManager.createProjectile(this, target, 'arrow');
                 gameManager.audioManager.play('arrowShoot');
@@ -1455,6 +1463,7 @@ export class Unit {
             }
         }
 
+        if (this.magicDaggerSkillCooldown > 0) this.magicDaggerSkillCooldown -= gameManager.gameSpeed;
         if (this.attackCooldown > 0) this.attackCooldown -= gameManager.gameSpeed;
         if (this.teleportCooldown > 0) this.teleportCooldown -= gameManager.gameSpeed;
         if (this.alertedCounter > 0) this.alertedCounter -= gameManager.gameSpeed;
@@ -1518,6 +1527,39 @@ export class Unit {
         if (this.isKing && this.spawnCooldown <= 0) {
             gameManager.spawnUnit(this, false);
             this.spawnCooldown = this.spawnInterval;
+        }
+        
+        if (this.weapon && this.weapon.type === 'magic_dagger' && this.magicDaggerSkillCooldown <= 0 && this.attackCooldown <= 0) {
+            const { item: closestEnemy } = this.findClosest(enemies);
+            if (closestEnemy && gameManager.hasLineOfSight(this, closestEnemy)) {
+                const dist = Math.hypot(this.pixelX - closestEnemy.pixelX, this.pixelY - closestEnemy.pixelY);
+                if (dist < this.detectionRange && dist > this.attackRange) {
+                    this.magicDaggerSkillCooldown = 420; // 7초 쿨타임
+                    this.attackCooldown = 30; // 스킬 사용 후 약간의 딜레이
+                    
+                    const startPos = { x: this.pixelX, y: this.pixelY };
+                    const angle = Math.atan2(closestEnemy.pixelY - this.pixelY, closestEnemy.pixelX - this.pixelX);
+                    const dashDistance = GRID_SIZE * 4;
+                    const endPos = {
+                        x: this.pixelX + Math.cos(angle) * dashDistance,
+                        y: this.pixelY + Math.sin(angle) * dashDistance
+                    };
+
+                    enemies.forEach(enemy => {
+                        const distToLine = Math.abs((endPos.y - startPos.y) * enemy.pixelX - (endPos.x - startPos.x) * enemy.pixelY + endPos.x * startPos.y - endPos.y * startPos.x) / Math.hypot(endPos.y - startPos.y, endPos.x - startPos.x);
+                        if (distToLine < GRID_SIZE) {
+                           enemy.takeDamage(10, { stun: 60 });
+                        }
+                    });
+
+                    this.pixelX = endPos.x;
+                    this.pixelY = endPos.y;
+                    
+                    gameManager.effects.push(new MagicDaggerDashEffect(gameManager, startPos, endPos));
+                    gameManager.audioManager.play('rush');
+                    return;
+                }
+            }
         }
         
         if (this.weapon && this.weapon.type === 'magic_spear') {
@@ -1895,7 +1937,6 @@ export class Unit {
 
                 ctx.fillStyle = '#374151';
                 ctx.beginPath();
-                // [수정] 코등이(crossguard) 길이를 줄입니다.
                 ctx.moveTo(-GRID_SIZE * 0.2, GRID_SIZE * 0.3);
                 ctx.lineTo(GRID_SIZE * 0.2, GRID_SIZE * 0.3);
                 ctx.lineTo(GRID_SIZE * 0.25, GRID_SIZE * 0.3 + 3);
@@ -1907,6 +1948,33 @@ export class Unit {
                 ctx.fillStyle = '#1f2937';
                 ctx.fillRect(-1.5, GRID_SIZE * 0.3 + 3, 3, GRID_SIZE * 0.3);
                 ctx.strokeRect(-1.5, GRID_SIZE * 0.3 + 3, 3, GRID_SIZE * 0.3);
+            } else if (this.weapon.type === 'magic_dagger') {
+                ctx.translate(GRID_SIZE * 0.1, GRID_SIZE * 0.4);
+                const scale = 0.9;
+                ctx.scale(scale, scale);
+                ctx.rotate(Math.PI * 0.85);
+            
+                ctx.fillStyle = '#fde047';
+                ctx.beginPath();
+                ctx.arc(0, 0, GRID_SIZE * 0.35, 0, Math.PI * 2);
+                ctx.fill();
+            
+                ctx.fillStyle = '#ffffff';
+                ctx.strokeStyle = '#a78bfa';
+                ctx.lineWidth = 1.5 / scale;
+                ctx.shadowColor = '#d8b4fe';
+                ctx.shadowBlur = 6;
+                ctx.beginPath();
+                ctx.moveTo(-GRID_SIZE * 0.1, -GRID_SIZE * 0.4);
+                ctx.quadraticCurveTo(GRID_SIZE * 0.3, 0, -GRID_SIZE * 0.1, GRID_SIZE * 0.4);
+                ctx.quadraticCurveTo(-GRID_SIZE * 0.2, 0, -GRID_SIZE * 0.1, -GRID_SIZE * 0.4);
+                ctx.closePath();
+                ctx.fill();
+                ctx.stroke();
+            
+                ctx.shadowBlur = 0;
+                ctx.fillStyle = '#cbd5e1';
+                ctx.fillRect(-GRID_SIZE * 0.15, GRID_SIZE * 0.35, GRID_SIZE * 0.3, GRID_SIZE * 0.1);
             } else if (this.weapon.type === 'bow') {
                 ctx.translate(GRID_SIZE * 0.4, 0);
                 ctx.rotate(-Math.PI / 4);
@@ -2024,6 +2092,7 @@ export class Unit {
         const normalAttackIsVisible = (this.isCasting && this.weapon?.type === 'staff') || (this.attackCooldown > 0 && this.weapon?.type !== 'staff');
         let specialSkillIsVisible = 
             (this.isKing && this.spawnCooldown > 0) ||
+            (this.weapon?.type === 'magic_dagger' && this.magicDaggerSkillCooldown > 0) ||
             (this.weapon?.type === 'magic_spear' && this.magicCircleCooldown > 0) ||
             (this.weapon?.type === 'boomerang' && this.boomerangCooldown > 0) ||
             (this.weapon?.type === 'shuriken' && this.shurikenSkillCooldown > 0) ||
@@ -2078,12 +2147,14 @@ export class Unit {
                 if (this.weapon?.type === 'magic_spear') {
                     fgColor = '#a855f7';
                     progress = 300 - this.magicCircleCooldown; max = 300;
-                } else if (this.weapon?.type === 'boomerang' || this.weapon?.type === 'shuriken' || this.weapon?.type === 'poison_potion') {
-                    fgColor = '#94a3b8';
+                } else if (this.weapon?.type === 'boomerang' || this.weapon?.type === 'shuriken' || this.weapon?.type === 'poison_potion' || this.weapon?.type === 'magic_dagger') {
+                    fgColor = '#94a3b8'; // 회색
                     if(this.weapon.type === 'boomerang') {
                         progress = 480 - this.boomerangCooldown; max = 480;
                     } else if(this.weapon.type === 'shuriken') {
                         progress = 300 - this.shurikenSkillCooldown; max = 300;
+                    } else if(this.weapon.type === 'magic_dagger') {
+                        progress = 420 - this.magicDaggerSkillCooldown; max = 420;
                     } else {
                         progress = this.castingProgress; max = this.castDuration;
                     }
