@@ -927,12 +927,31 @@ export class GameManager {
             }
         }
 
-        this.initialUnitsState = JSON.stringify(this.units.map(u => ({...u, weapon: u.weapon ? {type: u.weapon.type} : null})));
-        this.initialWeaponsState = JSON.stringify(this.weapons.map(w => ({...w})));
-        this.initialNexusesState = JSON.stringify(this.nexuses.map(n => ({...n})));
+        // [오류 수정] 순환 참조를 제거하는 헬퍼 함수
+        const cleanDataForJSON = (obj) => {
+            const data = { ...obj };
+            delete data.gameManager; // 순환 참조의 원인인 gameManager 속성 제거
+            return data;
+        };
+        
+        // [오류 수정] 각 객체에서 gameManager 참조를 제거한 후 문자열로 변환
+        const cleanUnits = this.units.map(u => {
+            const unitData = cleanDataForJSON(u);
+            // 무기 정보는 타입만 간단하게 저장
+            unitData.weapon = u.weapon ? { type: u.weapon.type } : null;
+            return unitData;
+        });
+        const cleanWeapons = this.weapons.map(cleanDataForJSON);
+        const cleanNexuses = this.nexuses.map(cleanDataForJSON);
+        const cleanGrowingFields = this.growingFields.map(cleanDataForJSON);
+
+        this.initialUnitsState = JSON.stringify(cleanUnits);
+        this.initialWeaponsState = JSON.stringify(cleanWeapons);
+        this.initialNexusesState = JSON.stringify(cleanNexuses);
         this.initialMapState = JSON.stringify(this.map);
-        this.initialGrowingFieldsState = JSON.stringify(this.growingFields.map(f => ({...f})));
+        this.initialGrowingFieldsState = JSON.stringify(cleanGrowingFields);
         this.initialAutoFieldState = JSON.stringify(this.autoMagneticField);
+        
         this.initialNexusCount = this.nexuses.length;
         this.winnerTeam = null;
         this.magicCircles = [];
@@ -959,7 +978,14 @@ export class GameManager {
         this.animationFrameId = null;
         this.state = 'EDIT';
 
-        this.units = JSON.parse(this.initialUnitsState).map(uData => Object.assign(new Unit(this, uData.gridX, uData.gridY, uData.team), uData));
+        this.units = JSON.parse(this.initialUnitsState).map(uData => {
+            const unit = Object.assign(new Unit(this, uData.gridX, uData.gridY, uData.team), uData);
+            // [버그 수정] 유닛이 장착하고 있던 무기를 다시 장착시킵니다.
+            if (uData.weapon && uData.weapon.type) {
+                unit.equipWeapon(uData.weapon.type, unit.isKing);
+            }
+            return unit;
+        });
         this.weapons = JSON.parse(this.initialWeaponsState).map(wData => Object.assign(new Weapon(this, wData.gridX, wData.gridY, wData.type), wData));
         this.nexuses = JSON.parse(this.initialNexusesState).map(nData => Object.assign(new Nexus(this, nData.gridX, nData.gridY, nData.team), nData));
         
@@ -2218,7 +2244,14 @@ export class GameManager {
         this.ROWS = map.length;
         this.map = map;
 
-        this.units = JSON.parse(replayData.initialUnitsState).map(uData => Object.assign(new Unit(this, uData.gridX, uData.gridY, uData.team), uData));
+        this.units = JSON.parse(replayData.initialUnitsState).map(uData => {
+            const unit = Object.assign(new Unit(this, uData.gridX, uData.gridY, uData.team), uData);
+            // [버그 수정] 리플레이 로드 시에도 유닛의 무기를 다시 장착시킵니다.
+            if (uData.weapon && uData.weapon.type) {
+                unit.equipWeapon(uData.weapon.type, unit.isKing);
+            }
+            return unit;
+        });
         this.weapons = JSON.parse(replayData.initialWeaponsState).map(wData => Object.assign(new Weapon(this, wData.gridX, wData.gridY, wData.type), wData));
         this.nexuses = JSON.parse(replayData.initialNexusesState).map(nData => Object.assign(new Nexus(this, nData.gridX, nData.gridY, nData.team), nData));
         this.growingFields = JSON.parse(replayData.initialGrowingFieldsState).map(fieldData => new GrowingMagneticField(this, fieldData.id, fieldData.gridX, fieldData.gridY, fieldData.width, fieldData.height, fieldData));
