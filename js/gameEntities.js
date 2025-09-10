@@ -1008,6 +1008,7 @@ export class Unit {
         this.pixelX = x * GRID_SIZE + GRID_SIZE / 2;
         this.pixelY = y * GRID_SIZE + GRID_SIZE / 2;
         this.team = team; this.hp = 100;
+        this.maxHp = 100; // 최대 체력 속성 추가
         this.baseSpeed = 1.0; this.facingAngle = this.gameManager.random() * Math.PI * 2;
         this.baseAttackPower = 5; this.baseAttackRange = 1.5 * GRID_SIZE;
         this.baseDetectionRange = 6 * GRID_SIZE;
@@ -1039,6 +1040,12 @@ export class Unit {
         this.dashDirection = null;
         this.dashTrail = [];
         this.name = '';
+        
+        // 각성 물약 관련 속성 추가
+        this.awakeningLevel = 0; // 각성 물약 섭취 횟수 (최대 2)
+        this.awakeningBoostsApplied = 0; // 실제 능력치 상승 적용 횟수
+        this.awakeningTimer = 0; // 능력치 상승까지의 시간 카운터
+        this.currentSize = GRID_SIZE / 2.5; // 유닛의 현재 크기
     }
     
     get speed() {
@@ -1332,6 +1339,22 @@ export class Unit {
     }
 
     update(enemies, weapons, projectiles) {
+        // 각성 효과 타이머 및 능력치 상승 로직
+        if (this.awakeningLevel > this.awakeningBoostsApplied && this.awakeningBoostsApplied < 2) {
+            this.awakeningTimer++;
+            if (this.awakeningTimer >= 300) { // 5초 (300 프레임)
+                this.awakeningTimer = 0;
+                this.awakeningBoostsApplied++;
+
+                // 능력치 상승 적용
+                this.maxHp += 25;
+                this.hp += 25;
+                if (this.hp > this.maxHp) this.hp = this.maxHp;
+                this.baseAttackPower += 8;
+                this.currentSize *= 1.1; // 크기 10% 증가
+            }
+        }
+
         if (this.isDashing) {
             this.dashTrail.push({x: this.pixelX, y: this.pixelY});
             if (this.dashTrail.length > 5) this.dashTrail.shift();
@@ -1655,6 +1678,16 @@ export class Unit {
                 this.gameManager.map[finalGridY][finalGridX] = { type: TILE.FLOOR, color: this.gameManager.currentFloorColor };
                 this.gameManager.audioManager.play('heal');
             }
+            // 각성 물약 섭취 로직 추가
+            if (currentTile.type === TILE.AWAKENING_POTION && this.awakeningLevel < 2) {
+                this.awakeningLevel++;
+                // 첫 물약 섭취 시 타이머 즉시 시작
+                if (this.awakeningLevel === 1) {
+                    this.awakeningTimer = 0;
+                }
+                this.gameManager.map[finalGridY][finalGridX] = { type: TILE.FLOOR, color: this.gameManager.currentFloorColor };
+                // TODO: 각성 효과음 추가 (e.g., this.gameManager.audioManager.play('awakening');)
+            }
             if (currentTile.type === TILE.TELEPORTER && this.teleportCooldown <= 0) {
                 const teleporters = this.gameManager.getTilesOfType(TILE.TELEPORTER);
                 if (teleporters.length > 1) {
@@ -1721,7 +1754,10 @@ export class Unit {
             case TEAM.C: ctx.fillStyle = COLORS.TEAM_C; break;
             case TEAM.D: ctx.fillStyle = COLORS.TEAM_D; break;
         }
-        ctx.beginPath(); ctx.arc(this.pixelX, this.pixelY, GRID_SIZE / 2.5, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); 
+        // 유닛 크기를 currentSize에 따라 그리도록 수정
+        ctx.arc(this.pixelX, this.pixelY, this.currentSize, 0, Math.PI * 2); 
+        ctx.fill();
         
         if (isOutlineEnabled) {
             ctx.strokeStyle = 'black'; 
@@ -1730,6 +1766,23 @@ export class Unit {
         }
         
         ctx.restore(); 
+
+        // 각성 오오라 효과 그리기
+        if (this.awakeningLevel > 0) {
+            ctx.save();
+            const auraRadius = this.currentSize + 3 + Math.sin(this.gameManager.animationFrameCounter * 0.1) * 2;
+            const auraOpacity = 0.4 + Math.sin(this.gameManager.animationFrameCounter * 0.1) * 0.2;
+            
+            const grad = ctx.createRadialGradient(this.pixelX, this.pixelY, this.currentSize, this.pixelX, this.pixelY, auraRadius);
+            grad.addColorStop(0, `rgba(255, 255, 255, ${auraOpacity * 0.5})`);
+            grad.addColorStop(1, 'rgba(255, 255, 255, 0)');
+
+            ctx.fillStyle = grad;
+            ctx.beginPath();
+            ctx.arc(this.pixelX, this.pixelY, auraRadius, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.restore();
+        }
 
         if (this.name) {
             ctx.fillStyle = 'black';
@@ -1965,7 +2018,8 @@ export class Unit {
                 ctx.fillStyle = '#111827';
                 ctx.fillRect(barX, currentBarY, barWidth, barHeight);
                 ctx.fillStyle = '#10b981';
-                ctx.fillRect(barX, currentBarY, barWidth * (this.hp / 100), barHeight);
+                // 체력바를 maxHp 기준으로 그리도록 수정
+                ctx.fillRect(barX, currentBarY, barWidth * (this.hp / this.maxHp), barHeight);
             }
         }
         
