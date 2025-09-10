@@ -11,8 +11,9 @@ export const TILE = {
     REPLICATION_TILE: 'REPLICATION_TILE',
     TELEPORTER: 'TELEPORTER',
     QUESTION_MARK: 'QUESTION_MARK',
-    DASH_TILE: 'DASH_TILE', // 돌진 타일 추가
-    GLASS_WALL: 'GLASS_WALL' // 유리벽 타일 추가
+    DASH_TILE: 'DASH_TILE',
+    GLASS_WALL: 'GLASS_WALL',
+    AWAKENING_POTION: 'AWAKENING_POTION' // 각성 물약 타일 타입 추가
 };
 
 export const TEAM = {
@@ -32,8 +33,9 @@ export const COLORS = {
     REPLICATION_TILE: '#ec4899',
     TELEPORTER: '#8b5cf6',
     QUESTION_MARK: '#facc15',
-    DASH_TILE: '#ffffff', // 돌진 타일 색상 (흰색)
-    GLASS_WALL: 'rgba(135, 206, 235, 0.5)', // 유리벽 색상 (하늘색, 반투명)
+    DASH_TILE: '#ffffff',
+    GLASS_WALL: 'rgba(135, 206, 235, 0.5)',
+    AWAKENING_POTION: '#FFFFFF', // 각성 물약 색상을 흰색으로 변경
     TEAM_A: '#ef4444',
     TEAM_B: '#3b82f6',
     TEAM_C: '#10b981',
