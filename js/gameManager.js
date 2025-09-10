@@ -138,6 +138,7 @@ export class GameManager {
         document.getElementById('editorScreen').style.display = 'none';
         document.getElementById('defaultMapsScreen').style.display = 'none';
         document.getElementById('replayScreen').style.display = 'none';
+        this.updateUIToEditorMode(); // UI를 기본 에디터 모드로 초기화
         this.renderMapCards();
     }
 
@@ -185,6 +186,7 @@ export class GameManager {
 
         // 'replay'는 특수 ID, 실제 맵 데이터를 로드하지 않음
         if (mapId !== 'replay') {
+             this.updateUIToEditorMode(); // 일반 맵 에디터 UI로 설정
              await this.loadMapForEditing(mapId);
         }
     }
@@ -886,7 +888,7 @@ export class GameManager {
         document.getElementById('statusText').textContent = "에디터 모드";
         document.getElementById('simStartBtn').classList.remove('hidden');
         document.getElementById('simPauseBtn').classList.add('hidden');
-        document.getElementById('simPlayBtn').classList.add('hidden');
+        document.getElementById('simResetBtn').classList.add('hidden');
         document.getElementById('saveReplayBtn').classList.add('hidden');
         document.getElementById('simStartBtn').disabled = false;
         document.getElementById('toolbox').style.pointerEvents = 'auto';
@@ -927,17 +929,14 @@ export class GameManager {
             }
         }
 
-        // [오류 수정] 순환 참조를 제거하는 헬퍼 함수
         const cleanDataForJSON = (obj) => {
             const data = { ...obj };
-            delete data.gameManager; // 순환 참조의 원인인 gameManager 속성 제거
+            delete data.gameManager;
             return data;
         };
         
-        // [오류 수정] 각 객체에서 gameManager 참조를 제거한 후 문자열로 변환
         const cleanUnits = this.units.map(u => {
             const unitData = cleanDataForJSON(u);
-            // 무기 정보는 타입만 간단하게 저장
             unitData.weapon = u.weapon ? { type: u.weapon.type } : null;
             return unitData;
         });
@@ -964,12 +963,19 @@ export class GameManager {
         document.getElementById('saveReplayBtn').classList.add('hidden');
         document.getElementById('simPauseBtn').classList.remove('hidden');
         document.getElementById('simPlayBtn').classList.add('hidden');
-        document.getElementById('toolbox').style.pointerEvents = 'none';
+        
+        if (!this.isReplayMode) {
+            document.getElementById('toolbox').style.pointerEvents = 'none';
+        }
         this.gameLoop();
     }
 
     resetPlacement() {
         if (this.initialUnitsState.length === 0) {
+            if (this.isReplayMode) {
+                 this.loadReplay(this.currentMapId); // 리플레이 ID를 currentMapId에 저장하여 다시 로드
+                 return;
+            }
             console.warn("배치 초기화를 하려면 먼저 시뮬레이션을 한 번 시작해야 합니다.");
             return;
         }
@@ -980,7 +986,6 @@ export class GameManager {
 
         this.units = JSON.parse(this.initialUnitsState).map(uData => {
             const unit = Object.assign(new Unit(this, uData.gridX, uData.gridY, uData.team), uData);
-            // [버그 수정] 유닛이 장착하고 있던 무기를 다시 장착시킵니다.
             if (uData.weapon && uData.weapon.type) {
                 unit.equipWeapon(uData.weapon.type, unit.isKing);
             }
@@ -1007,11 +1012,15 @@ export class GameManager {
         document.getElementById('simPauseBtn').classList.add('hidden');
         document.getElementById('simPlayBtn').classList.add('hidden');
         document.getElementById('simStartBtn').disabled = false;
-        document.getElementById('toolbox').style.pointerEvents = 'auto';
+        
+        if (!this.isReplayMode) {
+            document.getElementById('toolbox').style.pointerEvents = 'auto';
+            this.updateUIToEditorMode();
+        } else {
+            this.updateUIToReplayMode();
+        }
+
         this.resetActionCam(true);
-        this.isReplayMode = false;
-        this.simulationSeed = null;
-        this.prng = new SeededRandom(Date.now());
         this.draw();
     }
     
@@ -2235,6 +2244,7 @@ export class GameManager {
         await this.showEditorScreen('replay');
         this.isReplayMode = true;
         this.simulationSeed = replayData.simulationSeed;
+        this.currentMapId = replayId; // 리플레이 초기화를 위해 ID 저장
         this.currentMapName = replayData.name;
 
         this.canvas.width = replayData.mapWidth;
@@ -2244,24 +2254,37 @@ export class GameManager {
         this.ROWS = map.length;
         this.map = map;
 
-        this.units = JSON.parse(replayData.initialUnitsState).map(uData => {
-            const unit = Object.assign(new Unit(this, uData.gridX, uData.gridY, uData.team), uData);
-            // [버그 수정] 리플레이 로드 시에도 유닛의 무기를 다시 장착시킵니다.
-            if (uData.weapon && uData.weapon.type) {
-                unit.equipWeapon(uData.weapon.type, unit.isKing);
-            }
-            return unit;
-        });
-        this.weapons = JSON.parse(replayData.initialWeaponsState).map(wData => Object.assign(new Weapon(this, wData.gridX, wData.gridY, wData.type), wData));
-        this.nexuses = JSON.parse(replayData.initialNexusesState).map(nData => Object.assign(new Nexus(this, nData.gridX, nData.gridY, nData.team), nData));
-        this.growingFields = JSON.parse(replayData.initialGrowingFieldsState).map(fieldData => new GrowingMagneticField(this, fieldData.id, fieldData.gridX, fieldData.gridY, fieldData.width, fieldData.height, fieldData));
-        this.autoMagneticField = JSON.parse(replayData.initialAutoFieldState);
+        // 리플레이 데이터를 initial state에 저장
+        this.initialUnitsState = replayData.initialUnitsState;
+        this.initialWeaponsState = replayData.initialWeaponsState;
+        this.initialNexusesState = replayData.initialNexusesState;
+        this.initialMapState = replayData.initialMapState;
+        this.initialGrowingFieldsState = replayData.initialGrowingFieldsState;
+        this.initialAutoFieldState = replayData.initialAutoFieldState;
+
+        this.updateUIToReplayMode(); // 리플레이 UI로 전환
+        this.resetPlacement(); // 리플레이 상태로 초기화 (시작 전)
         
         this.draw();
-        
-        setTimeout(() => {
-            this.startSimulation();
-        }, 500);
+    }
+
+    // UI 모드 전환을 위한 헬퍼 함수 추가
+    updateUIToReplayMode() {
+        document.getElementById('toolbox').style.display = 'none';
+        document.getElementById('editor-controls').style.display = 'none'; // 맵 저장/설정 버튼 그룹
+        document.getElementById('simResetBtn').style.display = 'none'; // 완전 초기화 버튼
+        const placementResetBtn = document.getElementById('simPlacementResetBtn');
+        placementResetBtn.textContent = '리플레이 초기화';
+        placementResetBtn.style.display = 'inline-block';
+    }
+
+    updateUIToEditorMode() {
+        document.getElementById('toolbox').style.display = 'flex';
+        document.getElementById('editor-controls').style.display = 'flex';
+        document.getElementById('simResetBtn').style.display = 'inline-block';
+        const placementResetBtn = document.getElementById('simPlacementResetBtn');
+        placementResetBtn.textContent = '배치 초기화';
+        placementResetBtn.style.display = 'inline-block';
     }
 }
 
