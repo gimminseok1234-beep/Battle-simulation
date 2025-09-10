@@ -1,6 +1,6 @@
 import { getFirestore, collection, doc, getDoc, getDocs, setDoc, deleteDoc, query, where } from "https://www.gstatic.com/firebasejs/10.9.0/firebase-firestore.js";
 import { AudioManager } from './audioManager.js';
-import { Unit, Weapon, Nexus, Projectile, AreaEffect, Effect, GrowingMagneticField, MagicCircle, PoisonCloud, Particle } from './gameEntities.js';
+import { Unit, Weapon, Nexus, Projectile, AreaEffect, Effect, GrowingMagneticField, MagicCircle, PoisonCloud, Particle, MagicDaggerDashEffect } from './gameEntities.js';
 import { TILE, TEAM, COLORS, GRID_SIZE } from './constants.js';
 import { localMaps } from './maps/index.js';
 
@@ -261,6 +261,7 @@ export class GameManager {
                     <button class="tool-btn" data-tool="weapon" data-type="magic_spear">마법창</button>
                     <button class="tool-btn" data-tool="weapon" data-type="boomerang">부메랑</button>
                     <button class="tool-btn" data-tool="weapon" data-type="poison_potion">독 포션</button>
+                    <button class="tool-btn" data-tool="weapon" data-type="magic_dagger">마법 단검</button>
                     <div class="flex items-center gap-1">
                         <button class="tool-btn flex-grow" data-tool="weapon" data-type="hadoken">장풍</button>
                         <button id="hadokenSettingsBtn" class="p-2 rounded hover:bg-gray-600">⚙️</button>
@@ -1518,23 +1519,19 @@ export class GameManager {
                 } else if (tile.type === TILE.AWAKENING_POTION) {
                     const centerX = x * GRID_SIZE + GRID_SIZE / 2;
                     const centerY = y * GRID_SIZE + GRID_SIZE / 2;
-                    // Bottle Body
-                    this.ctx.fillStyle = 'rgba(150, 150, 150, 0.4)'; // Semi-transparent grey
+                    this.ctx.fillStyle = 'rgba(150, 150, 150, 0.4)';
                     this.ctx.strokeStyle = '#9CA3AF';
                     this.ctx.lineWidth = 1.5;
                     this.ctx.beginPath();
                     this.ctx.arc(centerX, centerY, GRID_SIZE * 0.4, 0, Math.PI * 2);
                     this.ctx.fill();
                     this.ctx.stroke();
-                    // Cork
                     this.ctx.fillStyle = '#A1662F';
                     this.ctx.fillRect(centerX - GRID_SIZE * 0.15, centerY - GRID_SIZE * 0.6, GRID_SIZE * 0.3, GRID_SIZE * 0.2);
-                    // Liquid
                     this.ctx.fillStyle = '#FFFFFF';
                     this.ctx.beginPath();
                     this.ctx.arc(centerX, centerY, GRID_SIZE * 0.35, 0, Math.PI * 2);
                     this.ctx.fill();
-                    // Shine
                     this.ctx.fillStyle = 'rgba(255, 255, 255, 0.7)';
                     this.ctx.beginPath();
                     this.ctx.arc(centerX - GRID_SIZE * 0.15, centerY - GRID_SIZE * 0.15, GRID_SIZE * 0.08, 0, Math.PI * 2);
@@ -1661,6 +1658,8 @@ export class GameManager {
             weapon.detectionRangeBonus = 6 * GRID_SIZE;
         } else if (type === 'poison_potion') {
             weapon.attackPowerBonus = 10;
+        } else if (type === 'magic_dagger') {
+            weapon.attackPowerBonus = 12;
         } else if (type === 'crown') {
             weapon.attackPowerBonus = 5;
         }
@@ -1812,7 +1811,7 @@ export class GameManager {
     }
 
     spawnRandomWeaponNear(pos) {
-        const weaponTypes = ['sword', 'bow', 'dual_swords', 'staff', 'lightning', 'magic_spear', 'boomerang', 'poison_potion', 'hadoken', 'shuriken'];
+        const weaponTypes = ['sword', 'bow', 'dual_swords', 'staff', 'lightning', 'magic_spear', 'boomerang', 'poison_potion', 'magic_dagger', 'hadoken', 'shuriken'];
         const randomType = weaponTypes[Math.floor(this.random() * weaponTypes.length)];
 
         for (let i = 0; i < 10; i++) {
