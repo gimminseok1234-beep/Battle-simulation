@@ -696,6 +696,89 @@ export class Effect {
     }
 }
 
+function drawMagicDaggerIcon(ctx, pixelX, pixelY) {
+    ctx.save();
+    ctx.translate(pixelX, pixelY);
+    ctx.rotate(Math.PI / 4);
+
+    ctx.fillStyle = '#fde047';
+    ctx.beginPath();
+    ctx.arc(0, 0, GRID_SIZE * 0.35, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.fillStyle = '#ffffff';
+    ctx.strokeStyle = '#a78bfa';
+    ctx.lineWidth = 1.5;
+    ctx.shadowColor = '#d8b4fe';
+    ctx.shadowBlur = 6;
+    ctx.beginPath();
+    ctx.moveTo(-GRID_SIZE * 0.1, -GRID_SIZE * 0.4);
+    ctx.quadraticCurveTo(GRID_SIZE * 0.3, 0, -GRID_SIZE * 0.1, GRID_SIZE * 0.4);
+    ctx.quadraticCurveTo(-GRID_SIZE * 0.2, 0, -GRID_SIZE * 0.1, -GRID_SIZE * 0.4);
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+
+    ctx.shadowBlur = 0;
+    ctx.fillStyle = '#cbd5e1';
+    ctx.fillRect(-GRID_SIZE * 0.15, GRID_SIZE * 0.35, GRID_SIZE * 0.3, GRID_SIZE * 0.1);
+    
+    ctx.restore();
+}
+
+// [오류 수정] 이 클래스를 다른 파일에서 import할 수 있도록 export 키워드를 추가합니다.
+export class MagicDaggerDashEffect {
+    constructor(gameManager, startPos, endPos) {
+        this.gameManager = gameManager;
+        this.startPos = startPos;
+        this.endPos = endPos;
+        this.life = 20;
+        this.initialLife = 20;
+    }
+
+    isAlive() {
+        return this.life > 0;
+    }
+
+    update() {
+        this.life--;
+        if (this.life > 0 && this.life % 2 === 0) {
+            const progress = 1 - (this.life / this.initialLife);
+            const particleX = this.startPos.x + (this.endPos.x - this.startPos.x) * progress;
+            const particleY = this.startPos.y + (this.endPos.y - this.startPos.y) * progress;
+            
+            this.gameManager.addParticle({
+                x: particleX,
+                y: particleY,
+                vx: (this.gameManager.random() - 0.5) * 2,
+                vy: (this.gameManager.random() - 0.5) * 2,
+                life: 0.5,
+                color: '#ffffff',
+                size: this.gameManager.random() * 2 + 1,
+            });
+        }
+    }
+
+    draw(ctx) {
+        const opacity = this.life / this.initialLife;
+        
+        ctx.save();
+        ctx.globalAlpha = opacity;
+        ctx.strokeStyle = '#ffffff';
+        ctx.lineWidth = 4;
+        ctx.shadowColor = '#d8b4fe';
+        ctx.shadowBlur = 10;
+
+        ctx.beginPath();
+        ctx.moveTo(this.startPos.x, this.startPos.y);
+        ctx.lineTo(this.endPos.x, this.endPos.y);
+        ctx.stroke();
+        
+        ctx.restore();
+    }
+}
+
+
 // 무기 클래스
 export class Weapon {
     constructor(gameManager, x, y, type) {
@@ -1950,31 +2033,12 @@ export class Unit {
                 ctx.strokeRect(-1.5, GRID_SIZE * 0.3 + 3, 3, GRID_SIZE * 0.3);
             } else if (this.weapon.type === 'magic_dagger') {
                 ctx.translate(GRID_SIZE * 0.1, GRID_SIZE * 0.4);
-                const scale = 0.9;
-                ctx.scale(scale, scale);
-                ctx.rotate(Math.PI * 0.85);
-            
-                ctx.fillStyle = '#fde047';
-                ctx.beginPath();
-                ctx.arc(0, 0, GRID_SIZE * 0.35, 0, Math.PI * 2);
-                ctx.fill();
-            
-                ctx.fillStyle = '#ffffff';
-                ctx.strokeStyle = '#a78bfa';
-                ctx.lineWidth = 1.5 / scale;
-                ctx.shadowColor = '#d8b4fe';
-                ctx.shadowBlur = 6;
-                ctx.beginPath();
-                ctx.moveTo(-GRID_SIZE * 0.1, -GRID_SIZE * 0.4);
-                ctx.quadraticCurveTo(GRID_SIZE * 0.3, 0, -GRID_SIZE * 0.1, GRID_SIZE * 0.4);
-                ctx.quadraticCurveTo(-GRID_SIZE * 0.2, 0, -GRID_SIZE * 0.1, -GRID_SIZE * 0.4);
-                ctx.closePath();
-                ctx.fill();
-                ctx.stroke();
-            
-                ctx.shadowBlur = 0;
-                ctx.fillStyle = '#cbd5e1';
-                ctx.fillRect(-GRID_SIZE * 0.15, GRID_SIZE * 0.35, GRID_SIZE * 0.3, GRID_SIZE * 0.1);
+                const daggerScale = 0.9;
+                ctx.scale(daggerScale, daggerScale);
+                ctx.rotate(Math.PI * 0.85); // 역수로 쥐도록 회전
+                
+                // 바닥에 놓인 아이콘을 그리는 함수를 그대로 사용
+                drawMagicDaggerIcon(ctx, 0, 0);
             } else if (this.weapon.type === 'bow') {
                 ctx.translate(GRID_SIZE * 0.4, 0);
                 ctx.rotate(-Math.PI / 4);
