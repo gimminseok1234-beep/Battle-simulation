@@ -732,8 +732,9 @@ function drawMagicDaggerIcon(ctx) {
 
     // --- 칼날 (Blade) ---
     const bladeBaseY = -guardHeight / 2;
-    const bladeTipY = -11 * scale;
+    const bladeTipY = -10 * scale; // 날을 덜 뾰족하게 수정
     const bladeWidth = 3.5 * scale;
+    const tipWidth = 0.5 * scale; // 날 끝에 약간의 너비 부여
     
     // 그라데이션으로 빛나는 효과 추가
     const bladeGradient = ctx.createLinearGradient(0, bladeTipY, 0, bladeBaseY);
@@ -746,7 +747,8 @@ function drawMagicDaggerIcon(ctx) {
     ctx.beginPath();
     ctx.moveTo(-bladeWidth / 2, bladeBaseY);
     ctx.lineTo(bladeWidth / 2, bladeBaseY); 
-    ctx.lineTo(0, bladeTipY);              
+    ctx.lineTo(tipWidth / 2, bladeTipY);      // 날 끝의 오른쪽        
+    ctx.lineTo(-tipWidth / 2, bladeTipY);     // 날 끝의 왼쪽
     ctx.closePath();
     ctx.fill();
     ctx.stroke();
@@ -1684,6 +1686,22 @@ export class Unit {
                 
                 gameManager.effects.push(new MagicDaggerDashEffect(gameManager, startPos, endPos));
                 gameManager.audioManager.play('rush');
+
+                // 특수 공격 위치에 보라색 파티클 생성
+                for (let i = 0; i < 15; i++) {
+                    const angle = gameManager.random() * Math.PI * 2;
+                    const speed = 1 + gameManager.random() * 2;
+                    gameManager.addParticle({
+                        x: endPos.x,
+                        y: endPos.y,
+                        vx: Math.cos(angle) * speed,
+                        vy: Math.sin(angle) * speed,
+                        life: 0.6,
+                        color: ['#c084fc', '#a855f7', '#f5d0fe'][Math.floor(gameManager.random() * 3)],
+                        size: gameManager.random() * 2 + 1,
+                        gravity: 0.05
+                    });
+                }
                 return;
             }
         }
