@@ -1017,7 +1017,7 @@ export class Weapon {
 // 유닛 클래스
 export class Unit {
     constructor(gameManager, x, y, team) {
-        this.gameManager = gameManager; // GameManager 인스턴스 저장
+        this.gameManager = gameManager;
         this.gridX = x; this.gridY = y;
         this.pixelX = x * GRID_SIZE + GRID_SIZE / 2;
         this.pixelY = y * GRID_SIZE + GRID_SIZE / 2;
@@ -1056,7 +1056,9 @@ export class Unit {
     
     get speed() {
         const gameManager = this.gameManager;
-        if (!gameManager || this.isStunned > 0) return 0;
+        if (!gameManager || this.isStunned > 0) {
+            return 0;
+        }
 
         let speedModifier = 0;
         if (this.isInMagneticField) speedModifier = -0.7;
@@ -1076,6 +1078,7 @@ export class Unit {
         const finalSpeed = (this.baseSpeed + (this.weapon ? this.weapon.speedBonus || 0 : 0) + combatSpeedBoost) + speedModifier;
         return Math.max(0.1, finalSpeed);
     }
+
     get attackPower() { return this.baseAttackPower + (this.weapon ? this.weapon.attackPowerBonus || 0 : 0); }
     get attackRange() { return this.baseAttackRange + (this.weapon ? this.weapon.attackRangeBonus || 0 : 0); }
     get detectionRange() { return this.baseDetectionRange + (this.weapon ? this.weapon.detectionRangeBonus || 0 : 0); }
@@ -1361,7 +1364,9 @@ export class Unit {
 
     update(enemies, weapons, projectiles) {
         const gameManager = this.gameManager;
-        if (!gameManager) return;
+        if (!gameManager) {
+            return;
+        }
         
         if (this.isDashing) {
             this.dashTrail.push({x: this.pixelX, y: this.pixelY});
@@ -1733,7 +1738,7 @@ export class Unit {
             if (currentTile.type === TILE.AWAKENING_POTION && !this.awakeningEffect.active) {
                 this.awakeningEffect.active = true;
                 this.awakeningEffect.stacks = 0;
-                this.awakeningEffect.timer = -1;
+                this.awakeningEffect.timer = 0;
                 gameManager.map[finalGridY][finalGridX] = { type: TILE.FLOOR, color: gameManager.currentFloorColor };
             }
         }
@@ -1767,7 +1772,7 @@ export class Unit {
             ctx.translate(this.pixelX, this.pixelY);
             ctx.scale(scale, scale);
 
-            const auraRadius = GRID_SIZE / 1.8 * scale;
+            const auraRadius = (GRID_SIZE / 1.8) * scale;
             const gradient = ctx.createRadialGradient(0, 0, auraRadius * 0.5, 0, 0, auraRadius);
             gradient.addColorStop(0, 'rgba(255, 255, 255, 0.6)');
             gradient.addColorStop(1, 'rgba(255, 255, 255, 0)');
