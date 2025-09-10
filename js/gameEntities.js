@@ -1895,10 +1895,11 @@ export class Unit {
 
                 ctx.fillStyle = '#374151';
                 ctx.beginPath();
-                ctx.moveTo(-GRID_SIZE * 0.4, GRID_SIZE * 0.3);
-                ctx.lineTo(GRID_SIZE * 0.4, GRID_SIZE * 0.3);
-                ctx.lineTo(GRID_SIZE * 0.5, GRID_SIZE * 0.3 + 3);
-                ctx.lineTo(-GRID_SIZE * 0.5, GRID_SIZE * 0.3 + 3);
+                // [수정] 코등이(crossguard) 길이를 줄입니다.
+                ctx.moveTo(-GRID_SIZE * 0.2, GRID_SIZE * 0.3);
+                ctx.lineTo(GRID_SIZE * 0.2, GRID_SIZE * 0.3);
+                ctx.lineTo(GRID_SIZE * 0.25, GRID_SIZE * 0.3 + 3);
+                ctx.lineTo(-GRID_SIZE * 0.25, GRID_SIZE * 0.3 + 3);
                 ctx.closePath();
                 ctx.fill();
                 ctx.stroke();
