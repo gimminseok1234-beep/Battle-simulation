@@ -905,9 +905,7 @@ export class GameManager {
     startSimulation() {
         if (this.state !== 'EDIT') return;
         
-        if (!this.isReplayMode) {
-            this.simulationSeed = Date.now();
-        }
+        this.simulationSeed = Date.now();
         this.prng = new SeededRandom(this.simulationSeed);
         
         this.usedNametagsInSim.clear();
@@ -1476,7 +1474,7 @@ export class GameManager {
                     case TILE.LAVA: this.ctx.fillStyle = COLORS.LAVA; break;
                     case TILE.CRACKED_WALL: this.ctx.fillStyle = COLORS.CRACKED_WALL; break;
                     case TILE.HEAL_PACK: this.ctx.fillStyle = COLORS.HEAL_PACK; break;
-                    case TILE.AWAKENING_POTION: this.ctx.fillStyle = COLORS.AWAKENING_POTION; break;
+                    case TILE.AWAKENING_POTION: this.ctx.fillStyle = this.currentFloorColor; break;
                     case TILE.REPLICATION_TILE: this.ctx.fillStyle = COLORS.REPLICATION_TILE; break;
                     case TILE.QUESTION_MARK: this.ctx.fillStyle = COLORS.QUESTION_MARK; break;
                     case TILE.DASH_TILE: this.ctx.fillStyle = COLORS.DASH_TILE; break;
@@ -1518,14 +1516,28 @@ export class GameManager {
                     this.ctx.fillRect(x * GRID_SIZE + (GRID_SIZE - plusWidth) / 2, y * GRID_SIZE + 4, plusWidth, plusLength);
                     this.ctx.fillRect(x * GRID_SIZE + 4, y * GRID_SIZE + (GRID_SIZE - plusWidth) / 2, plusLength, plusWidth);
                 } else if (tile.type === TILE.AWAKENING_POTION) {
-                    this.ctx.fillStyle = '#A9A9A9'; // Potion color (light gray)
+                    const centerX = x * GRID_SIZE + GRID_SIZE / 2;
+                    const centerY = y * GRID_SIZE + GRID_SIZE / 2;
+                    // Bottle Body
+                    this.ctx.fillStyle = 'rgba(150, 150, 150, 0.4)'; // Semi-transparent grey
+                    this.ctx.strokeStyle = '#9CA3AF';
+                    this.ctx.lineWidth = 1.5;
                     this.ctx.beginPath();
-                    this.ctx.arc(x * GRID_SIZE + GRID_SIZE / 2, y * GRID_SIZE + GRID_SIZE / 2, GRID_SIZE / 3, 0, Math.PI * 2);
+                    this.ctx.arc(centerX, centerY, GRID_SIZE * 0.4, 0, Math.PI * 2);
                     this.ctx.fill();
-                    const flicker = Math.sin(this.animationFrameCounter * 0.15 + x + y) * 2 + 3;
-                    this.ctx.fillStyle = `rgba(255, 255, 255, 0.7)`;
+                    this.ctx.stroke();
+                    // Cork
+                    this.ctx.fillStyle = '#A1662F';
+                    this.ctx.fillRect(centerX - GRID_SIZE * 0.15, centerY - GRID_SIZE * 0.6, GRID_SIZE * 0.3, GRID_SIZE * 0.2);
+                    // Liquid
+                    this.ctx.fillStyle = '#FFFFFF';
                     this.ctx.beginPath();
-                    this.ctx.arc(x * GRID_SIZE + GRID_SIZE / 2, y * GRID_SIZE + GRID_SIZE / 2, flicker, 0, Math.PI * 2);
+                    this.ctx.arc(centerX, centerY, GRID_SIZE * 0.35, 0, Math.PI * 2);
+                    this.ctx.fill();
+                    // Shine
+                    this.ctx.fillStyle = 'rgba(255, 255, 255, 0.7)';
+                    this.ctx.beginPath();
+                    this.ctx.arc(centerX - GRID_SIZE * 0.15, centerY - GRID_SIZE * 0.15, GRID_SIZE * 0.08, 0, Math.PI * 2);
                     this.ctx.fill();
                 } else if(tile.type === TILE.REPLICATION_TILE) {
                     this.ctx.fillStyle = 'black'; this.ctx.font = 'bold 12px Arial'; this.ctx.textAlign = 'center';
