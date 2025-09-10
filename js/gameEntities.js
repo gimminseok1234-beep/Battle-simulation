@@ -699,34 +699,44 @@ export class Effect {
 function drawMagicDaggerIcon(ctx, pixelX, pixelY) {
     ctx.save();
     ctx.translate(pixelX, pixelY);
-    ctx.rotate(Math.PI / 4);
-
-    ctx.fillStyle = '#fde047';
+    
+    // 칼날
+    ctx.fillStyle = '#FFFFFF';
+    ctx.strokeStyle = '#000000';
+    ctx.lineWidth = 2;
     ctx.beginPath();
-    ctx.arc(0, 0, GRID_SIZE * 0.35, 0, Math.PI * 2);
-    ctx.fill();
-
-    ctx.fillStyle = '#ffffff';
-    ctx.strokeStyle = '#a78bfa';
-    ctx.lineWidth = 1.5;
-    ctx.shadowColor = '#d8b4fe';
-    ctx.shadowBlur = 6;
-    ctx.beginPath();
-    ctx.moveTo(-GRID_SIZE * 0.1, -GRID_SIZE * 0.4);
-    ctx.quadraticCurveTo(GRID_SIZE * 0.3, 0, -GRID_SIZE * 0.1, GRID_SIZE * 0.4);
-    ctx.quadraticCurveTo(-GRID_SIZE * 0.2, 0, -GRID_SIZE * 0.1, -GRID_SIZE * 0.4);
+    ctx.moveTo(-GRID_SIZE * 0.2, GRID_SIZE * 0.5); // 손잡이 쪽 시작점
+    ctx.bezierCurveTo(
+        GRID_SIZE * 0.4, GRID_SIZE * 0.3,  // Control point 1
+        GRID_SIZE * 0.6, -GRID_SIZE * 0.2, // Control point 2
+        GRID_SIZE * 0.2, -GRID_SIZE * 0.6  // 칼날 끝점
+    );
+    ctx.bezierCurveTo(
+        -GRID_SIZE * 0.3, -GRID_SIZE * 0.4, // Control point 3
+        -GRID_SIZE * 0.5, GRID_SIZE * 0.1,  // Control point 4
+        -GRID_SIZE * 0.2, GRID_SIZE * 0.5   // 시작점으로 돌아옴
+    );
     ctx.closePath();
     ctx.fill();
     ctx.stroke();
 
-    ctx.shadowBlur = 0;
-    ctx.fillStyle = '#cbd5e1';
-    ctx.fillRect(-GRID_SIZE * 0.15, GRID_SIZE * 0.35, GRID_SIZE * 0.3, GRID_SIZE * 0.1);
-    
+    // 손잡이 링
+    ctx.fillStyle = '#1E1B18';
+    ctx.beginPath();
+    ctx.arc(-GRID_SIZE * 0.4, GRID_SIZE * 0.6, GRID_SIZE * 0.2, 0, Math.PI * 2);
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+    // 링 구멍
+    ctx.fillStyle = '#1f2937'; // 배경색과 동일하게
+    ctx.beginPath();
+    ctx.arc(-GRID_SIZE * 0.4, GRID_SIZE * 0.6, GRID_SIZE * 0.1, 0, Math.PI * 2);
+    ctx.closePath();
+    ctx.fill();
+
     ctx.restore();
 }
 
-// [오류 수정] 이 클래스를 다른 파일에서 import할 수 있도록 export 키워드를 추가합니다.
 export class MagicDaggerDashEffect {
     constructor(gameManager, startPos, endPos) {
         this.gameManager = gameManager;
@@ -1138,6 +1148,9 @@ export class Unit {
         this.name = ''; 
         this.awakeningEffect = { active: false, stacks: 0, timer: 0 };
         this.magicDaggerSkillCooldown = 0;
+        this.isAimingMagicDagger = false;
+        this.magicDaggerAimTimer = 0;
+        this.magicDaggerTargetPos = null;
     }
     
     get speed() {
@@ -1292,7 +1305,7 @@ export class Unit {
     }
 
     move() {
-        if (!this.moveTarget || this.isCasting || this.isStunned > 0) return;
+        if (!this.moveTarget || this.isCasting || this.isStunned > 0 || this.isAimingMagicDagger) return;
         const gameManager = this.gameManager;
         if (!gameManager) return;
         
@@ -1612,36 +1625,46 @@ export class Unit {
             this.spawnCooldown = this.spawnInterval;
         }
         
-        if (this.weapon && this.weapon.type === 'magic_dagger' && this.magicDaggerSkillCooldown <= 0 && this.attackCooldown <= 0) {
+        if (this.weapon && this.weapon.type === 'magic_dagger' && !this.isAimingMagicDagger && this.magicDaggerSkillCooldown <= 0 && this.attackCooldown <= 0) {
             const { item: closestEnemy } = this.findClosest(enemies);
             if (closestEnemy && gameManager.hasLineOfSight(this, closestEnemy)) {
                 const dist = Math.hypot(this.pixelX - closestEnemy.pixelX, this.pixelY - closestEnemy.pixelY);
                 if (dist < this.detectionRange && dist > this.attackRange) {
-                    this.magicDaggerSkillCooldown = 420; // 7초 쿨타임
-                    this.attackCooldown = 30; // 스킬 사용 후 약간의 딜레이
-                    
-                    const startPos = { x: this.pixelX, y: this.pixelY };
+                    this.isAimingMagicDagger = true;
+                    this.magicDaggerAimTimer = 60; // 1초 조준
                     const angle = Math.atan2(closestEnemy.pixelY - this.pixelY, closestEnemy.pixelX - this.pixelX);
                     const dashDistance = GRID_SIZE * 4;
-                    const endPos = {
+                    this.magicDaggerTargetPos = {
                         x: this.pixelX + Math.cos(angle) * dashDistance,
                         y: this.pixelY + Math.sin(angle) * dashDistance
                     };
-
-                    enemies.forEach(enemy => {
-                        const distToLine = Math.abs((endPos.y - startPos.y) * enemy.pixelX - (endPos.x - startPos.x) * enemy.pixelY + endPos.x * startPos.y - endPos.y * startPos.x) / Math.hypot(endPos.y - startPos.y, endPos.x - startPos.x);
-                        if (distToLine < GRID_SIZE) {
-                           enemy.takeDamage(10, { stun: 60 });
-                        }
-                    });
-
-                    this.pixelX = endPos.x;
-                    this.pixelY = endPos.y;
-                    
-                    gameManager.effects.push(new MagicDaggerDashEffect(gameManager, startPos, endPos));
-                    gameManager.audioManager.play('rush');
-                    return;
                 }
+            }
+        }
+        
+        if (this.isAimingMagicDagger) {
+            this.magicDaggerAimTimer -= gameManager.gameSpeed;
+            if (this.magicDaggerAimTimer <= 0) {
+                this.isAimingMagicDagger = false;
+                this.magicDaggerSkillCooldown = 420; // 7초 쿨타임
+                this.attackCooldown = 30;
+                
+                const startPos = { x: this.pixelX, y: this.pixelY };
+                const endPos = this.magicDaggerTargetPos;
+                
+                enemies.forEach(enemy => {
+                    const distToLine = Math.abs((endPos.y - startPos.y) * enemy.pixelX - (endPos.x - startPos.x) * enemy.pixelY + endPos.x * startPos.y - endPos.y * startPos.x) / Math.hypot(endPos.y - startPos.y, endPos.x - startPos.x);
+                    if (distToLine < GRID_SIZE) {
+                       enemy.takeDamage(10, { stun: 60 });
+                    }
+                });
+
+                this.pixelX = endPos.x;
+                this.pixelY = endPos.y;
+                
+                gameManager.effects.push(new MagicDaggerDashEffect(gameManager, startPos, endPos));
+                gameManager.audioManager.play('rush');
+                return;
             }
         }
         
@@ -1873,6 +1896,23 @@ export class Unit {
         const gameManager = this.gameManager;
         if (!gameManager) return;
 
+        if (this.isAimingMagicDagger) {
+            ctx.save();
+            const aimProgress = 1 - (this.magicDaggerAimTimer / 60);
+            const currentEndX = this.pixelX + (this.magicDaggerTargetPos.x - this.pixelX) * aimProgress;
+            const currentEndY = this.pixelY + (this.magicDaggerTargetPos.y - this.pixelY) * aimProgress;
+
+            ctx.globalAlpha = 0.7;
+            ctx.strokeStyle = '#FFFFFF';
+            ctx.lineWidth = 3;
+            ctx.setLineDash([10, 5]);
+            ctx.beginPath();
+            ctx.moveTo(this.pixelX, this.pixelY);
+            ctx.lineTo(currentEndX, currentEndY);
+            ctx.stroke();
+            ctx.restore();
+        }
+
         if (this.isDashing) {
             this.dashTrail.forEach((pos, index) => {
                 const opacity = (index / this.dashTrail.length) * 0.5;
@@ -2032,12 +2072,9 @@ export class Unit {
                 ctx.fillRect(-1.5, GRID_SIZE * 0.3 + 3, 3, GRID_SIZE * 0.3);
                 ctx.strokeRect(-1.5, GRID_SIZE * 0.3 + 3, 3, GRID_SIZE * 0.3);
             } else if (this.weapon.type === 'magic_dagger') {
-                ctx.translate(GRID_SIZE * 0.1, GRID_SIZE * 0.4);
-                const daggerScale = 0.9;
-                ctx.scale(daggerScale, daggerScale);
-                ctx.rotate(Math.PI * 0.85); // 역수로 쥐도록 회전
-                
-                // 바닥에 놓인 아이콘을 그리는 함수를 그대로 사용
+                ctx.translate(0, GRID_SIZE * 0.4);
+                ctx.scale(0.8, 0.8);
+                ctx.rotate(Math.PI * 1.25);
                 drawMagicDaggerIcon(ctx, 0, 0);
             } else if (this.weapon.type === 'bow') {
                 ctx.translate(GRID_SIZE * 0.4, 0);
