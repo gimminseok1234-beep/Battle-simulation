@@ -37,20 +37,26 @@
             <button id="defaultMapsBtn" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-6 rounded-lg text-lg transition-transform transform hover:scale-105">
                 기본 맵 보관함
             </button>
+            <button id="replaysBtn" class="bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-6 rounded-lg text-lg transition-transform transform hover:scale-105">
+                리플레이 보관함
+            </button>
             <button id="nametagSettingsBtn" class="bg-teal-600 hover:bg-teal-700 text-white font-bold py-3 px-6 rounded-lg text-lg transition-transform transform hover:scale-105">
                 이름표 설정
             </button>
         </div>
         
         <!-- Map Grid Section -->
-        <div id="mapGrid" class="pt-2 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-6 w-full">
-            <button id="addNewMapCard" class="flex flex-col items-center justify-center p-4 rounded-lg border-2 border-dashed border-gray-600 hover:bg-gray-800 hover:border-gray-500 transition-colors aspect-[3/4] hidden">
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-12 w-12 text-gray-500 mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" /></svg>
-                <span class="text-gray-400 font-semibold">새 맵 추가</span>
-            </button>
+        <div class="pt-2">
+            <h2 class="text-2xl font-semibold text-white mb-4">내 맵 목록</h2>
+            <div id="mapGrid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-6 w-full">
+                <button id="addNewMapCard" class="flex flex-col items-center justify-center p-4 rounded-lg border-2 border-dashed border-gray-600 hover:bg-gray-800 hover:border-gray-500 transition-colors aspect-[3/4] hidden">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-12 w-12 text-gray-500 mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" /></svg>
+                    <span class="text-gray-400 font-semibold">새 맵 추가</span>
+                </button>
+            </div>
         </div>
     </div>
-
+    
     <!-- Default Maps Screen -->
     <div id="defaultMapsScreen" class="hidden relative w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <header class="relative py-8 flex items-center justify-between">
@@ -68,11 +74,29 @@
         </div>
     </div>
 
+    <!-- Replays Screen (NEW) -->
+    <div id="replayScreen" class="hidden relative w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <header class="relative py-8 flex items-center justify-between">
+            <button id="backToHomeFromReplayBtn" class="bg-gray-600 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded">
+                &larr; 홈으로 돌아가기
+            </button>
+            <div class="text-center flex-grow">
+                <h1 class="text-3xl font-bold text-white">리플레이 보관함</h1>
+            </div>
+            <div class="w-40"></div>
+        </header>
+        <div id="replayGrid" class="pt-8 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-6 w-full">
+            <!-- Replay cards will be inserted here -->
+        </div>
+    </div>
+
+
     <div id="editorScreen" class="hidden flex-col items-center gap-4 w-full max-w-7xl mx-auto">
         <div id="toolbar" class="bg-gray-800 p-2 rounded-lg shadow-lg flex items-center justify-between gap-2 w-full flex-wrap">
             <button id="backToHomeBtn" class="bg-gray-600 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded">홈으로</button>
             <div class="flex items-center gap-2">
                 <button id="saveMapBtn" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded">맵 저장</button>
+                <button id="saveReplayBtn" class="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded hidden">리플레이 저장</button>
                 <button id="mapSettingsBtn" class="bg-gray-600 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded">맵 설정</button>
             </div>
             <div id="statusText" class="text-lg font-semibold flex-grow text-center">에디터 모드</div>
@@ -212,7 +236,7 @@
             </div>
         </div>
     </div>
-    <!-- 돌진 타일 설정 모달 추가 -->
+
     <div id="dashTileModal" class="modal-container">
         <div class="modal-content">
             <h3 class="text-xl font-bold mb-4">돌진 타일 설정</h3>
@@ -229,7 +253,6 @@
         </div>
     </div>
 
-    <!-- 이름표 설정 모달 -->
     <div id="nametagSettingsModal" class="modal-container">
         <div class="modal-content !max-w-3xl">
             <h3 class="text-xl font-bold mb-4">이름표 설정</h3>
@@ -250,7 +273,6 @@
             </div>
             <p class="text-sm text-gray-400 text-left mb-2">현재 등록된 이름 목록 (<span id="nameCount">0</span>개)</p>
             <div id="nametagListContainer" class="w-full h-64 bg-gray-900 rounded-lg p-2 overflow-y-auto border border-gray-600">
-                <!-- 이름 목록이 여기에 표시됩니다. -->
             </div>
             <div class="modal-buttons">
                 <button id="saveNametagSettingsBtn" class="btn-confirm">설정 저장</button>
@@ -259,7 +281,6 @@
         </div>
     </div>
 
-    <!-- 유닛 이름 수정 모달 -->
     <div id="unitNameModal" class="modal-container">
         <div class="modal-content">
             <h3 class="text-xl font-bold mb-4">유닛 이름 수정</h3>
@@ -270,9 +291,19 @@
             </div>
         </div>
     </div>
-
+    
+    <!-- Save Replay Modal (NEW) -->
+    <div id="saveReplayModal" class="modal-container">
+        <div class="modal-content">
+            <h3 class="text-xl font-bold mb-4">리플레이 저장</h3>
+            <input type="text" id="newReplayName" class="modal-input" placeholder="리플레이 이름">
+            <div class="modal-buttons">
+                <button id="confirmSaveReplayBtn" class="btn-confirm">저장</button>
+                <button id="cancelSaveReplayBtn" class="btn-cancel">취소</button>
+            </div>
+        </div>
+    </div>
 
     <script type="module" src="js/main.js"></script>
 </body>
 </html>
-
