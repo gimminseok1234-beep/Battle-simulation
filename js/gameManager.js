@@ -139,6 +139,8 @@ export class GameManager {
         document.getElementById('defaultMapsScreen').style.display = 'none';
         document.getElementById('replayScreen').style.display = 'none';
         this.updateUIToEditorMode(); 
+        // [오류 수정] 홈 화면으로 돌아올 때 액션캠 상태를 초기화합니다.
+        this.resetActionCam(true);
         this.renderMapCards();
     }
 
@@ -286,6 +288,7 @@ export class GameManager {
 
     async getAllMaps() {
         if (!this.currentUser) return [];
+        // [오류 수정] 맵 컬렉션 경로를 정확히 "maps"로 지정합니다.
         const mapsColRef = collection(this.db, "maps", this.currentUser.uid, "userMaps");
         const mapSnapshot = await getDocs(mapsColRef);
         return mapSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
@@ -293,6 +296,7 @@ export class GameManager {
 
     async getMapById(mapId) {
         if (!this.currentUser) return null;
+        // [오류 수정] 맵 문서 경로를 정확히 "maps"로 지정합니다.
         const mapDocRef = doc(this.db, "maps", this.currentUser.uid, "userMaps", mapId);
         const mapSnap = await getDoc(mapDocRef);
         return mapSnap.exists() ? { id: mapSnap.id, ...mapSnap.data() } : null;
@@ -909,15 +913,11 @@ export class GameManager {
         
         this.usedNametagsInSim.clear();
 
-        // [수정] 맵/리플레이 구분 없이 매번 새로운 랜덤 이름표를 할당합니다.
         if (this.isNametagEnabled && this.nametagList.length > 0) {
-            // 먼저 모든 유닛의 기존 이름을 지웁니다.
             this.units.forEach(unit => unit.name = '');
 
-            // 사용 가능한 이름 목록을 무작위로 섞습니다.
             const shuffledNames = [...this.nametagList].sort(() => 0.5 - this.random());
             
-            // 이름이 부족할 경우를 대비해, 유닛 수와 이름 수 중 더 적은 쪽을 기준으로 할당합니다.
             const assignmentCount = Math.min(this.units.length, shuffledNames.length);
 
             for (let i = 0; i < assignmentCount; i++) {
@@ -1076,7 +1076,7 @@ export class GameManager {
         }
 
         const itemExists = this.units.some(u => u.gridX === x && u.gridY === y) || 
-                         this.weapons.some(w => w.gridX === x && w.gridY === y) || 
+                         this.weapons.some(w => w.gridX === x && w.gridY !== y) || 
                          this.nexuses.some(n => n.gridX === x && n.gridY === y);
 
         if (this.currentTool.tool === 'growing_field' && this.dragStartPos) {
@@ -2213,13 +2213,14 @@ export class GameManager {
 
         card.append(previewCanvas, infoDiv);
         
+        // [오류 수정] 미리보기 생성 시 JSON 문자열을 안전하게 객체로 변환합니다.
         const tempMapData = {
             width: replayData.mapWidth,
             height: replayData.mapHeight,
             map: replayData.initialMapState,
-            units: JSON.parse(replayData.initialUnitsState),
-            weapons: JSON.parse(replayData.initialWeaponsState),
-            nexuses: JSON.parse(replayData.initialNexusesState),
+            units: JSON.parse(replayData.initialUnitsState || '[]'),
+            weapons: JSON.parse(replayData.initialWeaponsState || '[]'),
+            nexuses: JSON.parse(replayData.initialNexusesState || '[]'),
         };
         this.drawMapPreview(previewCanvas, tempMapData);
 
