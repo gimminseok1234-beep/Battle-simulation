@@ -696,41 +696,110 @@ export class Effect {
     }
 }
 
-function drawMagicDaggerIcon(ctx, pixelX, pixelY) {
+function drawMagicDaggerIcon(ctx, pixelX, pixelY, isEquipped = false) {
     ctx.save();
     ctx.translate(pixelX, pixelY);
     
-    // 칼날
-    ctx.fillStyle = '#FFFFFF';
-    ctx.strokeStyle = '#000000';
-    ctx.lineWidth = 2;
+    if (isEquipped) {
+        ctx.rotate(-Math.PI / 6);
+    }
+    
+    // 1. 칼날
+    ctx.fillStyle = '#F8F9FA';
+    ctx.strokeStyle = '#343A40';
+    ctx.lineWidth = 1.5;
+    
     ctx.beginPath();
-    ctx.moveTo(-GRID_SIZE * 0.2, GRID_SIZE * 0.5); // 손잡이 쪽 시작점 (직선 부분)
+    ctx.moveTo(-GRID_SIZE * 0.1, GRID_SIZE * 0.3);
     ctx.bezierCurveTo(
-        GRID_SIZE * 0.4, GRID_SIZE * 0.3,  // Control point 1
-        GRID_SIZE * 0.6, -GRID_SIZE * 0.2, // Control point 2
-        GRID_SIZE * 0.2, -GRID_SIZE * 0.6  // 칼날 끝점
+        GRID_SIZE * 0.2, GRID_SIZE * 0.1,
+        GRID_SIZE * 0.5, -GRID_SIZE * 0.2,
+        GRID_SIZE * 0.3, -GRID_SIZE * 0.5
     );
-    // [수정] 한쪽 면을 직선으로 변경하여 날카로운 느낌을 강조
-    ctx.lineTo(-GRID_SIZE * 0.4, GRID_SIZE * 0.4);
+    ctx.bezierCurveTo(
+        GRID_SIZE * 0.1, -GRID_SIZE * 0.4,
+        -GRID_SIZE * 0.1, -GRID_SIZE * 0.1,
+        -GRID_SIZE * 0.2, GRID_SIZE * 0.1
+    );
     ctx.closePath();
     ctx.fill();
     ctx.stroke();
-
-    // 손잡이 링
-    ctx.fillStyle = '#1E1B18';
+    
+    // 2. 광택
+    const gradient = ctx.createLinearGradient(
+        -GRID_SIZE * 0.1, -GRID_SIZE * 0.3,
+        GRID_SIZE * 0.2, -GRID_SIZE * 0.1
+    );
+    gradient.addColorStop(0, 'rgba(255, 255, 255, 0.8)');
+    gradient.addColorStop(0.5, 'rgba(255, 255, 255, 0.3)');
+    gradient.addColorStop(1, 'rgba(255, 255, 255, 0)');
+    
+    ctx.fillStyle = gradient;
     ctx.beginPath();
-    ctx.arc(-GRID_SIZE * 0.4, GRID_SIZE * 0.6, GRID_SIZE * 0.2, 0, Math.PI * 2);
+    ctx.moveTo(-GRID_SIZE * 0.05, GRID_SIZE * 0.2);
+    ctx.bezierCurveTo(
+        GRID_SIZE * 0.15, GRID_SIZE * 0.05,
+        GRID_SIZE * 0.3, -GRID_SIZE * 0.15,
+        GRID_SIZE * 0.2, -GRID_SIZE * 0.35
+    );
+    ctx.bezierCurveTo(
+        GRID_SIZE * 0.05, -GRID_SIZE * 0.25,
+        -GRID_SIZE * 0.05, -GRID_SIZE * 0.05,
+        -GRID_SIZE * 0.1, GRID_SIZE * 0.05
+    );
     ctx.closePath();
+    ctx.fill();
+    
+    // 3. 손잡이
+    ctx.fillStyle = '#1A1A1A';
+    ctx.strokeStyle = '#343A40';
+    ctx.lineWidth = 1;
+    
+    ctx.beginPath();
+    ctx.ellipse(-GRID_SIZE * 0.15, GRID_SIZE * 0.25, 
+                GRID_SIZE * 0.08, GRID_SIZE * 0.25, 0, 0, Math.PI * 2);
     ctx.fill();
     ctx.stroke();
-    // 링 구멍 (배경색으로 채워 뚫린 것처럼 보이게 함)
-    ctx.fillStyle = '#1f2937'; 
+    
+    // 4. 끈
+    ctx.strokeStyle = '#8B4513';
+    ctx.lineWidth = 2;
+    
+    for (let i = 0; i < 8; i++) {
+        const y = GRID_SIZE * 0.05 + (i * GRID_SIZE * 0.05);
+        ctx.beginPath();
+        ctx.moveTo(-GRID_SIZE * 0.22, y);
+        ctx.lineTo(-GRID_SIZE * 0.08, y);
+        ctx.stroke();
+    }
+    
+    // 5. 고리
+    ctx.fillStyle = '#0F0F0F';
+    ctx.strokeStyle = '#343A40';
+    ctx.lineWidth = 1.5;
+    
     ctx.beginPath();
-    ctx.arc(-GRID_SIZE * 0.4, GRID_SIZE * 0.6, GRID_SIZE * 0.1, 0, Math.PI * 2);
-    ctx.closePath();
+    ctx.arc(-GRID_SIZE * 0.15, GRID_SIZE * 0.55, GRID_SIZE * 0.12, 0, Math.PI * 2);
     ctx.fill();
-
+    ctx.stroke();
+    
+    // 고리 구멍
+    ctx.fillStyle = '#1f2937';
+    ctx.beginPath();
+    ctx.arc(-GRID_SIZE * 0.15, GRID_SIZE * 0.55, GRID_SIZE * 0.07, 0, Math.PI * 2);
+    ctx.fill();
+    
+    if (!isEquipped) {
+        ctx.shadowColor = 'rgba(138, 43, 226, 0.3)';
+        ctx.shadowBlur = 8;
+        ctx.strokeStyle = 'rgba(138, 43, 226, 0.5)';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.arc(0, 0, GRID_SIZE * 0.8, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.shadowBlur = 0;
+    }
+    
     ctx.restore();
 }
 
@@ -2072,7 +2141,7 @@ export class Unit {
                 ctx.translate(0, GRID_SIZE * 0.4);
                 ctx.scale(0.8, 0.8);
                 ctx.rotate(Math.PI * 1.25);
-                drawMagicDaggerIcon(ctx, 0, 0);
+                drawMagicDaggerIcon(ctx, 0, 0, true);
             } else if (this.weapon.type === 'bow') {
                 ctx.translate(GRID_SIZE * 0.4, 0);
                 ctx.rotate(-Math.PI / 4);
