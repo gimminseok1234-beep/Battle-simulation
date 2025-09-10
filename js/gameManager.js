@@ -138,8 +138,7 @@ export class GameManager {
         document.getElementById('editorScreen').style.display = 'none';
         document.getElementById('defaultMapsScreen').style.display = 'none';
         document.getElementById('replayScreen').style.display = 'none';
-        this.updateUIToEditorMode(); 
-        // [오류 수정] 홈 화면으로 돌아올 때 액션캠 상태를 초기화합니다.
+        this.updateUIToEditorMode();
         this.resetActionCam(true);
         this.renderMapCards();
     }
@@ -189,7 +188,7 @@ export class GameManager {
         this.resetActionCam(true);
 
         if (mapId !== 'replay') {
-             this.updateUIToEditorMode(); 
+             this.updateUIToEditorMode();
              await this.loadMapForEditing(mapId);
         }
     }
@@ -288,7 +287,6 @@ export class GameManager {
 
     async getAllMaps() {
         if (!this.currentUser) return [];
-        // [오류 수정] 맵 컬렉션 경로를 정확히 "maps"로 지정합니다.
         const mapsColRef = collection(this.db, "maps", this.currentUser.uid, "userMaps");
         const mapSnapshot = await getDocs(mapsColRef);
         return mapSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
@@ -296,7 +294,6 @@ export class GameManager {
 
     async getMapById(mapId) {
         if (!this.currentUser) return null;
-        // [오류 수정] 맵 문서 경로를 정확히 "maps"로 지정합니다.
         const mapDocRef = doc(this.db, "maps", this.currentUser.uid, "userMaps", mapId);
         const mapSnap = await getDoc(mapDocRef);
         return mapSnap.exists() ? { id: mapSnap.id, ...mapSnap.data() } : null;
@@ -2213,7 +2210,6 @@ export class GameManager {
 
         card.append(previewCanvas, infoDiv);
         
-        // [오류 수정] 미리보기 생성 시 JSON 문자열을 안전하게 객체로 변환합니다.
         const tempMapData = {
             width: replayData.mapWidth,
             height: replayData.mapHeight,
