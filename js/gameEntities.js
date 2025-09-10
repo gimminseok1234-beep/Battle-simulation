@@ -698,17 +698,22 @@ export class Effect {
 
 /**
  * [수정] 마법 단검 아이콘을 그리는 함수입니다.
- * 요청하신 대로 더 좁고 날카로우며, 손잡이와 날이 일직선이 되도록 디자인을 수정했습니다.
+ * 요청하신 대로 마법창과 유사한 형광 보라색 디자인으로 수정했습니다.
  */
 function drawMagicDaggerIcon(ctx) {
     ctx.save();
     
     const scale = GRID_SIZE * 0.075; 
-    ctx.strokeStyle = '#000000';
+    
+    // --- 글로우 효과 추가 ---
+    ctx.shadowColor = 'rgba(192, 132, 252, 0.9)';
+    ctx.shadowBlur = 15;
+
+    ctx.strokeStyle = '#2e1065'; // 진한 보라색 테두리
     ctx.lineWidth = 2;
 
     // --- 손잡이 (Handle) ---
-    ctx.fillStyle = '#111827'; 
+    ctx.fillStyle = '#5b21b6'; // 보라색 손잡이
     const handleWidth = 2.5 * scale;
     const handleHeight = 7 * scale;
     const handleX = -handleWidth / 2;
@@ -717,7 +722,7 @@ function drawMagicDaggerIcon(ctx) {
     ctx.strokeRect(handleX, handleY, handleWidth, handleHeight);
 
     // --- 가드 (Guard) ---
-    ctx.fillStyle = '#ADB5BD'; 
+    ctx.fillStyle = '#c084fc'; // 밝은 보라색 가드
     const guardWidth = 5 * scale;
     const guardHeight = 1.5 * scale;
     const guardX = -guardWidth / 2;
@@ -726,10 +731,17 @@ function drawMagicDaggerIcon(ctx) {
     ctx.strokeRect(guardX, guardY, guardWidth, guardHeight);
 
     // --- 칼날 (Blade) ---
-    ctx.fillStyle = '#FFFFFF'; 
     const bladeBaseY = -guardHeight / 2;
     const bladeTipY = -11 * scale;
     const bladeWidth = 3.5 * scale;
+    
+    // 그라데이션으로 빛나는 효과 추가
+    const bladeGradient = ctx.createLinearGradient(0, bladeTipY, 0, bladeBaseY);
+    bladeGradient.addColorStop(0, '#f5d0fe');   // 밝은 형광 보라
+    bladeGradient.addColorStop(0.5, '#e9d5ff');
+    bladeGradient.addColorStop(1, '#a855f7');   // 진한 보라
+
+    ctx.fillStyle = bladeGradient; 
     
     ctx.beginPath();
     ctx.moveTo(-bladeWidth / 2, bladeBaseY);
