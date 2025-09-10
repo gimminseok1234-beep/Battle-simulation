@@ -696,112 +696,69 @@ export class Effect {
     }
 }
 
-function drawMagicDaggerIcon(ctx, pixelX, pixelY, isEquipped = false) {
+/**
+ * [수정] 마법 단검 아이콘을 그리는 함수입니다.
+ * 요청하신 대로 흰색 곡선 칼날과 검은색 손잡이 디자인으로 변경되었습니다.
+ * 장착 여부와 관계없이 동일한 디자인을 사용하도록 통일되었습니다.
+ */
+function drawMagicDaggerIcon(ctx) {
     ctx.save();
-    ctx.translate(pixelX, pixelY);
     
-    if (isEquipped) {
-        ctx.rotate(-Math.PI / 6);
-    }
-    
-    // 1. 칼날
-    ctx.fillStyle = '#F8F9FA';
-    ctx.strokeStyle = '#343A40';
+    const scale = GRID_SIZE * 0.08;
+    ctx.strokeStyle = '#000000'; // 요청에 따른 검은색 테두리
     ctx.lineWidth = 1.5;
-    
+
+    // --- Blade (칼날) ---
+    ctx.fillStyle = '#FFFFFF'; // 요청에 따른 흰색 칼날
     ctx.beginPath();
-    ctx.moveTo(-GRID_SIZE * 0.1, GRID_SIZE * 0.3);
-    ctx.bezierCurveTo(
-        GRID_SIZE * 0.2, GRID_SIZE * 0.1,
-        GRID_SIZE * 0.5, -GRID_SIZE * 0.2,
-        GRID_SIZE * 0.3, -GRID_SIZE * 0.5
-    );
-    ctx.bezierCurveTo(
-        GRID_SIZE * 0.1, -GRID_SIZE * 0.4,
-        -GRID_SIZE * 0.1, -GRID_SIZE * 0.1,
-        -GRID_SIZE * 0.2, GRID_SIZE * 0.1
-    );
+    // 손잡이와 만나는 칼날 하단에서 시작
+    ctx.moveTo(0, 0);
+    // 베지어 곡선을 사용하여 부드러운 칼날 곡선 표현
+    ctx.bezierCurveTo(5 * scale, 1 * scale, 8 * scale, -6 * scale, 3 * scale, -12 * scale);
+    // 칼끝에서 칼등으로 이어지는 부분
+    ctx.lineTo(-2 * scale, -8 * scale);
+    // 완만한 곡선의 칼등
+    ctx.quadraticCurveTo(-1 * scale, -2 * scale, 0, 0);
     ctx.closePath();
     ctx.fill();
     ctx.stroke();
-    
-    // 2. 광택
-    const gradient = ctx.createLinearGradient(
-        -GRID_SIZE * 0.1, -GRID_SIZE * 0.3,
-        GRID_SIZE * 0.2, -GRID_SIZE * 0.1
-    );
-    gradient.addColorStop(0, 'rgba(255, 255, 255, 0.8)');
-    gradient.addColorStop(0.5, 'rgba(255, 255, 255, 0.3)');
-    gradient.addColorStop(1, 'rgba(255, 255, 255, 0)');
-    
-    ctx.fillStyle = gradient;
+
+    // --- Guard (가드) ---
+    ctx.fillStyle = '#ADB5BD'; // 은색 가드
     ctx.beginPath();
-    ctx.moveTo(-GRID_SIZE * 0.05, GRID_SIZE * 0.2);
-    ctx.bezierCurveTo(
-        GRID_SIZE * 0.15, GRID_SIZE * 0.05,
-        GRID_SIZE * 0.3, -GRID_SIZE * 0.15,
-        GRID_SIZE * 0.2, -GRID_SIZE * 0.35
-    );
-    ctx.bezierCurveTo(
-        GRID_SIZE * 0.05, -GRID_SIZE * 0.25,
-        -GRID_SIZE * 0.05, -GRID_SIZE * 0.05,
-        -GRID_SIZE * 0.1, GRID_SIZE * 0.05
-    );
+    ctx.moveTo(-1 * scale, 2 * scale);
+    ctx.lineTo(1.5 * scale, -0.5 * scale);
+    ctx.lineTo(2.5 * scale, 0.5 * scale);
+    ctx.lineTo(0 * scale, 3 * scale);
     ctx.closePath();
     ctx.fill();
-    
-    // 3. 손잡이
-    ctx.fillStyle = '#1A1A1A';
-    ctx.strokeStyle = '#343A40';
-    ctx.lineWidth = 1;
-    
+    ctx.stroke();
+
+    // --- Handle (손잡이) ---
+    ctx.fillStyle = '#111827'; // 요청에 따른 검은색 손잡이
     ctx.beginPath();
-    ctx.ellipse(-GRID_SIZE * 0.15, GRID_SIZE * 0.25, 
-                GRID_SIZE * 0.08, GRID_SIZE * 0.25, 0, 0, Math.PI * 2);
+    ctx.moveTo(0 * scale, 3 * scale);
+    ctx.lineTo(1.5 * scale, 0.5 * scale);
+    ctx.lineTo(5 * scale, 4 * scale);
+    ctx.lineTo(3.5 * scale, 6.5 * scale);
+    ctx.closePath();
     ctx.fill();
     ctx.stroke();
-    
-    // 4. 끈
-    ctx.strokeStyle = '#8B4513';
-    ctx.lineWidth = 2;
-    
-    for (let i = 0; i < 8; i++) {
-        const y = GRID_SIZE * 0.05 + (i * GRID_SIZE * 0.05);
-        ctx.beginPath();
-        ctx.moveTo(-GRID_SIZE * 0.22, y);
-        ctx.lineTo(-GRID_SIZE * 0.08, y);
-        ctx.stroke();
-    }
-    
-    // 5. 고리
-    ctx.fillStyle = '#0F0F0F';
-    ctx.strokeStyle = '#343A40';
-    ctx.lineWidth = 1.5;
-    
+
+    // --- Pommel (손잡이 끝) ---
+    ctx.fillStyle = '#ADB5BD'; // 은색 폼멜
     ctx.beginPath();
-    ctx.arc(-GRID_SIZE * 0.15, GRID_SIZE * 0.55, GRID_SIZE * 0.12, 0, Math.PI * 2);
+    ctx.moveTo(3.5 * scale, 6.5 * scale);
+    ctx.lineTo(5 * scale, 4 * scale);
+    ctx.lineTo(6 * scale, 5 * scale);
+    ctx.lineTo(4.5 * scale, 7.5 * scale);
+    ctx.closePath();
     ctx.fill();
     ctx.stroke();
-    
-    // 고리 구멍
-    ctx.fillStyle = '#1f2937';
-    ctx.beginPath();
-    ctx.arc(-GRID_SIZE * 0.15, GRID_SIZE * 0.55, GRID_SIZE * 0.07, 0, Math.PI * 2);
-    ctx.fill();
-    
-    if (!isEquipped) {
-        ctx.shadowColor = 'rgba(138, 43, 226, 0.3)';
-        ctx.shadowBlur = 8;
-        ctx.strokeStyle = 'rgba(138, 43, 226, 0.5)';
-        ctx.lineWidth = 1;
-        ctx.beginPath();
-        ctx.arc(0, 0, GRID_SIZE * 0.8, 0, Math.PI * 2);
-        ctx.stroke();
-        ctx.shadowBlur = 0;
-    }
-    
+
     ctx.restore();
 }
+
 
 export class MagicDaggerDashEffect {
     constructor(gameManager, startPos, endPos) {
@@ -1122,7 +1079,9 @@ export class Weapon {
         } else if (this.type === 'poison_potion') {
             this.drawPoisonPotion(ctx, scale);
         } else if (this.type === 'magic_dagger') {
-            drawMagicDaggerIcon(ctx, 0, 0);
+            // [수정] 마법 단검을 바닥에 그릴 때 일관된 각도를 적용합니다.
+            ctx.rotate(Math.PI / 4);
+            drawMagicDaggerIcon(ctx);
         } else if (this.type === 'hadoken') {
             ctx.rotate(Math.PI / 4);
             const grad = ctx.createRadialGradient(0, 0, 1, 0, 0, GRID_SIZE * 1.2);
@@ -2138,10 +2097,10 @@ export class Unit {
                 ctx.fillRect(-1.5, GRID_SIZE * 0.3 + 3, 3, GRID_SIZE * 0.3);
                 ctx.strokeRect(-1.5, GRID_SIZE * 0.3 + 3, 3, GRID_SIZE * 0.3);
             } else if (this.weapon.type === 'magic_dagger') {
-                ctx.translate(0, GRID_SIZE * 0.4);
-                ctx.scale(0.8, 0.8);
-                ctx.rotate(Math.PI * 1.25);
-                drawMagicDaggerIcon(ctx, 0, 0, true);
+                // [수정] 마법 단검을 장착했을 때의 위치와 각도를 수정합니다.
+                ctx.translate(GRID_SIZE * 0.5, 0);
+                ctx.rotate(Math.PI / 4);
+                drawMagicDaggerIcon(ctx);
             } else if (this.weapon.type === 'bow') {
                 ctx.translate(GRID_SIZE * 0.4, 0);
                 ctx.rotate(-Math.PI / 4);
@@ -2354,4 +2313,3 @@ export class Unit {
         }
     }
 }
-
