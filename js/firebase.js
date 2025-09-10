@@ -28,7 +28,7 @@ function logout() {
  * @param {import("firebase/auth").User | null} user
  * @param {import("./gameManager.js").GameManager} gameManager
  */
-function handleAuthStateChange(user, gameManager) {
+async function handleAuthStateChange(user, gameManager) {
     const loadingStatus = document.getElementById('loadingStatus');
     const googleLoginBtn = document.getElementById('googleLoginBtn');
     const userDetails = document.getElementById('userDetails');
@@ -38,7 +38,9 @@ function handleAuthStateChange(user, gameManager) {
     loadingStatus.style.display = 'none';
 
     if (user) {
-        // 익명 또는 Google 사용자로 로그인된 상태
+        // [오류 수정] 사용자 정보 설정과 초기화 로직을 분리하여 타이밍 문제를 해결합니다.
+        gameManager.setCurrentUser(user);
+        
         if (user.isAnonymous) {
             googleLoginBtn.classList.remove('hidden');
             userDetails.classList.add('hidden');
@@ -50,24 +52,24 @@ function handleAuthStateChange(user, gameManager) {
         }
         
         addNewMapCard.classList.remove('hidden');
-        gameManager.setCurrentUser(user);
-        gameManager.init(); // GameManager 초기화
+        // [오류 수정] 사용자 정보가 확실히 설정된 후에 게임 매니저를 초기화합니다.
+        await gameManager.init();
     } else {
-        // 로그아웃 상태 -> 익명 로그인 시도
         googleLoginBtn.classList.remove('hidden');
         userDetails.classList.add('hidden');
         addNewMapCard.classList.add('hidden');
         
-        // 맵 목록 클리어
         while (mapGrid.firstChild && mapGrid.firstChild !== addNewMapCard) {
             mapGrid.removeChild(mapGrid.firstChild);
         }
         gameManager.setCurrentUser(null);
         
-        signInAnonymously(auth).catch(error => {
+        try {
+            await signInAnonymously(auth);
+        } catch (error) {
             console.error("익명 로그인 실패:", error);
             loadingStatus.textContent = "인증 서버 접속 실패";
-        });
+        }
     }
 }
 
