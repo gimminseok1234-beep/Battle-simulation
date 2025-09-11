@@ -692,6 +692,17 @@ export class Effect {
                 ctx.fill();
             });
             ctx.globalAlpha = 1.0;
+        } else if (this.type === 'axe_spin_effect') {
+            const progress = 1 - (this.duration / 20);
+            const radius = GRID_SIZE * 3.5 * progress;
+            ctx.save();
+            ctx.translate(this.x, this.y);
+            ctx.strokeStyle = `rgba(220, 38, 38, ${opacity})`;
+            ctx.lineWidth = 4;
+            ctx.beginPath();
+            ctx.arc(0, 0, radius, 0, Math.PI * 2);
+            ctx.stroke();
+            ctx.restore();
         }
     }
 }
@@ -749,6 +760,55 @@ function drawMagicDaggerIcon(ctx) {
     ctx.lineTo(bladeWidth / 2, bladeBaseY); 
     ctx.lineTo(tipWidth / 2, bladeTipY);      // 날 끝의 오른쪽        
     ctx.lineTo(-tipWidth / 2, bladeTipY);     // 날 끝의 왼쪽
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+
+    ctx.restore();
+}
+
+/**
+ * [신규] 도끼 아이콘을 그리는 함수입니다.
+ * 검은색 손잡이와 은색 양날 도끼를 그립니다.
+ */
+function drawAxeIcon(ctx) {
+    ctx.save();
+    
+    const scale = GRID_SIZE * 0.07;
+
+    // --- 손잡이 (Handle) ---
+    ctx.fillStyle = '#1f2937'; // 검은색
+    ctx.strokeStyle = '#000000';
+    ctx.lineWidth = 2;
+    const handleWidth = 2.5 * scale;
+    const handleHeight = 18 * scale;
+    const handleX = -handleWidth / 2;
+    const handleY = -5 * scale;
+    ctx.fillRect(handleX, handleY, handleWidth, handleHeight);
+    ctx.strokeRect(handleX, handleY, handleWidth, handleHeight);
+
+    // --- 도끼날 (Blade) ---
+    const bladeGradient = ctx.createLinearGradient(-8 * scale, 0, 8 * scale, 0);
+    bladeGradient.addColorStop(0, '#d1d5db'); // 밝은 은색
+    bladeGradient.addColorStop(0.5, '#f9fafb'); // 하이라이트
+    bladeGradient.addColorStop(1, '#9ca3af'); // 어두운 은색
+
+    ctx.fillStyle = bladeGradient;
+    
+    // 왼쪽 날
+    ctx.beginPath();
+    ctx.moveTo(0, -4 * scale);
+    ctx.quadraticCurveTo(-12 * scale, 0, 0, 4 * scale);
+    ctx.quadraticCurveTo(-5 * scale, 0, 0, -4 * scale);
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+
+    // 오른쪽 날
+    ctx.beginPath();
+    ctx.moveTo(0, -4 * scale);
+    ctx.quadraticCurveTo(12 * scale, 0, 0, 4 * scale);
+    ctx.quadraticCurveTo(5 * scale, 0, 0, -4 * scale);
     ctx.closePath();
     ctx.fill();
     ctx.stroke();
@@ -1079,6 +1139,9 @@ export class Weapon {
             // [수정] 마법 단검을 바닥에 그릴 때 일관된 각도를 적용합니다.
             ctx.rotate(Math.PI / 4);
             drawMagicDaggerIcon(ctx);
+        } else if (this.type === 'axe') {
+            ctx.rotate(Math.PI / 4);
+            drawAxeIcon(ctx);
         } else if (this.type === 'hadoken') {
             ctx.rotate(Math.PI / 4);
             const grad = ctx.createRadialGradient(0, 0, 1, 0, 0, GRID_SIZE * 1.2);
@@ -1173,6 +1236,8 @@ export class Unit {
         this.isAimingMagicDagger = false;
         this.magicDaggerAimTimer = 0;
         this.magicDaggerTargetPos = null;
+        this.axeSkillCooldown = 0;
+        this.spinAnimationTimer = 0;
     }
     
     get speed() {
@@ -1206,6 +1271,7 @@ export class Unit {
     get cooldownTime() { 
         if (this.weapon && this.weapon.type === 'staff') return 120;
         if (this.weapon && this.weapon.type === 'hadoken') return 120;
+        if (this.weapon && this.weapon.type === 'axe') return 120; // 2초
         return this.baseCooldownTime + (this.weapon ? this.weapon.attackCooldownBonus || 0 : 0); 
     }
 
@@ -1387,7 +1453,7 @@ export class Unit {
             gameManager.damageTile(targetGridX, targetGridY, currentAttackPower);
              this.attackCooldown = this.cooldownTime;
         } else if (target instanceof Unit || target instanceof Nexus) {
-            if (this.weapon && (this.weapon.type === 'sword' || this.weapon.type === 'dual_swords' || this.weapon.type === 'boomerang' || this.weapon.type === 'poison_potion' || this.weapon.type === 'magic_dagger')) {
+            if (this.weapon && (this.weapon.type === 'sword' || this.weapon.type === 'dual_swords' || this.weapon.type === 'boomerang' || this.weapon.type === 'poison_potion' || this.weapon.type === 'magic_dagger' || this.weapon.type === 'axe')) {
                 this.attackAnimationTimer = 15;
             }
             
@@ -1407,6 +1473,11 @@ export class Unit {
             } else if (this.weapon && this.weapon.type === 'dual_swords') {
                 target.takeDamage(currentAttackPower); gameManager.createEffect('dual_sword_slash', this.pixelX, this.pixelY, target);
                 gameManager.audioManager.play('dualSwordHit');
+                this.attackCooldown = this.cooldownTime;
+            } else if (this.weapon && this.weapon.type === 'axe') {
+                target.takeDamage(currentAttackPower);
+                gameManager.createEffect('slash', this.pixelX, this.pixelY, target);
+                gameManager.audioManager.play('swordHit'); // 임시로 검 소리 사용
                 this.attackCooldown = this.cooldownTime;
             } else if (this.weapon && this.weapon.type === 'shuriken') {
                 if (this.shurikenSkillCooldown <= 0) {
@@ -1582,6 +1653,8 @@ export class Unit {
         }
 
         if (this.magicDaggerSkillCooldown > 0) this.magicDaggerSkillCooldown -= gameManager.gameSpeed;
+        if (this.axeSkillCooldown > 0) this.axeSkillCooldown -= gameManager.gameSpeed;
+        if (this.spinAnimationTimer > 0) this.spinAnimationTimer -= gameManager.gameSpeed;
         if (this.attackCooldown > 0) this.attackCooldown -= gameManager.gameSpeed;
         if (this.teleportCooldown > 0) this.teleportCooldown -= gameManager.gameSpeed;
         if (this.alertedCounter > 0) this.alertedCounter -= gameManager.gameSpeed;
@@ -1736,6 +1809,31 @@ export class Unit {
                 }
             }
         }
+
+        // [신규] 도끼 특수 공격 로직
+        if (this.weapon && this.weapon.type === 'axe' && this.axeSkillCooldown <= 0) {
+            const { item: closestEnemy } = this.findClosest(enemies);
+            if (closestEnemy && Math.hypot(this.pixelX - closestEnemy.pixelX, this.pixelY - closestEnemy.pixelY) < GRID_SIZE * 3) {
+                this.axeSkillCooldown = 240; // 4초
+                this.spinAnimationTimer = 30; // 0.5초 애니메이션
+
+                gameManager.createEffect('axe_spin_effect', this.pixelX, this.pixelY, this);
+
+                const damageRadius = GRID_SIZE * 3.5;
+                enemies.forEach(enemy => {
+                    if (Math.hypot(this.pixelX - enemy.pixelX, this.pixelY - enemy.pixelY) < damageRadius) {
+                        enemy.takeDamage(this.attackPower * 1.5);
+                    }
+                });
+                 gameManager.nexuses.forEach(nexus => {
+                    if (nexus.team !== this.team && !nexus.isDestroying && Math.hypot(this.pixelX - nexus.pixelX, this.pixelY - nexus.pixelY) < damageRadius) {
+                        nexus.takeDamage(this.attackPower * 1.5);
+                    }
+                });
+                gameManager.audioManager.play('swordHit'); // 임시
+            }
+        }
+
 
         let newState = 'IDLE';
         let newTarget = null;
@@ -2071,6 +2169,11 @@ export class Unit {
                 const swingProgress = Math.sin((15 - this.attackAnimationTimer) / 15 * Math.PI);
                 rotation += swingProgress * Math.PI / 4;
             }
+
+            // [수정] 도끼 회전 애니메이션 적용
+            if (this.weapon.type === 'axe' && this.spinAnimationTimer > 0) {
+                rotation += ((30 - this.spinAnimationTimer) / 30) * Math.PI * 2;
+            }
             
             if (this.weapon.type !== 'lightning') {
                 ctx.rotate(rotation);
@@ -2114,6 +2217,10 @@ export class Unit {
                 ctx.translate(GRID_SIZE * 0.5, 0);
                 ctx.rotate(Math.PI / 4);
                 drawMagicDaggerIcon(ctx);
+            } else if (this.weapon.type === 'axe') {
+                ctx.translate(GRID_SIZE * 0.5, 0);
+                ctx.rotate(Math.PI / 4);
+                drawAxeIcon(ctx);
             } else if (this.weapon.type === 'bow') {
                 ctx.translate(GRID_SIZE * 0.4, 0);
                 ctx.rotate(-Math.PI / 4);
@@ -2232,6 +2339,7 @@ export class Unit {
         let specialSkillIsVisible = 
             (this.isKing && this.spawnCooldown > 0) ||
             (this.weapon?.type === 'magic_dagger' && this.magicDaggerSkillCooldown > 0) ||
+            (this.weapon?.type === 'axe' && this.axeSkillCooldown > 0) ||
             (this.weapon?.type === 'magic_spear' && this.magicCircleCooldown > 0) ||
             (this.weapon?.type === 'boomerang' && this.boomerangCooldown > 0) ||
             (this.weapon?.type === 'shuriken' && this.shurikenSkillCooldown > 0) ||
@@ -2286,7 +2394,7 @@ export class Unit {
                 if (this.weapon?.type === 'magic_spear') {
                     fgColor = '#a855f7';
                     progress = 300 - this.magicCircleCooldown; max = 300;
-                } else if (this.weapon?.type === 'boomerang' || this.weapon?.type === 'shuriken' || this.weapon?.type === 'poison_potion' || this.weapon?.type === 'magic_dagger') {
+                } else if (this.weapon?.type === 'boomerang' || this.weapon?.type === 'shuriken' || this.weapon?.type === 'poison_potion' || this.weapon?.type === 'magic_dagger' || this.weapon?.type === 'axe') {
                     fgColor = '#94a3b8'; // 회색
                     if(this.weapon.type === 'boomerang') {
                         progress = 480 - this.boomerangCooldown; max = 480;
@@ -2294,6 +2402,8 @@ export class Unit {
                         progress = 300 - this.shurikenSkillCooldown; max = 300;
                     } else if(this.weapon.type === 'magic_dagger') {
                         progress = 420 - this.magicDaggerSkillCooldown; max = 420;
+                    } else if(this.weapon.type === 'axe') {
+                        progress = 240 - this.axeSkillCooldown; max = 240;
                     } else {
                         progress = this.castingProgress; max = this.castDuration;
                     }
