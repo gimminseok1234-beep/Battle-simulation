@@ -60,6 +60,30 @@ function createPhysicalHitEffect(gameManager, target) {
     }
 }
 
+/**
+ * [신규] 화염구 폭발 효과 생성 함수
+ * @param {object} gameManager 
+ * @param {number} x 
+ * @param {number} y 
+ */
+export function createFireballHitEffect(gameManager, x, y) {
+    const particleCount = 30; // 더 화려한 효과를 위해 파티클 수 증가
+    for (let i = 0; i < particleCount; i++) {
+        const angle = gameManager.random() * Math.PI * 2;
+        const speed = 1 + gameManager.random() * 4;
+        gameManager.addParticle({
+            x: x,
+            y: y,
+            vx: Math.cos(angle) * speed,
+            vy: Math.sin(angle) * speed,
+            life: 0.8, // 약간 더 오래 지속
+            color: ['#ffcc00', '#ff9900', '#ff6600', '#ef4444'][Math.floor(gameManager.random() * 4)],
+            size: gameManager.random() * 3 + 2,
+            gravity: -0.05 // 불꽃처럼 위로 솟구치는 느낌
+        });
+    }
+}
+
 
 // MagicCircle class
 export class MagicCircle {
@@ -352,6 +376,8 @@ export class Projectile {
         else if (type === 'boomerang_projectile' || type === 'boomerang_normal_projectile') this.speed = 5;
         else if (type === 'ice_diamond_projectile') this.speed = 5;
         else if (type === 'ice_bolt_projectile') this.speed = 7;
+        else if (type === 'fireball_projectile') this.speed = 5; // 화염구 속도
+        else if (type === 'mini_fireball_projectile') this.speed = 8; // 미니 화염구 속도
         else this.speed = 6;
 
         this.damage = owner.attackPower;
@@ -364,7 +390,11 @@ export class Projectile {
         } else if (type === 'boomerang_normal_projectile') {
             this.damage = 12;
         } else if (type === 'ice_diamond_projectile') { // Special attack damage buff
-            this.damage = 28; // Increased damage from 22 to 28
+            this.damage = 28;
+        } else if (type === 'fireball_projectile') {
+            this.damage = 25; // 화염구 데미지
+        } else if (type === 'mini_fireball_projectile') {
+            this.damage = 8;  // 미니 화염구 데미지
         }
 
 
@@ -387,7 +417,7 @@ export class Projectile {
         const gameManager = this.gameManager;
         if (!gameManager) return;
         
-        if (this.type === 'hadoken' || this.type === 'lightning_bolt' || this.type.startsWith('magic_spear') || this.type === 'ice_diamond_projectile') {
+        if (this.type === 'hadoken' || this.type === 'lightning_bolt' || this.type.startsWith('magic_spear') || this.type === 'ice_diamond_projectile' || this.type === 'fireball_projectile' || this.type === 'mini_fireball_projectile') {
             this.trail.push({x: this.pixelX, y: this.pixelY});
             if (this.trail.length > 10) this.trail.shift();
         }
@@ -594,14 +624,34 @@ export class Projectile {
             ctx.save();
             ctx.translate(this.pixelX, this.pixelY);
             ctx.rotate(this.angle);
-            ctx.fillStyle = '#000000'; // 색상을 검은색으로 변경
-            ctx.strokeStyle = '#FFFFFF'; // 흰색 테두리 추가
+            ctx.fillStyle = '#000000'; // Changed color to black
+            ctx.strokeStyle = '#FFFFFF'; // Added white border
             ctx.lineWidth = 1;
             ctx.beginPath();
             ctx.arc(0, 0, GRID_SIZE / 4, 0, Math.PI * 2);
             ctx.fill();
-            ctx.stroke(); // 테두리 그리기
+            ctx.stroke(); // Draw border
             ctx.restore();
+        } else if (this.type === 'fireball_projectile' || this.type === 'mini_fireball_projectile') {
+            const size = this.type === 'fireball_projectile' ? GRID_SIZE / 2.5 : GRID_SIZE / 4;
+            // Trail effect
+            for (let i = 0; i < this.trail.length; i++) {
+                const pos = this.trail[i];
+                const alpha = (i / this.trail.length) * 0.4;
+                ctx.fillStyle = `rgba(255, 100, 0, ${alpha})`;
+                ctx.beginPath();
+                ctx.arc(pos.x, pos.y, size * (i / this.trail.length), 0, Math.PI * 2);
+                ctx.fill();
+            }
+            // Fireball core
+            const grad = ctx.createRadialGradient(this.pixelX, this.pixelY, size * 0.2, this.pixelX, this.pixelY, size);
+            grad.addColorStop(0, '#ffff99');
+            grad.addColorStop(0.6, '#ff9900');
+            grad.addColorStop(1, '#ff4500');
+            ctx.fillStyle = grad;
+            ctx.beginPath();
+            ctx.arc(this.pixelX, this.pixelY, size, 0, Math.PI * 2);
+            ctx.fill();
         }
     }
 }
@@ -1237,7 +1287,7 @@ export class Weapon {
             };
             drawCurvedSword(-Math.PI / 4);
             drawCurvedSword(Math.PI / 4);
-        } else if (this.type === 'staff') {
+        } else if (this.type === 'fire_staff') { // 'staff'를 'fire_staff'로 변경
             this.drawStaff(ctx, scale);
         } else if (this.type === 'lightning') {
             this.drawLightning(ctx, 1.0, Math.PI / 4);
@@ -1387,7 +1437,7 @@ export class Unit {
     get attackRange() { return this.baseAttackRange + (this.weapon ? this.weapon.attackRangeBonus || 0 : 0); }
     get detectionRange() { return this.baseDetectionRange + (this.weapon ? this.weapon.detectionRangeBonus || 0 : 0); }
     get cooldownTime() { 
-        if (this.weapon && this.weapon.type === 'staff') return 120;
+        if (this.weapon && this.weapon.type === 'fire_staff') return 120; // 'staff'를 'fire_staff'로 변경
         if (this.weapon && this.weapon.type === 'hadoken') return 120;
         if (this.weapon && this.weapon.type === 'axe') return 120; // 2 seconds
         if (this.weapon && this.weapon.type === 'ice_diamond') return 180; // 3 seconds
@@ -1552,7 +1602,7 @@ export class Unit {
         const gameManager = this.gameManager;
         if (!gameManager) return;
 
-        if (this.weapon && this.weapon.type === 'staff' && (target instanceof Unit || target instanceof Nexus)) {
+        if (this.weapon && this.weapon.type === 'fire_staff' && (target instanceof Unit || target instanceof Nexus)) { // 'staff'를 'fire_staff'로 변경
             this.isCasting = true;
             this.castingProgress = 0;
             this.castDuration = 180;
@@ -1853,9 +1903,10 @@ export class Unit {
             if (this.castingProgress >= this.castDuration) {
                 this.isCasting = false; this.castingProgress = 0;
                 
-                if (this.weapon.type === 'staff') {
+                if (this.weapon.type === 'fire_staff') { // 'staff'를 'fire_staff'로 변경
                     gameManager.audioManager.play('fireball');
-                    gameManager.castAreaSpell(this.castTargetPos, 'fire_pillar', this.attackPower, this.team);
+                    // AreaEffect 대신 Projectile 생성
+                    gameManager.createProjectile(this, this.target, 'fireball_projectile');
                     this.attackCooldown = 0;
                 } else if (this.weapon.type === 'poison_potion') {
                     gameManager.audioManager.play('poison');
@@ -2419,7 +2470,7 @@ export class Unit {
                 };
                 drawEquippedCurvedSword(true);
                 drawEquippedCurvedSword(false);
-            } else if (this.weapon.type === 'staff') {
+            } else if (this.weapon.type === 'fire_staff') { // 'staff'를 'fire_staff'로 변경
                 this.weapon.drawStaff(ctx, 0.8);
             } else if (this.weapon.type === 'lightning') {
                 const revolutionAngle = gameManager.animationFrameCounter * 0.05;
@@ -2500,7 +2551,7 @@ export class Unit {
         const barX = this.pixelX - barWidth / 2;
         
         const healthBarIsVisible = this.hp < 100 || this.hpBarVisibleTimer > 0;
-        const normalAttackIsVisible = (this.isCasting && this.weapon?.type === 'staff') || (this.attackCooldown > 0 && this.weapon?.type !== 'staff');
+        const normalAttackIsVisible = (this.isCasting && this.weapon?.type === 'fire_staff') || (this.attackCooldown > 0 && this.weapon?.type !== 'fire_staff'); // 'staff'를 'fire_staff'로 변경
         let specialSkillIsVisible = 
             (this.isKing && this.spawnCooldown > 0) ||
             (this.weapon?.type === 'magic_dagger' && this.magicDaggerSkillCooldown > 0) ||
@@ -2528,7 +2579,7 @@ export class Unit {
                 ctx.fillStyle = '#0c4a6e'; 
                 ctx.fillRect(barX, currentBarY, barWidth, barHeight);
                 let progress = 0;
-                if (this.isCasting && this.weapon?.type === 'staff') {
+                if (this.isCasting && this.weapon?.type === 'fire_staff') { // 'staff'를 'fire_staff'로 변경
                     progress = this.castingProgress / this.castDuration;
                 } else {
                     progress = Math.max(0, 1 - (this.attackCooldown / this.cooldownTime));
