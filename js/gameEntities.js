@@ -350,7 +350,7 @@ export class Projectile {
         else if (type === 'shuriken') this.speed = 2;
         else if (type === 'lightning_bolt') this.speed = 8;
         else if (type === 'boomerang_projectile' || type === 'boomerang_normal_projectile') this.speed = 5;
-        else if (type === 'ice_orb_projectile') this.speed = 5;
+        else if (type === 'ice_diamond_projectile') this.speed = 5;
         else if (type === 'ice_bolt_projectile') this.speed = 7;
         else this.speed = 6;
 
@@ -363,6 +363,8 @@ export class Projectile {
             this.damage = 0;
         } else if (type === 'boomerang_normal_projectile') {
             this.damage = 12;
+        } else if (type === 'ice_diamond_projectile') { // 특수 공격 데미지 상향
+            this.damage = 22;
         }
 
 
@@ -385,12 +387,27 @@ export class Projectile {
         const gameManager = this.gameManager;
         if (!gameManager) return;
         
-        if (this.type === 'hadoken' || this.type === 'lightning_bolt' || this.type.startsWith('magic_spear') || this.type === 'ice_orb_projectile') {
+        if (this.type === 'hadoken' || this.type === 'lightning_bolt' || this.type.startsWith('magic_spear') || this.type === 'ice_diamond_projectile') {
             this.trail.push({x: this.pixelX, y: this.pixelY});
             if (this.trail.length > 10) this.trail.shift();
         }
         if (this.type === 'shuriken' || this.type === 'boomerang_projectile' || this.type === 'boomerang_normal_projectile') {
             this.rotationAngle += 0.4 * gameManager.gameSpeed;
+        }
+
+        // 파티클 생성 로직 추가
+        if (this.type === 'ice_diamond_projectile') {
+            if (this.gameManager.random() > 0.4) {
+                this.gameManager.addParticle({
+                    x: this.pixelX,
+                    y: this.pixelY,
+                    vx: (this.gameManager.random() - 0.5) * 1,
+                    vy: (this.gameManager.random() - 0.5) * 1,
+                    life: 0.6,
+                    color: '#3b82f6', // 파란색 파티클
+                    size: this.gameManager.random() * 2 + 1,
+                });
+            }
         }
 
         const nextX = this.pixelX + Math.cos(this.angle) * gameManager.gameSpeed * this.speed;
@@ -534,7 +551,8 @@ export class Projectile {
             ctx.rotate(this.rotationAngle);
             this.owner.weapon.drawBoomerang(ctx, 0.3, 0, '#18181b');
             ctx.restore();
-        } else if (this.type === 'ice_orb_projectile') {
+        } else if (this.type === 'ice_diamond_projectile') { // 이름 및 그리기 로직 변경
+            // Trail effect
             for (let i = 0; i < this.trail.length; i++) {
                 const pos = this.trail[i];
                 const alpha = (i / this.trail.length) * 0.5;
@@ -543,14 +561,35 @@ export class Projectile {
                 ctx.arc(pos.x, pos.y, (GRID_SIZE / 2.5) * (i / this.trail.length), 0, Math.PI * 2);
                 ctx.fill();
             }
-            ctx.fillStyle = '#67e8f9';
+            
+            // Diamond projectile
+            ctx.save();
+            ctx.translate(this.pixelX, this.pixelY);
+            ctx.rotate(this.angle); // Point forward
+            
+            const size = GRID_SIZE * 0.6; // 크기 조절
+            
+            // 그라데이션으로 입체감 추가
+            const grad = ctx.createLinearGradient(-size, -size, size, size);
+            grad.addColorStop(0, '#e0f2fe');
+            grad.addColorStop(0.5, '#7dd3fc');
+            grad.addColorStop(1, '#0ea5e9');
+
+            ctx.fillStyle = grad;
+            ctx.strokeStyle = '#0284c7';
+            ctx.lineWidth = 2;
+
             ctx.beginPath();
-            ctx.arc(this.pixelX, this.pixelY, GRID_SIZE / 2.5, 0, Math.PI * 2);
+            ctx.moveTo(size * 0.8, 0); // Front point
+            ctx.lineTo(0, -size * 0.6); // Top-left
+            ctx.lineTo(-size * 0.8, 0); // Back point
+            ctx.lineTo(0, size * 0.6); // Bottom-left
+            ctx.closePath();
+            
             ctx.fill();
-            ctx.fillStyle = '#a5f3fc';
-            ctx.beginPath();
-            ctx.arc(this.pixelX, this.pixelY, GRID_SIZE / 3.5, 0, Math.PI * 2);
-            ctx.fill();
+            ctx.stroke();
+            
+            ctx.restore();
         } else if (this.type === 'ice_bolt_projectile') {
             ctx.save();
             ctx.translate(this.pixelX, this.pixelY);
@@ -844,27 +883,44 @@ function drawAxeIcon(ctx) {
     ctx.restore();
 }
 
-// [신규] 얼음 구체 아이콘을 그리는 함수입니다.
+// [수정] 얼음 다이아몬드 아이콘을 그리는 함수입니다.
 function drawIceOrbIcon(ctx, customScale = 1.0) {
     ctx.save();
     ctx.scale(customScale, customScale);
     ctx.shadowColor = 'rgba(56, 189, 248, 0.7)';
-    ctx.shadowBlur = 12 / customScale;
-    
-    const grad = ctx.createRadialGradient(0, 0, 0, 0, 0, GRID_SIZE * 0.6);
-    grad.addColorStop(0, '#e0f2fe'); // 가장자리 (밝은 하늘색)
-    grad.addColorStop(0.6, '#7dd3fc');
-    grad.addColorStop(1, '#0ea5e9'); // 중앙 (진한 파란색)
+    ctx.shadowBlur = 15 / customScale;
+
+    const size = GRID_SIZE * 0.8;
+
+    const grad = ctx.createLinearGradient(0, -size, 0, size);
+    grad.addColorStop(0, '#e0f2fe');
+    grad.addColorStop(0.5, '#7dd3fc');
+    grad.addColorStop(1, '#0ea5e9');
 
     ctx.fillStyle = grad;
     ctx.strokeStyle = '#0284c7';
     ctx.lineWidth = 2 / customScale;
 
     ctx.beginPath();
-    ctx.arc(0, 0, GRID_SIZE * 0.6, 0, Math.PI * 2);
+    ctx.moveTo(0, -size); // Top point
+    ctx.lineTo(size * 0.7, 0); // Right point
+    ctx.lineTo(0, size); // Bottom point
+    ctx.lineTo(-size * 0.7, 0); // Left point
+    ctx.closePath();
     ctx.fill();
     ctx.stroke();
-    
+
+    // Inner facets
+    ctx.globalAlpha = 0.6;
+    ctx.strokeStyle = '#e0f2fe';
+    ctx.lineWidth = 1 / customScale;
+    ctx.beginPath();
+    ctx.moveTo(0, -size);
+    ctx.lineTo(0, size);
+    ctx.moveTo(size * 0.7, 0);
+    ctx.lineTo(-size * 0.7, 0);
+    ctx.stroke();
+
     ctx.restore();
 }
 
@@ -1544,7 +1600,7 @@ export class Unit {
                     for (let i = 0; i < this.iceOrbCharges; i++) {
                         setTimeout(() => {
                             if (this.hp > 0) {
-                                gameManager.createProjectile(this, target, 'ice_orb_projectile');
+                                gameManager.createProjectile(this, target, 'ice_diamond_projectile');
                             }
                         }, i * 100);
                     }
@@ -2546,4 +2602,3 @@ export class Unit {
         }
     }
 }
-
