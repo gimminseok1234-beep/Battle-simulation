@@ -350,6 +350,7 @@ export class Projectile {
         else if (type === 'shuriken') this.speed = 2;
         else if (type === 'lightning_bolt') this.speed = 8;
         else if (type === 'boomerang_projectile' || type === 'boomerang_normal_projectile') this.speed = 5;
+        else if (type === 'ice_orb_projectile') this.speed = 5;
         else this.speed = 6;
 
         this.damage = owner.attackPower;
@@ -383,7 +384,7 @@ export class Projectile {
         const gameManager = this.gameManager;
         if (!gameManager) return;
         
-        if (this.type === 'hadoken' || this.type === 'lightning_bolt' || this.type.startsWith('magic_spear')) {
+        if (this.type === 'hadoken' || this.type === 'lightning_bolt' || this.type.startsWith('magic_spear') || this.type === 'ice_orb_projectile') {
             this.trail.push({x: this.pixelX, y: this.pixelY});
             if (this.trail.length > 10) this.trail.shift();
         }
@@ -532,6 +533,23 @@ export class Projectile {
             ctx.rotate(this.rotationAngle);
             this.owner.weapon.drawBoomerang(ctx, 0.3, 0, '#18181b');
             ctx.restore();
+        } else if (this.type === 'ice_orb_projectile') {
+            for (let i = 0; i < this.trail.length; i++) {
+                const pos = this.trail[i];
+                const alpha = (i / this.trail.length) * 0.5;
+                ctx.fillStyle = `rgba(165, 243, 252, ${alpha})`;
+                ctx.beginPath();
+                ctx.arc(pos.x, pos.y, (GRID_SIZE / 2.5) * (i / this.trail.length), 0, Math.PI * 2);
+                ctx.fill();
+            }
+            ctx.fillStyle = '#67e8f9';
+            ctx.beginPath();
+            ctx.arc(this.pixelX, this.pixelY, GRID_SIZE / 2.5, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.fillStyle = '#a5f3fc';
+            ctx.beginPath();
+            ctx.arc(this.pixelX, this.pixelY, GRID_SIZE / 3.5, 0, Math.PI * 2);
+            ctx.fill();
         }
     }
 }
@@ -1239,6 +1257,9 @@ export class Unit {
         this.magicDaggerTargetPos = null;
         this.axeSkillCooldown = 0;
         this.spinAnimationTimer = 0;
+        this.iceOrbCharges = 0;
+        this.iceOrbChargeTimer = 0;
+        this.isSlowed = 0;
     }
     
     get speed() {
@@ -1250,6 +1271,7 @@ export class Unit {
         let speedModifier = 0;
         if (this.isInMagneticField) speedModifier = -0.7;
         if (this.poisonEffect.active) speedModifier -= 0.7;
+        if (this.isSlowed > 0) speedModifier -= 0.3; // 30% 감속
 
         const gridX = Math.floor(this.pixelX / GRID_SIZE);
         const gridY = Math.floor(this.pixelY / GRID_SIZE);
@@ -1273,6 +1295,7 @@ export class Unit {
         if (this.weapon && this.weapon.type === 'staff') return 120;
         if (this.weapon && this.weapon.type === 'hadoken') return 120;
         if (this.weapon && this.weapon.type === 'axe') return 120; // 2초
+        if (this.weapon && this.weapon.type === 'ice_orb') return 180; // 3초
         return this.baseCooldownTime + (this.weapon ? this.weapon.attackCooldownBonus || 0 : 0); 
     }
 
@@ -1480,6 +1503,21 @@ export class Unit {
                 gameManager.createEffect('slash', this.pixelX, this.pixelY, target);
                 gameManager.audioManager.play('swordHit'); // 임시로 검 소리 사용
                 this.attackCooldown = this.cooldownTime;
+            } else if (this.weapon && this.weapon.type === 'ice_orb') {
+                if (this.iceOrbCharges > 0) { // 특수 공격
+                    for (let i = 0; i < this.iceOrbCharges; i++) {
+                        setTimeout(() => {
+                            if (this.hp > 0) {
+                                gameManager.createProjectile(this, target, 'ice_orb_projectile');
+                            }
+                        }, i * 100);
+                    }
+                    this.iceOrbCharges = 0;
+                    this.iceOrbChargeTimer = 0;
+                } else { // 일반 공격
+                    gameManager.createProjectile(this, target, 'arrow'); // 임시로 화살 사용
+                }
+                this.attackCooldown = this.cooldownTime;
             } else if (this.weapon && this.weapon.type === 'shuriken') {
                 if (this.shurikenSkillCooldown <= 0) {
                     const angleToTarget = Math.atan2(target.pixelY - this.pixelY, target.pixelX - this.pixelX);
@@ -1544,10 +1582,13 @@ export class Unit {
             }
             this.isStunned = Math.max(this.isStunned, effectInfo.stun);
         }
-        if(effectInfo.poison){
+        if (effectInfo.poison){
             this.poisonEffect.active = true;
             this.poisonEffect.duration = 180;
             this.poisonEffect.damage = effectInfo.poison.damage;
+        }
+        if (effectInfo.slow) {
+            this.isSlowed = Math.max(this.isSlowed, effectInfo.slow);
         }
     }
 
@@ -1643,6 +1684,10 @@ export class Unit {
             return;
         }
 
+        if (this.isSlowed > 0) {
+            this.isSlowed -= gameManager.gameSpeed;
+        }
+
         if (this.awakeningEffect.active && this.awakeningEffect.stacks < 2) {
             this.awakeningEffect.timer += gameManager.gameSpeed;
             if (this.awakeningEffect.timer >= 300) {
@@ -1671,6 +1716,16 @@ export class Unit {
             this.takeDamage(this.poisonEffect.damage, { isTileDamage: true });
             if (this.poisonEffect.duration <= 0) {
                 this.poisonEffect.active = false;
+            }
+        }
+
+        if (this.weapon && this.weapon.type === 'ice_orb') {
+            if (this.iceOrbCharges < 5) {
+                this.iceOrbChargeTimer += gameManager.gameSpeed;
+                if (this.iceOrbChargeTimer >= 240) { // 4초
+                    this.iceOrbCharges++;
+                    this.iceOrbChargeTimer = 0;
+                }
             }
         }
         
@@ -2219,7 +2274,7 @@ export class Unit {
                 ctx.rotate(Math.PI / 4);
                 drawMagicDaggerIcon(ctx);
             } else if (this.weapon.type === 'axe') {
-                ctx.translate(GRID_SIZE * 0.8, -GRID_SIZE * 0.7);
+                ctx.translate(GRID_SIZE * 0.8, -GRID_SIZE * 0.7); // 도끼 위치 조정
                 ctx.rotate(Math.PI / 4);
                 ctx.scale(0.8, 0.8); // 20% 크기 감소
                 drawAxeIcon(ctx);
@@ -2345,7 +2400,7 @@ export class Unit {
             (this.weapon?.type === 'magic_spear' && this.magicCircleCooldown > 0) ||
             (this.weapon?.type === 'boomerang' && this.boomerangCooldown > 0) ||
             (this.weapon?.type === 'shuriken' && this.shurikenSkillCooldown > 0) ||
-            (this.isCasting && this.weapon?.type === 'poison_potion');
+            (this.weapon?.type === 'poison_potion' && this.isCasting);
 
         if (this.attackCooldown > 0 && !this.isCasting) {
             specialSkillIsVisible = false;
@@ -2409,6 +2464,9 @@ export class Unit {
                     } else {
                         progress = this.castingProgress; max = this.castDuration;
                     }
+                } else if (this.weapon?.type === 'ice_orb') {
+                    fgColor = '#38bdf8'; // 파란색
+                    progress = this.iceOrbCharges; max = 5;
                 }
                 
                 if (fgColor) {
@@ -2438,4 +2496,3 @@ export class Unit {
         }
     }
 }
-
