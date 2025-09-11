@@ -367,7 +367,10 @@ export class Nexus {
 export class Projectile {
     constructor(gameManager, owner, target, type = 'arrow', options = {}) {
         this.gameManager = gameManager;
-        this.owner = owner; this.pixelX = owner.pixelX; this.pixelY = owner.pixelY;
+        this.owner = owner;
+        // [수정] 발사체 생성 시 시작 위치를 옵션으로 지정할 수 있도록 변경
+        this.pixelX = options.startX !== undefined ? options.startX : owner.pixelX;
+        this.pixelY = options.startY !== undefined ? options.startY : owner.pixelY;
         this.type = type;
         
         if (type === 'hadoken') this.speed = 4;
