@@ -834,6 +834,28 @@ function drawAxeIcon(ctx) {
     ctx.restore();
 }
 
+// [신규] 얼음 구체 아이콘을 그리는 함수입니다.
+function drawIceOrbIcon(ctx) {
+    ctx.save();
+    ctx.shadowColor = 'rgba(56, 189, 248, 0.7)';
+    ctx.shadowBlur = 12;
+    
+    const grad = ctx.createRadialGradient(0, 0, 0, 0, 0, GRID_SIZE * 0.6);
+    grad.addColorStop(0, '#e0f2fe');
+    grad.addColorStop(0.6, '#7dd3fc');
+    grad.addColorStop(1, '#0ea5e9');
+
+    ctx.fillStyle = grad;
+    ctx.strokeStyle = '#0284c7';
+    ctx.lineWidth = 2;
+
+    ctx.beginPath();
+    ctx.arc(0, 0, GRID_SIZE * 0.6, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+    
+    ctx.restore();
+}
 
 
 export class MagicDaggerDashEffect {
@@ -1161,6 +1183,8 @@ export class Weapon {
         } else if (this.type === 'axe') {
             ctx.rotate(Math.PI / 4);
             drawAxeIcon(ctx);
+        } else if (this.type === 'ice_orb') {
+            drawIceOrbIcon(ctx);
         } else if (this.type === 'hadoken') {
             ctx.rotate(Math.PI / 4);
             const grad = ctx.createRadialGradient(0, 0, 1, 0, 0, GRID_SIZE * 1.2);
@@ -2231,7 +2255,7 @@ export class Unit {
                 rotation += ((30 - this.spinAnimationTimer) / 30) * Math.PI * 2;
             }
             
-            if (this.weapon.type !== 'lightning') {
+            if (this.weapon.type !== 'lightning' && this.weapon.type !== 'ice_orb') {
                 ctx.rotate(rotation);
             }
 
@@ -2336,6 +2360,17 @@ export class Unit {
                 ctx.translate(weaponX, weaponY);
                 this.weapon.drawLightning(ctx, 0.48, 0); 
                 ctx.restore();
+            } else if (this.weapon.type === 'ice_orb') {
+                for (let i = 0; i < this.iceOrbCharges; i++) {
+                    const angle = (gameManager.animationFrameCounter * 0.02) + (i * (Math.PI * 2 / 5));
+                    const orbitRadius = GRID_SIZE * 1.2;
+                    const orbX = Math.cos(angle) * orbitRadius;
+                    const orbY = Math.sin(angle) * orbitRadius;
+                    ctx.save();
+                    ctx.translate(orbX, orbY);
+                    drawIceOrbIcon(ctx);
+                    ctx.restore();
+                }
             } else if (this.weapon.type === 'magic_spear') {
                 ctx.translate(GRID_SIZE * 0.2, GRID_SIZE * 0.4);
                 this.weapon.drawMagicSpear(ctx, 0.5, -Math.PI / 8 + Math.PI);
@@ -2397,10 +2432,11 @@ export class Unit {
             (this.isKing && this.spawnCooldown > 0) ||
             (this.weapon?.type === 'magic_dagger' && this.magicDaggerSkillCooldown > 0) ||
             (this.weapon?.type === 'axe' && this.axeSkillCooldown > 0) ||
+            (this.weapon?.type === 'ice_orb' && this.iceOrbCharges > 0) ||
             (this.weapon?.type === 'magic_spear' && this.magicCircleCooldown > 0) ||
             (this.weapon?.type === 'boomerang' && this.boomerangCooldown > 0) ||
             (this.weapon?.type === 'shuriken' && this.shurikenSkillCooldown > 0) ||
-            (this.weapon?.type === 'poison_potion' && this.isCasting);
+            (this.isCasting && this.weapon?.type === 'poison_potion');
 
         if (this.attackCooldown > 0 && !this.isCasting) {
             specialSkillIsVisible = false;
@@ -2496,3 +2532,4 @@ export class Unit {
         }
     }
 }
+
