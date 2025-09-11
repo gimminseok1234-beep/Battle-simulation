@@ -256,6 +256,7 @@ export class GameManager {
                     <button class="tool-btn" data-tool="weapon" data-type="sword">검</button>
                     <button class="tool-btn" data-tool="weapon" data-type="axe">도끼</button>
                     <button class="tool-btn" data-tool="weapon" data-type="bow">활</button>
+                    <button class="tool-btn" data-tool="weapon" data-type="ice_orb">얼음 구체</button>
                     <button class="tool-btn" data-tool="weapon" data-type="dual_swords">쌍검</button>
                     <button class="tool-btn" data-tool="weapon" data-type="staff">스태프</button>
                     <button class="tool-btn" data-tool="weapon" data-type="lightning">번개</button>
@@ -1350,6 +1351,8 @@ export class GameManager {
                         const pullToX = p.owner.pixelX + Math.cos(p.owner.facingAngle) * GRID_SIZE;
                         const pullToY = p.owner.pixelY + Math.sin(p.owner.facingAngle) * GRID_SIZE;
                         unit.pullTargetPos = { x: pullToX, y: pullToY };
+                    } else if (p.type === 'ice_orb_projectile') {
+                        unit.takeDamage(p.damage, { slow: 120 });
                     } else {
                         const effectInfo = {
                             interrupt: p.type === 'hadoken',
@@ -1397,8 +1400,12 @@ export class GameManager {
             if (!hit) {
                 for (const nexus of this.nexuses) {
                     if (p.owner.team !== nexus.team && Math.hypot(p.pixelX - nexus.pixelX, p.pixelY - nexus.pixelY) < GRID_SIZE) {
-                        nexus.takeDamage(p.damage);
-                        if (p.type === 'hadoken') this.audioManager.play('hadokenHit');
+                        if (p.type === 'ice_orb_projectile') {
+                           nexus.takeDamage(p.damage);
+                        } else {
+                            nexus.takeDamage(p.damage);
+                            if (p.type === 'hadoken') this.audioManager.play('hadokenHit');
+                        }
                         hit = true;
                         break;
                     }
@@ -1668,6 +1675,10 @@ export class GameManager {
             weapon.attackPowerBonus = 10;
             weapon.attackRangeBonus = 5 * GRID_SIZE;
             weapon.detectionRangeBonus = 4 * GRID_SIZE;
+        } else if (type === 'ice_orb') {
+            weapon.attackPowerBonus = 8;
+            weapon.attackRangeBonus = 5 * GRID_SIZE;
+            weapon.detectionRangeBonus = 4 * GRID_SIZE;
         } else if (type === 'dual_swords') {
             weapon.attackPowerBonus = 3;
             weapon.speedBonus = 0.6;
@@ -1856,7 +1867,7 @@ export class GameManager {
     }
 
     spawnRandomWeaponNear(pos) {
-        const weaponTypes = ['sword', 'bow', 'dual_swords', 'staff', 'lightning', 'magic_spear', 'boomerang', 'poison_potion', 'magic_dagger', 'axe', 'hadoken', 'shuriken'];
+        const weaponTypes = ['sword', 'bow', 'dual_swords', 'staff', 'lightning', 'magic_spear', 'boomerang', 'poison_potion', 'magic_dagger', 'axe', 'hadoken', 'shuriken', 'ice_orb'];
         const randomType = weaponTypes[Math.floor(this.random() * weaponTypes.length)];
 
         for (let i = 0; i < 10; i++) {
@@ -2348,3 +2359,4 @@ export class GameManager {
         placementResetBtn.style.display = 'inline-block';
     }
 }
+
