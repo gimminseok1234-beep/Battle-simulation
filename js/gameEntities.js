@@ -351,6 +351,7 @@ export class Projectile {
         else if (type === 'lightning_bolt') this.speed = 8;
         else if (type === 'boomerang_projectile' || type === 'boomerang_normal_projectile') this.speed = 5;
         else if (type === 'ice_orb_projectile') this.speed = 5;
+        else if (type === 'ice_bolt_projectile') this.speed = 7;
         else this.speed = 6;
 
         this.damage = owner.attackPower;
@@ -550,6 +551,15 @@ export class Projectile {
             ctx.beginPath();
             ctx.arc(this.pixelX, this.pixelY, GRID_SIZE / 3.5, 0, Math.PI * 2);
             ctx.fill();
+        } else if (this.type === 'ice_bolt_projectile') {
+            ctx.save();
+            ctx.translate(this.pixelX, this.pixelY);
+            ctx.rotate(this.angle);
+            ctx.fillStyle = '#67e8f9';
+            ctx.beginPath();
+            ctx.arc(0, 0, GRID_SIZE / 4, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.restore();
         }
     }
 }
@@ -835,19 +845,20 @@ function drawAxeIcon(ctx) {
 }
 
 // [신규] 얼음 구체 아이콘을 그리는 함수입니다.
-function drawIceOrbIcon(ctx) {
+function drawIceOrbIcon(ctx, customScale = 1.0) {
     ctx.save();
+    ctx.scale(customScale, customScale);
     ctx.shadowColor = 'rgba(56, 189, 248, 0.7)';
-    ctx.shadowBlur = 12;
+    ctx.shadowBlur = 12 / customScale;
     
     const grad = ctx.createRadialGradient(0, 0, 0, 0, 0, GRID_SIZE * 0.6);
-    grad.addColorStop(0, '#e0f2fe');
+    grad.addColorStop(0, '#e0f2fe'); // 가장자리 (밝은 하늘색)
     grad.addColorStop(0.6, '#7dd3fc');
-    grad.addColorStop(1, '#0ea5e9');
+    grad.addColorStop(1, '#0ea5e9'); // 중앙 (진한 파란색)
 
     ctx.fillStyle = grad;
     ctx.strokeStyle = '#0284c7';
-    ctx.lineWidth = 2;
+    ctx.lineWidth = 2 / customScale;
 
     ctx.beginPath();
     ctx.arc(0, 0, GRID_SIZE * 0.6, 0, Math.PI * 2);
@@ -856,6 +867,7 @@ function drawIceOrbIcon(ctx) {
     
     ctx.restore();
 }
+
 
 
 export class MagicDaggerDashEffect {
@@ -1539,7 +1551,7 @@ export class Unit {
                     this.iceOrbCharges = 0;
                     this.iceOrbChargeTimer = 0;
                 } else { // 일반 공격
-                    gameManager.createProjectile(this, target, 'arrow'); // 임시로 화살 사용
+                    gameManager.createProjectile(this, target, 'ice_bolt_projectile');
                 }
                 this.attackCooldown = this.cooldownTime;
             } else if (this.weapon && this.weapon.type === 'shuriken') {
@@ -2361,6 +2373,8 @@ export class Unit {
                 this.weapon.drawLightning(ctx, 0.48, 0); 
                 ctx.restore();
             } else if (this.weapon.type === 'ice_orb') {
+                ctx.translate(GRID_SIZE * 0.6, 0);
+                drawIceOrbIcon(ctx, 0.6); // 장착 시 크기 60%
                 for (let i = 0; i < this.iceOrbCharges; i++) {
                     const angle = (gameManager.animationFrameCounter * 0.02) + (i * (Math.PI * 2 / 5));
                     const orbitRadius = GRID_SIZE * 1.2;
@@ -2368,7 +2382,7 @@ export class Unit {
                     const orbY = Math.sin(angle) * orbitRadius;
                     ctx.save();
                     ctx.translate(orbX, orbY);
-                    drawIceOrbIcon(ctx);
+                    drawIceOrbIcon(ctx, 0.5); // 맴도는 구체 크기 50%
                     ctx.restore();
                 }
             } else if (this.weapon.type === 'magic_spear') {
@@ -2432,7 +2446,7 @@ export class Unit {
             (this.isKing && this.spawnCooldown > 0) ||
             (this.weapon?.type === 'magic_dagger' && this.magicDaggerSkillCooldown > 0) ||
             (this.weapon?.type === 'axe' && this.axeSkillCooldown > 0) ||
-            (this.weapon?.type === 'ice_orb' && this.iceOrbCharges > 0) ||
+            (this.weapon?.type === 'ice_orb' && this.iceOrbChargeTimer > 0 && this.iceOrbCharges < 5) ||
             (this.weapon?.type === 'magic_spear' && this.magicCircleCooldown > 0) ||
             (this.weapon?.type === 'boomerang' && this.boomerangCooldown > 0) ||
             (this.weapon?.type === 'shuriken' && this.shurikenSkillCooldown > 0) ||
@@ -2502,7 +2516,7 @@ export class Unit {
                     }
                 } else if (this.weapon?.type === 'ice_orb') {
                     fgColor = '#38bdf8'; // 파란색
-                    progress = this.iceOrbCharges; max = 5;
+                    progress = this.iceOrbChargeTimer; max = 240;
                 }
                 
                 if (fgColor) {
