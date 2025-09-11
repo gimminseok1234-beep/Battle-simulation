@@ -67,7 +67,7 @@ function createPhysicalHitEffect(gameManager, target) {
  * @param {number} y 
  */
 export function createFireballHitEffect(gameManager, x, y) {
-    const particleCount = 30; // 더 화려한 효과를 위해 파티클 수 증가
+    const particleCount = 20; // 파티클 수를 20개로 줄임
     for (let i = 0; i < particleCount; i++) {
         const angle = gameManager.random() * Math.PI * 2;
         const speed = 1 + gameManager.random() * 4;
@@ -76,7 +76,7 @@ export function createFireballHitEffect(gameManager, x, y) {
             y: y,
             vx: Math.cos(angle) * speed,
             vy: Math.sin(angle) * speed,
-            life: 0.8, // 약간 더 오래 지속
+            life: 0.6, // 지속 시간 감소
             color: ['#ffcc00', '#ff9900', '#ff6600', '#ef4444'][Math.floor(gameManager.random() * 4)],
             size: gameManager.random() * 3 + 2,
             gravity: -0.05 // 불꽃처럼 위로 솟구치는 느낌
@@ -376,8 +376,8 @@ export class Projectile {
         else if (type === 'boomerang_projectile' || type === 'boomerang_normal_projectile') this.speed = 5;
         else if (type === 'ice_diamond_projectile') this.speed = 5;
         else if (type === 'ice_bolt_projectile') this.speed = 7;
-        else if (type === 'fireball_projectile') this.speed = 5; // 화염구 속도
-        else if (type === 'mini_fireball_projectile') this.speed = 8; // 미니 화염구 속도
+        else if (type === 'fireball_projectile') this.speed = 5; // Fireball speed
+        else if (type === 'mini_fireball_projectile') this.speed = 8; // Mini fireball speed
         else this.speed = 6;
 
         this.damage = owner.attackPower;
@@ -392,9 +392,9 @@ export class Projectile {
         } else if (type === 'ice_diamond_projectile') { // Special attack damage buff
             this.damage = 28;
         } else if (type === 'fireball_projectile') {
-            this.damage = 25; // 화염구 데미지
+            this.damage = 25; // Fireball damage
         } else if (type === 'mini_fireball_projectile') {
-            this.damage = 8;  // 미니 화염구 데미지
+            this.damage = 8;  // Mini fireball damage
         }
 
 
