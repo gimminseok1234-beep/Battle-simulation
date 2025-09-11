@@ -1815,7 +1815,7 @@ export class GameManager {
     }
 
     spawnRandomWeaponNear(pos) {
-        const weaponTypes = ['sword', 'bow', 'dual_swords', 'staff', 'lightning', 'magic_spear', 'boomerang', 'poison_potion', 'magic_dagger', 'hadoken', 'shuriken'];
+        const weaponTypes = ['sword', 'bow', 'dual_swords', 'staff', 'lightning', 'magic_spear', 'boomerang', 'poison_potion', 'magic_dagger', 'axe', 'hadoken', 'shuriken'];
         const randomType = weaponTypes[Math.floor(this.random() * weaponTypes.length)];
 
         for (let i = 0; i < 10; i++) {
@@ -2307,3 +2307,4 @@ export class GameManager {
         placementResetBtn.style.display = 'inline-block';
     }
 }
+
