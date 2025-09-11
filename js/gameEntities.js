@@ -774,7 +774,7 @@ function drawMagicDaggerIcon(ctx) {
 function drawAxeIcon(ctx) {
     ctx.save();
     
-    const scale = GRID_SIZE * 0.07;
+    const scale = GRID_SIZE * 0.08; // 크기 키움
 
     // --- 손잡이 (Handle) ---
     ctx.fillStyle = '#1f2937'; // 검은색
@@ -788,7 +788,7 @@ function drawAxeIcon(ctx) {
     ctx.strokeRect(handleX, handleY, handleWidth, handleHeight);
 
     // --- 도끼날 (Blade) ---
-    const bladeGradient = ctx.createLinearGradient(-8 * scale, 0, 8 * scale, 0);
+    const bladeGradient = ctx.createLinearGradient(-12 * scale, 0, 12 * scale, 0); // 그라데이션 범위 확장
     bladeGradient.addColorStop(0, '#d1d5db'); // 밝은 은색
     bladeGradient.addColorStop(0.5, '#f9fafb'); // 하이라이트
     bladeGradient.addColorStop(1, '#9ca3af'); // 어두운 은색
@@ -797,24 +797,25 @@ function drawAxeIcon(ctx) {
     
     // 왼쪽 날
     ctx.beginPath();
-    ctx.moveTo(0, -4 * scale);
-    ctx.quadraticCurveTo(-12 * scale, 0, 0, 4 * scale);
-    ctx.quadraticCurveTo(-5 * scale, 0, 0, -4 * scale);
+    ctx.moveTo(0, -6 * scale); // 높이 키움
+    ctx.quadraticCurveTo(-16 * scale, 0, 0, 6 * scale); // 너비와 곡률 키움
+    ctx.quadraticCurveTo(-7 * scale, 0, 0, -6 * scale);
     ctx.closePath();
     ctx.fill();
     ctx.stroke();
 
     // 오른쪽 날
     ctx.beginPath();
-    ctx.moveTo(0, -4 * scale);
-    ctx.quadraticCurveTo(12 * scale, 0, 0, 4 * scale);
-    ctx.quadraticCurveTo(5 * scale, 0, 0, -4 * scale);
+    ctx.moveTo(0, -6 * scale);
+    ctx.quadraticCurveTo(16 * scale, 0, 0, 6 * scale);
+    ctx.quadraticCurveTo(7 * scale, 0, 0, -6 * scale);
     ctx.closePath();
     ctx.fill();
     ctx.stroke();
 
     ctx.restore();
 }
+
 
 
 export class MagicDaggerDashEffect {
@@ -1211,7 +1212,7 @@ export class Unit {
         this.isCasting = false; this.castingProgress = 0; this.castTargetPos = null;
         this.castDuration = 180; 
         this.teleportCooldown = 0;
-        this.isKing = false; this.spawnCooldown = 0; this.spawnInterval = 600;
+        this.isKing = false; this.spawnCooldown = 0; this.spawnInterval = 720;
         this.knockbackX = 0; this.knockbackY = 0;
         this.isInMagneticField = false;
         this.evasionCooldown = 0; 
@@ -2436,4 +2437,5 @@ export class Unit {
         }
     }
 }
+
 
