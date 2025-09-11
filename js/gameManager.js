@@ -935,8 +935,10 @@ export class GameManager {
     
     startSimulation() {
         if (this.state !== 'EDIT') return;
-        
-        this.simulationSeed = Date.now();
+
+        if (!this.isReplayMode) {
+            this.simulationSeed = Date.now();
+        }
         this.prng = new SeededRandom(this.simulationSeed);
         
         this.usedNametagsInSim.clear();
@@ -1007,6 +1009,12 @@ export class GameManager {
             }
             console.warn("배치 초기화를 하려면 먼저 시뮬레이션을 한 번 시작해야 합니다.");
             return;
+        }
+
+        if (this.simulationSeed) {
+            this.prng = new SeededRandom(this.simulationSeed);
+        } else {
+            this.prng = new SeededRandom(Date.now());
         }
 
         cancelAnimationFrame(this.animationFrameId);
@@ -2340,4 +2348,3 @@ export class GameManager {
         placementResetBtn.style.display = 'inline-block';
     }
 }
-
