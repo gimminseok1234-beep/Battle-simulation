@@ -254,6 +254,7 @@ export class GameManager {
             <div id="category-weapons" class="category-content collapsed">
                 <div class="overflow-y-auto max-h-60 pr-2">
                     <button class="tool-btn" data-tool="weapon" data-type="sword">검</button>
+                    <button class="tool-btn" data-tool="weapon" data-type="axe">도끼</button>
                     <button class="tool-btn" data-tool="weapon" data-type="bow">활</button>
                     <button class="tool-btn" data-tool="weapon" data-type="dual_swords">쌍검</button>
                     <button class="tool-btn" data-tool="weapon" data-type="staff">스태프</button>
@@ -262,7 +263,6 @@ export class GameManager {
                     <button class="tool-btn" data-tool="weapon" data-type="boomerang">부메랑</button>
                     <button class="tool-btn" data-tool="weapon" data-type="poison_potion">독 포션</button>
                     <button class="tool-btn" data-tool="weapon" data-type="magic_dagger">마법 단검</button>
-                    <button class="tool-btn" data-tool="weapon" data-type="axe">도끼</button>
                     <div class="flex items-center gap-1">
                         <button class="tool-btn flex-grow" data-tool="weapon" data-type="hadoken">장풍</button>
                         <button id="hadokenSettingsBtn" class="p-2 rounded hover:bg-gray-600">⚙️</button>
@@ -319,10 +319,39 @@ export class GameManager {
             }
         }
 
-        const plainUnits = this.units.map(u => ({...u, weapon: u.weapon ? {type: u.weapon.type, ...u.weapon} : null}));
-        const plainWeapons = this.weapons.map(w => ({...w}));
-        const plainNexuses = this.nexuses.map(n => ({...n}));
-        const plainGrowingFields = this.growingFields.map(f => ({...f}));
+        const plainUnits = this.units.map(u => ({
+            gridX: u.gridX,
+            gridY: u.gridY,
+            team: u.team,
+            hp: u.hp,
+            isKing: u.isKing,
+            name: u.name,
+            weapon: u.weapon ? { type: u.weapon.type } : null
+        }));
+        
+        const plainWeapons = this.weapons.map(w => ({
+            gridX: w.gridX,
+            gridY: w.gridY,
+            type: w.type
+        }));
+        
+        const plainNexuses = this.nexuses.map(n => ({
+            gridX: n.gridX,
+            gridY: n.gridY,
+            team: n.team,
+            hp: n.hp
+        }));
+        
+        const plainGrowingFields = this.growingFields.map(f => ({
+            id: f.id,
+            gridX: f.gridX,
+            gridY: f.gridY,
+            width: f.width,
+            height: f.height,
+            direction: f.direction,
+            totalFrames: f.totalFrames,
+            delay: f.delay
+        }));
 
         const mapData = {
             name: this.currentMapName,
@@ -912,6 +941,7 @@ export class GameManager {
         
         this.usedNametagsInSim.clear();
 
+        // 이름표 기능이 활성화된 경우에만 이름을 할당합니다.
         if (this.isNametagEnabled && this.nametagList.length > 0) {
             this.units.forEach(unit => unit.name = '');
 
@@ -923,6 +953,9 @@ export class GameManager {
                 this.units[i].name = shuffledNames[i];
                 this.usedNametagsInSim.add(shuffledNames[i]);
             }
+        } else {
+            // 비활성화 시 모든 유닛의 이름을 지웁니다.
+            this.units.forEach(unit => unit.name = '');
         }
 
         const cleanDataForJSON = (obj) => {
