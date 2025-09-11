@@ -262,6 +262,7 @@ export class GameManager {
                     <button class="tool-btn" data-tool="weapon" data-type="boomerang">부메랑</button>
                     <button class="tool-btn" data-tool="weapon" data-type="poison_potion">독 포션</button>
                     <button class="tool-btn" data-tool="weapon" data-type="magic_dagger">마법 단검</button>
+                    <button class="tool-btn" data-tool="weapon" data-type="axe">도끼</button>
                     <div class="flex items-center gap-1">
                         <button class="tool-btn flex-grow" data-tool="weapon" data-type="hadoken">장풍</button>
                         <button id="hadokenSettingsBtn" class="p-2 rounded hover:bg-gray-600">⚙️</button>
@@ -1660,6 +1661,9 @@ export class GameManager {
             weapon.attackPowerBonus = 10;
         } else if (type === 'magic_dagger') {
             weapon.attackPowerBonus = 12;
+        } else if (type === 'axe') {
+            weapon.attackPowerBonus = 18;
+            weapon.attackRangeBonus = -0.2 * GRID_SIZE;
         } else if (type === 'crown') {
             weapon.attackPowerBonus = 5;
         }
@@ -2303,4 +2307,3 @@ export class GameManager {
         placementResetBtn.style.display = 'inline-block';
     }
 }
-
