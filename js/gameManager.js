@@ -1,6 +1,6 @@
 import { getFirestore, collection, doc, getDoc, getDocs, setDoc, deleteDoc, query, where } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 import { AudioManager } from './audioManager.js';
-import { Unit, Weapon, Nexus, Projectile, AreaEffect, Effect, GrowingMagneticField, MagicCircle, PoisonCloud, Particle, MagicDaggerDashEffect } from './gameEntities.js';
+import { Unit, Weapon, Nexus, Projectile, AreaEffect, Effect, GrowingMagneticField, MagicCircle, PoisonCloud, Particle, MagicDaggerDashEffect, createFireballHitEffect } from './gameEntities.js';
 import { TILE, TEAM, COLORS, GRID_SIZE } from './constants.js';
 import { localMaps } from './maps/index.js';
 
@@ -258,7 +258,7 @@ export class GameManager {
                     <button class="tool-btn" data-tool="weapon" data-type="bow">활</button>
                     <button class="tool-btn" data-tool="weapon" data-type="ice_diamond">얼음 다이아</button>
                     <button class="tool-btn" data-tool="weapon" data-type="dual_swords">쌍검</button>
-                    <button class="tool-btn" data-tool="weapon" data-type="staff">스태프</button>
+                    <button class="tool-btn" data-tool="weapon" data-type="fire_staff">불 지팡이</button>
                     <button class="tool-btn" data-tool="weapon" data-type="lightning">번개</button>
                     <button class="tool-btn" data-tool="weapon" data-type="magic_spear">마법창</button>
                     <button class="tool-btn" data-tool="weapon" data-type="boomerang">부메랑</button>
@@ -1353,6 +1353,19 @@ export class GameManager {
                         unit.pullTargetPos = { x: pullToX, y: pullToY };
                     } else if (p.type === 'ice_diamond_projectile') {
                         unit.takeDamage(p.damage, { slow: 120 });
+                    } else if (p.type === 'fireball_projectile') {
+                        unit.takeDamage(p.damage);
+                        createFireballHitEffect(this, p.pixelX, p.pixelY);
+                        p.destroyed = true;
+                        // 십자 방향으로 미니 화염구 발사
+                        for (let j = 0; j < 4; j++) {
+                            const angle = j * Math.PI / 2;
+                            const dummyTarget = {
+                                pixelX: p.pixelX + Math.cos(angle) * 100,
+                                pixelY: p.pixelY + Math.sin(angle) * 100
+                            };
+                            this.createProjectile(p.owner, dummyTarget, 'mini_fireball_projectile', { angle });
+                        }
                     } else {
                         const effectInfo = {
                             interrupt: p.type === 'hadoken',
@@ -1391,7 +1404,7 @@ export class GameManager {
                         }
                     }
         
-                    if (p.type !== 'lightning_bolt') {
+                    if (p.type !== 'lightning_bolt' && p.type !== 'fireball_projectile') {
                         break;
                     }
                 }
@@ -1402,6 +1415,18 @@ export class GameManager {
                     if (p.owner.team !== nexus.team && Math.hypot(p.pixelX - nexus.pixelX, p.pixelY - nexus.pixelY) < GRID_SIZE) {
                         if (p.type === 'ice_diamond_projectile') {
                            nexus.takeDamage(p.damage);
+                        } else if (p.type === 'fireball_projectile') {
+                            nexus.takeDamage(p.damage);
+                            createFireballHitEffect(this, p.pixelX, p.pixelY);
+                            // 십자 방향으로 미니 화염구 발사
+                            for (let j = 0; j < 4; j++) {
+                                const angle = j * Math.PI / 2;
+                                 const dummyTarget = {
+                                    pixelX: p.pixelX + Math.cos(angle) * 100,
+                                    pixelY: p.pixelY + Math.sin(angle) * 100
+                                };
+                                this.createProjectile(p.owner, dummyTarget, 'mini_fireball_projectile', { angle });
+                            }
                         } else {
                             nexus.takeDamage(p.damage);
                             if (p.type === 'hadoken') this.audioManager.play('hadokenHit');
@@ -1683,7 +1708,7 @@ export class GameManager {
             weapon.attackPowerBonus = 3;
             weapon.speedBonus = 0.6;
             weapon.attackCooldownBonus = -40;
-        } else if (type === 'staff') {
+        } else if (type === 'fire_staff') { // 'staff'를 'fire_staff'로 변경
             weapon.attackPowerBonus = 25;
             weapon.attackRangeBonus = 6 * GRID_SIZE;
             weapon.detectionRangeBonus = 2 * GRID_SIZE;
@@ -1867,7 +1892,7 @@ export class GameManager {
     }
 
     spawnRandomWeaponNear(pos) {
-        const weaponTypes = ['sword', 'bow', 'dual_swords', 'staff', 'lightning', 'magic_spear', 'boomerang', 'poison_potion', 'magic_dagger', 'axe', 'hadoken', 'shuriken', 'ice_diamond'];
+        const weaponTypes = ['sword', 'bow', 'dual_swords', 'fire_staff', 'lightning', 'magic_spear', 'boomerang', 'poison_potion', 'magic_dagger', 'axe', 'hadoken', 'shuriken', 'ice_diamond']; // 'staff'를 'fire_staff'로 변경
         const randomType = weaponTypes[Math.floor(this.random() * weaponTypes.length)];
 
         for (let i = 0; i < 10; i++) {
