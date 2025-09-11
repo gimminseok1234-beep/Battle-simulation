@@ -1355,14 +1355,14 @@ export class GameManager {
                         unit.takeDamage(p.damage, { slow: 120 });
                     } else if (p.type === 'fireball_projectile') {
                         unit.takeDamage(p.damage);
-                        createFireballHitEffect(this, p.pixelX, p.pixelY);
+                        createFireballHitEffect(this, unit.pixelX, unit.pixelY); // 명중한 유닛의 위치에서 이펙트 생성
                         p.destroyed = true;
-                        // 십자 방향으로 미니 화염구 발사
+                        // 명중한 유닛의 위치에서 미니 화염구 발사
                         for (let j = 0; j < 4; j++) {
                             const angle = j * Math.PI / 2;
                             const dummyTarget = {
-                                pixelX: p.pixelX + Math.cos(angle) * 100,
-                                pixelY: p.pixelY + Math.sin(angle) * 100
+                                pixelX: unit.pixelX + Math.cos(angle) * 100,
+                                pixelY: unit.pixelY + Math.sin(angle) * 100
                             };
                             this.createProjectile(p.owner, dummyTarget, 'mini_fireball_projectile', { angle });
                         }
@@ -1417,13 +1417,14 @@ export class GameManager {
                            nexus.takeDamage(p.damage);
                         } else if (p.type === 'fireball_projectile') {
                             nexus.takeDamage(p.damage);
-                            createFireballHitEffect(this, p.pixelX, p.pixelY);
-                            // 십자 방향으로 미니 화염구 발사
+                            createFireballHitEffect(this, nexus.pixelX, nexus.pixelY); // 명중한 넥서스의 위치에서 이펙트 생성
+                            p.destroyed = true;
+                            // 명중한 넥서스의 위치에서 미니 화염구 발사
                             for (let j = 0; j < 4; j++) {
                                 const angle = j * Math.PI / 2;
                                  const dummyTarget = {
-                                    pixelX: p.pixelX + Math.cos(angle) * 100,
-                                    pixelY: p.pixelY + Math.sin(angle) * 100
+                                    pixelX: nexus.pixelX + Math.cos(angle) * 100,
+                                    pixelY: nexus.pixelY + Math.sin(angle) * 100
                                 };
                                 this.createProjectile(p.owner, dummyTarget, 'mini_fireball_projectile', { angle });
                             }
@@ -1438,6 +1439,9 @@ export class GameManager {
             }
         
             if (hit || p.pixelX < 0 || p.pixelX > this.canvas.width || p.pixelY < 0 || p.pixelY > this.canvas.height) {
+                if (p.type === 'fireball_projectile' && !hit) { // 화염구가 벽이나 화면 밖으로 나갔을 때
+                    createFireballHitEffect(this, p.pixelX, p.pixelY);
+                }
                 p.destroyed = true;
             }
         }
