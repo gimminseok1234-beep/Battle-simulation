@@ -1357,14 +1357,18 @@ export class GameManager {
                         unit.takeDamage(p.damage);
                         createFireballHitEffect(this, unit.pixelX, unit.pixelY); // 명중한 유닛의 위치에서 이펙트 생성
                         p.destroyed = true;
-                        // 명중한 유닛의 위치에서 미니 화염구 발사
+                        // [수정] 명중한 유닛의 위치에서 미니 화염구를 발사하도록 시작 위치(startX, startY)를 전달합니다.
                         for (let j = 0; j < 4; j++) {
                             const angle = j * Math.PI / 2;
                             const dummyTarget = {
                                 pixelX: unit.pixelX + Math.cos(angle) * 100,
                                 pixelY: unit.pixelY + Math.sin(angle) * 100
                             };
-                            this.createProjectile(p.owner, dummyTarget, 'mini_fireball_projectile', { angle });
+                            this.createProjectile(p.owner, dummyTarget, 'mini_fireball_projectile', { 
+                                angle: angle,
+                                startX: unit.pixelX,
+                                startY: unit.pixelY
+                             });
                         }
                     } else {
                         const effectInfo = {
@@ -1419,14 +1423,18 @@ export class GameManager {
                             nexus.takeDamage(p.damage);
                             createFireballHitEffect(this, nexus.pixelX, nexus.pixelY); // 명중한 넥서스의 위치에서 이펙트 생성
                             p.destroyed = true;
-                            // 명중한 넥서스의 위치에서 미니 화염구 발사
+                            // [수정] 명중한 넥서스의 위치에서 미니 화염구를 발사하도록 시작 위치(startX, startY)를 전달합니다.
                             for (let j = 0; j < 4; j++) {
                                 const angle = j * Math.PI / 2;
                                  const dummyTarget = {
                                     pixelX: nexus.pixelX + Math.cos(angle) * 100,
                                     pixelY: nexus.pixelY + Math.sin(angle) * 100
                                 };
-                                this.createProjectile(p.owner, dummyTarget, 'mini_fireball_projectile', { angle });
+                                this.createProjectile(p.owner, dummyTarget, 'mini_fireball_projectile', { 
+                                    angle: angle,
+                                    startX: nexus.pixelX,
+                                    startY: nexus.pixelY
+                                });
                             }
                         } else {
                             nexus.takeDamage(p.damage);
