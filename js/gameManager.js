@@ -1355,9 +1355,10 @@ export class GameManager {
                         unit.takeDamage(p.damage, { slow: 120 });
                     } else if (p.type === 'fireball_projectile') {
                         unit.takeDamage(p.damage);
-                        createFireballHitEffect(this, unit.pixelX, unit.pixelY); // 명중한 유닛의 위치에서 이펙트 생성
+                        createFireballHitEffect(this, unit.pixelX, unit.pixelY);
                         p.destroyed = true;
-                        // [수정] 명중한 유닛의 위치에서 미니 화염구를 발사하도록 시작 위치(startX, startY)를 전달합니다.
+                        
+                        const initialHitTargets = new Set([unit]);
                         for (let j = 0; j < 4; j++) {
                             const angle = j * Math.PI / 2;
                             const dummyTarget = {
@@ -1367,7 +1368,8 @@ export class GameManager {
                             this.createProjectile(p.owner, dummyTarget, 'mini_fireball_projectile', { 
                                 angle: angle,
                                 startX: unit.pixelX,
-                                startY: unit.pixelY
+                                startY: unit.pixelY,
+                                hitTargets: initialHitTargets
                              });
                         }
                     } else {
@@ -1421,9 +1423,10 @@ export class GameManager {
                            nexus.takeDamage(p.damage);
                         } else if (p.type === 'fireball_projectile') {
                             nexus.takeDamage(p.damage);
-                            createFireballHitEffect(this, nexus.pixelX, nexus.pixelY); // 명중한 넥서스의 위치에서 이펙트 생성
+                            createFireballHitEffect(this, nexus.pixelX, nexus.pixelY);
                             p.destroyed = true;
-                            // [수정] 명중한 넥서스의 위치에서 미니 화염구를 발사하도록 시작 위치(startX, startY)를 전달합니다.
+                            
+                            const initialHitTargets = new Set([nexus]);
                             for (let j = 0; j < 4; j++) {
                                 const angle = j * Math.PI / 2;
                                  const dummyTarget = {
@@ -1433,7 +1436,8 @@ export class GameManager {
                                 this.createProjectile(p.owner, dummyTarget, 'mini_fireball_projectile', { 
                                     angle: angle,
                                     startX: nexus.pixelX,
-                                    startY: nexus.pixelY
+                                    startY: nexus.pixelY,
+                                    hitTargets: initialHitTargets
                                 });
                             }
                         } else {
