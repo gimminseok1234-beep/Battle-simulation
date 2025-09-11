@@ -2219,8 +2219,9 @@ export class Unit {
                 ctx.rotate(Math.PI / 4);
                 drawMagicDaggerIcon(ctx);
             } else if (this.weapon.type === 'axe') {
-                ctx.translate(GRID_SIZE * 0.8, -GRID_SIZE * 0.7); // 도끼 위치 조정
+                ctx.translate(GRID_SIZE * 0.8, -GRID_SIZE * 0.7);
                 ctx.rotate(Math.PI / 4);
+                ctx.scale(0.8, 0.8); // 20% 크기 감소
                 drawAxeIcon(ctx);
             } else if (this.weapon.type === 'bow') {
                 ctx.translate(GRID_SIZE * 0.4, 0);
