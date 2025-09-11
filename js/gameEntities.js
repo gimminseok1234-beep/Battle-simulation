@@ -594,10 +594,13 @@ export class Projectile {
             ctx.save();
             ctx.translate(this.pixelX, this.pixelY);
             ctx.rotate(this.angle);
-            ctx.fillStyle = '#67e8f9';
+            ctx.fillStyle = '#000000'; // 색상을 검은색으로 변경
+            ctx.strokeStyle = '#FFFFFF'; // 흰색 테두리 추가
+            ctx.lineWidth = 1;
             ctx.beginPath();
             ctx.arc(0, 0, GRID_SIZE / 4, 0, Math.PI * 2);
             ctx.fill();
+            ctx.stroke(); // 테두리 그리기
             ctx.restore();
         }
     }
