@@ -369,7 +369,6 @@ export class Projectile {
     constructor(gameManager, owner, target, type = 'arrow', options = {}) {
         this.gameManager = gameManager;
         this.owner = owner;
-        // [수정] 발사체 생성 시 시작 위치를 옵션으로 지정할 수 있도록 변경
         this.pixelX = options.startX !== undefined ? options.startX : owner.pixelX;
         this.pixelY = options.startY !== undefined ? options.startY : owner.pixelY;
         this.type = type;
@@ -380,8 +379,8 @@ export class Projectile {
         else if (type === 'boomerang_projectile' || type === 'boomerang_normal_projectile') this.speed = 5;
         else if (type === 'ice_diamond_projectile') this.speed = 5;
         else if (type === 'ice_bolt_projectile') this.speed = 7;
-        else if (type === 'fireball_projectile') this.speed = 5; // Fireball speed
-        else if (type === 'mini_fireball_projectile') this.speed = 8; // Mini fireball speed
+        else if (type === 'fireball_projectile') this.speed = 5;
+        else if (type === 'mini_fireball_projectile') this.speed = 8;
         else this.speed = 6;
 
         this.damage = owner.attackPower;
@@ -393,12 +392,12 @@ export class Projectile {
             this.damage = 0;
         } else if (type === 'boomerang_normal_projectile') {
             this.damage = 12;
-        } else if (type === 'ice_diamond_projectile') { // Special attack damage buff
+        } else if (type === 'ice_diamond_projectile') {
             this.damage = 28;
         } else if (type === 'fireball_projectile') {
-            this.damage = 25; // Fireball damage
+            this.damage = 25;
         } else if (type === 'mini_fireball_projectile') {
-            this.damage = 8;  // Mini fireball damage
+            this.damage = 8;
         }
 
 
@@ -421,27 +420,20 @@ export class Projectile {
         const gameManager = this.gameManager;
         if (!gameManager) return;
         
-        if (this.type === 'hadoken' || this.type === 'lightning_bolt' || this.type.startsWith('magic_spear') || this.type === 'ice_diamond_projectile' || this.type === 'fireball_projectile' || this.type === 'mini_fireball_projectile') {
+        if (['hadoken', 'lightning_bolt', 'magic_spear', 'ice_diamond_projectile', 'fireball_projectile', 'mini_fireball_projectile'].some(t => this.type.startsWith(t))) {
             this.trail.push({x: this.pixelX, y: this.pixelY});
             if (this.trail.length > 10) this.trail.shift();
         }
-        if (this.type === 'shuriken' || this.type === 'boomerang_projectile' || this.type === 'boomerang_normal_projectile') {
+        if (this.type.includes('shuriken') || this.type.includes('boomerang')) {
             this.rotationAngle += 0.4 * gameManager.gameSpeed;
         }
 
-        // Added particle logic
-        if (this.type === 'ice_diamond_projectile') {
-            if (this.gameManager.random() > 0.4) {
-                this.gameManager.addParticle({
-                    x: this.pixelX,
-                    y: this.pixelY,
-                    vx: (this.gameManager.random() - 0.5) * 1,
-                    vy: (this.gameManager.random() - 0.5) * 1,
-                    life: 0.6,
-                    color: '#3b82f6', // Blue particle
-                    size: this.gameManager.random() * 2 + 1,
-                });
-            }
+        if (this.type === 'ice_diamond_projectile' && gameManager.random() > 0.4) {
+            gameManager.addParticle({
+                x: this.pixelX, y: this.pixelY,
+                vx: (gameManager.random() - 0.5) * 1, vy: (gameManager.random() - 0.5) * 1,
+                life: 0.6, color: '#3b82f6', size: gameManager.random() * 2 + 1,
+            });
         }
 
         const nextX = this.pixelX + Math.cos(this.angle) * gameManager.gameSpeed * this.speed;
@@ -585,8 +577,7 @@ export class Projectile {
             ctx.rotate(this.rotationAngle);
             this.owner.weapon.drawBoomerang(ctx, 0.3, 0, '#18181b');
             ctx.restore();
-        } else if (this.type === 'ice_diamond_projectile') { // Name and drawing logic changed
-            // Trail effect
+        } else if (this.type === 'ice_diamond_projectile') {
             for (let i = 0; i < this.trail.length; i++) {
                 const pos = this.trail[i];
                 const alpha = (i / this.trail.length) * 0.5;
@@ -595,15 +586,11 @@ export class Projectile {
                 ctx.arc(pos.x, pos.y, (GRID_SIZE / 2.5) * (i / this.trail.length), 0, Math.PI * 2);
                 ctx.fill();
             }
-            
-            // Diamond projectile
             ctx.save();
             ctx.translate(this.pixelX, this.pixelY);
-            ctx.rotate(this.angle); // Point forward
+            ctx.rotate(this.angle);
             
-            const size = GRID_SIZE * 0.6; // Size adjustment
-            
-            // Add gradient for 3D effect
+            const size = GRID_SIZE * 0.6;
             const grad = ctx.createLinearGradient(-size, -size, size, size);
             grad.addColorStop(0, '#e0f2fe');
             grad.addColorStop(0.5, '#7dd3fc');
@@ -614,10 +601,10 @@ export class Projectile {
             ctx.lineWidth = 2;
 
             ctx.beginPath();
-            ctx.moveTo(size * 0.8, 0); // Front point
-            ctx.lineTo(0, -size * 0.6); // Top-left
-            ctx.lineTo(-size * 0.8, 0); // Back point
-            ctx.lineTo(0, size * 0.6); // Bottom-left
+            ctx.moveTo(size * 0.8, 0);
+            ctx.lineTo(0, -size * 0.6);
+            ctx.lineTo(-size * 0.8, 0);
+            ctx.lineTo(0, size * 0.6);
             ctx.closePath();
             
             ctx.fill();
@@ -628,17 +615,16 @@ export class Projectile {
             ctx.save();
             ctx.translate(this.pixelX, this.pixelY);
             ctx.rotate(this.angle);
-            ctx.fillStyle = '#000000'; // Changed color to black
-            ctx.strokeStyle = '#FFFFFF'; // Added white border
+            ctx.fillStyle = '#000000';
+            ctx.strokeStyle = '#FFFFFF';
             ctx.lineWidth = 1;
             ctx.beginPath();
             ctx.arc(0, 0, GRID_SIZE / 4, 0, Math.PI * 2);
             ctx.fill();
-            ctx.stroke(); // Draw border
+            ctx.stroke();
             ctx.restore();
         } else if (this.type === 'fireball_projectile' || this.type === 'mini_fireball_projectile') {
             const size = this.type === 'fireball_projectile' ? GRID_SIZE / 2.5 : GRID_SIZE / 4;
-            // Trail effect
             for (let i = 0; i < this.trail.length; i++) {
                 const pos = this.trail[i];
                 const alpha = (i / this.trail.length) * 0.4;
@@ -647,7 +633,6 @@ export class Projectile {
                 ctx.arc(pos.x, pos.y, size * (i / this.trail.length), 0, Math.PI * 2);
                 ctx.fill();
             }
-            // Fireball core
             const grad = ctx.createRadialGradient(this.pixelX, this.pixelY, size * 0.2, this.pixelX, this.pixelY, size);
             grad.addColorStop(0, '#ffff99');
             grad.addColorStop(0.6, '#ff9900');
@@ -961,10 +946,10 @@ export class Unit {
     get attackRange() { return this.baseAttackRange + (this.weapon ? this.weapon.attackRangeBonus || 0 : 0); }
     get detectionRange() { return this.baseDetectionRange + (this.weapon ? this.weapon.detectionRangeBonus || 0 : 0); }
     get cooldownTime() { 
-        if (this.weapon && this.weapon.type === 'fire_staff') return 120; // 'staff'를 'fire_staff'로 변경
+        if (this.weapon && this.weapon.type === 'fire_staff') return 120;
         if (this.weapon && this.weapon.type === 'hadoken') return 120;
-        if (this.weapon && this.weapon.type === 'axe') return 120; // 2 seconds
-        if (this.weapon && this.weapon.type === 'ice_diamond') return 180; // 3 seconds
+        if (this.weapon && this.weapon.type === 'axe') return 120;
+        if (this.weapon && this.weapon.type === 'ice_diamond') return 180;
         return this.baseCooldownTime + (this.weapon ? this.weapon.attackCooldownBonus || 0 : 0); 
     }
 
@@ -1148,7 +1133,6 @@ export class Unit {
             }
         }
     }
-
 
     takeDamage(damage, effectInfo = {}) {
         const gameManager = this.gameManager;
@@ -1920,3 +1904,4 @@ export class Unit {
 
 // Re-export Weapon to keep other modules working
 export { Weapon };
+
