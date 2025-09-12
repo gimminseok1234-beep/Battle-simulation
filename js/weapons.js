@@ -226,13 +226,21 @@ export class Weapon {
             }
         } else if (this.type === 'shuriken') {
             if (unit.shurikenSkillCooldown <= 0) {
+                // --- MODIFIED: Special Attack Logic ---
                 const angleToTarget = Math.atan2(target.pixelY - unit.pixelY, target.pixelX - unit.pixelX);
                 const spread = 0.3;
-                gameManager.createProjectile(unit, target, 'shuriken', { angle: angleToTarget - spread });
-                gameManager.createProjectile(unit, target, 'shuriken', { angle: angleToTarget });
-                gameManager.createProjectile(unit, target, 'shuriken', { angle: angleToTarget + spread });
-                unit.shurikenSkillCooldown = 300;
+                const angles = [angleToTarget - spread, angleToTarget, angleToTarget + spread];
+                
+                angles.forEach(angle => {
+                    gameManager.createProjectile(unit, target, 'returning_shuriken', {
+                        angle: angle,
+                        state: 'MOVING_OUT',
+                        maxDistance: GRID_SIZE * 6 // Flies out 6 tiles
+                    });
+                });
+                unit.shurikenSkillCooldown = 480; // 8 second cooldown for the powerful new skill
             } else {
+                // Normal attack
                 gameManager.createProjectile(unit, target, 'shuriken');
             }
             gameManager.audioManager.play('shurikenShoot');
@@ -767,3 +775,4 @@ export class Weapon {
         ctx.restore();
     }
 }
+
