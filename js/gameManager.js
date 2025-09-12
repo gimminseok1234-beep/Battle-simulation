@@ -944,7 +944,6 @@ export class GameManager {
         
         this.usedNametagsInSim.clear();
 
-        // Assign names only if the nametag feature is enabled.
         if (this.isNametagEnabled && this.nametagList.length > 0) {
             this.units.forEach(unit => unit.name = '');
 
@@ -957,7 +956,6 @@ export class GameManager {
                 this.usedNametagsInSim.add(shuffledNames[i]);
             }
         } else {
-            // Clear all unit names if disabled.
             this.units.forEach(unit => unit.name = '');
         }
 
@@ -1451,7 +1449,7 @@ export class GameManager {
             }
         
             if (hit || p.pixelX < 0 || p.pixelX > this.canvas.width || p.pixelY < 0 || p.pixelY > this.canvas.height) {
-                if (p.type === 'fireball_projectile' && !hit) { // 화염구가 벽이나 화면 밖으로 나갔을 때
+                if (p.type === 'fireball_projectile' && !hit) {
                     createFireballHitEffect(this, p.pixelX, p.pixelY);
                 }
                 p.destroyed = true;
@@ -1724,7 +1722,7 @@ export class GameManager {
             weapon.attackPowerBonus = 3;
             weapon.speedBonus = 0.6;
             weapon.attackCooldownBonus = -40;
-        } else if (type === 'fire_staff') { // 'staff'를 'fire_staff'로 변경
+        } else if (type === 'fire_staff') {
             weapon.attackPowerBonus = 25;
             weapon.attackRangeBonus = 6 * GRID_SIZE;
             weapon.detectionRangeBonus = 2 * GRID_SIZE;
@@ -1908,7 +1906,7 @@ export class GameManager {
     }
 
     spawnRandomWeaponNear(pos) {
-        const weaponTypes = ['sword', 'bow', 'dual_swords', 'fire_staff', 'lightning', 'magic_spear', 'boomerang', 'poison_potion', 'magic_dagger', 'axe', 'hadoken', 'shuriken', 'ice_diamond']; // 'staff'를 'fire_staff'로 변경
+        const weaponTypes = ['sword', 'bow', 'dual_swords', 'fire_staff', 'lightning', 'magic_spear', 'boomerang', 'poison_potion', 'magic_dagger', 'axe', 'hadoken', 'shuriken', 'ice_diamond'];
         const randomType = weaponTypes[Math.floor(this.random() * weaponTypes.length)];
 
         for (let i = 0; i < 10; i++) {
@@ -2400,4 +2398,3 @@ export class GameManager {
         placementResetBtn.style.display = 'inline-block';
     }
 }
-
