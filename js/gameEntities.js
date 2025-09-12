@@ -395,9 +395,9 @@ export class Projectile {
         } else if (type === 'ice_diamond_projectile') {
             this.damage = 28;
         } else if (type === 'fireball_projectile') {
-            this.damage = 25;
+            this.damage = 25; // Fireball damage
         } else if (type === 'mini_fireball_projectile') {
-            this.damage = 8;
+            this.damage = 12;  // Mini fireball damage increased from 8 to 12
         }
 
 
@@ -1904,4 +1904,5 @@ export class Unit {
 
 // Re-export Weapon to keep other modules working
 export { Weapon };
+
 
