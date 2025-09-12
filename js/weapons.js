@@ -226,19 +226,24 @@ export class Weapon {
             }
         } else if (this.type === 'shuriken') {
             if (unit.shurikenSkillCooldown <= 0) {
-                // --- MODIFIED: Special Attack Logic ---
+                // Special Attack: Fire 3 returning shurikens at a fixed distance.
                 const angleToTarget = Math.atan2(target.pixelY - unit.pixelY, target.pixelX - unit.pixelX);
                 const spread = 0.3;
                 const angles = [angleToTarget - spread, angleToTarget, angleToTarget + spread];
-                
+
+                // A dummy target is created just to satisfy the Projectile constructor,
+                // but the actual direction is determined by the `angle` option.
+                // The target's position doesn't matter because the travel distance is fixed.
+                const dummyTarget = { pixelX: 0, pixelY: 0 }; 
+
                 angles.forEach(angle => {
-                    gameManager.createProjectile(unit, target, 'returning_shuriken', {
+                    gameManager.createProjectile(unit, dummyTarget, 'returning_shuriken', {
                         angle: angle,
                         state: 'MOVING_OUT',
-                        maxDistance: GRID_SIZE * 6 // Flies out 6 tiles
+                        maxDistance: GRID_SIZE * 8 // Flies out 8 tiles, regardless of target distance.
                     });
                 });
-                unit.shurikenSkillCooldown = 480; // 8 second cooldown for the powerful new skill
+                unit.shurikenSkillCooldown = 480; // 8 second cooldown
             } else {
                 // Normal attack
                 gameManager.createProjectile(unit, target, 'shuriken');
