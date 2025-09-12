@@ -373,8 +373,19 @@ export class Projectile {
         this.pixelY = options.startY !== undefined ? options.startY : owner.pixelY;
         this.type = type;
         
+        // --- Shuriken Special Attack ---
+        this.state = options.state || 'DEFAULT'; // For returning_shuriken: MOVING_OUT, LINGERING, RETURNING
+        this.lingerDuration = options.lingerDuration || 180; // 3 seconds
+        this.maxDistance = options.maxDistance || 0;
+        this.distanceTraveled = 0;
+        this.turnPoint = null;
+        this.damageInterval = 30; // Deals damage every 0.5 seconds while lingering
+        this.damageCooldown = 0;
+        this.alreadyDamagedOnReturn = new Set();
+        this.lingerRotationSpeed = 0.5;
+
         if (type === 'hadoken') this.speed = 4;
-        else if (type === 'shuriken') this.speed = 2;
+        else if (type === 'shuriken' || type === 'returning_shuriken') this.speed = 5;
         else if (type === 'lightning_bolt') this.speed = 8;
         else if (type === 'boomerang_projectile' || type === 'boomerang_normal_projectile') this.speed = 5;
         else if (type === 'ice_diamond_projectile') this.speed = 5;
@@ -395,11 +406,10 @@ export class Projectile {
         } else if (type === 'ice_diamond_projectile') {
             this.damage = 28;
         } else if (type === 'fireball_projectile') {
-            this.damage = 25; // Fireball damage
+            this.damage = 25;
         } else if (type === 'mini_fireball_projectile') {
-            this.damage = 12;  // Mini fireball damage increased from 8 to 12
+            this.damage = 12;
         }
-
 
         this.knockback = (type === 'hadoken') ? gameManager.hadokenKnockback : 0;
         const inaccuracy = (type === 'shuriken' || type === 'lightning_bolt') ? 0 : GRID_SIZE * 0.8;
@@ -416,10 +426,82 @@ export class Projectile {
             this.hitTargets.add(options.initialTarget);
         }
     }
+
     update() {
         const gameManager = this.gameManager;
         if (!gameManager) return;
         
+        // --- NEW LOGIC FOR RETURNING SHURIKEN ---
+        if (this.type === 'returning_shuriken') {
+            this.rotationAngle += this.lingerRotationSpeed * gameManager.gameSpeed;
+
+            if (this.state === 'MOVING_OUT') {
+                const moveX = Math.cos(this.angle) * this.speed * gameManager.gameSpeed;
+                const moveY = Math.sin(this.angle) * this.speed * gameManager.gameSpeed;
+                this.pixelX += moveX;
+                this.pixelY += moveY;
+                this.distanceTraveled += Math.hypot(moveX, moveY);
+                
+                // Check for enemy hits on the way out
+                for (const unit of gameManager.units) {
+                    if (unit.team !== this.owner.team && !this.hitTargets.has(unit) && Math.hypot(this.pixelX - unit.pixelX, this.pixelY - unit.pixelY) < GRID_SIZE / 2) {
+                        unit.takeDamage(this.damage);
+                        this.hitTargets.add(unit);
+                        this.state = 'LINGERING';
+                        this.turnPoint = { x: this.pixelX, y: this.pixelY };
+                        return;
+                    }
+                }
+
+                if (this.distanceTraveled >= this.maxDistance) {
+                    this.state = 'LINGERING';
+                    this.turnPoint = { x: this.pixelX, y: this.pixelY };
+                }
+            } else if (this.state === 'LINGERING') {
+                this.lingerDuration -= gameManager.gameSpeed;
+                this.damageCooldown -= gameManager.gameSpeed;
+
+                if (this.damageCooldown <= 0) {
+                    for (const unit of gameManager.units) {
+                        if (unit.team !== this.owner.team && Math.hypot(this.pixelX - unit.pixelX, this.pixelY - unit.pixelY) < GRID_SIZE * 2) {
+                            unit.takeDamage(this.damage * 0.25); // Lingering damage
+                        }
+                    }
+                    this.damageCooldown = this.damageInterval;
+                }
+
+                if (this.lingerDuration <= 0) {
+                    this.state = 'RETURNING';
+                }
+            } else if (this.state === 'RETURNING') {
+                if (!this.owner || this.owner.hp <= 0) {
+                    this.destroyed = true;
+                    return;
+                }
+                const dx = this.owner.pixelX - this.pixelX;
+                const dy = this.owner.pixelY - this.pixelY;
+                const dist = Math.hypot(dx, dy);
+
+                if (dist < this.speed * gameManager.gameSpeed) {
+                    this.destroyed = true;
+                    return;
+                }
+
+                const returnAngle = Math.atan2(dy, dx);
+                this.pixelX += Math.cos(returnAngle) * this.speed * gameManager.gameSpeed;
+                this.pixelY += Math.sin(returnAngle) * this.speed * gameManager.gameSpeed;
+
+                for (const unit of gameManager.units) {
+                    if (unit.team !== this.owner.team && !this.alreadyDamagedOnReturn.has(unit) && Math.hypot(this.pixelX - unit.pixelX, this.pixelY - unit.pixelY) < GRID_SIZE / 2) {
+                        unit.takeDamage(this.damage);
+                        this.alreadyDamagedOnReturn.add(unit);
+                    }
+                }
+            }
+            return; // End of returning_shuriken logic
+        }
+
+        // --- Original projectile logic ---
         if (['hadoken', 'lightning_bolt', 'magic_spear', 'ice_diamond_projectile', 'fireball_projectile', 'mini_fireball_projectile'].some(t => this.type.startsWith(t))) {
             this.trail.push({x: this.pixelX, y: this.pixelY});
             if (this.trail.length > 10) this.trail.shift();
@@ -454,7 +536,41 @@ export class Projectile {
         }
         this.pixelX = nextX; this.pixelY = nextY;
     }
+    
     draw(ctx) {
+        if (this.type === 'shuriken' || this.type === 'returning_shuriken') {
+            ctx.save();
+            ctx.translate(this.pixelX, this.pixelY);
+            ctx.rotate(this.rotationAngle);
+            const scale = 0.8; 
+            ctx.scale(scale, scale);
+            ctx.fillStyle = '#9ca3af'; 
+            ctx.strokeStyle = 'black'; 
+            ctx.lineWidth = 2 / scale;
+
+            ctx.beginPath();
+            ctx.moveTo(0, -GRID_SIZE * 0.8);
+            ctx.lineTo(GRID_SIZE * 0.2, -GRID_SIZE * 0.2);
+            ctx.lineTo(GRID_SIZE * 0.8, 0);
+            ctx.lineTo(GRID_SIZE * 0.2, GRID_SIZE * 0.2);
+            ctx.lineTo(0, GRID_SIZE * 0.8);
+            ctx.lineTo(-GRID_SIZE * 0.2, GRID_SIZE * 0.2);
+            ctx.lineTo(-GRID_SIZE * 0.8, 0);
+            ctx.lineTo(-GRID_SIZE * 0.2, -GRID_SIZE * 0.2);
+            ctx.closePath();
+            ctx.fill();
+            ctx.stroke();
+
+            ctx.fillStyle = '#d1d5db'; 
+            ctx.beginPath();
+            ctx.arc(0, 0, GRID_SIZE * 0.2, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.stroke();
+            ctx.restore();
+            return;
+        }
+
+        // --- Original draw logic for other projectiles ---
         if (this.type === 'arrow') {
             ctx.save(); ctx.translate(this.pixelX, this.pixelY); ctx.rotate(this.angle);
             ctx.fillStyle = '#a16207';
@@ -489,35 +605,6 @@ export class Projectile {
             ctx.beginPath();
             ctx.arc(this.pixelX, this.pixelY, GRID_SIZE / 3, 0, Math.PI * 2);
             ctx.fill();
-        } else if (this.type === 'shuriken') {
-            ctx.save();
-            ctx.translate(this.pixelX, this.pixelY);
-            ctx.rotate(this.rotationAngle);
-            const scale = 0.8; 
-            ctx.scale(scale, scale);
-            ctx.fillStyle = '#9ca3af'; 
-            ctx.strokeStyle = 'black'; 
-            ctx.lineWidth = 2 / scale;
-
-            ctx.beginPath();
-            ctx.moveTo(0, -GRID_SIZE * 0.8);
-            ctx.lineTo(GRID_SIZE * 0.2, -GRID_SIZE * 0.2);
-            ctx.lineTo(GRID_SIZE * 0.8, 0);
-            ctx.lineTo(GRID_SIZE * 0.2, GRID_SIZE * 0.2);
-            ctx.lineTo(0, GRID_SIZE * 0.8);
-            ctx.lineTo(-GRID_SIZE * 0.2, GRID_SIZE * 0.2);
-            ctx.lineTo(-GRID_SIZE * 0.8, 0);
-            ctx.lineTo(-GRID_SIZE * 0.2, -GRID_SIZE * 0.2);
-            ctx.closePath();
-            ctx.fill();
-            ctx.stroke();
-
-            ctx.fillStyle = '#d1d5db'; 
-            ctx.beginPath();
-            ctx.arc(0, 0, GRID_SIZE * 0.2, 0, Math.PI * 2);
-            ctx.fill();
-            ctx.stroke();
-            ctx.restore();
         } else if (this.type === 'lightning_bolt') {
             ctx.save();
             ctx.translate(this.pixelX, this.pixelY);
@@ -1904,5 +1991,4 @@ export class Unit {
 
 // Re-export Weapon to keep other modules working
 export { Weapon };
-
 
