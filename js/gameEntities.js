@@ -406,15 +406,24 @@ export class Projectile {
         } else if (type === 'ice_diamond_projectile') {
             this.damage = 28;
         } else if (type === 'fireball_projectile') {
-            this.damage = 25;
+            this.damage = 28;
         } else if (type === 'mini_fireball_projectile') {
             this.damage = 12;
         }
 
         this.knockback = (type === 'hadoken') ? gameManager.hadokenKnockback : 0;
         const inaccuracy = (type === 'shuriken' || type === 'lightning_bolt') ? 0 : GRID_SIZE * 0.8;
-        const targetX = target.pixelX + (gameManager.random() - 0.5) * inaccuracy;
-        const targetY = target.pixelY + (gameManager.random() - 0.5) * inaccuracy;
+        
+        // For returning_shuriken, target is just a direction vector, not an actual entity
+        let targetX, targetY;
+        if (type === 'returning_shuriken') {
+            targetX = this.pixelX + Math.cos(options.angle);
+            targetY = this.pixelY + Math.sin(options.angle);
+        } else {
+            targetX = target.pixelX + (gameManager.random() - 0.5) * inaccuracy;
+            targetY = target.pixelY + (gameManager.random() - 0.5) * inaccuracy;
+        }
+
         const dx = targetX - this.pixelX; const dy = targetY - this.pixelY;
         this.angle = options.angle !== undefined ? options.angle : Math.atan2(dy, dx);
         this.destroyed = false;
@@ -431,7 +440,6 @@ export class Projectile {
         const gameManager = this.gameManager;
         if (!gameManager) return;
         
-        // --- NEW LOGIC FOR RETURNING SHURIKEN ---
         if (this.type === 'returning_shuriken') {
             this.rotationAngle += this.lingerRotationSpeed * gameManager.gameSpeed;
 
@@ -446,15 +454,11 @@ export class Projectile {
                     if (unit.team !== this.owner.team && !this.hitTargets.has(unit) && Math.hypot(this.pixelX - unit.pixelX, this.pixelY - unit.pixelY) < GRID_SIZE / 2) {
                         unit.takeDamage(this.damage);
                         this.hitTargets.add(unit);
-                        this.state = 'LINGERING';
-                        this.turnPoint = { x: this.pixelX, y: this.pixelY };
-                        return;
                     }
                 }
 
                 if (this.distanceTraveled >= this.maxDistance) {
                     this.state = 'LINGERING';
-                    this.turnPoint = { x: this.pixelX, y: this.pixelY };
                 }
             } else if (this.state === 'LINGERING') {
                 this.lingerDuration -= gameManager.gameSpeed;
@@ -497,10 +501,9 @@ export class Projectile {
                     }
                 }
             }
-            return; // End of returning_shuriken logic
+            return;
         }
 
-        // --- Original projectile logic ---
         if (['hadoken', 'lightning_bolt', 'magic_spear', 'ice_diamond_projectile', 'fireball_projectile', 'mini_fireball_projectile'].some(t => this.type.startsWith(t))) {
             this.trail.push({x: this.pixelX, y: this.pixelY});
             if (this.trail.length > 10) this.trail.shift();
@@ -569,7 +572,6 @@ export class Projectile {
             return;
         }
 
-        // --- Original draw logic for other projectiles ---
         if (this.type === 'arrow') {
             ctx.save(); ctx.translate(this.pixelX, this.pixelY); ctx.rotate(this.angle);
             ctx.fillStyle = '#a16207';
