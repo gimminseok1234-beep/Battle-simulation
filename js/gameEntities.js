@@ -392,6 +392,7 @@ export class Projectile {
         else if (type === 'ice_bolt_projectile') this.speed = 7;
         else if (type === 'fireball_projectile') this.speed = 5;
         else if (type === 'mini_fireball_projectile') this.speed = 8;
+        else if (type === 'black_sphere_projectile') this.speed = 7;
         else this.speed = 6;
 
         this.damage = owner.attackPower;
@@ -409,6 +410,8 @@ export class Projectile {
             this.damage = 28;
         } else if (type === 'mini_fireball_projectile') {
             this.damage = 12;
+        } else if (type === 'black_sphere_projectile') {
+            this.damage = 10;
         }
 
         this.knockback = (type === 'hadoken') ? gameManager.hadokenKnockback : 0;
@@ -711,6 +714,18 @@ export class Projectile {
             ctx.fill();
             ctx.stroke();
             ctx.restore();
+        } else if (this.type === 'black_sphere_projectile') {
+            ctx.save();
+            ctx.translate(this.pixelX, this.pixelY);
+            ctx.rotate(this.angle);
+            ctx.fillStyle = '#000000';
+            ctx.strokeStyle = '#FFFFFF';
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.arc(0, 0, GRID_SIZE / 4, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.stroke();
+            ctx.restore();
         } else if (this.type === 'fireball_projectile' || this.type === 'mini_fireball_projectile') {
             const size = this.type === 'fireball_projectile' ? GRID_SIZE / 2.5 : GRID_SIZE / 4;
             for (let i = 0; i < this.trail.length; i++) {
@@ -980,6 +995,7 @@ export class Unit {
         this.magicCircleCooldown = 0;
         this.boomerangCooldown = 0;
         this.shurikenSkillCooldown = 0;
+        this.fireStaffSkillCooldown = 0;
         this.isStunned = 0;
         this.poisonEffect = { active: false, duration: 0, damage: 0 };
         this.isBeingPulled = false;
@@ -1373,6 +1389,7 @@ export class Unit {
         if (this.magicCircleCooldown > 0) this.magicCircleCooldown -= gameManager.gameSpeed;
         if (this.boomerangCooldown > 0) this.boomerangCooldown -= gameManager.gameSpeed;
         if (this.shurikenSkillCooldown > 0) this.shurikenSkillCooldown -= gameManager.gameSpeed;
+        if (this.fireStaffSkillCooldown > 0) this.fireStaffSkillCooldown -= gameManager.gameSpeed;
         
         if (this.poisonEffect.active) {
             this.poisonEffect.duration -= gameManager.gameSpeed;
@@ -1425,6 +1442,7 @@ export class Unit {
                     gameManager.audioManager.play('fireball');
                     gameManager.createProjectile(this, this.target, 'fireball_projectile');
                     this.attackCooldown = 0; // Reset attack cooldown after casting
+                    this.fireStaffSkillCooldown = 600; // 10 second cooldown
                 } else if (this.weapon.type === 'poison_potion') {
                     gameManager.audioManager.play('poison');
                     this.hp = 0; // The unit dies after using the potion
@@ -1892,6 +1910,7 @@ export class Unit {
             (this.weapon?.type === 'magic_spear' && this.magicCircleCooldown > 0) ||
             (this.weapon?.type === 'boomerang' && this.boomerangCooldown > 0) ||
             (this.weapon?.type === 'shuriken' && this.shurikenSkillCooldown > 0) ||
+            (this.weapon?.type === 'fire_staff' && (this.fireStaffSkillCooldown > 0 || this.isCasting)) ||
             (this.isCasting && this.weapon?.type === 'poison_potion');
 
         if (this.attackCooldown > 0 && !this.isCasting) {
@@ -1959,6 +1978,13 @@ export class Unit {
                 } else if (this.weapon?.type === 'ice_diamond') {
                     fgColor = '#38bdf8'; // Blue
                     progress = this.iceDiamondChargeTimer; max = 240;
+                } else if (this.weapon?.type === 'fire_staff') {
+                    fgColor = '#94a3b8'; // Gray
+                    if (this.isCasting) {
+                        progress = this.castingProgress; max = this.castDuration;
+                    } else {
+                        progress = 600 - this.fireStaffSkillCooldown; max = 600;
+                    }
                 }
                 
                 if (fgColor) {
@@ -1991,4 +2017,3 @@ export class Unit {
 
 // Re-export Weapon to keep other modules working
 export { Weapon };
-
