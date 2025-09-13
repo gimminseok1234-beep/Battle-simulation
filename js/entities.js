@@ -1,6 +1,5 @@
 import { TEAM, COLORS, GRID_SIZE } from './constants.js';
 import { createPhysicalHitEffect } from './weaponary.js';
-import { Unit } from './unit.js';
 
 // Nexus class
 export class Nexus {
@@ -83,114 +82,6 @@ export class Nexus {
             ctx.beginPath(); ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2); ctx.fill();
         });
         ctx.globalAlpha = 1.0;
-    }
-}
-
-// MagicCircle class
-export class MagicCircle {
-    constructor(gameManager, x, y, team) {
-        this.gameManager = gameManager;
-        this.gridX = x; this.gridY = y;
-        this.pixelX = x * GRID_SIZE + GRID_SIZE / 2;
-        this.pixelY = y * GRID_SIZE + GRID_SIZE / 2;
-        this.team = team;
-        this.duration = 600; // 10 seconds
-        this.animationTimer = 0;
-    }
-
-    update() {
-        this.duration--;
-        this.animationTimer++;
-    }
-
-    draw(ctx) {
-        const opacity = Math.min(1, (600 - this.duration) / 60) * Math.min(1, this.duration / 60);
-        const scale = 1 + Math.sin(this.animationTimer * 0.1) * 0.05;
-        
-        ctx.save();
-        ctx.translate(this.pixelX, this.pixelY);
-        ctx.scale(scale * 0.7, scale * 0.7);
-        ctx.globalAlpha = opacity;
-
-        const glowGradient = ctx.createRadialGradient(0, 0, GRID_SIZE * 0.35, 0, 0, GRID_SIZE * 1.05);
-        glowGradient.addColorStop(0, 'rgba(192, 132, 252, 0.6)');
-        glowGradient.addColorStop(1, 'rgba(192, 132, 252, 0)');
-        ctx.fillStyle = glowGradient;
-        ctx.fillRect(-GRID_SIZE * 1.5, -GRID_SIZE * 1.5, GRID_SIZE * 3, GRID_SIZE * 3);
-
-        ctx.fillStyle = '#a855f7';
-        ctx.beginPath();
-        ctx.arc(0, 0, GRID_SIZE * 0.6, 0, Math.PI * 2);
-        ctx.fill();
-
-        switch(this.team) {
-            case TEAM.A: ctx.strokeStyle = COLORS.TEAM_A; break;
-            case TEAM.B: ctx.strokeStyle = COLORS.TEAM_B; break;
-            case TEAM.C: ctx.strokeStyle = COLORS.TEAM_C; break;
-            case TEAM.D: ctx.strokeStyle = COLORS.TEAM_D; break;
-            default: ctx.strokeStyle = '#c084fc'; break;
-        }
-        ctx.lineWidth = 3;
-        ctx.beginPath();
-        ctx.arc(0, 0, GRID_SIZE * 0.9, 0, Math.PI * 2);
-        ctx.stroke();
-
-        ctx.lineWidth = 1;
-        ctx.beginPath();
-        ctx.arc(0, 0, GRID_SIZE * 1.1, 0, Math.PI * 2);
-        ctx.stroke();
-        
-        ctx.restore();
-    }
-}
-
-// PoisonCloud class
-export class PoisonCloud {
-    constructor(gameManager, x, y, ownerTeam) {
-        this.gameManager = gameManager;
-        this.pixelX = x;
-        this.pixelY = y;
-        this.ownerTeam = ownerTeam;
-        this.duration = 300; // 5 seconds
-        this.damage = 0.2;
-        this.animationTimer = 0;
-    }
-
-    update() {
-        this.duration--;
-        this.animationTimer++;
-        const gameManager = this.gameManager;
-        if (!gameManager) return;
-        
-        const applyPoisonDamage = (target) => {
-             if (target.team !== this.ownerTeam) {
-                const dx = Math.abs(target.pixelX - this.pixelX);
-                const dy = Math.abs(target.pixelY - this.pixelY);
-                if (dx < GRID_SIZE * 2.5 && dy < GRID_SIZE * 2.5) {
-                    if(target instanceof Unit) {
-                        target.takeDamage(0, { poison: { damage: this.damage * gameManager.gameSpeed }, isTileDamage: true });
-                    } else if (target instanceof Nexus && !target.isDestroying) {
-                        target.takeDamage(this.damage * gameManager.gameSpeed);
-                    }
-                }
-            }
-        };
-
-        gameManager.units.forEach(applyPoisonDamage);
-        gameManager.nexuses.forEach(applyPoisonDamage);
-    }
-
-    draw(ctx) {
-        const opacity = Math.min(1, this.duration / 60) * 0.4;
-        ctx.fillStyle = `rgba(132, 204, 22, ${opacity})`;
-        ctx.fillRect(this.pixelX - GRID_SIZE * 2.5, this.pixelY - GRID_SIZE * 2.5, GRID_SIZE * 5, GRID_SIZE * 5);
-
-        ctx.fillStyle = `rgba(163, 230, 53, ${opacity * 1.5})`;
-        const bubbleX = this.pixelX + Math.sin(this.animationTimer * 0.1) * GRID_SIZE * 2;
-        const bubbleY = this.pixelY + Math.cos(this.animationTimer * 0.05) * GRID_SIZE * 2;
-        ctx.beginPath();
-        ctx.arc(bubbleX, bubbleY, GRID_SIZE * 0.3, 0, Math.PI * 2);
-        ctx.fill();
     }
 }
 
@@ -278,3 +169,116 @@ export class GrowingMagneticField {
         }
     }
 }
+
+// MagicCircle class
+export class MagicCircle {
+    constructor(gameManager, x, y, team) {
+        this.gameManager = gameManager;
+        this.gridX = x; this.gridY = y;
+        this.pixelX = x * GRID_SIZE + GRID_SIZE / 2;
+        this.pixelY = y * GRID_SIZE + GRID_SIZE / 2;
+        this.team = team;
+        this.duration = 600; // 10 seconds
+        this.animationTimer = 0;
+    }
+
+    update() {
+        this.duration--;
+        this.animationTimer++;
+    }
+
+    draw(ctx) {
+        const opacity = Math.min(1, (600 - this.duration) / 60) * Math.min(1, this.duration / 60);
+        const scale = 1 + Math.sin(this.animationTimer * 0.1) * 0.05;
+        
+        ctx.save();
+        ctx.translate(this.pixelX, this.pixelY);
+        ctx.scale(scale * 0.7, scale * 0.7);
+        ctx.globalAlpha = opacity;
+
+        const glowGradient = ctx.createRadialGradient(0, 0, GRID_SIZE * 0.35, 0, 0, GRID_SIZE * 1.05);
+        glowGradient.addColorStop(0, 'rgba(192, 132, 252, 0.6)');
+        glowGradient.addColorStop(1, 'rgba(192, 132, 252, 0)');
+        ctx.fillStyle = glowGradient;
+        ctx.fillRect(-GRID_SIZE * 1.5, -GRID_SIZE * 1.5, GRID_SIZE * 3, GRID_SIZE * 3);
+
+        ctx.fillStyle = '#a855f7';
+        ctx.beginPath();
+        ctx.arc(0, 0, GRID_SIZE * 0.6, 0, Math.PI * 2);
+        ctx.fill();
+
+        switch(this.team) {
+            case TEAM.A: ctx.strokeStyle = COLORS.TEAM_A; break;
+            case TEAM.B: ctx.strokeStyle = COLORS.TEAM_B; break;
+            case TEAM.C: ctx.strokeStyle = COLORS.TEAM_C; break;
+            case TEAM.D: ctx.strokeStyle = COLORS.TEAM_D; break;
+            default: ctx.strokeStyle = '#c084fc'; break;
+        }
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.arc(0, 0, GRID_SIZE * 0.9, 0, Math.PI * 2);
+        ctx.stroke();
+
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.arc(0, 0, GRID_SIZE * 1.1, 0, Math.PI * 2);
+        ctx.stroke();
+        
+        ctx.restore();
+    }
+}
+
+// PoisonCloud class
+export class PoisonCloud {
+    constructor(gameManager, x, y, ownerTeam) {
+        this.gameManager = gameManager;
+        this.pixelX = x;
+        this.pixelY = y;
+        this.ownerTeam = ownerTeam;
+        this.duration = 300; // 5 seconds
+        this.damage = 0.2;
+        this.animationTimer = 0;
+    }
+
+    update() {
+        this.duration--;
+        this.animationTimer++;
+        const gameManager = this.gameManager;
+        if (!gameManager) return;
+        
+        // [수정] 순환 참조를 피하기 위해 Unit과 Nexus를 직접 참조하지 않고, 각 배열을 순회하며 처리합니다.
+        gameManager.units.forEach(unit => {
+            if (unit.team !== this.ownerTeam) {
+                const dx = Math.abs(unit.pixelX - this.pixelX);
+                const dy = Math.abs(unit.pixelY - this.pixelY);
+                if (dx < GRID_SIZE * 2.5 && dy < GRID_SIZE * 2.5) {
+                    unit.takeDamage(0, { poison: { damage: this.damage * gameManager.gameSpeed }, isTileDamage: true });
+                }
+            }
+        });
+        
+        gameManager.nexuses.forEach(nexus => {
+            if (nexus.team !== this.ownerTeam && !nexus.isDestroying) {
+                const dx = Math.abs(nexus.pixelX - this.pixelX);
+                const dy = Math.abs(nexus.pixelY - this.pixelY);
+                if (dx < GRID_SIZE * 2.5 && dy < GRID_SIZE * 2.5) {
+                    nexus.takeDamage(this.damage * gameManager.gameSpeed);
+                }
+            }
+        });
+    }
+
+    draw(ctx) {
+        const opacity = Math.min(1, this.duration / 60) * 0.4;
+        ctx.fillStyle = `rgba(132, 204, 22, ${opacity})`;
+        ctx.fillRect(this.pixelX - GRID_SIZE * 2.5, this.pixelY - GRID_SIZE * 2.5, GRID_SIZE * 5, GRID_SIZE * 5);
+
+        ctx.fillStyle = `rgba(163, 230, 53, ${opacity * 1.5})`;
+        const bubbleX = this.pixelX + Math.sin(this.animationTimer * 0.1) * GRID_SIZE * 2;
+        const bubbleY = this.pixelY + Math.cos(this.animationTimer * 0.05) * GRID_SIZE * 2;
+        ctx.beginPath();
+        ctx.arc(bubbleX, bubbleY, GRID_SIZE * 0.3, 0, Math.PI * 2);
+        ctx.fill();
+    }
+}
+
