@@ -1,5 +1,6 @@
 import { TILE, TEAM, COLORS, GRID_SIZE } from './constants.js';
 import { Weapon, MagicDaggerDashEffect, createPhysicalHitEffect } from './weaponary.js';
+import { Nexus } from './entities.js'; // [수정] Nexus 클래스를 import 합니다.
 
 // Unit class
 export class Unit {
@@ -49,7 +50,7 @@ export class Unit {
         this.iceDiamondChargeTimer = 0;
         this.isSlowed = 0;
     }
-
+    
     get speed() {
         const gameManager = this.gameManager;
         if (!gameManager || this.isStunned > 0) {
@@ -79,12 +80,12 @@ export class Unit {
     get attackPower() { return this.baseAttackPower + (this.weapon ? this.weapon.attackPowerBonus || 0 : 0); }
     get attackRange() { return this.baseAttackRange + (this.weapon ? this.weapon.attackRangeBonus || 0 : 0); }
     get detectionRange() { return this.baseDetectionRange + (this.weapon ? this.weapon.detectionRangeBonus || 0 : 0); }
-    get cooldownTime() {
+    get cooldownTime() { 
         if (this.weapon && this.weapon.type === 'fire_staff') return 120;
         if (this.weapon && this.weapon.type === 'hadoken') return 120;
         if (this.weapon && this.weapon.type === 'axe') return 120;
         if (this.weapon && this.weapon.type === 'ice_diamond') return 180;
-        return this.baseCooldownTime + (this.weapon ? this.weapon.attackCooldownBonus || 0 : 0);
+        return this.baseCooldownTime + (this.weapon ? this.weapon.attackCooldownBonus || 0 : 0); 
     }
 
     equipWeapon(weaponType, isClone = false) {
@@ -107,18 +108,18 @@ export class Unit {
         }
         return {item: closestItem, distance: minDistance};
     }
-
+    
     applyPhysics() {
         const gameManager = this.gameManager;
         if (!gameManager) return;
-
+    
         if (this.knockbackX !== 0 || this.knockbackY !== 0) {
             const nextX = this.pixelX + this.knockbackX * gameManager.gameSpeed;
             const nextY = this.pixelY + this.knockbackY * gameManager.gameSpeed;
-
+    
             const gridX = Math.floor(nextX / GRID_SIZE);
             const gridY = Math.floor(nextY / GRID_SIZE);
-
+    
             if (gridY >= 0 && gridY < gameManager.ROWS && gridX >= 0 && gridX < gameManager.COLS) {
                  const tile = gameManager.map[gridY][gridX];
                 if (tile.type === TILE.WALL || tile.type === TILE.CRACKED_WALL || (tile.type === TILE.GLASS_WALL && !this.isBeingPulled) ) {
@@ -130,19 +131,19 @@ export class Unit {
                 }
             }
         }
-
+    
         this.knockbackX *= 0.9;
         this.knockbackY *= 0.9;
         if (Math.abs(this.knockbackX) < 0.1) this.knockbackX = 0;
         if (Math.abs(this.knockbackY) < 0.1) this.knockbackY = 0;
-
+    
         gameManager.units.forEach(otherUnit => {
             if (this !== otherUnit) {
                 const dx = otherUnit.pixelX - this.pixelX;
                 const dy = otherUnit.pixelY - this.pixelY;
                 const distance = Math.hypot(dx, dy);
                 const minDistance = (GRID_SIZE / 2.5) * 2;
-
+    
                 if (distance < minDistance && distance > 0) {
                     const angle = Math.atan2(dy, dx);
                     const overlap = minDistance - distance;
@@ -176,12 +177,12 @@ export class Unit {
                 }
             }
         });
-
+    
         const radius = GRID_SIZE / 2.5;
         let bounced = false;
         if (this.pixelX < radius) {
             this.pixelX = radius;
-            this.knockbackX = Math.abs(this.knockbackX) * 0.5 || 1;
+            this.knockbackX = Math.abs(this.knockbackX) * 0.5 || 1; 
             bounced = true;
         } else if (this.pixelX > gameManager.canvas.width - radius) {
             this.pixelX = gameManager.canvas.width - radius;
@@ -234,7 +235,7 @@ export class Unit {
                 this.moveTarget = null;
                 return;
             }
-        }
+        } 
         
         this.facingAngle = angle; this.pixelX = nextPixelX; this.pixelY = nextPixelY;
     }
@@ -255,10 +256,12 @@ export class Unit {
         if (tile.type === TILE.CRACKED_WALL) {
             gameManager.damageTile(targetGridX, targetGridY, this.attackPower);
             this.attackCooldown = this.cooldownTime;
-        } else if (target instanceof Unit || target instanceof gameManager.Nexus) { // Nexus is dynamically accessed from gameManager
+        } else if (target instanceof Unit || target instanceof Nexus) {
+            // [CORE CHANGE] Delegate attack logic to the weapon if it exists
             if (this.weapon) {
                 this.weapon.use(this, target);
             } else {
+                // Default punch attack if no weapon
                 target.takeDamage(this.attackPower);
                 gameManager.audioManager.play('punch');
                 this.attackCooldown = this.cooldownTime;
@@ -916,6 +919,7 @@ export class Unit {
             ctx.restore();
         }
 
+        // [CORE CHANGE] Delegate weapon drawing to the weapon instance
         if (this.weapon && !this.isKing) {
             this.weapon.drawEquipped(ctx, this);
         }
@@ -1031,3 +1035,4 @@ export class Unit {
         }
     }
 }
+
