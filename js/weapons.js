@@ -217,13 +217,9 @@ export class Weapon {
             }
             unit.attackCooldown = unit.cooldownTime;
         } else if (this.type === 'fire_staff') {
-             if (!unit.isCasting) {
-                unit.isCasting = true;
-                unit.castingProgress = 0;
-                unit.castDuration = 180;
-                unit.castTargetPos = { x: target.pixelX, y: target.pixelY };
-                unit.target = target; // Make sure the unit remembers its target
-            }
+            // [MODIFIED] This is now the NORMAL attack. Special attack is handled in Unit.update.
+            gameManager.createProjectile(unit, target, 'black_sphere_projectile');
+            unit.attackCooldown = unit.cooldownTime;
         } else if (this.type === 'shuriken') {
             if (unit.shurikenSkillCooldown <= 0) {
                 // Special Attack: Fire 3 returning shurikens at a fixed distance.
@@ -780,4 +776,3 @@ export class Weapon {
         ctx.restore();
     }
 }
-
