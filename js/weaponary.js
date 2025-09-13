@@ -1,58 +1,75 @@
 import { TEAM, COLORS, GRID_SIZE } from './constants.js';
 
 /**
- * [MODIFIED] Function to draw the magic dagger icon.
- * Modified to a fluorescent purple design similar to a magic spear as requested.
+ * [MODIFIED] 마법 단검 아이콘을 그리는 함수.
+ * 요청에 따라 반달 모양의 형광 파란색 디자인으로 수정되었습니다.
  */
 function drawMagicDaggerIcon(ctx) {
     ctx.save();
     
-    const scale = GRID_SIZE * 0.075; 
+    const scale = GRID_SIZE * 0.09; 
     
-    // --- Added glow effect ---
-    ctx.shadowColor = 'rgba(192, 132, 252, 0.9)';
+    // --- 광원 효과 ---
+    ctx.shadowColor = 'rgba(59, 130, 246, 0.9)';
     ctx.shadowBlur = 15;
 
-    ctx.strokeStyle = '#2e1065'; // Dark purple border
+    ctx.strokeStyle = '#1e3a8a'; // 어두운 파란색 테두리
     ctx.lineWidth = 2;
 
-    // --- Handle ---
-    ctx.fillStyle = '#5b21b6'; // Purple handle
-    const handleWidth = 2.5 * scale;
-    const handleHeight = 7 * scale;
+    // --- 손잡이 ---
+    const handleGradient = ctx.createLinearGradient(0, 0, 0, 10 * scale);
+    handleGradient.addColorStop(0, '#1e40af'); // 어두운 파랑
+    handleGradient.addColorStop(1, '#2563eb'); // 중간 파랑
+    ctx.fillStyle = handleGradient;
+    
+    const handleWidth = 3 * scale;
+    const handleHeight = 10 * scale;
     const handleX = -handleWidth / 2;
     const handleY = 0;
-    ctx.fillRect(handleX, handleY, handleWidth, handleHeight);
-    ctx.strokeRect(handleX, handleY, handleWidth, handleHeight);
+    
+    ctx.beginPath();
+    ctx.moveTo(handleX, handleY);
+    ctx.lineTo(handleWidth / 2, handleY);
+    ctx.lineTo(handleWidth / 2, handleY + handleHeight * 0.8);
+    ctx.quadraticCurveTo(0, handleY + handleHeight, -handleWidth / 2,  handleY + handleHeight * 0.8);
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
 
-    // --- Guard ---
-    ctx.fillStyle = '#c084fc'; // Light purple guard
-    const guardWidth = 5 * scale;
-    const guardHeight = 1.5 * scale;
+    // --- 가드 ---
+    ctx.fillStyle = '#60a5fa'; // 밝은 파랑
+    const guardWidth = 6 * scale;
+    const guardHeight = 2 * scale;
     const guardX = -guardWidth / 2;
     const guardY = -guardHeight / 2;
-    ctx.fillRect(guardX, guardY, guardWidth, guardHeight);
-    ctx.strokeRect(guardX, guardY, guardWidth, guardHeight);
+    ctx.beginPath();
+    ctx.moveTo(guardX, guardY);
+    ctx.lineTo(guardX + guardWidth, guardY);
+    ctx.lineTo(guardX + guardWidth * 0.8, guardY + guardHeight);
+    ctx.lineTo(guardX + guardWidth * 0.2, guardY + guardHeight);
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
 
-    // --- Blade ---
+    // --- 칼날 ---
     const bladeBaseY = -guardHeight / 2;
-    const bladeTipY = -10 * scale; // Modified to make the blade less sharp
-    const bladeWidth = 3.5 * scale;
-    const tipWidth = 0.5 * scale; // Added a slight width to the blade tip
     
-    // Added a glowing effect with a gradient
-    const bladeGradient = ctx.createLinearGradient(0, bladeTipY, 0, bladeBaseY);
-    bladeGradient.addColorStop(0, '#f5d0fe');   // Bright fluorescent purple
-    bladeGradient.addColorStop(0.5, '#e9d5ff');
-    bladeGradient.addColorStop(1, '#a855f7');   // Dark purple
+    // 그라데이션을 통한 형광 효과
+    const bladeGradient = ctx.createLinearGradient(0, -12 * scale, 0, bladeBaseY);
+    bladeGradient.addColorStop(0, '#dbeafe');   // 매우 밝은 형광 파랑
+    bladeGradient.addColorStop(0.5, '#93c5fd'); // 중간 형광 파랑
+    bladeGradient.addColorStop(1, '#3b82f6');   // 진한 파랑
 
     ctx.fillStyle = bladeGradient; 
     
     ctx.beginPath();
-    ctx.moveTo(-bladeWidth / 2, bladeBaseY);
-    ctx.lineTo(bladeWidth / 2, bladeBaseY); 
-    ctx.lineTo(tipWidth / 2, bladeTipY);      // Right side of the tip        
-    ctx.lineTo(-tipWidth / 2, bladeTipY);     // Left side of the tip
+    ctx.moveTo(-2 * scale, bladeBaseY); // 칼날 시작점 (왼쪽)
+    ctx.bezierCurveTo(
+        2 * scale, -10 * scale, // Control point 1
+        8 * scale, -8 * scale, // Control point 2
+        6 * scale, bladeBaseY   // 칼날 끝점 (오른쪽)
+    );
+    ctx.quadraticCurveTo(2 * scale, bladeBaseY - 2 * scale, -2 * scale, bladeBaseY); // 안쪽 곡선
     ctx.closePath();
     ctx.fill();
     ctx.stroke();
