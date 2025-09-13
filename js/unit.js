@@ -764,6 +764,7 @@ export class Unit {
                 gameManager.map[finalGridY][finalGridX] = { type: TILE.FLOOR, color: gameManager.currentFloorColor };
                 gameManager.createEffect('question_mark_effect', this.pixelX, this.pixelY);
                 gameManager.audioManager.play('questionmark');
+                // [수정] gameManager.uiManager를 통해 spawnRandomWeaponNear 함수를 호출합니다.
                 gameManager.uiManager.spawnRandomWeaponNear({ x: this.pixelX, y: this.pixelY });
             }
             if (currentTile.type === TILE.DASH_TILE) {
