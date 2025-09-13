@@ -1,9 +1,8 @@
+import { Unit } from './unit.js';
+import { Weapon, Projectile, AreaEffect, Effect, MagicDaggerDashEffect, createFireballHitEffect } from './weaponary.js';
+import { Nexus, GrowingMagneticField, MagicCircle, PoisonCloud } from './entities.js';
 import { getFirestore, collection, doc, getDoc, getDocs, setDoc, deleteDoc, query, where } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 import { AudioManager } from './audioManager.js';
-// [수정] 새로운 파일 구조에 맞게 import 구문을 재구성합니다.
-import { Unit } from './unit.js';
-import { Weapon, Projectile, AreaEffect, Effect, Particle, MagicDaggerDashEffect, createFireballHitEffect } from './weaponary.js';
-import { Nexus, GrowingMagneticField, MagicCircle, PoisonCloud } from './entities.js';
 import { TILE, TEAM, COLORS, GRID_SIZE } from './constants.js';
 import { localMaps } from './maps/index.js';
 
@@ -220,28 +219,30 @@ export class GameManager {
 
             <div class="category-header collapsed" data-target="category-special-tiles">특수 타일</div>
             <div id="category-special-tiles" class="category-content collapsed">
-                <button class="tool-btn" data-tool="tile" data-type="LAVA">용암</button>
-                <button class="tool-btn" data-tool="tile" data-type="GLASS_WALL">유리벽</button>
-                <button class="tool-btn" data-tool="tile" data-type="CRACKED_WALL">부서지는 벽</button>
-                <button class="tool-btn" data-tool="tile" data-type="HEAL_PACK">회복 팩</button>
-                <button class="tool-btn" data-tool="tile" data-type="AWAKENING_POTION">각성 물약</button>
-                <button class="tool-btn" data-tool="tile" data-type="TELEPORTER">텔레포터</button>
-                <button class="tool-btn" data-tool="tile" data-type="QUESTION_MARK">물음표</button>
-                <div class="flex items-center gap-2 mt-1">
-                    <button class="tool-btn flex-grow" data-tool="tile" data-type="REPLICATION_TILE">+N 복제</button>
-                    <input type="number" id="replicationValue" value="${this.replicationValue}" min="1" class="modal-input w-16">
-                </div>
-                <div class="flex items-center gap-1 mt-1">
-                    <button class="tool-btn flex-grow" data-tool="tile" data-type="DASH_TILE">돌진 타일</button>
-                    <button id="dashTileSettingsBtn" class="p-2 rounded hover:bg-gray-600">⚙️</button>
-                </div>
-                <div class="flex items-center gap-1 mt-1">
-                    <button class="tool-btn flex-grow" data-tool="growing_field">성장형 자기장</button>
-                    <button id="growingFieldSettingsBtn" class="p-2 rounded hover:bg-gray-600">⚙️</button>
-                </div>
-                <div class="flex items-center gap-1 mt-1">
-                    <button class="tool-btn flex-grow" data-tool="auto_field">자동 자기장</button>
-                    <button id="autoFieldSettingsBtn" class="p-2 rounded hover:bg-gray-600">⚙️</button>
+                <div class="overflow-y-auto max-h-60 pr-2">
+                    <button class="tool-btn" data-tool="tile" data-type="LAVA">용암</button>
+                    <button class="tool-btn" data-tool="tile" data-type="GLASS_WALL">유리벽</button>
+                    <button class="tool-btn" data-tool="tile" data-type="CRACKED_WALL">부서지는 벽</button>
+                    <button class="tool-btn" data-tool="tile" data-type="HEAL_PACK">회복 팩</button>
+                    <button class="tool-btn" data-tool="tile" data-type="AWAKENING_POTION">각성 물약</button>
+                    <button class="tool-btn" data-tool="tile" data-type="TELEPORTER">텔레포터</button>
+                    <button class="tool-btn" data-tool="tile" data-type="QUESTION_MARK">물음표</button>
+                    <div class="flex items-center gap-2 mt-1">
+                        <button class="tool-btn flex-grow" data-tool="tile" data-type="REPLICATION_TILE">+N 복제</button>
+                        <input type="number" id="replicationValue" value="${this.replicationValue}" min="1" class="modal-input w-16">
+                    </div>
+                    <div class="flex items-center gap-1 mt-1">
+                        <button class="tool-btn flex-grow" data-tool="tile" data-type="DASH_TILE">돌진 타일</button>
+                        <button id="dashTileSettingsBtn" class="p-2 rounded hover:bg-gray-600">⚙️</button>
+                    </div>
+                    <div class="flex items-center gap-1 mt-1">
+                        <button class="tool-btn flex-grow" data-tool="growing_field">성장형 자기장</button>
+                        <button id="growingFieldSettingsBtn" class="p-2 rounded hover:bg-gray-600">⚙️</button>
+                    </div>
+                    <div class="flex items-center gap-1 mt-1">
+                        <button class="tool-btn flex-grow" data-tool="auto_field">자동 자기장</button>
+                        <button id="autoFieldSettingsBtn" class="p-2 rounded hover:bg-gray-600">⚙️</button>
+                    </div>
                 </div>
             </div>
 
@@ -1893,12 +1894,22 @@ export class GameManager {
         return this.units.find(u => u.team !== team && u.isStunned > 0);
     }
 
+    // [추가] 마법진에 의해 기절한 적을 찾는 함수
+    findStunnedByMagicCircleEnemy(team) {
+        return this.units.find(u => u.team !== team && u.isStunned > 0 && u.stunnedByMagicCircle);
+    }
+
     spawnMagicCircle(team) {
         const availableTiles = [];
         for (let y = 0; y < this.ROWS; y++) {
-            for (let x = 0; x < this.COLS; x++) {
-                if (this.map[y][x].type === TILE.FLOOR) {
-                    availableTiles.push({ x, y });
+        for (const unit of this.units) {
+            const gridX = Math.floor(unit.pixelX / GRID_SIZE);
+            const gridY = Math.floor(unit.pixelY / GRID_SIZE);
+            for (let i = this.magicCircles.length - 1; i >= 0; i--) {
+                const circle = this.magicCircles[i];
+                if (circle.gridX === gridX && circle.gridY === gridY && circle.team !== unit.team) {
+                    unit.takeDamage(0, { stun: 120, stunSource: 'magic_circle' }); // [수정] 기절 출처 정보 추가
+                    this.magicCircles.splice(i, 1);
                 }
             }
         }
@@ -2401,4 +2412,5 @@ export class GameManager {
         placementResetBtn.style.display = 'inline-block';
     }
 }
+
 
