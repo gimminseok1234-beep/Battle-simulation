@@ -3,6 +3,7 @@ import { TEAM, COLORS, GRID_SIZE } from './constants.js';
 /**
  * [MODIFIED] 마법 단검 아이콘을 그리는 함수.
  * 지적된 문제점(방향, 모양, 선명도)을 모두 수정한 최종 버전입니다.
+ * 이제 이 함수는 회전 없이 항상 위쪽을 향하는 기본 형태로만 그립니다.
  */
 function drawMagicDaggerIcon(ctx) {
     ctx.save();
@@ -46,8 +47,7 @@ function drawMagicDaggerIcon(ctx) {
     ctx.fillRect(guardX, guardY, guardWidth, guardHeight);
     ctx.strokeRect(guardX, guardY, guardWidth, guardHeight);
 
-    // --- 칼날 (방향 및 모양 수정) ---
-    // 칼날을 위쪽을 향하도록 기본으로 그리고, 호출하는 함수에서 회전시켜 올바른 방향을 잡습니다.
+    // --- 칼날 ---
     const bladeGradient = ctx.createLinearGradient(0, -12 * scale, 0, guardY);
     bladeGradient.addColorStop(0, '#dbeafe');   // 매우 밝은 형광 파랑
     bladeGradient.addColorStop(0.5, '#60a5fa'); // 중간 형광 파랑
@@ -473,7 +473,9 @@ export class Weapon {
         if (this.isEquipped) return;
         const centerX = this.pixelX; const centerY = this.pixelY;
         const scale = (this.type === 'crown') ? 1.0 : (this.type === 'lightning' ? 0.6 : (this.type === 'magic_spear' ? 0.6 : (this.type === 'poison_potion' ? 0.624 : (this.type === 'boomerang' ? 0.49 : 0.8))));
-        ctx.save(); ctx.translate(centerX, centerY); ctx.scale(scale, scale);
+        ctx.save();
+        ctx.translate(centerX, centerY);
+        ctx.scale(scale, scale);
         
         // [수정] 마법단검은 테두리를 자체적으로 그리므로, 여기서는 strokeStyle을 설정하지 않습니다.
         if (this.type !== 'magic_dagger') {
@@ -668,8 +670,9 @@ export class Weapon {
             ctx.fillRect(-1.5, GRID_SIZE * 0.3 + 3, 3, GRID_SIZE * 0.3);
             ctx.strokeRect(-1.5, GRID_SIZE * 0.3 + 3, 3, GRID_SIZE * 0.3);
         } else if (this.type === 'magic_dagger') {
+            // [수정] 유닛이 들고 있을 때 올바른 방향을 보도록 회전 추가
             ctx.translate(GRID_SIZE * 0.5, 0);
-            ctx.rotate(Math.PI / 4);
+            ctx.rotate(Math.PI / 2); // 90도 회전
             drawMagicDaggerIcon(ctx);
         } else if (this.type === 'axe') {
             ctx.translate(GRID_SIZE * 0.8, -GRID_SIZE * 0.7);
