@@ -1568,6 +1568,21 @@ export class Unit {
                 gameManager.audioManager.play('swordHit'); // Temporary
             }
         }
+        
+        // [NEW] Fire Staff Special Attack Logic
+        if (this.weapon && this.weapon.type === 'fire_staff' && this.fireStaffSkillCooldown <= 0 && this.attackCooldown <= 0) {
+            const { item: closestEnemy } = this.findClosest(enemies);
+            if (closestEnemy && gameManager.hasLineOfSight(this, closestEnemy)) {
+                const dist = Math.hypot(this.pixelX - closestEnemy.pixelX, this.pixelY - closestEnemy.pixelY);
+                if (dist < this.detectionRange && dist > this.attackRange) {
+                    this.isCasting = true;
+                    this.castingProgress = 0;
+                    this.castDuration = 180; // 3 seconds
+                    this.target = closestEnemy;
+                    this.castTargetPos = { x: closestEnemy.pixelX, y: closestEnemy.pixelY };
+                }
+            }
+        }
 
 
         let newState = 'IDLE';
@@ -1930,8 +1945,9 @@ export class Unit {
                 ctx.fillStyle = '#0c4a6e'; 
                 ctx.fillRect(barX, currentBarY, barWidth, barHeight);
                 let progress = 0;
-                if (this.isCasting && this.weapon?.type === 'fire_staff') {
-                    progress = this.castingProgress / this.castDuration;
+                // [MODIFIED] Fire staff casting bar removed from here as it's a special now
+                if (this.isCasting && this.weapon?.type === 'poison_potion') {
+                     progress = this.castingProgress / this.castDuration;
                 } else {
                     progress = Math.max(0, 1 - (this.attackCooldown / this.cooldownTime));
                 }
@@ -1962,7 +1978,7 @@ export class Unit {
                 if (this.weapon?.type === 'magic_spear') {
                     fgColor = '#a855f7';
                     progress = 300 - this.magicCircleCooldown; max = 300;
-                } else if (this.weapon?.type === 'boomerang' || this.weapon?.type === 'shuriken' || this.weapon?.type === 'poison_potion' || this.weapon?.type === 'magic_dagger' || this.weapon?.type === 'axe') {
+                } else if (this.weapon?.type === 'boomerang' || this.weapon?.type === 'shuriken' || this.weapon?.type === 'poison_potion' || this.weapon?.type === 'magic_dagger' || this.weapon?.type === 'axe' || this.weapon?.type === 'fire_staff') {
                     fgColor = '#94a3b8'; // Gray
                     if(this.weapon.type === 'boomerang') {
                         progress = 480 - this.boomerangCooldown; max = 480;
@@ -1972,19 +1988,18 @@ export class Unit {
                         progress = 420 - this.magicDaggerSkillCooldown; max = 420;
                     } else if(this.weapon.type === 'axe') {
                         progress = 240 - this.axeSkillCooldown; max = 240;
+                    } else if (this.weapon.type === 'fire_staff') {
+                        if (this.isCasting) {
+                            progress = this.castingProgress; max = this.castDuration;
+                        } else {
+                            progress = 600 - this.fireStaffSkillCooldown; max = 600;
+                        }
                     } else {
                         progress = this.castingProgress; max = this.castDuration;
                     }
                 } else if (this.weapon?.type === 'ice_diamond') {
                     fgColor = '#38bdf8'; // Blue
                     progress = this.iceDiamondChargeTimer; max = 240;
-                } else if (this.weapon?.type === 'fire_staff') {
-                    fgColor = '#94a3b8'; // Gray
-                    if (this.isCasting) {
-                        progress = this.castingProgress; max = this.castDuration;
-                    } else {
-                        progress = 600 - this.fireStaffSkillCooldown; max = 600;
-                    }
                 }
                 
                 if (fgColor) {
@@ -2017,3 +2032,4 @@ export class Unit {
 
 // Re-export Weapon to keep other modules working
 export { Weapon };
+
