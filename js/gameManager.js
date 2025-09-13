@@ -1474,7 +1474,7 @@ export class GameManager {
             for (let i = this.magicCircles.length - 1; i >= 0; i--) {
                 const circle = this.magicCircles[i];
                 if (circle.gridX === gridX && circle.gridY === gridY && circle.team !== unit.team) {
-                    unit.takeDamage(0, { stun: 120 });
+                    unit.takeDamage(0, { stun: 120, stunSource: 'magic_circle' }); // [수정] 기절 출처 정보 추가
                     this.magicCircles.splice(i, 1);
                 }
             }
@@ -1902,17 +1902,18 @@ export class GameManager {
     spawnMagicCircle(team) {
         const availableTiles = [];
         for (let y = 0; y < this.ROWS; y++) {
-        for (const unit of this.units) {
-            const gridX = Math.floor(unit.pixelX / GRID_SIZE);
-            const gridY = Math.floor(unit.pixelY / GRID_SIZE);
-            for (let i = this.magicCircles.length - 1; i >= 0; i--) {
-                const circle = this.magicCircles[i];
-                if (circle.gridX === gridX && circle.gridY === gridY && circle.team !== unit.team) {
-                    unit.takeDamage(0, { stun: 120, stunSource: 'magic_circle' }); // [수정] 기절 출처 정보 추가
-                    this.magicCircles.splice(i, 1);
+            for (let x = 0; x < this.COLS; x++) {
+                if (this.map[y][x].type === TILE.FLOOR) {
+                    const isOccupied = this.units.some(u => u.gridX === x && u.gridY === y) ||
+                                     this.nexuses.some(n => n.gridX === x && n.gridY === y) ||
+                                     this.magicCircles.some(c => c.gridX === x && c.gridY === y);
+                    if (!isOccupied) {
+                        availableTiles.push({ x, y });
+                    }
                 }
             }
         }
+
         if (availableTiles.length > 0) {
             const pos = availableTiles[Math.floor(this.random() * availableTiles.length)];
             this.magicCircles.push(new MagicCircle(this, pos.x, pos.y, team));
@@ -2412,5 +2413,3 @@ export class GameManager {
         placementResetBtn.style.display = 'inline-block';
     }
 }
-
-
