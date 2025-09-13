@@ -93,8 +93,9 @@ export class Unit {
     equipWeapon(weaponType, isClone = false) {
         const gameManager = this.gameManager;
         if (!gameManager) return;
-
-        this.weapon = gameManager.createWeapon(0, 0, weaponType);
+        
+        // [수정] gameManager.uiManager를 통해 createWeapon 함수를 호출합니다.
+        this.weapon = gameManager.uiManager.createWeapon(0, 0, weaponType);
         gameManager.audioManager.play('equip');
         if (this.weapon.type === 'crown' && !isClone) {
             this.isKing = true;
@@ -763,7 +764,7 @@ export class Unit {
                 gameManager.map[finalGridY][finalGridX] = { type: TILE.FLOOR, color: gameManager.currentFloorColor };
                 gameManager.createEffect('question_mark_effect', this.pixelX, this.pixelY);
                 gameManager.audioManager.play('questionmark');
-                gameManager.spawnRandomWeaponNear({ x: this.pixelX, y: this.pixelY });
+                gameManager.uiManager.spawnRandomWeaponNear({ x: this.pixelX, y: this.pixelY });
             }
             if (currentTile.type === TILE.DASH_TILE) {
                 this.isDashing = true;
