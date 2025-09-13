@@ -1,6 +1,6 @@
 import { getFirestore, collection, doc, getDoc, getDocs, setDoc, deleteDoc, query, where } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 import { AudioManager } from './audioManager.js';
-// [수정] 새로운 3개의 파일에서 클래스를 가져옵니다.
+// [수정] 새로운 파일 구조에 맞게 import 구문을 재구성합니다.
 import { Unit } from './unit.js';
 import { Weapon, Projectile, AreaEffect, Effect, Particle, MagicDaggerDashEffect, createFireballHitEffect } from './weaponary.js';
 import { Nexus, GrowingMagneticField, MagicCircle, PoisonCloud } from './entities.js';
@@ -965,10 +965,6 @@ export class GameManager {
         const cleanDataForJSON = (obj) => {
             const data = { ...obj };
             delete data.gameManager;
-            // [수정] Nexus는 gameManager에 의존하므로, 동적으로 할당해줍니다.
-            if (obj instanceof Nexus) {
-                 this.Nexus = Nexus;
-            }
             return data;
         };
         
@@ -2405,3 +2401,4 @@ export class GameManager {
         placementResetBtn.style.display = 'inline-block';
     }
 }
+
