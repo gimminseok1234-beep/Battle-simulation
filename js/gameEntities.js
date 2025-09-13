@@ -1429,86 +1429,56 @@ export class Unit {
             }
         }
         
-        if (this.isCasting) {
-            this.castingProgress += gameManager.gameSpeed;
-            if (!this.target || (this.target instanceof Unit && this.target.hp <= 0)) {
-                this.isCasting = false;
-                this.castingProgress = 0;
-                this.fireStaffCharge = 0; // Reset charge if target dies
-                return;
-            }
-            if (this.castingProgress >= this.castDuration) {
-                this.isCasting = false;
-                this.castingProgress = 0;
-                
-                if (this.weapon.type === 'poison_potion') {
-                    gameManager.audioManager.play('poison');
-                    this.hp = 0; // The unit dies after using the potion
-                }
-            }
-            this.applyPhysics();
-            return;
-        }
-
-        if (this.isKing && this.spawnCooldown <= 0) {
-            gameManager.spawnUnit(this, false);
-            this.spawnCooldown = this.spawnInterval;
+        if (this.weapon && this.weapon.type === 'fire_staff') {
+            this.fireStaffCharge = Math.min(180, this.fireStaffCharge + gameManager.gameSpeed);
         }
         
-        // --- Special Attack Logic (Prioritized) ---
         if (this.weapon) {
             const { item: closestEnemy } = this.findClosest(enemies);
-            if (closestEnemy && gameManager.hasLineOfSight(this, closestEnemy)) {
-                const dist = Math.hypot(this.pixelX - closestEnemy.pixelX, this.pixelY - closestEnemy.pixelY);
-                if (dist < this.detectionRange) {
-                    
-                    if (this.weapon.type === 'fire_staff') {
-                        this.fireStaffCharge += gameManager.gameSpeed;
-                        if (this.fireStaffCharge >= 180) { // 3 seconds charge is complete
-                            this.target = closestEnemy;
-                            gameManager.audioManager.play('fireball');
-                            gameManager.createProjectile(this, this.target, 'fireball_projectile');
-                            this.fireStaffCharge = 0;
-                            this.attackCooldown = 30; // Brief cooldown to prevent spam
-                            return; // Action for this frame is done
+            if (closestEnemy && gameManager.hasLineOfSight(this, closestEnemy) && Math.hypot(this.pixelX - closestEnemy.pixelX, this.pixelY - closestEnemy.pixelY) <= this.detectionRange) {
+                if (this.weapon.type === 'fire_staff' && this.fireStaffCharge >= 180) {
+                    gameManager.audioManager.play('fireball');
+                    gameManager.createProjectile(this, closestEnemy, 'fireball_projectile');
+                    this.fireStaffCharge = 0;
+                    this.attackCooldown = 30;
+                    this.applyPhysics();
+                    return;
+                }
+                if (this.weapon.type === 'magic_dagger' && !this.isAimingMagicDagger && this.magicDaggerSkillCooldown <= 0 && Math.hypot(this.pixelX - closestEnemy.pixelX, this.pixelY - closestEnemy.pixelY) > this.attackRange) {
+                    this.isAimingMagicDagger = true;
+                    this.magicDaggerAimTimer = 60;
+                    const angle = Math.atan2(closestEnemy.pixelY - this.pixelY, closestEnemy.pixelX - this.pixelX);
+                    const dashDistance = GRID_SIZE * 4;
+                    this.magicDaggerTargetPos = {
+                        x: this.pixelX + Math.cos(angle) * dashDistance,
+                        y: this.pixelY + Math.sin(angle) * dashDistance
+                    };
+                    return;
+                }
+                 if (this.weapon.type === 'boomerang' && this.boomerangCooldown <= 0 && Math.hypot(this.pixelX - closestEnemy.pixelX, this.pixelY - closestEnemy.pixelY) <= this.attackRange) {
+                    this.boomerangCooldown = 480;
+                    gameManager.createProjectile(this, closestEnemy, 'boomerang_projectile');
+                    gameManager.audioManager.play('boomerang');
+                    this.attackCooldown = 60;
+                    return; 
+                }
+                if (this.weapon.type === 'axe' && this.axeSkillCooldown <= 0 && Math.hypot(this.pixelX - closestEnemy.pixelX, this.pixelY - closestEnemy.pixelY) < GRID_SIZE * 3) {
+                    this.axeSkillCooldown = 240;
+                    this.spinAnimationTimer = 30;
+                    gameManager.createEffect('axe_spin_effect', this.pixelX, this.pixelY, this);
+                    const damageRadius = GRID_SIZE * 3.5;
+                    enemies.forEach(enemy => {
+                        if (Math.hypot(this.pixelX - enemy.pixelX, this.pixelY - enemy.pixelY) < damageRadius) {
+                            enemy.takeDamage(this.attackPower * 1.5);
                         }
-                    }
-                    if (this.weapon.type === 'magic_dagger' && !this.isAimingMagicDagger && this.magicDaggerSkillCooldown <= 0 && dist > this.attackRange) {
-                        this.isAimingMagicDagger = true;
-                        this.magicDaggerAimTimer = 60;
-                        const angle = Math.atan2(closestEnemy.pixelY - this.pixelY, closestEnemy.pixelX - this.pixelX);
-                        const dashDistance = GRID_SIZE * 4;
-                        this.magicDaggerTargetPos = {
-                            x: this.pixelX + Math.cos(angle) * dashDistance,
-                            y: this.pixelY + Math.sin(angle) * dashDistance
-                        };
-                        return;
-                    }
-                     if (this.weapon.type === 'boomerang' && this.boomerangCooldown <= 0 && dist <= this.attackRange) {
-                        this.boomerangCooldown = 480;
-                        gameManager.createProjectile(this, closestEnemy, 'boomerang_projectile');
-                        gameManager.audioManager.play('boomerang');
-                        this.attackCooldown = 60;
-                        return; 
-                    }
-                    if (this.weapon.type === 'axe' && this.axeSkillCooldown <= 0 && dist < GRID_SIZE * 3) {
-                        this.axeSkillCooldown = 240;
-                        this.spinAnimationTimer = 30;
-                        gameManager.createEffect('axe_spin_effect', this.pixelX, this.pixelY, this);
-                        const damageRadius = GRID_SIZE * 3.5;
-                        enemies.forEach(enemy => {
-                            if (Math.hypot(this.pixelX - enemy.pixelX, this.pixelY - enemy.pixelY) < damageRadius) {
-                                enemy.takeDamage(this.attackPower * 1.5);
-                            }
-                        });
-                        gameManager.nexuses.forEach(nexus => {
-                            if (nexus.team !== this.team && !nexus.isDestroying && Math.hypot(this.pixelX - nexus.pixelX, this.pixelY - nexus.pixelY) < damageRadius) {
-                                nexus.takeDamage(this.attackPower * 1.5);
-                            }
-                        });
-                        gameManager.audioManager.play('swordHit');
-                        return;
-                    }
+                    });
+                    gameManager.nexuses.forEach(nexus => {
+                        if (nexus.team !== this.team && !nexus.isDestroying && Math.hypot(this.pixelX - nexus.pixelX, this.pixelY - nexus.pixelY) < damageRadius) {
+                            nexus.takeDamage(this.attackPower * 1.5);
+                        }
+                    });
+                    gameManager.audioManager.play('swordHit');
+                    return;
                 }
             }
              if (this.weapon.type === 'magic_spear' && this.magicCircleCooldown <= 0) {
@@ -1530,7 +1500,7 @@ export class Unit {
             this.magicDaggerAimTimer -= gameManager.gameSpeed;
             if (this.magicDaggerAimTimer <= 0) {
                 this.isAimingMagicDagger = false;
-                this.magicDaggerSkillCooldown = 420; // 7 second cooldown
+                this.magicDaggerSkillCooldown = 420;
                 this.attackCooldown = 30;
                 
                 const startPos = { x: this.pixelX, y: this.pixelY };
