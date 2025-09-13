@@ -508,7 +508,7 @@ export class Unit {
                 enemies.forEach(enemy => {
                     const distToLine = Math.abs((endPos.y - startPos.y) * enemy.pixelX - (endPos.x - startPos.x) * enemy.pixelY + endPos.x * startPos.y - endPos.y * startPos.x) / Math.hypot(endPos.y - startPos.y, endPos.x - startPos.x);
                     if (distToLine < GRID_SIZE) {
-                       enemy.takeDamage(10, { stun: 60 });
+                       enemy.takeDamage(20, { stun: 60 });
                     }
                 });
 
