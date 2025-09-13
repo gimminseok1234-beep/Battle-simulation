@@ -1,6 +1,6 @@
 import { TILE, TEAM, COLORS, GRID_SIZE } from './constants.js';
 import { Weapon, MagicDaggerDashEffect, createPhysicalHitEffect } from './weaponary.js';
-import { Nexus } from './entities.js'; // [수정] Nexus 클래스를 import 합니다.
+import { Nexus } from './entities.js';
 
 // Unit class
 export class Unit {
@@ -48,7 +48,7 @@ export class Unit {
         this.spinAnimationTimer = 0;
         this.iceDiamondCharges = 0;
         this.iceDiamondChargeTimer = 0;
-        this.fireStaffSpecialCooldown = 0; // [추가] 불 지팡이 특수 공격 쿨타임
+        this.fireStaffSpecialCooldown = 0;
         this.isSlowed = 0;
     }
     
@@ -61,7 +61,7 @@ export class Unit {
         let speedModifier = 0;
         if (this.isInMagneticField) speedModifier = -0.7;
         if (this.poisonEffect.active) speedModifier -= 0.7;
-        if (this.isSlowed > 0) speedModifier -= 0.3; // 30% speed reduction
+        if (this.isSlowed > 0) speedModifier -= 0.3;
 
         const gridX = Math.floor(this.pixelX / GRID_SIZE);
         const gridY = Math.floor(this.pixelY / GRID_SIZE);
@@ -82,7 +82,7 @@ export class Unit {
     get attackRange() { return this.baseAttackRange + (this.weapon ? this.weapon.attackRangeBonus || 0 : 0); }
     get detectionRange() { return this.baseDetectionRange + (this.weapon ? this.weapon.detectionRangeBonus || 0 : 0); }
     get cooldownTime() { 
-        if (this.weapon && this.weapon.type === 'fire_staff') return 120; // [수정] 2초 일반 공격 쿨타임
+        if (this.weapon && this.weapon.type === 'fire_staff') return 120;
         if (this.weapon && this.weapon.type === 'hadoken') return 120;
         if (this.weapon && this.weapon.type === 'axe') return 120;
         if (this.weapon && this.weapon.type === 'ice_diamond') return 180;
@@ -258,11 +258,9 @@ export class Unit {
             gameManager.damageTile(targetGridX, targetGridY, this.attackPower);
             this.attackCooldown = this.cooldownTime;
         } else if (target instanceof Unit || target instanceof Nexus) {
-            // [CORE CHANGE] Delegate attack logic to the weapon if it exists
             if (this.weapon) {
                 this.weapon.use(this, target);
             } else {
-                // Default punch attack if no weapon
                 target.takeDamage(this.attackPower);
                 gameManager.audioManager.play('punch');
                 this.attackCooldown = this.cooldownTime;
@@ -421,7 +419,7 @@ export class Unit {
         if (this.magicCircleCooldown > 0) this.magicCircleCooldown -= gameManager.gameSpeed;
         if (this.boomerangCooldown > 0) this.boomerangCooldown -= gameManager.gameSpeed;
         if (this.shurikenSkillCooldown > 0) this.shurikenSkillCooldown -= gameManager.gameSpeed;
-        if (this.fireStaffSpecialCooldown > 0) this.fireStaffSpecialCooldown -= gameManager.gameSpeed; // [추가] 불 지팡이 특수 공격 쿨타임 감소
+        if (this.fireStaffSpecialCooldown > 0) this.fireStaffSpecialCooldown -= gameManager.gameSpeed;
         
         if (this.poisonEffect.active) {
             this.poisonEffect.duration -= gameManager.gameSpeed;
@@ -434,20 +432,20 @@ export class Unit {
         if (this.weapon && this.weapon.type === 'ice_diamond') {
             if (this.iceDiamondCharges < 5) {
                 this.iceDiamondChargeTimer += gameManager.gameSpeed;
-                if (this.iceDiamondChargeTimer >= 240) { // 4 seconds
+                if (this.iceDiamondChargeTimer >= 240) {
                     this.iceDiamondCharges++;
                     this.iceDiamondChargeTimer = 0;
                 }
             }
         }
         
-        // [추가] 불 지팡이 특수 공격 로직
         if (this.weapon && this.weapon.type === 'fire_staff' && this.fireStaffSpecialCooldown <= 0) {
             const { item: closestEnemy } = this.findClosest(enemies);
             if (closestEnemy && Math.hypot(this.pixelX - closestEnemy.pixelX, this.pixelY - closestEnemy.pixelY) <= this.attackRange && gameManager.hasLineOfSight(this, closestEnemy)) {
                 gameManager.audioManager.play('fireball');
                 gameManager.createProjectile(this, closestEnemy, 'fireball_projectile');
-                this.fireStaffSpecialCooldown = 240; // [수정] 4초 쿨타임
+                this.fireStaffSpecialCooldown = 240;
+                this.attackCooldown = 60; // [추가] 특수 공격 시 짧은 일반 공격 딜레이 부여
             }
         }
         
@@ -459,10 +457,9 @@ export class Unit {
             if (this.castingProgress >= this.castDuration) {
                 this.isCasting = false; this.castingProgress = 0;
                 
-                // [수정] 불 지팡이의 isCasting 로직을 제거하고, 독 포션만 남깁니다.
                 if (this.weapon.type === 'poison_potion') {
                     gameManager.audioManager.play('poison');
-                    this.hp = 0; // The unit dies after using the potion
+                    this.hp = 0;
                 }
             }
             this.applyPhysics();
@@ -480,7 +477,7 @@ export class Unit {
                 const dist = Math.hypot(this.pixelX - closestEnemy.pixelX, this.pixelY - closestEnemy.pixelY);
                 if (dist < this.detectionRange && dist > this.attackRange) {
                     this.isAimingMagicDagger = true;
-                    this.magicDaggerAimTimer = 60; // 1 second aim
+                    this.magicDaggerAimTimer = 60;
                     const angle = Math.atan2(closestEnemy.pixelY - this.pixelY, closestEnemy.pixelX - this.pixelX);
                     const dashDistance = GRID_SIZE * 4;
                     this.magicDaggerTargetPos = {
@@ -495,7 +492,7 @@ export class Unit {
             this.magicDaggerAimTimer -= gameManager.gameSpeed;
             if (this.magicDaggerAimTimer <= 0) {
                 this.isAimingMagicDagger = false;
-                this.magicDaggerSkillCooldown = 420; // 7 second cooldown
+                this.magicDaggerSkillCooldown = 420;
                 this.attackCooldown = 30;
                 
                 const startPos = { x: this.pixelX, y: this.pixelY };
@@ -566,8 +563,8 @@ export class Unit {
         if (this.weapon && this.weapon.type === 'axe' && this.axeSkillCooldown <= 0) {
             const { item: closestEnemy } = this.findClosest(enemies);
             if (closestEnemy && Math.hypot(this.pixelX - closestEnemy.pixelX, this.pixelY - closestEnemy.pixelY) < GRID_SIZE * 3) {
-                this.axeSkillCooldown = 240; // 4 seconds
-                this.spinAnimationTimer = 30; // 0.5 second animation
+                this.axeSkillCooldown = 240;
+                this.spinAnimationTimer = 30;
 
                 gameManager.createEffect('axe_spin_effect', this.pixelX, this.pixelY, this);
 
@@ -582,7 +579,7 @@ export class Unit {
                         nexus.takeDamage(this.attackPower * 1.5);
                     }
                 });
-                gameManager.audioManager.play('swordHit'); // Temporary
+                gameManager.audioManager.play('swordHit');
             }
         }
 
@@ -907,7 +904,6 @@ export class Unit {
             ctx.restore();
         }
 
-        // [CORE CHANGE] Delegate weapon drawing to the weapon instance
         if (this.weapon && !this.isKing) {
             this.weapon.drawEquipped(ctx, this);
         }
@@ -918,7 +914,6 @@ export class Unit {
         const barX = this.pixelX - barWidth / 2;
         
         const healthBarIsVisible = this.hp < 100 || this.hpBarVisibleTimer > 0;
-        // [수정] 불 지팡이는 더 이상 isCasting을 사용하지 않으므로, attackCooldown으로만 판별하도록 수정
         const normalAttackIsVisible = (this.isCasting && this.weapon?.type === 'poison_potion') || (this.attackCooldown > 0);
         let specialSkillIsVisible = 
             (this.isKing && this.spawnCooldown > 0) ||
@@ -928,7 +923,7 @@ export class Unit {
             (this.weapon?.type === 'magic_spear' && this.magicCircleCooldown > 0) ||
             (this.weapon?.type === 'boomerang' && this.boomerangCooldown > 0) ||
             (this.weapon?.type === 'shuriken' && this.shurikenSkillCooldown > 0) ||
-            (this.weapon?.type === 'fire_staff' && this.fireStaffSpecialCooldown > 0) || // [추가] 불 지팡이 특수 공격 게이지 표시 조건
+            (this.weapon?.type === 'fire_staff' && this.fireStaffSpecialCooldown > 0) ||
             (this.isCasting && this.weapon?.type === 'poison_potion');
 
         if (this.attackCooldown > 0 && !this.isCasting) {
@@ -977,14 +972,14 @@ export class Unit {
             } else {
                 let fgColor, progress = 0, max = 1;
 
-                if (this.weapon?.type === 'fire_staff') { // [추가] 불 지팡이 특수 공격 게이지 색상 및 진행도 설정
-                    fgColor = '#ef4444'; // 빨강
-                    progress = 240 - this.fireStaffSpecialCooldown; max = 240; // [수정] 4초 기준으로 수정
+                if (this.weapon?.type === 'fire_staff') {
+                    fgColor = '#ef4444';
+                    progress = 240 - this.fireStaffSpecialCooldown; max = 240;
                 } else if (this.weapon?.type === 'magic_spear') {
                     fgColor = '#a855f7';
                     progress = 300 - this.magicCircleCooldown; max = 300;
                 } else if (this.weapon?.type === 'boomerang' || this.weapon?.type === 'shuriken' || this.weapon?.type === 'poison_potion' || this.weapon?.type === 'magic_dagger' || this.weapon?.type === 'axe') {
-                    fgColor = '#94a3b8'; // Gray
+                    fgColor = '#94a3b8';
                     if(this.weapon.type === 'boomerang') {
                         progress = 480 - this.boomerangCooldown; max = 480;
                     } else if(this.weapon.type === 'shuriken') {
@@ -997,7 +992,7 @@ export class Unit {
                         progress = this.castingProgress; max = this.castDuration;
                     }
                 } else if (this.weapon?.type === 'ice_diamond') {
-                    fgColor = '#38bdf8'; // Blue
+                    fgColor = '#38bdf8';
                     progress = this.iceDiamondChargeTimer; max = 240;
                 }
                 
