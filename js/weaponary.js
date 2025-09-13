@@ -3,6 +3,7 @@ import { TEAM, COLORS, GRID_SIZE } from './constants.js';
 /**
  * [MODIFIED] 마법 단검 아이콘을 그리는 함수.
  * 보내주신 두 번째 사진을 기반으로 칼날 모양을 완전히 새로 디자인한 최종 버전입니다.
+ * 이제 이 함수는 회전 없이 항상 위쪽을 향하는 기본 형태로만 그립니다.
  */
 function drawMagicDaggerIcon(ctx) {
     ctx.save();
@@ -676,9 +677,10 @@ export class Weapon {
             ctx.fillRect(-1.5, GRID_SIZE * 0.3 + 3, 3, GRID_SIZE * 0.3);
             ctx.strokeRect(-1.5, GRID_SIZE * 0.3 + 3, 3, GRID_SIZE * 0.3);
         } else if (this.type === 'magic_dagger') {
-            // [수정] 유닛이 들고 있을 때 올바른 방향을 보도록 회전 추가
-            ctx.translate(GRID_SIZE * 0.5, 0);
-            ctx.rotate(Math.PI / 2); // 90도 회전
+            // [수정] 유닛의 왼쪽에 붙이고 크기를 30% 줄입니다.
+            ctx.translate(-GRID_SIZE * 0.4, 0); // 위치 조정 (왼쪽으로)
+            ctx.scale(0.7, 0.7); // 크기 조정
+            ctx.rotate(-Math.PI / 8); // 살짝 기울임
             drawMagicDaggerIcon(ctx);
         } else if (this.type === 'axe') {
             ctx.translate(GRID_SIZE * 0.8, -GRID_SIZE * 0.7);
