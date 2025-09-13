@@ -447,7 +447,7 @@ export class Unit {
             if (closestEnemy && Math.hypot(this.pixelX - closestEnemy.pixelX, this.pixelY - closestEnemy.pixelY) <= this.attackRange && gameManager.hasLineOfSight(this, closestEnemy)) {
                 gameManager.audioManager.play('fireball');
                 gameManager.createProjectile(this, closestEnemy, 'fireball_projectile');
-                this.fireStaffSpecialCooldown = 180; // 3초 쿨타임
+                this.fireStaffSpecialCooldown = 240; // [수정] 4초 쿨타임
             }
         }
         
@@ -979,7 +979,7 @@ export class Unit {
 
                 if (this.weapon?.type === 'fire_staff') { // [추가] 불 지팡이 특수 공격 게이지 색상 및 진행도 설정
                     fgColor = '#ef4444'; // 빨강
-                    progress = 180 - this.fireStaffSpecialCooldown; max = 180;
+                    progress = 240 - this.fireStaffSpecialCooldown; max = 240; // [수정] 4초 기준으로 수정
                 } else if (this.weapon?.type === 'magic_spear') {
                     fgColor = '#a855f7';
                     progress = 300 - this.magicCircleCooldown; max = 300;
@@ -1028,5 +1028,4 @@ export class Unit {
         }
     }
 }
-
 
