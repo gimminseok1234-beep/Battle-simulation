@@ -1,5 +1,5 @@
 import { Unit } from './unit.js';
-import { Weapon, Projectile, AreaEffect, Effect, MagicDaggerDashEffect, createFireballHitEffect } from './weaponary.js';
+import { Weapon, Projectile, AreaEffect, Effect, MagicDaggerDashEffect, createFireballHitEffect, Particle } from './weaponary.js';
 import { Nexus, GrowingMagneticField, MagicCircle, PoisonCloud } from './entities.js';
 import { getFirestore, collection, doc, getDoc, getDocs, setDoc, deleteDoc, query, where } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 import { AudioManager } from './audioManager.js';
@@ -1474,7 +1474,7 @@ export class GameManager {
             for (let i = this.magicCircles.length - 1; i >= 0; i--) {
                 const circle = this.magicCircles[i];
                 if (circle.gridX === gridX && circle.gridY === gridY && circle.team !== unit.team) {
-                    unit.takeDamage(0, { stun: 120, stunSource: 'magic_circle' }); // [수정] 기절 출처 정보 추가
+                    unit.takeDamage(0, { stun: 120, stunSource: 'magic_circle' });
                     this.magicCircles.splice(i, 1);
                 }
             }
@@ -1894,7 +1894,6 @@ export class GameManager {
         return this.units.find(u => u.team !== team && u.isStunned > 0);
     }
 
-    // [추가] 마법진에 의해 기절한 적을 찾는 함수
     findStunnedByMagicCircleEnemy(team) {
         return this.units.find(u => u.team !== team && u.isStunned > 0 && u.stunnedByMagicCircle);
     }
@@ -2413,3 +2412,4 @@ export class GameManager {
         placementResetBtn.style.display = 'inline-block';
     }
 }
+
