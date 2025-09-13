@@ -1,5 +1,6 @@
 import { Unit } from './unit.js';
-import { Projectile, AreaEffect, Effect, MagicDaggerDashEffect, createFireballHitEffect, Particle } from './weaponary.js';
+// [수정] Weapon 클래스를 weaponary.js에서 import합니다.
+import { Weapon, Projectile, AreaEffect, Effect, MagicDaggerDashEffect, createFireballHitEffect, Particle } from './weaponary.js';
 import { Nexus, GrowingMagneticField, MagicCircle, PoisonCloud } from './entities.js';
 import { getFirestore, collection, doc, getDoc, getDocs, setDoc, deleteDoc, query, where } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 import { AudioManager } from './audioManager.js';
@@ -998,12 +999,6 @@ export class GameManager {
          };
     }
     
-    // Delegating to UI Manager
-    applyTool(pos) { this.uiManager.applyTool(pos); }
-    createWeapon(x, y, type) { return this.uiManager.createWeapon(x, y, type); }
-    drawMap() { this.uiManager.drawMap(); }
-
-
     pauseSimulation() {
         if (this.state !== 'SIMULATE') return;
         this.state = 'PAUSED';
@@ -2086,3 +2081,4 @@ export class GameManager {
         placementResetBtn.style.display = 'inline-block';
     }
 }
+
