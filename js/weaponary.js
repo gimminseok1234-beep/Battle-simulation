@@ -1228,115 +1228,25 @@ export class Projectile {
             ctx.beginPath();
             ctx.arc(this.pixelX, this.pixelY, size, 0, Math.PI * 2);
             ctx.fill();
-        } else if (this.type === 'black_sphere_projectile') { // [추가] 검은 구체 그리기 로직
+        } else if (this.type === 'black_sphere_projectile') { // [수정] 검은 구체 그리기 로직
             const size = GRID_SIZE / 3;
+            // Trail
             for (let i = 0; i < this.trail.length; i++) {
                 const pos = this.trail[i];
-                const alpha = (i / this.trail.length) * 0.3;
-                ctx.fillStyle = `rgba(50, 50, 50, ${alpha})`;
+                const alpha = (i / this.trail.length) * 0.2;
+                ctx.fillStyle = `rgba(0, 0, 0, ${alpha})`;
                 ctx.beginPath();
                 ctx.arc(pos.x, pos.y, size * (i / this.trail.length), 0, Math.PI * 2);
                 ctx.fill();
             }
-            const grad = ctx.createRadialGradient(this.pixelX, this.pixelY, size * 0.2, this.pixelX, this.pixelY, size);
-            grad.addColorStop(0, '#4a5568');
-            grad.addColorStop(1, '#1a202c');
-            ctx.fillStyle = grad;
+            // Main sphere
+            ctx.fillStyle = '#000000'; // 완전한 검은색
+            ctx.strokeStyle = '#4a5568'; // 시인성을 위한 어두운 회색 테두리
+            ctx.lineWidth = 2;
             ctx.beginPath();
             ctx.arc(this.pixelX, this.pixelY, size, 0, Math.PI * 2);
             ctx.fill();
-        }
-    }
-}
-
-// AreaEffect class
-export class AreaEffect {
-    constructor(gameManager, x, y, type, options = {}) {
-        this.gameManager = gameManager;
-        this.pixelX = x; this.pixelY = y; this.type = type;
-        this.duration = 30; this.maxRadius = GRID_SIZE * 2.5; this.currentRadius = 0;
-        this.damage = options.damage || 0;
-        this.ownerTeam = options.ownerTeam || null;
-        this.particles = [];
-        this.damagedUnits = new Set();
-        this.damagedNexuses = new Set();
-
-        if (this.type === 'fire_pillar') {
-            for (let i = 0; i < 50; i++) {
-                this.particles.push({
-                    x: (this.gameManager.random() - 0.5) * this.maxRadius * 1.5,
-                    y: (this.gameManager.random() - 0.5) * this.maxRadius * 0.5,
-                    size: this.gameManager.random() * 4 + 2,
-                    speed: this.gameManager.random() * 1.5 + 1,
-                    lifespan: this.gameManager.random() * 20 + 10,
-                    color: ['#ffcc00', '#ff9900', '#ff6600', '#ef4444'][Math.floor(this.gameManager.random() * 4)]
-                });
-            }
-        }
-    }
-    update() {
-        const gameManager = this.gameManager;
-        if (!gameManager) return;
-        this.duration -= gameManager.gameSpeed;
-        this.currentRadius = this.maxRadius * (1 - (this.duration / 30));
-        
-        if (this.type === 'fire_pillar') {
-            this.particles.forEach(p => {
-                p.y -= p.speed * gameManager.gameSpeed;
-                p.lifespan -= gameManager.gameSpeed;
-                p.x += (this.gameManager.random() - 0.5) * 0.5;
-            });
-            this.particles = this.particles.filter(p => p.lifespan > 0);
-
-            gameManager.units.forEach(unit => {
-                if (unit.team !== this.ownerTeam && !this.damagedUnits.has(unit)) {
-                    const dist = Math.hypot(unit.pixelX - this.pixelX, unit.pixelY - this.pixelY);
-                    if (dist < this.currentRadius) {
-                        unit.takeDamage(this.damage);
-                        this.damagedUnits.add(unit);
-                    }
-                }
-            });
-            
-            gameManager.nexuses.forEach(nexus => {
-                if (nexus.team !== this.ownerTeam && !this.damagedNexuses.has(nexus)) {
-                    const dist = Math.hypot(nexus.pixelX - this.pixelX, nexus.pixelY - this.pixelY);
-                    if (dist < this.currentRadius) {
-                        nexus.takeDamage(this.damage);
-                        this.damagedNexuses.add(nexus);
-                    }
-                }
-            });
-        }
-    }
-    draw(ctx) {
-        const opacity = this.duration / 30;
-        if (this.type === 'fire_pillar') {
-            ctx.save();
-            ctx.translate(this.pixelX, this.pixelY);
-
-            const grad = ctx.createRadialGradient(0, 0, this.currentRadius * 0.3, 0, 0, this.currentRadius);
-            grad.addColorStop(0, `rgba(255, 100, 0, ${opacity * 0.4})`);
-            grad.addColorStop(0.6, `rgba(255, 0, 0, ${opacity * 0.3})`);
-            grad.addColorStop(1, `rgba(200, 0, 0, 0)`);
-            ctx.fillStyle = grad;
-            ctx.beginPath();
-            ctx.arc(0, 0, this.currentRadius, 0, Math.PI * 2);
-            ctx.fill();
-            
-            this.particles.forEach(p => {
-                ctx.globalAlpha = (p.lifespan / 20) * opacity;
-                ctx.fillStyle = p.color;
-                ctx.beginPath();
-                ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
-                ctx.fill();
-            });
-            ctx.restore();
-            ctx.globalAlpha = 1.0;
-
-        } else if (this.type === 'poison_cloud') {
-            ctx.fillStyle = `rgba(132, 204, 22, ${opacity * 0.4})`;
-            ctx.fillRect(this.pixelX - GRID_SIZE * 2.5, this.pixelY - GRID_SIZE * 2.5, GRID_SIZE * 5, GRID_SIZE * 5);
+            ctx.stroke();
         }
     }
 }
