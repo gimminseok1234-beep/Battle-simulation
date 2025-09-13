@@ -164,16 +164,16 @@ export class PoisonCloud {
         
         const applyPoisonDamage = (target) => {
              if (target.team !== this.ownerTeam) {
-                 const dx = Math.abs(target.pixelX - this.pixelX);
-                 const dy = Math.abs(target.pixelY - this.pixelY);
-                 if (dx < GRID_SIZE * 2.5 && dy < GRID_SIZE * 2.5) {
-                     if(target instanceof Unit) {
-                         target.takeDamage(0, { poison: { damage: this.damage * gameManager.gameSpeed }, isTileDamage: true });
-                     } else if (target instanceof Nexus && !target.isDestroying) {
-                         target.takeDamage(this.damage * gameManager.gameSpeed);
-                     }
-                 }
-             }
+                const dx = Math.abs(target.pixelX - this.pixelX);
+                const dy = Math.abs(target.pixelY - this.pixelY);
+                if (dx < GRID_SIZE * 2.5 && dy < GRID_SIZE * 2.5) {
+                    if(target instanceof Unit) {
+                        target.takeDamage(0, { poison: { damage: this.damage * gameManager.gameSpeed }, isTileDamage: true });
+                    } else if (target instanceof Nexus && !target.isDestroying) {
+                        target.takeDamage(this.damage * gameManager.gameSpeed);
+                    }
+                }
+            }
         };
 
         gameManager.units.forEach(applyPoisonDamage);
@@ -392,7 +392,6 @@ export class Projectile {
         else if (type === 'ice_bolt_projectile') this.speed = 7;
         else if (type === 'fireball_projectile') this.speed = 5;
         else if (type === 'mini_fireball_projectile') this.speed = 8;
-        else if (type === 'black_sphere_projectile') this.speed = 7;
         else this.speed = 6;
 
         this.damage = owner.attackPower;
@@ -410,8 +409,6 @@ export class Projectile {
             this.damage = 28;
         } else if (type === 'mini_fireball_projectile') {
             this.damage = 12;
-        } else if (type === 'black_sphere_projectile') {
-            this.damage = 10;
         }
 
         this.knockback = (type === 'hadoken') ? gameManager.hadokenKnockback : 0;
@@ -714,18 +711,6 @@ export class Projectile {
             ctx.fill();
             ctx.stroke();
             ctx.restore();
-        } else if (this.type === 'black_sphere_projectile') {
-            ctx.save();
-            ctx.translate(this.pixelX, this.pixelY);
-            ctx.rotate(this.angle);
-            ctx.fillStyle = '#000000';
-            ctx.strokeStyle = '#FFFFFF';
-            ctx.lineWidth = 1;
-            ctx.beginPath();
-            ctx.arc(0, 0, GRID_SIZE / 4, 0, Math.PI * 2);
-            ctx.fill();
-            ctx.stroke();
-            ctx.restore();
         } else if (this.type === 'fireball_projectile' || this.type === 'mini_fireball_projectile') {
             const size = this.type === 'fireball_projectile' ? GRID_SIZE / 2.5 : GRID_SIZE / 4;
             for (let i = 0; i < this.trail.length; i++) {
@@ -994,8 +979,7 @@ export class Unit {
         this.attackAnimationTimer = 0;
         this.magicCircleCooldown = 0;
         this.boomerangCooldown = 0;
-        this.shurikenCharge = 0; // [MODIFIED] Replaced shurikenSkillCooldown
-        this.fireStaffCharge = 0; // [MODIFIED] Replaced fireStaffSkillCooldown
+        this.shurikenSkillCooldown = 0;
         this.isStunned = 0;
         this.poisonEffect = { active: false, duration: 0, damage: 0 };
         this.isBeingPulled = false;
@@ -1133,7 +1117,7 @@ export class Unit {
                                           (gameManager.map[myGridY][myGridX].type === TILE.WALL || gameManager.map[myGridY][myGridX].type === TILE.CRACKED_WALL);
 
                     const isOtherNextPosWall = (otherGridY < 0 || otherGridY >= gameManager.ROWS || otherGridX < 0 || otherGridX >= gameManager.COLS) ||
-                                              (gameManager.map[otherGridY][otherGridX].type === TILE.WALL || gameManager.map[otherGridY][otherGridX].type === TILE.CRACKED_WALL);
+                                             (gameManager.map[otherGridY][otherGridX].type === TILE.WALL || gameManager.map[otherGridY][otherGridX].type === TILE.CRACKED_WALL);
                     
                     if (!isMyNextPosWall) {
                         this.pixelX = myNextX;
@@ -1211,17 +1195,30 @@ export class Unit {
 
     attack(target) {
         if (!target || this.attackCooldown > 0 || this.isStunned > 0) return;
-        
+        if (this.isCasting && this.weapon && this.weapon.type !== 'poison_potion') return;
+
         const gameManager = this.gameManager;
         if (!gameManager) return;
 
-        if (this.weapon) {
-            this.weapon.use(this, target, 'normal'); // Pass 'normal' for regular attacks
-        } else {
-            // Default punch attack if no weapon
-            target.takeDamage(this.attackPower);
-            gameManager.audioManager.play('punch');
+        const targetGridX = Math.floor(target.pixelX / GRID_SIZE);
+        const targetGridY = Math.floor(target.pixelY / GRID_SIZE);
+        if(targetGridY < 0 || targetGridY >= gameManager.ROWS || targetGridX < 0 || targetGridX >= gameManager.COLS) return;
+        
+        const tile = gameManager.map[targetGridY][targetGridX];
+        
+        if (tile.type === TILE.CRACKED_WALL) {
+            gameManager.damageTile(targetGridX, targetGridY, this.attackPower);
             this.attackCooldown = this.cooldownTime;
+        } else if (target instanceof Unit || target instanceof Nexus) {
+            // [CORE CHANGE] Delegate attack logic to the weapon if it exists
+            if (this.weapon) {
+                this.weapon.use(this, target);
+            } else {
+                // Default punch attack if no weapon
+                target.takeDamage(this.attackPower);
+                gameManager.audioManager.play('punch');
+                this.attackCooldown = this.cooldownTime;
+            }
         }
     }
 
@@ -1269,42 +1266,10 @@ export class Unit {
 
     update(enemies, weapons, projectiles) {
         const gameManager = this.gameManager;
-        if (!gameManager) return;
-        
-        if (this.isStunned > 0) {
-            this.isStunned -= gameManager.gameSpeed;
-            this.applyPhysics();
+        if (!gameManager) {
             return;
         }
         
-        // [MODIFIED] New charge logic
-        if (this.attackCooldown > 0) this.attackCooldown -= gameManager.gameSpeed;
-        if (this.weapon?.type === 'fire_staff') {
-            this.fireStaffCharge = Math.min(180, this.fireStaffCharge + gameManager.gameSpeed);
-        }
-        if (this.weapon?.type === 'shuriken') {
-            this.shurikenCharge = Math.min(480, this.shurikenCharge + gameManager.gameSpeed);
-        }
-
-        // [MODIFIED] New prioritized special attack logic
-        const { item: closestEnemyForSpecial } = this.findClosest(enemies);
-        if (this.weapon && closestEnemyForSpecial && 
-            gameManager.hasLineOfSight(this, closestEnemyForSpecial) && 
-            Math.hypot(this.pixelX - closestEnemyForSpecial.pixelX, this.pixelY - closestEnemyForSpecial.pixelY) <= this.detectionRange) {
-            
-            if (this.weapon.type === 'fire_staff' && this.fireStaffCharge >= 180) {
-                this.weapon.use(this, closestEnemyForSpecial, 'special');
-                this.applyPhysics();
-                return; 
-            }
-            if (this.weapon.type === 'shuriken' && this.shurikenCharge >= 480) {
-                this.weapon.use(this, closestEnemyForSpecial, 'special');
-                this.applyPhysics();
-                return;
-            }
-        }
-        // End of new logic section, original logic follows
-
         if (this.isDashing) {
             this.dashTrail.push({x: this.pixelX, y: this.pixelY});
             if (this.dashTrail.length > 5) this.dashTrail.shift();
@@ -1376,6 +1341,12 @@ export class Unit {
             return;
         }
         
+        if (this.isStunned > 0) {
+            this.isStunned -= gameManager.gameSpeed;
+            this.applyPhysics();
+            return;
+        }
+
         if (this.isSlowed > 0) {
             this.isSlowed -= gameManager.gameSpeed;
         }
@@ -1389,11 +1360,11 @@ export class Unit {
                 this.baseAttackPower += 3;
             }
         }
-        
-        // This part is kept for other weapon logic, but fireStaff/shuriken cooldowns are now charges.
+
         if (this.magicDaggerSkillCooldown > 0) this.magicDaggerSkillCooldown -= gameManager.gameSpeed;
         if (this.axeSkillCooldown > 0) this.axeSkillCooldown -= gameManager.gameSpeed;
         if (this.spinAnimationTimer > 0) this.spinAnimationTimer -= gameManager.gameSpeed;
+        if (this.attackCooldown > 0) this.attackCooldown -= gameManager.gameSpeed;
         if (this.teleportCooldown > 0) this.teleportCooldown -= gameManager.gameSpeed;
         if (this.alertedCounter > 0) this.alertedCounter -= gameManager.gameSpeed;
         if (this.isKing && this.spawnCooldown > 0) this.spawnCooldown -= gameManager.gameSpeed;
@@ -1401,7 +1372,7 @@ export class Unit {
         if (this.attackAnimationTimer > 0) this.attackAnimationTimer -= gameManager.gameSpeed;
         if (this.magicCircleCooldown > 0) this.magicCircleCooldown -= gameManager.gameSpeed;
         if (this.boomerangCooldown > 0) this.boomerangCooldown -= gameManager.gameSpeed;
-        // The lines for shurikenSkillCooldown and fireStaffSkillCooldown are removed as they are now charges.
+        if (this.shurikenSkillCooldown > 0) this.shurikenSkillCooldown -= gameManager.gameSpeed;
         
         if (this.poisonEffect.active) {
             this.poisonEffect.duration -= gameManager.gameSpeed;
@@ -1421,7 +1392,6 @@ export class Unit {
             }
         }
         
-        // Rest of the original update logic remains
         if (this.weapon && (this.weapon.type === 'shuriken' || this.weapon.type === 'lightning') && this.evasionCooldown <= 0) {
             for (const p of projectiles) {
                 if (p.owner.team === this.team) continue;
@@ -1444,7 +1414,6 @@ export class Unit {
         }
         
         if (this.isCasting) {
-            // This logic is now mostly for poison potion
             this.castingProgress += gameManager.gameSpeed;
             if (!this.target || (this.target instanceof Unit && this.target.hp <= 0)) {
                 this.isCasting = false; this.castingProgress = 0; return;
@@ -1452,7 +1421,11 @@ export class Unit {
             if (this.castingProgress >= this.castDuration) {
                 this.isCasting = false; this.castingProgress = 0;
                 
-                if (this.weapon.type === 'poison_potion') {
+                if (this.weapon.type === 'fire_staff') {
+                    gameManager.audioManager.play('fireball');
+                    gameManager.createProjectile(this, this.target, 'fireball_projectile');
+                    this.attackCooldown = 0; // Reset attack cooldown after casting
+                } else if (this.weapon.type === 'poison_potion') {
                     gameManager.audioManager.play('poison');
                     this.hp = 0; // The unit dies after using the potion
                 }
@@ -1577,8 +1550,8 @@ export class Unit {
                 gameManager.audioManager.play('swordHit'); // Temporary
             }
         }
-        
-        // Original AI state machine starts here
+
+
         let newState = 'IDLE';
         let newTarget = null;
 
@@ -1771,26 +1744,21 @@ export class Unit {
         const gameManager = this.gameManager;
         if (!gameManager) return;
 
-        // ... (The rest of the draw method is complex but does not need changes for the charge logic)
-        // [MODIFIED] Draw logic for charge bars
-        
-        // This entire block is copied from the source code you provided, with modifications for the new charge logic
-        // ... (previous drawing logic like aiming, dashing, body color etc.)
         if (this.isAimingMagicDagger) {
-             ctx.save();
-             const aimProgress = 1 - (this.magicDaggerAimTimer / 60);
-             const currentEndX = this.pixelX + (this.magicDaggerTargetPos.x - this.pixelX) * aimProgress;
-             const currentEndY = this.pixelY + (this.magicDaggerTargetPos.y - this.pixelY) * aimProgress;
+            ctx.save();
+            const aimProgress = 1 - (this.magicDaggerAimTimer / 60);
+            const currentEndX = this.pixelX + (this.magicDaggerTargetPos.x - this.pixelX) * aimProgress;
+            const currentEndY = this.pixelY + (this.magicDaggerTargetPos.y - this.pixelY) * aimProgress;
 
-             ctx.globalAlpha = 0.7;
-             ctx.strokeStyle = '#FFFFFF';
-             ctx.lineWidth = 3;
-             ctx.setLineDash([10, 5]);
-             ctx.beginPath();
-             ctx.moveTo(this.pixelX, this.pixelY);
-             ctx.lineTo(currentEndX, currentEndY);
-             ctx.stroke();
-             ctx.restore();
+            ctx.globalAlpha = 0.7;
+            ctx.strokeStyle = '#FFFFFF';
+            ctx.lineWidth = 3;
+            ctx.setLineDash([10, 5]);
+            ctx.beginPath();
+            ctx.moveTo(this.pixelX, this.pixelY);
+            ctx.lineTo(currentEndX, currentEndY);
+            ctx.stroke();
+            ctx.restore();
         }
 
         if (this.isDashing) {
@@ -1861,6 +1829,7 @@ export class Unit {
             ctx.fillText(this.name, this.pixelX, this.pixelY + GRID_SIZE);
         }
 
+
         if (this.isBeingPulled && this.puller) {
             ctx.save();
             ctx.strokeStyle = '#94a3b8';
@@ -1902,7 +1871,8 @@ export class Unit {
             ctx.fill(); ctx.stroke();
             ctx.restore();
         }
-        
+
+        // [CORE CHANGE] Delegate weapon drawing to the weapon instance
         if (this.weapon && !this.isKing) {
             this.weapon.drawEquipped(ctx, this);
         }
@@ -1911,13 +1881,22 @@ export class Unit {
         const barHeight = 4;
         const barGap = 1;
         const barX = this.pixelX - barWidth / 2;
-
-        let specialSkillIsVisible = 
-            (this.weapon?.type === 'fire_staff') ||
-            (this.weapon?.type === 'shuriken');
-
+        
         const healthBarIsVisible = this.hp < 100 || this.hpBarVisibleTimer > 0;
-        const normalAttackIsVisible = this.attackCooldown > 0;
+        const normalAttackIsVisible = (this.isCasting && this.weapon?.type === 'fire_staff') || (this.attackCooldown > 0 && this.weapon?.type !== 'fire_staff');
+        let specialSkillIsVisible = 
+            (this.isKing && this.spawnCooldown > 0) ||
+            (this.weapon?.type === 'magic_dagger' && this.magicDaggerSkillCooldown > 0) ||
+            (this.weapon?.type === 'axe' && this.axeSkillCooldown > 0) ||
+            (this.weapon?.type === 'ice_diamond' && this.iceDiamondChargeTimer > 0 && this.iceDiamondCharges < 5) ||
+            (this.weapon?.type === 'magic_spear' && this.magicCircleCooldown > 0) ||
+            (this.weapon?.type === 'boomerang' && this.boomerangCooldown > 0) ||
+            (this.weapon?.type === 'shuriken' && this.shurikenSkillCooldown > 0) ||
+            (this.isCasting && this.weapon?.type === 'poison_potion');
+
+        if (this.attackCooldown > 0 && !this.isCasting) {
+            specialSkillIsVisible = false;
+        }
         
         let visibleBarCount = 0;
         if (healthBarIsVisible) visibleBarCount++;
@@ -1931,7 +1910,12 @@ export class Unit {
             if (normalAttackIsVisible) {
                 ctx.fillStyle = '#0c4a6e'; 
                 ctx.fillRect(barX, currentBarY, barWidth, barHeight);
-                const progress = Math.max(0, 1 - (this.attackCooldown / this.cooldownTime));
+                let progress = 0;
+                if (this.isCasting && this.weapon?.type === 'fire_staff') {
+                    progress = this.castingProgress / this.castDuration;
+                } else {
+                    progress = Math.max(0, 1 - (this.attackCooldown / this.cooldownTime));
+                }
                 ctx.fillStyle = '#38bdf8';
                 ctx.fillRect(barX, currentBarY, barWidth * progress, barHeight);
                 currentBarY += barHeight + barGap;
@@ -1946,34 +1930,54 @@ export class Unit {
         }
         
         if (specialSkillIsVisible) {
-            let fgColor, progress = 0, max = 1;
+            if (this.isKing) {
+                 const kingSpecialGaugeY = this.pixelY + GRID_SIZE + 2;
+                 const progress = 1 - (this.spawnCooldown / this.spawnInterval);
+                 ctx.fillStyle = '#111827';
+                 ctx.fillRect(barX, kingSpecialGaugeY, barWidth, barHeight);
+                 ctx.fillStyle = '#f97316';
+                 ctx.fillRect(barX, kingSpecialGaugeY, barWidth * progress, barHeight);
+            } else {
+                let fgColor, progress = 0, max = 1;
 
-            if (this.weapon.type === 'fire_staff') {
-                fgColor = '#f97316';
-                progress = this.fireStaffCharge;
-                max = 180;
-            } else if (this.weapon.type === 'shuriken') {
-                fgColor = '#94a3b8';
-                progress = this.shurikenCharge;
-                max = 480;
-            }
-            
-            if (fgColor) {
-                ctx.save();
-                ctx.lineWidth = 3;
-                ctx.strokeStyle = 'rgba(0, 0, 0, 0.3)';
-                const radius = GRID_SIZE / 2.5 + 3;
-                ctx.beginPath();
-                ctx.arc(this.pixelX, this.pixelY, radius, 0, Math.PI * 2);
-                ctx.stroke();
+                if (this.weapon?.type === 'magic_spear') {
+                    fgColor = '#a855f7';
+                    progress = 300 - this.magicCircleCooldown; max = 300;
+                } else if (this.weapon?.type === 'boomerang' || this.weapon?.type === 'shuriken' || this.weapon?.type === 'poison_potion' || this.weapon?.type === 'magic_dagger' || this.weapon?.type === 'axe') {
+                    fgColor = '#94a3b8'; // Gray
+                    if(this.weapon.type === 'boomerang') {
+                        progress = 480 - this.boomerangCooldown; max = 480;
+                    } else if(this.weapon.type === 'shuriken') {
+                        progress = 300 - this.shurikenSkillCooldown; max = 300;
+                    } else if(this.weapon.type === 'magic_dagger') {
+                        progress = 420 - this.magicDaggerSkillCooldown; max = 420;
+                    } else if(this.weapon.type === 'axe') {
+                        progress = 240 - this.axeSkillCooldown; max = 240;
+                    } else {
+                        progress = this.castingProgress; max = this.castDuration;
+                    }
+                } else if (this.weapon?.type === 'ice_diamond') {
+                    fgColor = '#38bdf8'; // Blue
+                    progress = this.iceDiamondChargeTimer; max = 240;
+                }
+                
+                if (fgColor) {
+                    ctx.save();
+                    ctx.lineWidth = 3;
+                    ctx.strokeStyle = 'rgba(0, 0, 0, 0.3)';
+                    const radius = GRID_SIZE / 2.5 + 3;
+                    ctx.beginPath();
+                    ctx.arc(this.pixelX, this.pixelY, radius, 0, Math.PI * 2);
+                    ctx.stroke();
 
-                ctx.strokeStyle = fgColor;
-                ctx.beginPath();
-                const startAngle = -Math.PI / 2;
-                const endAngle = startAngle + (progress / max) * Math.PI * 2;
-                ctx.arc(this.pixelX, this.pixelY, radius, startAngle, endAngle);
-                ctx.stroke();
-                ctx.restore();
+                    ctx.strokeStyle = fgColor;
+                    ctx.beginPath();
+                    const startAngle = -Math.PI / 2;
+                    const endAngle = startAngle + (progress / max) * Math.PI * 2;
+                    ctx.arc(this.pixelX, this.pixelY, radius, startAngle, endAngle);
+                    ctx.stroke();
+                    ctx.restore();
+                }
             }
         }
         
@@ -1987,4 +1991,3 @@ export class Unit {
 
 // Re-export Weapon to keep other modules working
 export { Weapon };
-
