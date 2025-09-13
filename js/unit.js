@@ -28,6 +28,7 @@ export class Unit {
         this.boomerangCooldown = 0;
         this.shurikenSkillCooldown = 0;
         this.isStunned = 0;
+        this.stunnedByMagicCircle = false; // [추가] 마법진에 의한 기절 여부
         this.poisonEffect = { active: false, duration: 0, damage: 0 };
         this.isBeingPulled = false;
         this.puller = null;
@@ -290,6 +291,9 @@ export class Unit {
                 gameManager.audioManager.play('stern');
             }
             this.isStunned = Math.max(this.isStunned, effectInfo.stun);
+            if (effectInfo.stunSource === 'magic_circle') { // [추가] 기절 출처 확인
+                this.stunnedByMagicCircle = true;
+            }
         }
         if (effectInfo.poison){
             this.poisonEffect.active = true;
@@ -389,6 +393,9 @@ export class Unit {
         
         if (this.isStunned > 0) {
             this.isStunned -= gameManager.gameSpeed;
+            if (this.isStunned <= 0) { // [추가] 기절이 풀리면 상태 초기화
+                this.stunnedByMagicCircle = false;
+            }
             this.applyPhysics();
             return;
         }
@@ -534,7 +541,8 @@ export class Unit {
                 gameManager.spawnMagicCircle(this.team);
                 this.magicCircleCooldown = 300;
             }
-            const stunnedEnemy = gameManager.findStunnedEnemy(this.team);
+            // [수정] 마법진에 의해 기절한 적만 찾도록 변경
+            const stunnedEnemy = gameManager.findStunnedByMagicCircleEnemy(this.team);
             if (stunnedEnemy && this.attackCooldown <= 0) {
                 this.alertedCounter = 60;
                 this.target = stunnedEnemy;
@@ -586,6 +594,7 @@ export class Unit {
 
         let newState = 'IDLE';
         let newTarget = null;
+        let targetEnemyForAlert = null; // [추가] 느낌표 표시를 위한 변수
 
         const currentGridXBeforeMove = Math.floor(this.pixelX / GRID_SIZE);
         const currentGridYBeforeMove = Math.floor(this.pixelY / GRID_SIZE);
@@ -615,6 +624,7 @@ export class Unit {
             let targetEnemy = null;
             if (closestEnemy && enemyDist <= this.detectionRange && gameManager.hasLineOfSight(this, closestEnemy)) {
                 targetEnemy = closestEnemy;
+                targetEnemyForAlert = closestEnemy; // [추가] 느낌표를 위해 타겟 저장
             }
 
             if (this.isKing && targetEnemy) {
@@ -653,7 +663,8 @@ export class Unit {
         }
 
         if (this.state !== newState && newState !== 'IDLE' && newState !== 'FLEEING_FIELD') {
-            if (!(this.weapon && this.weapon.type === 'magic_spear' && newState === 'AGGRESSIVE')) {
+            // [수정] 특수 공격 시에는 이미 느낌표가 뜨므로, 일반 공격 상태일 때만 느낌표를 띄웁니다.
+            if (!(this.weapon && this.weapon.type === 'magic_spear' && this.target instanceof Unit && this.target.stunnedByMagicCircle)) {
                  this.alertedCounter = 60;
             }
         }
@@ -1016,7 +1027,9 @@ export class Unit {
             }
         }
         
-        if (this.alertedCounter > 0 && !(this.weapon && (this.weapon.type === 'shuriken' || this.weapon.type === 'lightning')) && this.state !== 'FLEEING_FIELD') {
+        // [수정] 느낌표 표시 로직 변경
+        const showAlert = this.alertedCounter > 0 || (this.weapon?.type === 'magic_spear' && this.target instanceof Unit && this.target.stunnedByMagicCircle);
+        if (showAlert && this.state !== 'FLEEING_FIELD') {
             const yOffset = -GRID_SIZE;
             ctx.fillStyle = 'yellow'; ctx.font = 'bold 20px Arial'; ctx.textAlign = 'center';
             ctx.fillText(this.state === 'SEEKING_HEAL_PACK' ? '+' : '!', this.pixelX, this.pixelY + yOffset);
