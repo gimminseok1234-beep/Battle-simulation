@@ -1,5 +1,5 @@
 import { TEAM, COLORS, GRID_SIZE } from './constants.js';
-import { createPhysicalHitEffect } from './weaponary.js';
+import { createPhysicalHitEffect } from './weaponary.js'; // [수정] 빠져있던 import 구문을 추가합니다.
 
 // Nexus class
 export class Nexus {
@@ -246,25 +246,22 @@ export class PoisonCloud {
         const gameManager = this.gameManager;
         if (!gameManager) return;
         
-        // [수정] 순환 참조를 피하기 위해 Unit과 Nexus를 직접 참조하지 않고, 각 배열을 순회하며 처리합니다.
-        gameManager.units.forEach(unit => {
-            if (unit.team !== this.ownerTeam) {
-                const dx = Math.abs(unit.pixelX - this.pixelX);
-                const dy = Math.abs(unit.pixelY - this.pixelY);
-                if (dx < GRID_SIZE * 2.5 && dy < GRID_SIZE * 2.5) {
-                    unit.takeDamage(0, { poison: { damage: this.damage * gameManager.gameSpeed }, isTileDamage: true });
-                }
-            }
-        });
-        
-        gameManager.nexuses.forEach(nexus => {
-            if (nexus.team !== this.ownerTeam && !nexus.isDestroying) {
-                const dx = Math.abs(nexus.pixelX - this.pixelX);
-                const dy = Math.abs(nexus.pixelY - this.pixelY);
-                if (dx < GRID_SIZE * 2.5 && dy < GRID_SIZE * 2.5) {
-                    nexus.takeDamage(this.damage * gameManager.gameSpeed);
-                }
-            }
+        // [수정] 순환 참조를 피하기 위해, 직접 Unit, Nexus 클래스를 참조하는 대신,
+        // gameManager에 있는 유닛과 넥서스 배열을 순회합니다.
+        const targets = [...gameManager.units, ...gameManager.nexuses];
+
+        targets.forEach(target => {
+            if (target.team !== this.ownerTeam && !target.isDestroying) {
+               const dx = Math.abs(target.pixelX - this.pixelX);
+               const dy = Math.abs(target.pixelY - this.pixelY);
+               if (dx < GRID_SIZE * 2.5 && dy < GRID_SIZE * 2.5) {
+                   if(target.constructor.name === 'Unit') { // target이 Unit인지 확인
+                       target.takeDamage(0, { poison: { damage: this.damage * gameManager.gameSpeed }, isTileDamage: true });
+                   } else if (target.constructor.name === 'Nexus') { // target이 Nexus인지 확인
+                       target.takeDamage(this.damage * gameManager.gameSpeed);
+                   }
+               }
+           }
         });
     }
 
