@@ -1,5 +1,5 @@
 import { auth, db, onAuthStateChanged, handleAuthStateChange, setupAuthEventListeners } from './firebase.js';
-import { GameManager } from './gameManager.js';
+import { GameManager } from './gameManager_core.js';
 
 document.addEventListener('DOMContentLoaded', () => {
     // GameManager 생성 시, 반드시 db 정보를 전달해야 합니다.
