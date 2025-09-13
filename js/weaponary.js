@@ -2,8 +2,7 @@ import { TEAM, COLORS, GRID_SIZE } from './constants.js';
 
 /**
  * [MODIFIED] 마법 단검 아이콘을 그리는 함수.
- * 지적된 문제점(방향, 모양, 선명도)을 모두 수정한 최종 버전입니다.
- * 이제 이 함수는 회전 없이 항상 위쪽을 향하는 기본 형태로만 그립니다.
+ * 보내주신 두 번째 사진을 기반으로 칼날 모양을 완전히 새로 디자인한 최종 버전입니다.
  */
 function drawMagicDaggerIcon(ctx) {
     ctx.save();
@@ -16,7 +15,7 @@ function drawMagicDaggerIcon(ctx) {
 
     // --- 선명도를 위한 진하고 굵은 테두리 ---
     ctx.strokeStyle = '#000000'; // 검은색 테두리
-    ctx.lineWidth = 2.5; // 굵기 증가
+    ctx.lineWidth = 2.5;
 
     // --- 손잡이 ---
     const handleGradient = ctx.createLinearGradient(0, 0, 0, 10 * scale);
@@ -50,28 +49,36 @@ function drawMagicDaggerIcon(ctx) {
     // --- 칼날 ---
     const bladeGradient = ctx.createLinearGradient(0, -12 * scale, 0, guardY);
     bladeGradient.addColorStop(0, '#dbeafe');   // 매우 밝은 형광 파랑
-    bladeGradient.addColorStop(0.5, '#60a5fa'); // 중간 형광 파랑
-    bladeGradient.addColorStop(1, '#2563eb');   // 진한 파랑
+    bladeGradient.addColorStop(0.5, '#93c5fd'); // 중간 형광 파랑
+    bladeGradient.addColorStop(1, '#3b82f6');   // 진한 파랑
     ctx.fillStyle = bladeGradient;
 
     ctx.beginPath();
-    // 칼날의 왼쪽 하단에서 시작
-    ctx.moveTo(-1.5 * scale, guardY);
-    // 베지에 곡선을 이용해 바깥쪽으로 휘는 날렵한 반달 모양 생성
-    ctx.bezierCurveTo(
-        -1 * scale, -8 * scale,   // 제어점 1 (위쪽으로 당김)
-         6 * scale, -10 * scale,  // 제어점 2 (오른쪽 위로 강하게 당김)
-         8 * scale, -2 * scale    // 칼날 끝점
-    );
-    // 이차 곡선을 이용해 안쪽으로 파고드는 날카로운 모양 생성
+    // 가드 왼쪽 끝에서 시작
+    ctx.moveTo(-guardWidth / 2, guardY);
+    // 칼날 끝으로 날카롭게 뻗어 나감
+    ctx.lineTo(1.5 * scale, -11 * scale);
+    // 칼등 부분의 완만한 곡선
     ctx.quadraticCurveTo(
-         2 * scale, -2 * scale,   // 제어점 (안쪽으로 당김)
-        -1.5 * scale, guardY     // 시작점으로 복귀
+        3 * scale, -5 * scale,   // 제어점
+        guardWidth / 2, guardY  // 가드 오른쪽 끝으로 연결
     );
     ctx.closePath();
     ctx.fill();
     ctx.stroke();
     
+    // 칼날 안쪽 디테일
+    ctx.beginPath();
+    ctx.moveTo(0.5 * scale, guardY);
+    ctx.quadraticCurveTo(
+        0, -5 * scale,
+        1.2 * scale, -8 * scale
+    );
+    ctx.strokeStyle = 'rgba(0,0,0,0.5)';
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+
+
     ctx.restore();
 }
 
@@ -477,7 +484,6 @@ export class Weapon {
         ctx.translate(centerX, centerY);
         ctx.scale(scale, scale);
         
-        // [수정] 마법단검은 테두리를 자체적으로 그리므로, 여기서는 strokeStyle을 설정하지 않습니다.
         if (this.type !== 'magic_dagger') {
             ctx.strokeStyle = 'black';
             ctx.lineWidth = 1 / scale;
