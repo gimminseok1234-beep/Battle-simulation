@@ -1441,7 +1441,7 @@ export class Unit {
                 if (this.weapon.type === 'fire_staff') {
                     gameManager.audioManager.play('fireball');
                     gameManager.createProjectile(this, this.target, 'fireball_projectile');
-                    this.attackCooldown = 0; // Reset attack cooldown after casting
+                    this.attackCooldown = 30; // Short cooldown after special
                     this.fireStaffSkillCooldown = 600; // 10 second cooldown
                 } else if (this.weapon.type === 'poison_potion') {
                     gameManager.audioManager.play('poison');
@@ -1457,6 +1457,22 @@ export class Unit {
             this.spawnCooldown = this.spawnInterval;
         }
         
+        // --- Special Attack Logic (Prioritized) ---
+        // Fire Staff Special Attack Logic
+        if (this.weapon && this.weapon.type === 'fire_staff' && this.fireStaffSkillCooldown <= 0) {
+            const { item: closestEnemy } = this.findClosest(enemies);
+            if (closestEnemy && gameManager.hasLineOfSight(this, closestEnemy)) {
+                const dist = Math.hypot(this.pixelX - closestEnemy.pixelX, this.pixelY - closestEnemy.pixelY);
+                if (dist < this.detectionRange && dist > this.attackRange) {
+                    this.isCasting = true;
+                    this.castingProgress = 0;
+                    this.castDuration = 180; // 3 seconds
+                    this.target = closestEnemy;
+                    this.castTargetPos = { x: closestEnemy.pixelX, y: closestEnemy.pixelY };
+                    return; // Exit update loop to start casting
+                }
+            }
+        }
         if (this.weapon && this.weapon.type === 'magic_dagger' && !this.isAimingMagicDagger && this.magicDaggerSkillCooldown <= 0 && this.attackCooldown <= 0) {
             const { item: closestEnemy } = this.findClosest(enemies);
             if (closestEnemy && gameManager.hasLineOfSight(this, closestEnemy)) {
@@ -1569,22 +1585,6 @@ export class Unit {
             }
         }
         
-        // [NEW] Fire Staff Special Attack Logic
-        if (this.weapon && this.weapon.type === 'fire_staff' && this.fireStaffSkillCooldown <= 0 && this.attackCooldown <= 0) {
-            const { item: closestEnemy } = this.findClosest(enemies);
-            if (closestEnemy && gameManager.hasLineOfSight(this, closestEnemy)) {
-                const dist = Math.hypot(this.pixelX - closestEnemy.pixelX, this.pixelY - closestEnemy.pixelY);
-                if (dist < this.detectionRange && dist > this.attackRange) {
-                    this.isCasting = true;
-                    this.castingProgress = 0;
-                    this.castDuration = 180; // 3 seconds
-                    this.target = closestEnemy;
-                    this.castTargetPos = { x: closestEnemy.pixelX, y: closestEnemy.pixelY };
-                }
-            }
-        }
-
-
         let newState = 'IDLE';
         let newTarget = null;
 
@@ -1916,7 +1916,8 @@ export class Unit {
         const barX = this.pixelX - barWidth / 2;
         
         const healthBarIsVisible = this.hp < 100 || this.hpBarVisibleTimer > 0;
-        const normalAttackIsVisible = (this.isCasting && this.weapon?.type === 'fire_staff') || (this.attackCooldown > 0 && this.weapon?.type !== 'fire_staff');
+        const normalAttackIsVisible = this.attackCooldown > 0;
+        
         let specialSkillIsVisible = 
             (this.isKing && this.spawnCooldown > 0) ||
             (this.weapon?.type === 'magic_dagger' && this.magicDaggerSkillCooldown > 0) ||
@@ -1927,10 +1928,6 @@ export class Unit {
             (this.weapon?.type === 'shuriken' && this.shurikenSkillCooldown > 0) ||
             (this.weapon?.type === 'fire_staff' && (this.fireStaffSkillCooldown > 0 || this.isCasting)) ||
             (this.isCasting && this.weapon?.type === 'poison_potion');
-
-        if (this.attackCooldown > 0 && !this.isCasting) {
-            specialSkillIsVisible = false;
-        }
         
         let visibleBarCount = 0;
         if (healthBarIsVisible) visibleBarCount++;
@@ -1945,7 +1942,6 @@ export class Unit {
                 ctx.fillStyle = '#0c4a6e'; 
                 ctx.fillRect(barX, currentBarY, barWidth, barHeight);
                 let progress = 0;
-                // [MODIFIED] Fire staff casting bar removed from here as it's a special now
                 if (this.isCasting && this.weapon?.type === 'poison_potion') {
                      progress = this.castingProgress / this.castDuration;
                 } else {
