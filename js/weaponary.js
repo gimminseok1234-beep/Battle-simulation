@@ -2,19 +2,20 @@ import { TEAM, COLORS, GRID_SIZE } from './constants.js';
 
 /**
  * [MODIFIED] 마법 단검 아이콘을 그리는 함수.
- * 요청에 따라 반달 모양의 형광 파란색 디자인으로 수정되었습니다.
+ * 지적된 문제점(방향, 모양, 선명도)을 모두 수정한 최종 버전입니다.
  */
 function drawMagicDaggerIcon(ctx) {
     ctx.save();
-    
-    const scale = GRID_SIZE * 0.09; 
-    
-    // --- 광원 효과 ---
-    ctx.shadowColor = 'rgba(59, 130, 246, 0.9)';
-    ctx.shadowBlur = 15;
 
-    ctx.strokeStyle = '#1e3a8a'; // 어두운 파란색 테두리
-    ctx.lineWidth = 2;
+    const scale = GRID_SIZE * 0.1;
+
+    // --- 광원 효과 ---
+    ctx.shadowColor = 'rgba(59, 130, 246, 0.7)';
+    ctx.shadowBlur = 10;
+
+    // --- 선명도를 위한 진하고 굵은 테두리 ---
+    ctx.strokeStyle = '#000000'; // 검은색 테두리
+    ctx.lineWidth = 2.5; // 굵기 증가
 
     // --- 손잡이 ---
     const handleGradient = ctx.createLinearGradient(0, 0, 0, 10 * scale);
@@ -22,60 +23,58 @@ function drawMagicDaggerIcon(ctx) {
     handleGradient.addColorStop(1, '#2563eb'); // 중간 파랑
     ctx.fillStyle = handleGradient;
     
-    const handleWidth = 3 * scale;
-    const handleHeight = 10 * scale;
+    const handleWidth = 2.5 * scale;
+    const handleHeight = 9 * scale;
     const handleX = -handleWidth / 2;
     const handleY = 0;
-    
+
     ctx.beginPath();
     ctx.moveTo(handleX, handleY);
     ctx.lineTo(handleWidth / 2, handleY);
-    ctx.lineTo(handleWidth / 2, handleY + handleHeight * 0.8);
-    ctx.quadraticCurveTo(0, handleY + handleHeight, -handleWidth / 2,  handleY + handleHeight * 0.8);
+    ctx.lineTo(handleWidth / 2, handleY + handleHeight);
+    ctx.lineTo(handleX, handleY + handleHeight);
     ctx.closePath();
     ctx.fill();
     ctx.stroke();
 
     // --- 가드 ---
     ctx.fillStyle = '#60a5fa'; // 밝은 파랑
-    const guardWidth = 6 * scale;
-    const guardHeight = 2 * scale;
+    const guardWidth = 5 * scale;
+    const guardHeight = 1.5 * scale;
     const guardX = -guardWidth / 2;
     const guardY = -guardHeight / 2;
-    ctx.beginPath();
-    ctx.moveTo(guardX, guardY);
-    ctx.lineTo(guardX + guardWidth, guardY);
-    ctx.lineTo(guardX + guardWidth * 0.8, guardY + guardHeight);
-    ctx.lineTo(guardX + guardWidth * 0.2, guardY + guardHeight);
-    ctx.closePath();
-    ctx.fill();
-    ctx.stroke();
+    ctx.fillRect(guardX, guardY, guardWidth, guardHeight);
+    ctx.strokeRect(guardX, guardY, guardWidth, guardHeight);
 
-    // --- 칼날 ---
-    const bladeBaseY = -guardHeight / 2;
-    
-    // 그라데이션을 통한 형광 효과
-    const bladeGradient = ctx.createLinearGradient(0, -12 * scale, 0, bladeBaseY);
+    // --- 칼날 (방향 및 모양 수정) ---
+    // 칼날을 위쪽을 향하도록 기본으로 그리고, 호출하는 함수에서 회전시켜 올바른 방향을 잡습니다.
+    const bladeGradient = ctx.createLinearGradient(0, -12 * scale, 0, guardY);
     bladeGradient.addColorStop(0, '#dbeafe');   // 매우 밝은 형광 파랑
-    bladeGradient.addColorStop(0.5, '#93c5fd'); // 중간 형광 파랑
-    bladeGradient.addColorStop(1, '#3b82f6');   // 진한 파랑
+    bladeGradient.addColorStop(0.5, '#60a5fa'); // 중간 형광 파랑
+    bladeGradient.addColorStop(1, '#2563eb');   // 진한 파랑
+    ctx.fillStyle = bladeGradient;
 
-    ctx.fillStyle = bladeGradient; 
-    
     ctx.beginPath();
-    ctx.moveTo(-2 * scale, bladeBaseY); // 칼날 시작점 (왼쪽)
+    // 칼날의 왼쪽 하단에서 시작
+    ctx.moveTo(-1.5 * scale, guardY);
+    // 베지에 곡선을 이용해 바깥쪽으로 휘는 날렵한 반달 모양 생성
     ctx.bezierCurveTo(
-        2 * scale, -10 * scale, // Control point 1
-        8 * scale, -8 * scale, // Control point 2
-        6 * scale, bladeBaseY   // 칼날 끝점 (오른쪽)
+        -1 * scale, -8 * scale,   // 제어점 1 (위쪽으로 당김)
+         6 * scale, -10 * scale,  // 제어점 2 (오른쪽 위로 강하게 당김)
+         8 * scale, -2 * scale    // 칼날 끝점
     );
-    ctx.quadraticCurveTo(2 * scale, bladeBaseY - 2 * scale, -2 * scale, bladeBaseY); // 안쪽 곡선
+    // 이차 곡선을 이용해 안쪽으로 파고드는 날카로운 모양 생성
+    ctx.quadraticCurveTo(
+         2 * scale, -2 * scale,   // 제어점 (안쪽으로 당김)
+        -1.5 * scale, guardY     // 시작점으로 복귀
+    );
     ctx.closePath();
     ctx.fill();
     ctx.stroke();
-
+    
     ctx.restore();
 }
+
 
 /**
  * [NEW] Function to draw the axe icon.
@@ -475,7 +474,13 @@ export class Weapon {
         const centerX = this.pixelX; const centerY = this.pixelY;
         const scale = (this.type === 'crown') ? 1.0 : (this.type === 'lightning' ? 0.6 : (this.type === 'magic_spear' ? 0.6 : (this.type === 'poison_potion' ? 0.624 : (this.type === 'boomerang' ? 0.49 : 0.8))));
         ctx.save(); ctx.translate(centerX, centerY); ctx.scale(scale, scale);
-        ctx.strokeStyle = 'black'; ctx.lineWidth = 1 / scale;
+        
+        // [수정] 마법단검은 테두리를 자체적으로 그리므로, 여기서는 strokeStyle을 설정하지 않습니다.
+        if (this.type !== 'magic_dagger') {
+            ctx.strokeStyle = 'black';
+            ctx.lineWidth = 1 / scale;
+        }
+
 
         if (this.type === 'sword') {
             ctx.rotate(Math.PI / 4);
