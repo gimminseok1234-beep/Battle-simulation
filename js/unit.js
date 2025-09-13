@@ -48,6 +48,7 @@ export class Unit {
         this.spinAnimationTimer = 0;
         this.iceDiamondCharges = 0;
         this.iceDiamondChargeTimer = 0;
+        this.fireStaffSpecialCooldown = 0; // [추가] 불 지팡이 특수 공격 쿨타임
         this.isSlowed = 0;
     }
     
@@ -81,7 +82,7 @@ export class Unit {
     get attackRange() { return this.baseAttackRange + (this.weapon ? this.weapon.attackRangeBonus || 0 : 0); }
     get detectionRange() { return this.baseDetectionRange + (this.weapon ? this.weapon.detectionRangeBonus || 0 : 0); }
     get cooldownTime() { 
-        if (this.weapon && this.weapon.type === 'fire_staff') return 120;
+        if (this.weapon && this.weapon.type === 'fire_staff') return 120; // [수정] 2초 일반 공격 쿨타임
         if (this.weapon && this.weapon.type === 'hadoken') return 120;
         if (this.weapon && this.weapon.type === 'axe') return 120;
         if (this.weapon && this.weapon.type === 'ice_diamond') return 180;
@@ -420,6 +421,7 @@ export class Unit {
         if (this.magicCircleCooldown > 0) this.magicCircleCooldown -= gameManager.gameSpeed;
         if (this.boomerangCooldown > 0) this.boomerangCooldown -= gameManager.gameSpeed;
         if (this.shurikenSkillCooldown > 0) this.shurikenSkillCooldown -= gameManager.gameSpeed;
+        if (this.fireStaffSpecialCooldown > 0) this.fireStaffSpecialCooldown -= gameManager.gameSpeed; // [추가] 불 지팡이 특수 공격 쿨타임 감소
         
         if (this.poisonEffect.active) {
             this.poisonEffect.duration -= gameManager.gameSpeed;
@@ -439,24 +441,13 @@ export class Unit {
             }
         }
         
-        if (this.weapon && (this.weapon.type === 'shuriken' || this.weapon.type === 'lightning') && this.evasionCooldown <= 0) {
-            for (const p of projectiles) {
-                if (p.owner.team === this.team) continue;
-                const dist = Math.hypot(this.pixelX - p.pixelX, this.pixelY - p.pixelY);
-                if (dist < GRID_SIZE * 3) {
-                    const angleToUnit = Math.atan2(this.pixelY - p.pixelY, this.pixelX - p.pixelX);
-                    const angleDiff = Math.abs(angleToUnit - p.angle);
-                    if (angleDiff < Math.PI / 4 || angleDiff > Math.PI * 1.75) {
-                        if (gameManager.random() > 0.5) {
-                            const dodgeAngle = p.angle + (Math.PI / 2) * (gameManager.random() < 0.5 ? 1 : -1);
-                            const dodgeForce = 4;
-                            this.knockbackX += Math.cos(dodgeAngle) * dodgeForce;
-                            this.knockbackY += Math.sin(dodgeAngle) * dodgeForce;
-                            this.evasionCooldown = 30;
-                            break;
-                        }
-                    }
-                }
+        // [추가] 불 지팡이 특수 공격 로직
+        if (this.weapon && this.weapon.type === 'fire_staff' && this.fireStaffSpecialCooldown <= 0) {
+            const { item: closestEnemy } = this.findClosest(enemies);
+            if (closestEnemy && Math.hypot(this.pixelX - closestEnemy.pixelX, this.pixelY - closestEnemy.pixelY) <= this.attackRange && gameManager.hasLineOfSight(this, closestEnemy)) {
+                gameManager.audioManager.play('fireball');
+                gameManager.createProjectile(this, closestEnemy, 'fireball_projectile');
+                this.fireStaffSpecialCooldown = 180; // 3초 쿨타임
             }
         }
         
@@ -468,11 +459,8 @@ export class Unit {
             if (this.castingProgress >= this.castDuration) {
                 this.isCasting = false; this.castingProgress = 0;
                 
-                if (this.weapon.type === 'fire_staff') {
-                    gameManager.audioManager.play('fireball');
-                    gameManager.createProjectile(this, this.target, 'fireball_projectile');
-                    this.attackCooldown = 0; // Reset attack cooldown after casting
-                } else if (this.weapon.type === 'poison_potion') {
+                // [수정] 불 지팡이의 isCasting 로직을 제거하고, 독 포션만 남깁니다.
+                if (this.weapon.type === 'poison_potion') {
                     gameManager.audioManager.play('poison');
                     this.hp = 0; // The unit dies after using the potion
                 }
@@ -930,7 +918,8 @@ export class Unit {
         const barX = this.pixelX - barWidth / 2;
         
         const healthBarIsVisible = this.hp < 100 || this.hpBarVisibleTimer > 0;
-        const normalAttackIsVisible = (this.isCasting && this.weapon?.type === 'fire_staff') || (this.attackCooldown > 0 && this.weapon?.type !== 'fire_staff');
+        // [수정] 불 지팡이는 더 이상 isCasting을 사용하지 않으므로, attackCooldown으로만 판별하도록 수정
+        const normalAttackIsVisible = (this.isCasting && this.weapon?.type === 'poison_potion') || (this.attackCooldown > 0);
         let specialSkillIsVisible = 
             (this.isKing && this.spawnCooldown > 0) ||
             (this.weapon?.type === 'magic_dagger' && this.magicDaggerSkillCooldown > 0) ||
@@ -939,6 +928,7 @@ export class Unit {
             (this.weapon?.type === 'magic_spear' && this.magicCircleCooldown > 0) ||
             (this.weapon?.type === 'boomerang' && this.boomerangCooldown > 0) ||
             (this.weapon?.type === 'shuriken' && this.shurikenSkillCooldown > 0) ||
+            (this.weapon?.type === 'fire_staff' && this.fireStaffSpecialCooldown > 0) || // [추가] 불 지팡이 특수 공격 게이지 표시 조건
             (this.isCasting && this.weapon?.type === 'poison_potion');
 
         if (this.attackCooldown > 0 && !this.isCasting) {
@@ -987,7 +977,10 @@ export class Unit {
             } else {
                 let fgColor, progress = 0, max = 1;
 
-                if (this.weapon?.type === 'magic_spear') {
+                if (this.weapon?.type === 'fire_staff') { // [추가] 불 지팡이 특수 공격 게이지 색상 및 진행도 설정
+                    fgColor = '#ef4444'; // 빨강
+                    progress = 180 - this.fireStaffSpecialCooldown; max = 180;
+                } else if (this.weapon?.type === 'magic_spear') {
                     fgColor = '#a855f7';
                     progress = 300 - this.magicCircleCooldown; max = 300;
                 } else if (this.weapon?.type === 'boomerang' || this.weapon?.type === 'shuriken' || this.weapon?.type === 'poison_potion' || this.weapon?.type === 'magic_dagger' || this.weapon?.type === 'axe') {
@@ -1035,4 +1028,5 @@ export class Unit {
         }
     }
 }
+
 
