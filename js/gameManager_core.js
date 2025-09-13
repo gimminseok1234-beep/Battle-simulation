@@ -1,5 +1,4 @@
 import { Unit } from './unit.js';
-// [수정] Weapon 클래스를 weaponary.js에서 import합니다.
 import { Weapon, Projectile, AreaEffect, Effect, MagicDaggerDashEffect, createFireballHitEffect, Particle } from './weaponary.js';
 import { Nexus, GrowingMagneticField, MagicCircle, PoisonCloud } from './entities.js';
 import { getFirestore, collection, doc, getDoc, getDocs, setDoc, deleteDoc, query, where } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
@@ -22,8 +21,6 @@ class SeededRandom {
 }
 
 let instance = null;
-
-const MAX_RECENT_COLORS = 8;
 
 export class GameManager {
     constructor(db) {
@@ -52,9 +49,7 @@ export class GameManager {
         this.magicCircles = [];
         this.poisonClouds = [];
         this.particles = [];
-        this.currentTool = { tool: 'tile', type: 'FLOOR' };
-        this.isPainting = false;
-        this.dragStartPos = null;
+        
         this.initialUnitsState = [];
         this.initialWeaponsState = [];
         this.initialNexusesState = [];
@@ -64,23 +59,14 @@ export class GameManager {
         this.animationFrameId = null;
         this.animationFrameCounter = 0;
         this.gameSpeed = 1;
-        this.currentWallColor = COLORS.WALL;
-        this.currentFloorColor = COLORS.FLOOR;
-        this.recentWallColors = [];
-        this.recentFloorColors = [];
-        this.replicationValue = 2;
+       
         this.isActionCam = false;
         this.actionCam = {
             current: { x: 0, y: 0, scale: 1 },
             target: { x: 0, y: 0, scale: 1 },
             isAnimating: false
         };
-        this.growingFieldSettings = {
-            direction: 'DOWN', speed: 4, delay: 0
-        };
-        this.dashTileSettings = {
-            direction: 'RIGHT'
-        };
+
         this.autoMagneticField = {
             isActive: false,
             safeZoneSize: 6,
@@ -276,10 +262,10 @@ export class GameManager {
             growingFields: plainGrowingFields,
             autoMagneticField: this.autoMagneticField,
             hadokenKnockback: this.hadokenKnockback,
-            floorColor: this.currentFloorColor,
-            wallColor: this.currentWallColor,
-            recentFloorColors: this.recentFloorColors,
-            recentWallColors: this.recentWallColors,
+            floorColor: this.uiManager.currentFloorColor,
+            wallColor: this.uiManager.currentWallColor,
+            recentFloorColors: this.uiManager.recentFloorColors,
+            recentWallColors: this.uiManager.recentWallColors,
         };
 
         const mapDocRef = doc(this.db, "maps", this.currentUser.uid, "userMaps", this.currentMapId);
@@ -524,7 +510,7 @@ export class GameManager {
         document.getElementById('cancelDeleteBtn').addEventListener('click', () => document.getElementById('deleteConfirmModal').classList.remove('show-modal'));
         document.getElementById('closeMapSettingsModal').addEventListener('click', () => document.getElementById('mapSettingsModal').classList.remove('show-modal'));
         document.getElementById('closeDashTileModal').addEventListener('click', () => {
-            this.dashTileSettings.direction = document.getElementById('dashTileDirection').value;
+            this.uiManager.dashTileSettings.direction = document.getElementById('dashTileDirection').value;
             document.getElementById('dashTileModal').classList.remove('show-modal');
         });
         document.getElementById('cancelSaveReplayBtn').addEventListener('click', () => document.getElementById('saveReplayModal').classList.remove('show-modal'));
@@ -620,7 +606,7 @@ export class GameManager {
             if (this.state === 'EDIT') {
                 const pos = this.getMousePos(e);
                 
-                if (this.currentTool.tool === 'nametag') {
+                if (this.uiManager.currentTool.tool === 'nametag') {
                     const clickedUnit = this.units.find(u => Math.hypot(u.pixelX - pos.pixelX, u.pixelY - pos.pixelY) < GRID_SIZE / 2);
                     if (clickedUnit) {
                         this.editingUnit = clickedUnit;
@@ -630,27 +616,27 @@ export class GameManager {
                     }
                 }
 
-                this.isPainting = true;
-                if (this.currentTool.tool === 'growing_field') this.dragStartPos = pos;
+                this.uiManager.isPainting = true;
+                if (this.uiManager.currentTool.tool === 'growing_field') this.uiManager.dragStartPos = pos;
                 else this.uiManager.applyTool(pos);
             }
         });
         this.canvas.addEventListener('mouseup', (e) => {
-            if (this.state === 'EDIT' && this.currentTool.tool === 'growing_field' && this.dragStartPos) {
+            if (this.state === 'EDIT' && this.uiManager.currentTool.tool === 'growing_field' && this.uiManager.dragStartPos) {
                 this.uiManager.applyTool(this.getMousePos(e));
             }
-            this.isPainting = false;
-            this.dragStartPos = null;
+            this.uiManager.isPainting = false;
+            this.uiManager.dragStartPos = null;
         });
         this.canvas.addEventListener('mousemove', (e) => {
-            if (this.isPainting && this.state === 'EDIT' && this.currentTool.tool !== 'growing_field') {
+            if (this.uiManager.isPainting && this.state === 'EDIT' && this.uiManager.currentTool.tool !== 'growing_field') {
                 this.uiManager.applyTool(this.getMousePos(e));
             }
-            if (this.state === 'EDIT' && this.dragStartPos) this.draw(e);
+            if (this.state === 'EDIT' && this.uiManager.dragStartPos) this.draw(e);
         });
         this.canvas.addEventListener('mouseleave', () => {
-            this.isPainting = false;
-            this.dragStartPos = null;
+            this.uiManager.isPainting = false;
+            this.uiManager.dragStartPos = null;
             this.draw();
         });
 
@@ -675,20 +661,20 @@ export class GameManager {
             const recentColorSwatch = target.closest('.recent-color-swatch');
 
             if (toolButton) {
-                this.selectTool(toolButton);
+                this.uiManager.selectTool(toolButton);
             } else if (recentColorSwatch) {
-                this.setCurrentColor(recentColorSwatch.dataset.color, recentColorSwatch.dataset.type, true);
+                this.uiManager.setCurrentColor(recentColorSwatch.dataset.color, recentColorSwatch.dataset.type, true);
             } else if (target.id === 'defaultFloorColorBtn') {
-                this.setCurrentColor(COLORS.FLOOR, 'floor', true);
+                this.uiManager.setCurrentColor(COLORS.FLOOR, 'floor', true);
             } else if (target.id === 'defaultWallColorBtn') {
-                this.setCurrentColor(COLORS.WALL, 'wall', true);
+                this.uiManager.setCurrentColor(COLORS.WALL, 'wall', true);
             } else if (target.id === 'growingFieldSettingsBtn' || target.parentElement.id === 'growingFieldSettingsBtn') {
-                document.getElementById('fieldDirection').value = this.growingFieldSettings.direction;
-                document.getElementById('fieldSpeed').value = this.growingFieldSettings.speed;
-                document.getElementById('fieldDelay').value = this.growingFieldSettings.delay;
+                document.getElementById('fieldDirection').value = this.uiManager.growingFieldSettings.direction;
+                document.getElementById('fieldSpeed').value = this.uiManager.growingFieldSettings.speed;
+                document.getElementById('fieldDelay').value = this.uiManager.growingFieldSettings.delay;
                 document.getElementById('growingFieldModal').classList.add('show-modal');
             } else if (target.id === 'dashTileSettingsBtn' || target.parentElement.id === 'dashTileSettingsBtn') {
-                document.getElementById('dashTileDirection').value = this.dashTileSettings.direction;
+                document.getElementById('dashTileDirection').value = this.uiManager.dashTileSettings.direction;
                 document.getElementById('dashTileModal').classList.add('show-modal');
             } else if (target.id === 'autoFieldSettingsBtn' || target.parentElement.id === 'autoFieldSettingsBtn') {
                  document.getElementById('autoFieldActiveToggle').checked = this.autoMagneticField.isActive;
@@ -707,16 +693,16 @@ export class GameManager {
         });
         
         document.getElementById('closeGrowingFieldModal').addEventListener('click', () => {
-            this.growingFieldSettings.direction = document.getElementById('fieldDirection').value;
-            this.growingFieldSettings.speed = parseFloat(document.getElementById('fieldSpeed').value);
-            this.growingFieldSettings.delay = parseInt(document.getElementById('fieldDelay').value);
+            this.uiManager.growingFieldSettings.direction = document.getElementById('fieldDirection').value;
+            this.uiManager.growingFieldSettings.speed = parseFloat(document.getElementById('fieldSpeed').value);
+            this.uiManager.growingFieldSettings.delay = parseInt(document.getElementById('fieldDelay').value);
             document.getElementById('growingFieldModal').classList.remove('show-modal');
         });
         document.getElementById('growingFieldDefaultBtn').addEventListener('click', () => {
-            this.growingFieldSettings = { direction: 'DOWN', speed: 4, delay: 0 };
-            document.getElementById('fieldDirection').value = this.growingFieldSettings.direction;
-            document.getElementById('fieldSpeed').value = this.growingFieldSettings.speed;
-            document.getElementById('fieldDelay').value = this.growingFieldSettings.delay;
+            this.uiManager.growingFieldSettings = { direction: 'DOWN', speed: 4, delay: 0 };
+            document.getElementById('fieldDirection').value = this.uiManager.growingFieldSettings.direction;
+            document.getElementById('fieldSpeed').value = this.uiManager.growingFieldSettings.speed;
+            document.getElementById('fieldDelay').value = this.uiManager.growingFieldSettings.delay;
         });
 
         document.getElementById('closeAutoFieldModal').addEventListener('click', () => {
@@ -744,16 +730,16 @@ export class GameManager {
         });
 
         document.getElementById('toolbox').addEventListener('input', (e) => {
-            if (e.target.id === 'replicationValue') this.replicationValue = parseInt(e.target.value) || 1;
+            if (e.target.id === 'replicationValue') this.uiManager.replicationValue = parseInt(e.target.value) || 1;
         });
         
         const floorColorPicker = document.getElementById('floorColorPicker');
         const wallColorPicker = document.getElementById('wallColorPicker');
         
-        floorColorPicker.addEventListener('input', () => this.setCurrentColor(floorColorPicker.value, 'floor', false));
-        floorColorPicker.addEventListener('change', () => this.addRecentColor(floorColorPicker.value, 'floor'));
-        wallColorPicker.addEventListener('input', () => this.setCurrentColor(wallColorPicker.value, 'wall', false));
-        wallColorPicker.addEventListener('change', () => this.addRecentColor(wallColorPicker.value, 'wall'));
+        floorColorPicker.addEventListener('input', () => this.uiManager.setCurrentColor(floorColorPicker.value, 'floor', false));
+        floorColorPicker.addEventListener('change', () => this.uiManager.addRecentColor(floorColorPicker.value, 'floor'));
+        wallColorPicker.addEventListener('input', () => this.uiManager.setCurrentColor(wallColorPicker.value, 'wall', false));
+        wallColorPicker.addEventListener('change', () => this.uiManager.addRecentColor(wallColorPicker.value, 'wall'));
 
         document.getElementById('nametagSettingsBtn').addEventListener('click', () => {
             document.getElementById('nametagSettingsModal').classList.add('show-modal');
@@ -823,7 +809,7 @@ export class GameManager {
         cancelAnimationFrame(this.animationFrameId);
         this.animationFrameId = null;
         this.state = 'EDIT';
-        this.map = Array(this.ROWS).fill().map(() => Array(this.COLS).fill().map(() => ({ type: TILE.FLOOR, color: this.currentFloorColor })));
+        this.map = Array(this.ROWS).fill().map(() => Array(this.COLS).fill().map(() => ({ type: TILE.FLOOR, color: this.uiManager.currentFloorColor })));
         this.units = []; this.weapons = []; this.nexuses = []; this.growingFields = [];
         this.effects = []; this.projectiles = []; this.areaEffects = []; this.magicCircles = []; this.poisonClouds = []; this.particles = [];
         this.initialUnitsState = []; this.initialWeaponsState = [];
@@ -969,34 +955,6 @@ export class GameManager {
 
         this.resetActionCam(true);
         this.draw();
-    }
-    
-    selectTool(button) {
-        const { tool, team, type } = button.dataset;
-
-        document.querySelectorAll('#toolbox .tool-btn').forEach(btn => btn.classList.remove('selected'));
-        button.classList.add('selected');
-
-        this.currentTool = { tool, team, type };
-    }
-
-    getMousePos(e) {
-         const rect = this.canvas.getBoundingClientRect();
-         const transform = this.ctx.getTransform();
-         const invTransform = transform.inverse();
-
-         const canvasX = e.clientX - rect.left;
-         const canvasY = e.clientY - rect.top;
-
-         const worldX = canvasX * invTransform.a + canvasY * invTransform.c + invTransform.e;
-         const worldY = canvasX * invTransform.b + canvasY * invTransform.d + invTransform.f;
-        
-         return {
-             pixelX: worldX,
-             pixelY: worldY,
-             gridX: Math.floor(worldX / GRID_SIZE),
-             gridY: Math.floor(worldY / GRID_SIZE)
-         };
     }
     
     pauseSimulation() {
@@ -1381,12 +1339,12 @@ export class GameManager {
         this.areaEffects.forEach(e => e.draw(this.ctx));
         this.particles.forEach(p => p.draw(this.ctx));
 
-        if (this.state === 'EDIT' && this.currentTool.tool === 'growing_field' && this.dragStartPos && this.isPainting && mouseEvent) {
+        if (this.state === 'EDIT' && this.uiManager.currentTool.tool === 'growing_field' && this.uiManager.dragStartPos && this.uiManager.isPainting && mouseEvent) {
             const currentPos = this.getMousePos(mouseEvent);
-            const x = Math.min(this.dragStartPos.gridX, currentPos.gridX) * GRID_SIZE;
-            const y = Math.min(this.dragStartPos.gridY, currentPos.gridY) * GRID_SIZE;
-            const width = (Math.abs(this.dragStartPos.gridX - currentPos.gridX) + 1) * GRID_SIZE;
-            const height = (Math.abs(this.dragStartPos.gridY - currentPos.gridY) + 1) * GRID_SIZE;
+            const x = Math.min(this.uiManager.dragStartPos.gridX, currentPos.gridX) * GRID_SIZE;
+            const y = Math.min(this.uiManager.dragStartPos.gridY, currentPos.gridY) * GRID_SIZE;
+            const width = (Math.abs(this.uiManager.dragStartPos.gridX - currentPos.gridX) + 1) * GRID_SIZE;
+            const height = (Math.abs(this.uiManager.dragStartPos.gridY - currentPos.gridY) + 1) * GRID_SIZE;
             
             this.ctx.fillStyle = 'rgba(168, 85, 247, 0.3)';
             this.ctx.fillRect(x, y, width, height);
@@ -1397,103 +1355,6 @@ export class GameManager {
         this.ctx.restore();
     }
     
-    hasLineOfSight(startUnit, endTarget, isWeaponCheck = false) {
-        let x1 = startUnit.pixelX;
-        let y1 = startUnit.pixelY;
-        const x2 = endTarget.pixelX;
-        const y2 = endTarget.pixelY;
-
-        const dx = x2 - x1;
-        const dy = y2 - y1;
-        const distance = Math.hypot(dx, dy);
-        const step = GRID_SIZE / 4;
-
-        for (let i = step; i < distance; i += step) {
-            const currentX = x1 + (dx / distance) * i;
-            const currentY = y1 + (dy / distance) * i;
-
-            const gridX = Math.floor(currentX / GRID_SIZE);
-            const gridY = Math.floor(currentY / GRID_SIZE);
-
-            if (gridY < 0 || gridY >= this.ROWS || gridX < 0 || gridX >= this.COLS) return false;
-
-            const tile = this.map[gridY][gridX];
-            
-            if (isWeaponCheck) {
-                if (tile.type === TILE.WALL) return false;
-            } else {
-                if (tile.type === TILE.WALL || tile.type === TILE.CRACKED_WALL || tile.type === TILE.GLASS_WALL) {
-                    return false;
-                }
-            }
-        }
-        return true;
-    }
-
-    hasLineOfSightForWeapon(startUnit, endTarget) {
-        return this.hasLineOfSight(startUnit, endTarget, true);
-    }
-    
-    spawnUnit(spawner, cloneWeapon = false) {
-        for(let dx = -1; dx <= 1; dx++) {
-            for(let dy = -1; dy <= 1; dy++) {
-                if(dx === 0 && dy === 0) continue;
-                const newX = Math.floor(spawner.pixelX / GRID_SIZE) + dx;
-                const newY = Math.floor(spawner.pixelY / GRID_SIZE) + dy;
-                if (newY >= 0 && newY < this.ROWS && newX >= 0 && newX < this.COLS && this.map[newY][newX].type === TILE.FLOOR) {
-                    const isOccupied = this.units.some(u => u.gridX === newX && u.gridY === newY) || this.weapons.some(w => w.gridX === newX && w.gridY === newY) || this.nexuses.some(n => n.gridX === newX && n.gridY === newY);
-                    if (!isOccupied) {
-                        const newUnit = new Unit(this, newX, newY, spawner.team);
-                        
-                        if (this.isNametagEnabled && this.nametagList.length > 0) {
-                            const availableNames = this.nametagList.filter(name => !this.usedNametagsInSim.has(name));
-                            if (availableNames.length > 0) {
-                                const randomName = availableNames[Math.floor(this.random() * availableNames.length)];
-                                newUnit.name = randomName;
-                                this.usedNametagsInSim.add(randomName);
-                            }
-                        }
-
-                        if (cloneWeapon && spawner.weapon) {
-                            newUnit.equipWeapon(spawner.weapon.type, true);
-                        }
-                        this.units.push(newUnit);
-                        return;
-                    }
-                }
-            }
-        }
-    }
-    
-    createEffect(type, x, y, target, options = {}) { this.effects.push(new Effect(this, x, y, type, target, options)); }
-    createProjectile(owner, target, type, options = {}) { this.projectiles.push(new Projectile(this, owner, target, type, options)); }
-    
-    castAreaSpell(pos, type, ...args) {
-        if (type === 'poison_cloud') {
-            const ownerTeam = args[0];
-            this.poisonClouds.push(new PoisonCloud(this, pos.x, pos.y, ownerTeam));
-        } else if (type === 'fire_pillar') {
-            const damage = args[0];
-            const ownerTeam = args[1];
-            this.areaEffects.push(new AreaEffect(this, pos.x, pos.y, type, { damage, ownerTeam }));
-        } else {
-            const options = args[0] || {};
-            this.areaEffects.push(new AreaEffect(this, pos.x, pos.y, type, options));
-        }
-    }
-
-    damageTile(x, y, damage) {
-        if (y >= 0 && y < this.ROWS && x >= 0 && x < this.COLS) {
-            const tile = this.map[y][x];
-            if (tile.type === TILE.CRACKED_WALL) {
-                tile.hp -= damage;
-                if (tile.hp <= 0) {
-                    this.map[y][x] = { type: TILE.FLOOR, color: this.currentFloorColor };
-                    this.audioManager.play('crackedWallBreak');
-                }
-            }
-        }
-    }
     getTilesOfType(type) {
         const tiles = [];
         for (let y = 0; y < this.ROWS; y++) {
@@ -1588,26 +1449,6 @@ export class GameManager {
         }
     }
 
-    spawnRandomWeaponNear(pos) {
-        const weaponTypes = ['sword', 'bow', 'dual_swords', 'fire_staff', 'lightning', 'magic_spear', 'boomerang', 'poison_potion', 'magic_dagger', 'axe', 'hadoken', 'shuriken', 'ice_diamond'];
-        const randomType = weaponTypes[Math.floor(this.random() * weaponTypes.length)];
-
-        for (let i = 0; i < 10; i++) {
-            const angle = this.random() * Math.PI * 2;
-            const radius = GRID_SIZE * (this.random() * 2 + 1);
-            const spawnX = Math.floor((pos.x + Math.cos(angle) * radius) / GRID_SIZE);
-            const spawnY = Math.floor((pos.y + Math.sin(angle) * radius) / GRID_SIZE);
-
-            if (spawnY >= 0 && spawnY < this.ROWS && spawnX >= 0 && spawnX < this.COLS && this.map[spawnY][spawnX].type === TILE.FLOOR) {
-                const isOccupied = this.weapons.some(w => w.gridX === spawnX && w.gridY === spawnY);
-                if (!isOccupied) {
-                    this.weapons.push(this.createWeapon(spawnX, spawnY, randomType));
-                    return;
-                }
-            }
-        }
-    }
-
     async loadMapForEditing(mapId) {
         const mapData = await this.getMapById(mapId);
         if (!mapData) {
@@ -1625,12 +1466,12 @@ export class GameManager {
         this.COLS = Math.floor(this.canvas.width / GRID_SIZE);
         this.ROWS = Math.floor(this.canvas.height / GRID_SIZE);
 
-        this.handleMapColors(mapData);
+        this.uiManager.handleMapColors(mapData);
 
         if (mapData.map && typeof mapData.map === 'string') {
             this.map = JSON.parse(mapData.map);
         } else {
-            this.map = Array(this.ROWS).fill().map(() => Array(this.COLS).fill({ type: TILE.FLOOR, color: this.currentFloorColor }));
+            this.map = Array(this.ROWS).fill().map(() => Array(this.COLS).fill({ type: TILE.FLOOR, color: this.uiManager.currentFloorColor }));
         }
         
         this.units = (mapData.units || []).map(uData => Object.assign(new Unit(this, uData.gridX, uData.gridY, uData.team), uData));
@@ -1653,8 +1494,8 @@ export class GameManager {
         this.hadokenKnockback = mapData.hadokenKnockback || 15;
         
         this.resetSimulationState();
-        this.renderRecentColors('floor');
-        this.renderRecentColors('wall');
+        this.uiManager.renderRecentColors('floor');
+        this.uiManager.renderRecentColors('wall');
         this.draw();
     }
 
@@ -1676,7 +1517,7 @@ export class GameManager {
         this.COLS = Math.floor(this.canvas.width / GRID_SIZE);
         this.ROWS = Math.floor(this.canvas.height / GRID_SIZE);
 
-        this.handleMapColors(mapData);
+        this.uiManager.handleMapColors(mapData);
 
         this.map = JSON.parse(mapData.map);
         
@@ -1697,8 +1538,8 @@ export class GameManager {
         this.hadokenKnockback = mapData.hadokenKnockback;
         
         this.resetSimulationState();
-        this.renderRecentColors('floor');
-        this.renderRecentColors('wall');
+        this.uiManager.renderRecentColors('floor');
+        this.uiManager.renderRecentColors('wall');
         this.draw();
     }
 
@@ -1727,85 +1568,6 @@ export class GameManager {
         document.getElementById('simStartBtn').disabled = false;
         document.getElementById('toolbox').style.pointerEvents = 'auto';
         this.resetActionCam(true);
-    }
-
-    addRecentColor(color, type) {
-        const recentColors = type === 'floor' ? this.recentFloorColors : this.recentWallColors;
-        const index = recentColors.indexOf(color);
-        if (index > -1) {
-            recentColors.splice(index, 1);
-        }
-        recentColors.unshift(color);
-        if (recentColors.length > MAX_RECENT_COLORS) {
-            recentColors.pop();
-        }
-        this.renderRecentColors(type);
-    }
-
-    renderRecentColors(type) {
-        const containerId = type === 'floor' ? 'recentFloorColors' : 'recentWallColors';
-        const container = document.getElementById(containerId);
-        const recentColors = type === 'floor' ? this.recentFloorColors : this.recentWallColors;
-        
-        if (!container) return;
-        container.innerHTML = '';
-        recentColors.forEach(color => {
-            const swatch = document.createElement('div');
-            swatch.className = 'recent-color-swatch w-full h-6 rounded cursor-pointer border-2 border-gray-700 hover:border-gray-400';
-            swatch.style.backgroundColor = color;
-            swatch.dataset.color = color;
-            swatch.dataset.type = type;
-            container.appendChild(swatch);
-        });
-    }
-
-    setCurrentColor(color, type, addToRecent = false) {
-        if (type === 'floor') {
-            this.currentFloorColor = color;
-            const picker = document.getElementById('floorColorPicker');
-            if (picker.value !== color) picker.value = color;
-        } else {
-            this.currentWallColor = color;
-            const picker = document.getElementById('wallColorPicker');
-            if (picker.value !== color) picker.value = color;
-        }
-        if (addToRecent) {
-            this.addRecentColor(color, type);
-        }
-        this.draw();
-    }
-
-    handleMapColors(mapData) {
-        this.recentFloorColors = mapData.recentFloorColors || [];
-        this.recentWallColors = mapData.recentWallColors || [];
-        
-        let floorColor = mapData.floorColor;
-        let wallColor = mapData.wallColor;
-
-        if (!floorColor || !wallColor) {
-            const mapGridData = (typeof mapData.map === 'string') ? JSON.parse(mapData.map) : mapData.map;
-            const floorColors = {};
-            const wallColors = {};
-            
-            mapGridData.forEach(row => {
-                row.forEach(tile => {
-                    if (tile.type === TILE.FLOOR && tile.color) {
-                        floorColors[tile.color] = (floorColors[tile.color] || 0) + 1;
-                    } else if (tile.type === TILE.WALL && tile.color) {
-                        wallColors[tile.color] = (wallColors[tile.color] || 0) + 1;
-                    }
-                });
-            });
-
-            const mostCommonFloor = Object.keys(floorColors).reduce((a, b) => floorColors[a] > floorColors[b] ? a : b, null);
-            const mostCommonWall = Object.keys(wallColors).reduce((a, b) => wallColors[a] > wallColors[b] ? a : b, null);
-
-            floorColor = mostCommonFloor || COLORS.FLOOR;
-            wallColor = mostCommonWall || COLORS.WALL;
-        }
-        
-        this.setCurrentColor(floorColor, 'floor', false);
-        this.setCurrentColor(wallColor, 'wall', false);
     }
     
     async loadNametagSettings() {
