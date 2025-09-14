@@ -54,12 +54,11 @@ export class Unit {
         this.attackCount = 0; // [추가] 3타 스킬을 위한 공격 횟수 카운터
         this.swordSpecialAttackAnimationTimer = 0; // [추가] 검 3타 공격 모션 타이머
 
-        // [추가] 쌍검 스킬 관련
+        // [수정] 쌍검 스킬 관련 변수 변경
         this.dualSwordSkillCooldown = 0;
-        this.dualSwordSkillTargets = []; // 표식이 생긴 적 목록
-        this.dualSwordTeleportDelayTimer = 0; // 표식 후 순간이동까지의 딜레이
+        this.dualSwordTeleportTarget = null; // 순간이동할 단일 대상
+        this.dualSwordTeleportDelayTimer = 0; // 순간이동까지의 딜레이
         this.dualSwordSpinAttackTimer = 0; // 순간이동 후 회전 공격 애니메이션
-        this.isMarkedByDualSword = { active: false, timer: 0 }; // 자신이 표식에 걸렸는지 여부
     }
     
     get speed() {
@@ -413,13 +412,6 @@ export class Unit {
             this.isSlowed -= gameManager.gameSpeed;
         }
 
-        if (this.isMarkedByDualSword.active) {
-            this.isMarkedByDualSword.timer -= gameManager.gameSpeed;
-            if (this.isMarkedByDualSword.timer <= 0) {
-                this.isMarkedByDualSword.active = false;
-            }
-        }
-
         if (this.awakeningEffect.active && this.awakeningEffect.stacks < 2) {
             this.awakeningEffect.timer += gameManager.gameSpeed;
             if (this.awakeningEffect.timer >= 300) {
@@ -466,19 +458,19 @@ export class Unit {
             }
         }
         
+        // [수정] 쌍검 스킬 발동 로직 변경
         if (this.weapon && this.weapon.type === 'dual_swords' && this.dualSwordSkillCooldown <= 0) {
-            const { item: closestEnemy } = this.findClosest(enemies);
-            if (closestEnemy && gameManager.hasLineOfSight(this, closestEnemy)) {
+            const { item: closestEnemy, distance } = this.findClosest(enemies);
+            if (closestEnemy && distance <= this.attackRange && gameManager.hasLineOfSight(this, closestEnemy)) {
                 gameManager.createProjectile(this, closestEnemy, 'bouncing_sword');
                 this.dualSwordSkillCooldown = 300; // 5초 쿨다운
-                this.dualSwordSkillTargets = []; // 새 스킬 시전 시 타겟 리스트 초기화
             }
         }
 
+        // [수정] 쌍검 순간이동 로직 변경
         if (this.dualSwordTeleportDelayTimer > 0) {
             this.dualSwordTeleportDelayTimer -= gameManager.gameSpeed;
             if (this.dualSwordTeleportDelayTimer <= 0) {
-                // 첫 번째 타겟으로 순간이동 및 공격
                 this.performDualSwordTeleportAttack(enemies);
             }
         }
@@ -854,28 +846,6 @@ export class Unit {
             ctx.globalAlpha = 0.7;
         }
 
-        if (this.isMarkedByDualSword.active) {
-            ctx.save();
-            ctx.translate(this.pixelX, this.pixelY - GRID_SIZE * 1.2);
-            const scale = 0.4 + Math.sin(this.gameManager.animationFrameCounter * 0.1) * 0.05; // [수정] 크기 50% 감소 및 약간의 애니메이션
-            ctx.scale(scale, scale);
-            // ctx.rotate(this.gameManager.animationFrameCounter * 0.05); // [수정] 회전 제거
-
-            ctx.strokeStyle = '#9ca3af'; // gray-400
-            ctx.lineWidth = 2.5;
-            
-            // 두 개의 교차된 칼날 모양 그리기
-            const L = GRID_SIZE * 0.5;
-            ctx.beginPath();
-            ctx.moveTo(-L, -L);
-            ctx.lineTo(L, L);
-            ctx.moveTo(L, -L);
-            ctx.lineTo(-L, L);
-            ctx.stroke();
-
-            ctx.restore();
-        }
-
         switch(this.team) {
             case TEAM.A: ctx.fillStyle = COLORS.TEAM_A; break;
             case TEAM.B: ctx.fillStyle = COLORS.TEAM_B; break;
@@ -1066,34 +1036,25 @@ export class Unit {
         }
     }
     
+    // [수정] 쌍검 순간이동 공격 로직 변경
     performDualSwordTeleportAttack(enemies) {
-        if (this.dualSwordSkillTargets.length > 0) {
-            const target = this.dualSwordSkillTargets.shift(); // 첫 번째 타겟을 가져오고 배열에서 제거
-            if (target && target.hp > 0) {
-                const teleportPos = this.gameManager.findEmptySpotNear(target);
-                this.pixelX = teleportPos.x;
-                this.pixelY = teleportPos.y;
-                this.dualSwordSpinAttackTimer = 20; // 회전 공격 애니메이션 시작
-                
-                // 주변 적에게 10 데미지
-                const damageRadius = GRID_SIZE * 2;
-                enemies.forEach(enemy => {
-                    if (Math.hypot(this.pixelX - enemy.pixelX, enemy.pixelY) < damageRadius) {
-                        enemy.takeDamage(10);
-                    }
-                });
-                this.gameManager.audioManager.play('swordHit');
-
-                // 다음 타겟이 있으면 짧은 딜레이 후 다시 공격
-                if (this.dualSwordSkillTargets.length > 0) {
-                    this.dualSwordTeleportDelayTimer = 25; // 0.4초 후 다음 타겟 공격
-                } else {
-                    this.state = 'IDLE'; // 모든 특수 공격 후 IDLE 상태로 전환
+        const target = this.dualSwordTeleportTarget;
+        if (target && target.hp > 0) {
+            const teleportPos = this.gameManager.findEmptySpotNear(target);
+            this.pixelX = teleportPos.x;
+            this.pixelY = teleportPos.y;
+            this.dualSwordSpinAttackTimer = 20; // 회전 공격 애니메이션 시작
+            
+            // 주변 적에게 15 데미지 (데미지 상향)
+            const damageRadius = GRID_SIZE * 2;
+            enemies.forEach(enemy => {
+                if (Math.hypot(this.pixelX - enemy.pixelX, this.pixelY - enemy.pixelY) < damageRadius) {
+                    enemy.takeDamage(15);
                 }
-            } else if (this.dualSwordSkillTargets.length > 0) {
-                // 타겟이 죽었으면 즉시 다음 타겟으로
-                this.performDualSwordTeleportAttack(enemies);
-            }
+            });
+            this.gameManager.audioManager.play('swordHit');
         }
+        this.dualSwordTeleportTarget = null; // 타겟 초기화
+        this.state = 'IDLE'; // 공격 후 IDLE 상태로 전환
     }
 }
