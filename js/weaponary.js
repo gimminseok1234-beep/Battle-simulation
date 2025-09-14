@@ -200,19 +200,59 @@ export class Weapon {
         }
 
         if (this.type === 'sword') {
+            unit.attackCount++;
             target.takeDamage(unit.attackPower);
             gameManager.createEffect('slash', unit.pixelX, unit.pixelY, target);
             gameManager.audioManager.play('swordHit');
             unit.attackCooldown = unit.cooldownTime;
+            
+            if (unit.attackCount >= 3) {
+                unit.attackCount = 0;
+                gameManager.createProjectile(unit, target, 'sword_wave');
+
+                for (let i = 0; i < 20; i++) {
+                    const angle = gameManager.random() * Math.PI * 2;
+                    const speed = 1 + gameManager.random() * 3;
+                    gameManager.addParticle({
+                        x: unit.pixelX, y: unit.pixelY,
+                        vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed,
+                        life: 0.8, color: 'white', size: gameManager.random() * 2 + 1,
+                        gravity: 0.05
+                    });
+                }
+            }
+        } else if (this.type === 'bow') {
+            unit.attackCount++;
+            gameManager.audioManager.play('arrowShoot');
+            unit.attackCooldown = unit.cooldownTime;
+
+            if (unit.attackCount >= 3) {
+                unit.attackCount = 0;
+                gameManager.createProjectile(unit, target, 'arrow');
+                setTimeout(() => {
+                    if (unit.hp > 0) {
+                        gameManager.createProjectile(unit, target, 'arrow');
+                    }
+                }, 150);
+
+                for (let i = 0; i < 20; i++) {
+                    const angle = gameManager.random() * Math.PI * 2;
+                    const speed = 1 + gameManager.random() * 3;
+                    gameManager.addParticle({
+                        x: unit.pixelX, y: unit.pixelY,
+                        vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed,
+                        life: 0.8, color: 'white', size: gameManager.random() * 2 + 1,
+                        gravity: 0.05
+                    });
+                }
+            } else {
+                gameManager.createProjectile(unit, target, 'arrow');
+            }
         } else if (this.type === 'magic_dagger') {
             target.takeDamage(unit.attackPower);
             gameManager.createEffect('slash', unit.pixelX, unit.pixelY, target);
             gameManager.audioManager.play('swordHit');
             unit.attackCooldown = 120; // 2 second cooldown
-        } else if (this.type === 'bow') {
-            gameManager.createProjectile(unit, target, 'arrow');
-            gameManager.audioManager.play('arrowShoot');
-            unit.attackCooldown = unit.cooldownTime;
         } else if (this.type === 'dual_swords') {
             target.takeDamage(unit.attackPower);
             gameManager.createEffect('dual_sword_slash', unit.pixelX, unit.pixelY, target);
@@ -922,6 +962,7 @@ export class Projectile {
         else if (type === 'fireball_projectile') this.speed = 5;
         else if (type === 'mini_fireball_projectile') this.speed = 8;
         else if (type === 'black_sphere_projectile') this.speed = 6; // [추가] 검은 구체 속도
+        else if (type === 'sword_wave') this.speed = 4.5;
         else this.speed = 6;
 
         this.damage = owner.attackPower;
@@ -944,7 +985,7 @@ export class Projectile {
         }
 
         this.knockback = (type === 'hadoken') ? gameManager.hadokenKnockback : 0;
-        const inaccuracy = (type === 'shuriken' || type === 'lightning_bolt') ? 0 : GRID_SIZE * 0.8;
+        const inaccuracy = (type === 'shuriken' || type === 'lightning_bolt' || type === 'sword_wave') ? 0 : GRID_SIZE * 0.8;
         
         // For returning_shuriken, target is just a direction vector, not an actual entity
         let targetX, targetY;
@@ -963,6 +1004,7 @@ export class Projectile {
         this.rotationAngle = 0;
 
         this.hitTargets = options.hitTargets || new Set();
+        this.piercing = (type === 'sword_wave');
         if (type === 'lightning_bolt' && options.initialTarget) {
             this.hitTargets.add(options.initialTarget);
         }
@@ -1060,7 +1102,7 @@ export class Projectile {
         if (gridY >= 0 && gridY < gameManager.ROWS && gridX >= 0 && gridX < gameManager.COLS) {
             const tile = gameManager.map[gridY][gridX];
             const isCollidableWall = tile.type === 'WALL' || tile.type === 'CRACKED_WALL';
-            if (this.type !== 'magic_spear_special' && isCollidableWall) {
+            if (this.type !== 'magic_spear_special' && this.type !== 'sword_wave' && isCollidableWall) {
                 if (tile.type === 'CRACKED_WALL') {
                     gameManager.damageTile(gridX, gridY, 999);
                 }
@@ -1120,6 +1162,21 @@ export class Projectile {
             ctx.moveTo(-GRID_SIZE * 0.6, 1); ctx.lineTo(-GRID_SIZE * 0.7, 3);
             ctx.lineTo(-GRID_SIZE * 0.5, 1); ctx.closePath();
             ctx.fill()
+            ctx.restore();
+        } else if (this.type === 'sword_wave') {
+            ctx.save();
+            ctx.translate(this.pixelX, this.pixelY);
+            ctx.rotate(this.angle + Math.PI / 2);
+            
+            ctx.strokeStyle = '#ef4444';
+            ctx.lineWidth = 4;
+            ctx.shadowColor = 'rgba(255, 0, 0, 0.7)';
+            ctx.shadowBlur = 10;
+
+            ctx.beginPath();
+            ctx.arc(0, 0, GRID_SIZE * 0.7, 0, Math.PI, false);
+            ctx.stroke();
+            
             ctx.restore();
         } else if (this.type === 'hadoken') {
             for (let i = 0; i < this.trail.length; i++) {
@@ -1505,4 +1562,3 @@ export class AreaEffect {
         }
     }
 }
-
