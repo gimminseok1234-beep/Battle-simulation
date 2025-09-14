@@ -1947,6 +1947,37 @@ export class GameManager {
         return closest;
     }
 
+    findEmptySpotNear(targetUnit) {
+        const startX = Math.floor(targetUnit.pixelX / GRID_SIZE);
+        const startY = Math.floor(targetUnit.pixelY / GRID_SIZE);
+    
+        for (let radius = 1; radius < 5; radius++) {
+            for (let dy = -radius; dy <= radius; dy++) {
+                for (let dx = -radius; dx <= radius; dx++) {
+                    if (Math.abs(dx) !== radius && Math.abs(dy) !== radius) continue;
+    
+                    const checkX = startX + dx;
+                    const checkY = startY + dy;
+    
+                    if (checkY >= 0 && checkY < this.ROWS && checkX >= 0 && checkX < this.COLS &&
+                        (this.map[checkY][checkX].type === TILE.FLOOR || this.map[checkY][checkX].type === TILE.LAVA)) {
+                        
+                        const isOccupied = this.units.some(u => 
+                            Math.floor(u.pixelX / GRID_SIZE) === checkX && 
+                            Math.floor(u.pixelY / GRID_SIZE) === checkY
+                        );
+                        
+                        if (!isOccupied) {
+                            return { x: checkX * GRID_SIZE + GRID_SIZE / 2, y: checkY * GRID_SIZE + GRID_SIZE / 2 };
+                        }
+                    }
+                }
+            }
+        }
+        // 만약 빈 공간을 찾지 못하면, 원래 타겟 위치를 반환합니다.
+        return { x: targetUnit.pixelX, y: targetUnit.pixelY };
+    }
+
     findStunnedEnemy(team) {
         return this.units.find(u => u.team !== team && u.isStunned > 0);
     }
@@ -2469,4 +2500,5 @@ export class GameManager {
         placementResetBtn.style.display = 'inline-block';
     }
 }
+
 
