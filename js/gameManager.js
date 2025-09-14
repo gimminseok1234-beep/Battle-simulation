@@ -1351,31 +1351,12 @@ export class GameManager {
                         unit.takeDamage(p.damage);
 
                         // 표식 남기기 및 텔레포트 딜레이 설정
-                        unit.isMarkedByDualSword = { active: true, timer: 240 }; // 4초간 표식
-                        if (p.owner.dualSwordSkillTargets.length < 2) {
-                            p.owner.dualSwordSkillTargets.push(unit);
-                        }
-                        // 2명 모두 표식이 생기거나 더 튕길 수 없으면 텔레포트 딜레이 시작
-                        if (p.owner.dualSwordSkillTargets.length >= 2 || p.bouncesLeft === 0) {
-                            p.owner.dualSwordTeleportDelayTimer = 120; // 2초 후 텔레포트
-                        }
-
-                        if (p.bouncesLeft > 0) {
-                            p.bouncesLeft--;
-                            const nextTarget = this.findClosestEnemy(p.pixelX, p.pixelY, p.owner.team, p.hitTargets);
-                            if (nextTarget) {
-                                const dx = nextTarget.pixelX - p.pixelX;
-                                const dy = nextTarget.pixelY - p.pixelY;
-                                p.angle = Math.atan2(dy, dx);
-                            } else {
-                                p.destroyed = true;
-                            }
-                        } else {
-                            p.destroyed = true;
-                        }
+                        unit.isMarkedByDualSword = { active: true, timer: 240 }; 
+                        p.owner.dualSwordSkillTargets.push(unit);
+                        p.owner.dualSwordTeleportDelayTimer = 120; // 2초 후 텔레포트
+                        p.destroyed = true; // [수정] 첫 타격 후 바로 소멸
                         
-                        if (p.destroyed) break; 
-                        else continue; 
+                        break; 
                     }
 
                     p.hitTargets.add(unit);
@@ -2500,5 +2481,6 @@ export class GameManager {
         placementResetBtn.style.display = 'inline-block';
     }
 }
+
 
 
