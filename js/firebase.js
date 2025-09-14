@@ -1,7 +1,7 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import { getAuth, onAuthStateChanged, GoogleAuthProvider, signInWithPopup, signOut, signInAnonymously } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 import { getFirestore } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
-import { GameManager } from './gameManager_core.js'; // [오류 수정] 'gameManager.js'에서 'gameManager_core.js'로 경로를 수정했습니다.
+import { GameManager } from './gameManager_core.js'; // [수정] 'gameManager.js'에서 'gameManager_core.js'로 경로를 수정했습니다.
 
 const firebaseConfig = {
     apiKey: "AIzaSyDCB9bou34n3nKntyDbCIV-s3ccifgwI-k",
@@ -27,7 +27,7 @@ function logout() {
 
 /**
  * @param {import("firebase/auth").User | null} user
- * @param {import("./gameManager_core.js").GameManager} gameManager // [오류 수정] JSDoc 주석의 경로도 수정했습니다.
+ * @param {import("./gameManager_core.js").GameManager} gameManager // [수정] JSDoc 주석의 경로도 수정했습니다.
  */
 async function handleAuthStateChange(user, gameManager) {
     const loadingStatus = document.getElementById('loadingStatus');
@@ -39,7 +39,7 @@ async function handleAuthStateChange(user, gameManager) {
     loadingStatus.style.display = 'none';
 
     if (user) {
-        // [오류 수정] 사용자 정보 설정과 초기화 로직을 분리하여 타이밍 문제를 해결합니다.
+        // [수정] 사용자 정보 설정과 초기화 로직을 분리하여 타이밍 문제를 해결합니다.
         gameManager.setCurrentUser(user);
         
         if (user.isAnonymous) {
@@ -53,7 +53,7 @@ async function handleAuthStateChange(user, gameManager) {
         }
         
         addNewMapCard.classList.remove('hidden');
-        // [오류 수정] 사용자 정보가 확실히 설정된 후에 게임 매니저를 초기화합니다.
+        // [수정] 사용자 정보가 확실히 설정된 후에 게임 매니저를 초기화합니다.
         await gameManager.init();
     } else {
         googleLoginBtn.classList.remove('hidden');
