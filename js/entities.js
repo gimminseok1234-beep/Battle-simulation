@@ -278,4 +278,3 @@ export class PoisonCloud {
         ctx.fill();
     }
 }
-
