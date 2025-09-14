@@ -22,6 +22,10 @@ class SeededRandom {
 
 let instance = null;
 
+/**
+ * 게임의 핵심 로직 및 상태 관리를 담당하는 클래스입니다.
+ * (시뮬레이션, 데이터 처리, 게임 상태 등)
+ */
 export class GameManager {
     constructor(db) {
         if (instance) {
@@ -35,6 +39,7 @@ export class GameManager {
         this.COLS = 0;
         this.ROWS = 0;
         
+        // 게임 상태 및 객체 배열
         this.state = 'HOME';
         this.currentMapId = null;
         this.currentMapName = null;
@@ -50,12 +55,15 @@ export class GameManager {
         this.poisonClouds = [];
         this.particles = [];
         
+        // 시뮬레이션 초기 상태 저장용
         this.initialUnitsState = [];
         this.initialWeaponsState = [];
         this.initialNexusesState = [];
         this.initialMapState = [];
         this.initialGrowingFieldsState = [];
         this.initialAutoFieldState = {};
+        
+        // 시뮬레이션 및 렌더링 관련
         this.animationFrameId = null;
         this.animationFrameCounter = 0;
         this.gameSpeed = 1;
@@ -67,6 +75,7 @@ export class GameManager {
             isAnimating: false
         };
 
+        // 맵 설정 및 게임 규칙
         this.autoMagneticField = {
             isActive: false,
             safeZoneSize: 6,
@@ -83,17 +92,19 @@ export class GameManager {
         this.isUnitOutlineEnabled = true;
         this.unitOutlineWidth = 1.5;
 
+        // 이름표 기능 관련
         this.isNametagEnabled = false;
         this.nametagList = [];
         this.usedNametagsInSim = new Set();
         this.editingUnit = null;
         
+        // 리플레이 및 시뮬레이션 재현 관련
         this.prng = new SeededRandom(Date.now());
         this.simulationSeed = null;
         this.isReplayMode = false;
         this.lastSimulationResult = null;
         
-        // UI Manager for frequently modified parts
+        // UI 관리자 인스턴스 생성
         this.uiManager = new GameUIManager(this);
 
         instance = this;
@@ -110,83 +121,6 @@ export class GameManager {
     addParticle(options) {
         this.particles.push(new Particle(this, options));
     }
-    
-    // [오류 수정] 누락된 damageTile 함수를 추가합니다.
-    damageTile(x, y, damage) {
-        const tile = this.map[y][x];
-        if (tile.type === TILE.CRACKED_WALL) {
-            tile.hp -= damage;
-            if (tile.hp <= 0) {
-                this.map[y][x] = { type: TILE.FLOOR, color: this.uiManager.currentFloorColor };
-                this.audioManager.play('crackedWallBreak');
-            }
-        }
-    }
-
-    hasLineOfSight(startEntity, endEntity) {
-        let x0 = Math.floor(startEntity.pixelX / GRID_SIZE);
-        let y0 = Math.floor(startEntity.pixelY / GRID_SIZE);
-        const x1 = Math.floor(endEntity.pixelX / GRID_SIZE);
-        const y1 = Math.floor(endEntity.pixelY / GRID_SIZE);
-
-        const dx = Math.abs(x1 - x0);
-        const dy = -Math.abs(y1 - y0);
-        const sx = x0 < x1 ? 1 : -1;
-        const sy = y0 < y1 ? 1 : -1;
-        let err = dx + dy;
-
-        while (true) {
-            if (x0 === x1 && y0 === y1) break;
-            const tile = this.map[y0][x0];
-            if (tile.type === TILE.WALL || tile.type === TILE.CRACKED_WALL || tile.type === TILE.GLASS_WALL) {
-                return false;
-            }
-            const e2 = 2 * err;
-            if (e2 >= dy) {
-                err += dy;
-                x0 += sx;
-            }
-            if (e2 <= dx) {
-                err += dx;
-                y0 += sy;
-            }
-        }
-        return true;
-    }
-
-    hasLineOfSightForWeapon(startEntity, weapon) {
-        let x0 = Math.floor(startEntity.pixelX / GRID_SIZE);
-        let y0 = Math.floor(startEntity.pixelY / GRID_SIZE);
-        const x1 = weapon.gridX;
-        const y1 = weapon.gridY;
-
-        const dx = Math.abs(x1 - x0);
-        const dy = -Math.abs(y1 - y0);
-        const sx = x0 < x1 ? 1 : -1;
-        const sy = y0 < y1 ? 1 : -1;
-        let err = dx + dy;
-
-        while (true) {
-            if (x0 === x1 && y0 === y1) break;
-            if (this.map[y0] && this.map[y0][x0]) {
-                 const tile = this.map[y0][x0];
-                if (tile.type === TILE.WALL || tile.type === TILE.CRACKED_WALL) {
-                    return false;
-                }
-            }
-            const e2 = 2 * err;
-            if (e2 >= dy) {
-                err += dy;
-                x0 += sx;
-            }
-            if (e2 <= dx) {
-                err += dx;
-                y0 += sy;
-            }
-        }
-        return true;
-    }
-
 
     setCurrentUser(user) {
         this.currentUser = user;
@@ -210,7 +144,7 @@ export class GameManager {
         document.getElementById('replayScreen').style.display = 'none';
         this.updateUIToEditorMode(); 
         this.resetActionCam(true);
-        this.renderMapCards();
+        this.uiManager.renderMapCards();
     }
 
     showDefaultMapsScreen() {
@@ -218,7 +152,7 @@ export class GameManager {
         document.getElementById('editorScreen').style.display = 'none';
         document.getElementById('defaultMapsScreen').style.display = 'block';
         document.getElementById('replayScreen').style.display = 'none';
-        this.renderDefaultMapCards();
+        this.uiManager.renderDefaultMapCards();
     }
 
     showReplayScreen() {
@@ -226,7 +160,7 @@ export class GameManager {
         document.getElementById('editorScreen').style.display = 'none';
         document.getElementById('defaultMapsScreen').style.display = 'none';
         document.getElementById('replayScreen').style.display = 'block';
-        this.renderReplayCards();
+        this.uiManager.renderReplayCards();
     }
 
     async showEditorScreen(mapId) {
@@ -353,232 +287,6 @@ export class GameManager {
             console.error("Error saving map to Firebase: ", error);
             alert('맵 저장에 실패했습니다.');
         }
-    }
-
-    async renderMapCards() {
-        document.getElementById('loadingStatus').textContent = "맵 목록을 불러오는 중...";
-        const maps = await this.getAllMaps();
-        document.getElementById('loadingStatus').style.display = 'none';
-        
-        const mapGrid = document.getElementById('mapGrid');
-        const addNewMapCard = document.getElementById('addNewMapCard');
-        while (mapGrid.firstChild && mapGrid.firstChild !== addNewMapCard) {
-            mapGrid.removeChild(mapGrid.firstChild);
-        }
-
-        maps.forEach(mapData => {
-            const card = this.createMapCard(mapData, false);
-            mapGrid.insertBefore(card, addNewMapCard);
-        });
-
-        document.addEventListener('click', (e) => {
-             if (!e.target.closest('.map-menu-button')) {
-                document.querySelectorAll('.map-menu').forEach(menu => {
-                     menu.style.display = 'none';
-                });
-            }
-        }, true);
-    }
-
-    renderDefaultMapCards() {
-        const defaultMapGrid = document.getElementById('defaultMapGrid');
-        while (defaultMapGrid.firstChild) {
-            defaultMapGrid.removeChild(defaultMapGrid.firstChild);
-        }
-
-        localMaps.forEach(mapData => {
-            const card = this.createMapCard(mapData, true);
-            defaultMapGrid.appendChild(card);
-        });
-    }
-
-    createMapCard(mapData, isLocal) {
-        const card = document.createElement('div');
-        card.className = 'relative group bg-gray-800 rounded-lg overflow-hidden flex flex-col cursor-pointer shadow-lg hover:shadow-indigo-500/30 transition-shadow duration-300';
-        
-        const mapId = isLocal ? mapData.name : mapData.id;
-
-        card.addEventListener('click', (e) => {
-            if (!e.target.closest('.map-menu-button')) {
-                if (isLocal) {
-                    this.loadLocalMapForEditing(mapData);
-                } else {
-                    this.showEditorScreen(mapId);
-                }
-            }
-        });
-
-        const previewCanvas = document.createElement('canvas');
-        previewCanvas.className = 'w-full aspect-[3/4] object-cover';
-        
-        const infoDiv = document.createElement('div');
-        infoDiv.className = 'p-3 flex-grow flex items-center justify-between';
-        const nameP = document.createElement('p');
-        nameP.className = 'font-bold text-white truncate';
-        nameP.id = `map-name-${mapId}`;
-        nameP.textContent = mapData.name;
-        
-        if (isLocal) {
-            const localBadge = document.createElement('span');
-            localBadge.className = 'ml-2 text-xs font-semibold bg-indigo-500 text-white px-2 py-0.5 rounded-full';
-            localBadge.textContent = '기본';
-            nameP.appendChild(localBadge);
-        }
-
-        infoDiv.appendChild(nameP);
-
-        if (!isLocal) {
-            const menuButton = document.createElement('button');
-            menuButton.className = 'map-menu-button absolute top-2 right-2 p-1.5 rounded-full bg-gray-900/50 hover:bg-gray-700/70 opacity-0 group-hover:opacity-100 transition-opacity';
-            menuButton.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-gray-300" viewBox="0 0 20 20" fill="currentColor"><path d="M10 6a2 2 0 110-4 2 2 0 010 4zM10 12a2 2 0 110-4 2 2 0 010 4zM10 18a2 2 0 110-4 2 2 0 010 4z" /></svg>`;
-            
-            const menu = document.createElement('div');
-            menu.className = 'map-menu hidden absolute top-10 right-2 z-10 bg-gray-700 p-2 rounded-md shadow-lg w-32';
-            const renameBtn = document.createElement('button');
-            renameBtn.className = 'w-full text-left px-3 py-1.5 text-sm rounded hover:bg-gray-600';
-            renameBtn.textContent = '이름 변경';
-            renameBtn.onclick = () => {
-                menu.style.display = 'none';
-                this.openRenameModal(mapId, mapData.name, 'map');
-            };
-            const deleteBtn = document.createElement('button');
-            deleteBtn.className = 'w-full text-left px-3 py-1.5 text-sm text-red-400 rounded hover:bg-gray-600';
-            deleteBtn.textContent = '삭제';
-            deleteBtn.onclick = () => {
-                menu.style.display = 'none';
-                this.openDeleteConfirmModal(mapId, mapData.name, 'map');
-            };
-            menu.append(renameBtn, deleteBtn);
-
-            menuButton.addEventListener('click', (e) => {
-                e.stopPropagation();
-                document.querySelectorAll('.map-menu').forEach(m => {
-                    if (m !== menu) m.style.display = 'none';
-                });
-                menu.style.display = menu.style.display === 'block' ? 'none' : 'block';
-            });
-            card.append(menuButton, menu);
-        }
-
-        card.append(previewCanvas, infoDiv);
-        this.drawMapPreview(previewCanvas, mapData);
-        return card;
-    }
-
-    drawMapPreview(previewCanvas, mapData) {
-        const prevCtx = previewCanvas.getContext('2d');
-        const mapGridData = (typeof mapData.map === 'string') ? JSON.parse(mapData.map) : mapData.map;
-        
-        const mapHeight = mapGridData.length * GRID_SIZE;
-        const mapWidth = mapGridData.length > 0 ? mapGridData[0].length * GRID_SIZE : 0;
-
-        if(mapWidth === 0 || mapHeight === 0) return;
-        
-        const cardWidth = previewCanvas.parentElement.clientWidth || 200;
-        previewCanvas.width = cardWidth;
-        previewCanvas.height = cardWidth * (mapHeight / mapWidth);
-
-
-        const pixelSizeX = previewCanvas.width / (mapWidth / GRID_SIZE);
-        const pixelSizeY = previewCanvas.height / (mapHeight / GRID_SIZE);
-
-        prevCtx.fillStyle = '#111827';
-        prevCtx.fillRect(0, 0, previewCanvas.width, previewCanvas.height);
-        
-        if (mapGridData) {
-            const floorColor = mapData.floorColor || COLORS.FLOOR;
-            const wallColor = mapData.wallColor || COLORS.WALL;
-            mapGridData.forEach((row, y) => {
-                row.forEach((tile, x) => {
-                    switch(tile.type) {
-                        case TILE.WALL: prevCtx.fillStyle = tile.color || wallColor; break;
-                        case TILE.FLOOR: prevCtx.fillStyle = tile.color || floorColor; break;
-                        case TILE.LAVA: prevCtx.fillStyle = COLORS.LAVA; break;
-                        case TILE.CRACKED_WALL: prevCtx.fillStyle = COLORS.CRACKED_WALL; break;
-                        case TILE.HEAL_PACK: prevCtx.fillStyle = COLORS.HEAL_PACK; break;
-                        case TILE.AWAKENING_POTION: prevCtx.fillStyle = COLORS.AWAKENING_POTION; break;
-                        case TILE.REPLICATION_TILE: prevCtx.fillStyle = COLORS.REPLICATION_TILE; break;
-                        case TILE.TELEPORTER: prevCtx.fillStyle = COLORS.TELEPORTER; break;
-                        case TILE.QUESTION_MARK: prevCtx.fillStyle = COLORS.QUESTION_MARK; break;
-                        case TILE.DASH_TILE: prevCtx.fillStyle = COLORS.DASH_TILE; break;
-                        case TILE.GLASS_WALL: prevCtx.fillStyle = COLORS.GLASS_WALL; break;
-                        default: prevCtx.fillStyle = floorColor; break;
-                    }
-                    prevCtx.fillRect(x * pixelSizeX, y * pixelSizeY, pixelSizeX + 0.5, pixelSizeY + 0.5);
-                });
-            });
-        }
-        
-        const drawItem = (item, colorOverride = null) => {
-            let color;
-            if (colorOverride) {
-                color = colorOverride;
-            } else {
-                switch(item.team) {
-                    case TEAM.A: color = COLORS.TEAM_A; break;
-                    case TEAM.B: color = COLORS.TEAM_B; break;
-                    case TEAM.C: color = COLORS.TEAM_C; break;
-                    case TEAM.D: color = COLORS.TEAM_D; break;
-                    default: color = '#9ca3af'; break;
-                }
-            }
-            prevCtx.fillStyle = color;
-            prevCtx.beginPath();
-            prevCtx.arc(
-                item.gridX * pixelSizeX + pixelSizeX / 2, 
-                item.gridY * pixelSizeY + pixelSizeY / 2, 
-                Math.min(pixelSizeX, pixelSizeY) / 1.8, 
-                0, 2 * Math.PI
-            );
-            prevCtx.fill();
-        };
-
-        (mapData.nexuses || []).forEach(item => drawItem(item));
-        (mapData.units || []).forEach(item => drawItem(item));
-        (mapData.weapons || []).forEach(item => drawItem(item, '#eab308'));
-    }
-    
-    openRenameModal(id, currentName, type) {
-        const input = document.getElementById('renameMapInput');
-        const renameMapModal = document.getElementById('renameMapModal');
-        input.value = currentName;
-        renameMapModal.classList.add('show-modal');
-        
-        document.getElementById('confirmRenameBtn').onclick = async () => {
-            const newName = input.value.trim();
-            if (newName && this.currentUser) {
-                const collectionPath = type === 'map' ? 'userMaps' : 'userReplays';
-                const docRef = doc(this.db, type === 'map' ? "maps" : "replays", this.currentUser.uid, collectionPath, id);
-                try {
-                    await setDoc(docRef, { name: newName }, { merge: true });
-                    if (type === 'map') this.renderMapCards();
-                    else this.renderReplayCards();
-                } catch (error) {
-                    console.error(`Error renaming ${type}:`, error);
-                }
-                renameMapModal.classList.remove('show-modal');
-            }
-        };
-    }
-
-    openDeleteConfirmModal(id, name, type) {
-        const deleteConfirmModal = document.getElementById('deleteConfirmModal');
-        document.getElementById('deleteConfirmText').textContent = `'${name}' ${type === 'map' ? '맵' : '리플레이'}을(를) 정말 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.`;
-        deleteConfirmModal.classList.add('show-modal');
-
-        document.getElementById('confirmDeleteBtn').onclick = async () => {
-            if (!this.currentUser) return;
-            const collectionPath = type === 'map' ? 'userMaps' : 'userReplays';
-            const docRef = doc(this.db, type === 'map' ? "maps" : "replays", this.currentUser.uid, collectionPath, id);
-            try {
-                await deleteDoc(docRef);
-                if (type === 'map') this.renderMapCards();
-                else this.renderReplayCards();
-            } catch (error) {
-                console.error(`Error deleting ${type}:`, error);
-            }
-            deleteConfirmModal.classList.remove('show-modal');
-        };
     }
     
     setupEventListeners() {
@@ -1369,67 +1077,7 @@ export class GameManager {
     }
     
     draw(mouseEvent = null) {
-        this.ctx.save();
-        this.ctx.fillStyle = '#1f2937';
-        this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
-
-        const cam = this.actionCam;
-        this.ctx.translate(this.canvas.width / 2, this.canvas.height / 2);
-        this.ctx.scale(cam.current.scale, cam.current.scale);
-        this.ctx.translate(-cam.current.x, -cam.current.y);
-
-        this.uiManager.drawMap();
-        this.magicCircles.forEach(c => c.draw(this.ctx));
-        this.poisonClouds.forEach(c => c.draw(this.ctx));
-        
-        if (this.state === 'SIMULATE' || this.state === 'PAUSED' || this.state === 'ENDING') {
-            if (this.autoMagneticField.isActive) {
-                this.ctx.fillStyle = `rgba(168, 85, 247, 0.2)`;
-                const b = this.autoMagneticField.currentBounds;
-                this.ctx.fillRect(0, 0, b.minX * GRID_SIZE, this.canvas.height);
-                this.ctx.fillRect(b.maxX * GRID_SIZE, 0, this.canvas.width - b.maxX * GRID_SIZE, this.canvas.height);
-                this.ctx.fillRect(b.minX * GRID_SIZE, 0, (b.maxX - b.minX) * GRID_SIZE, b.minY * GRID_SIZE);
-                this.ctx.fillRect(b.minX * GRID_SIZE, b.maxY * GRID_SIZE, (b.maxX - b.minX) * GRID_SIZE, this.canvas.height - b.maxY * GRID_SIZE);
-            }
-
-            this.growingFields.forEach(field => {
-                if (field.delayTimer < field.delay) return;
-                this.ctx.fillStyle = `rgba(168, 85, 247, 0.2)`;
-                const startX = field.gridX * GRID_SIZE;
-                const startY = field.gridY * GRID_SIZE;
-                const totalWidth = field.width * GRID_SIZE;
-                const totalHeight = field.height * GRID_SIZE;
-
-                if (field.direction === 'DOWN') this.ctx.fillRect(startX, startY, totalWidth, totalHeight * field.progress);
-                else if (field.direction === 'UP') this.ctx.fillRect(startX, startY + totalHeight * (1 - field.progress), totalWidth, totalHeight * field.progress);
-                else if (field.direction === 'RIGHT') this.ctx.fillRect(startX, startY, totalWidth * field.progress, totalHeight);
-                else if (field.direction === 'LEFT') this.ctx.fillRect(startX + totalWidth * (1 - field.progress), startY, totalWidth * field.progress, totalHeight);
-            });
-        }
-        
-        this.growingFields.forEach(w => w.draw(this.ctx));
-        this.weapons.forEach(w => w.draw(this.ctx));
-        this.nexuses.forEach(n => n.draw(this.ctx));
-        this.projectiles.forEach(p => p.draw(this.ctx));
-        this.units.forEach(u => u.draw(this.ctx, this.isUnitOutlineEnabled, this.unitOutlineWidth));
-        this.effects.forEach(e => e.draw(this.ctx));
-        this.areaEffects.forEach(e => e.draw(this.ctx));
-        this.particles.forEach(p => p.draw(this.ctx));
-
-        if (this.state === 'EDIT' && this.uiManager.currentTool.tool === 'growing_field' && this.uiManager.dragStartPos && this.uiManager.isPainting && mouseEvent) {
-            const currentPos = this.uiManager.getMousePos(mouseEvent);
-            const x = Math.min(this.uiManager.dragStartPos.gridX, currentPos.gridX) * GRID_SIZE;
-            const y = Math.min(this.uiManager.dragStartPos.gridY, currentPos.gridY) * GRID_SIZE;
-            const width = (Math.abs(this.uiManager.dragStartPos.gridX - currentPos.gridX) + 1) * GRID_SIZE;
-            const height = (Math.abs(this.uiManager.dragStartPos.gridY - currentPos.gridY) + 1) * GRID_SIZE;
-            
-            this.ctx.fillStyle = 'rgba(168, 85, 247, 0.3)';
-            this.ctx.fillRect(x, y, width, height);
-            this.ctx.strokeStyle = 'rgba(168, 85, 247, 0.7)';
-            this.ctx.strokeRect(x, y, width, height);
-        }
-
-        this.ctx.restore();
+        this.uiManager.draw(mouseEvent);
     }
     
     getTilesOfType(type) {
@@ -1442,6 +1090,17 @@ export class GameManager {
             }
         }
         return tiles;
+    }
+
+    damageTile(x, y, damage) {
+        const tile = this.map[y][x];
+        if (tile.type === TILE.CRACKED_WALL) {
+            tile.hp -= damage;
+            if (tile.hp <= 0) {
+                this.map[y][x] = { type: TILE.FLOOR, color: this.uiManager.currentFloorColor };
+                this.audioManager.play('crackedWallBreak');
+            }
+        }
     }
 
     isPosInAnyField(gridX, gridY) {
@@ -1505,6 +1164,73 @@ export class GameManager {
         return this.units.find(u => u.team !== team && u.isStunned > 0 && u.stunnedByMagicCircle);
     }
 
+    hasLineOfSight(startEntity, endEntity) {
+        let x0 = Math.floor(startEntity.pixelX / GRID_SIZE);
+        let y0 = Math.floor(startEntity.pixelY / GRID_SIZE);
+        const x1 = Math.floor(endEntity.pixelX / GRID_SIZE);
+        const y1 = Math.floor(endEntity.pixelY / GRID_SIZE);
+
+        const dx = Math.abs(x1 - x0);
+        const dy = -Math.abs(y1 - y0);
+        const sx = x0 < x1 ? 1 : -1;
+        const sy = y0 < y1 ? 1 : -1;
+        let err = dx + dy;
+
+        while (true) {
+            if (x0 === x1 && y0 === y1) break;
+            if (y0 < 0 || y0 >= this.ROWS || x0 < 0 || x0 >= this.COLS) return false;
+            const tile = this.map[y0][x0];
+            if (tile.type === TILE.WALL || tile.type === TILE.CRACKED_WALL || tile.type === TILE.GLASS_WALL) {
+                return false;
+            }
+            const e2 = 2 * err;
+            if (e2 >= dy) {
+                err += dy;
+                x0 += sx;
+            }
+            if (e2 <= dx) {
+                err += dx;
+                y0 += sy;
+            }
+        }
+        return true;
+    }
+
+    hasLineOfSightForWeapon(startEntity, weapon) {
+        let x0 = Math.floor(startEntity.pixelX / GRID_SIZE);
+        let y0 = Math.floor(startEntity.pixelY / GRID_SIZE);
+        const x1 = weapon.gridX;
+        const y1 = weapon.gridY;
+
+        const dx = Math.abs(x1 - x0);
+        const dy = -Math.abs(y1 - y0);
+        const sx = x0 < x1 ? 1 : -1;
+        const sy = y0 < y1 ? 1 : -1;
+        let err = dx + dy;
+
+        while (true) {
+            if (x0 === x1 && y0 === y1) break;
+            if (y0 < 0 || y0 >= this.ROWS || x0 < 0 || x0 >= this.COLS) return false;
+            if (this.map[y0] && this.map[y0][x0]) {
+                 const tile = this.map[y0][x0];
+                if (tile.type === TILE.WALL || tile.type === TILE.CRACKED_WALL) {
+                    return false;
+                }
+            }
+            const e2 = 2 * err;
+            if (e2 >= dy) {
+                err += dy;
+                x0 += sx;
+            }
+            if (e2 <= dx) {
+                err += dx;
+                y0 += sy;
+            }
+        }
+        return true;
+    }
+
+
     spawnMagicCircle(team) {
         const availableTiles = [];
         for (let y = 0; y < this.ROWS; y++) {
@@ -1526,6 +1252,54 @@ export class GameManager {
         }
     }
 
+    spawnUnit(spawner, cloneWeapon = false) {
+        for(let dx = -1; dx <= 1; dx++) {
+            for(let dy = -1; dy <= 1; dy++) {
+                if(dx === 0 && dy === 0) continue;
+                const newX = Math.floor(spawner.pixelX / GRID_SIZE) + dx;
+                const newY = Math.floor(spawner.pixelY / GRID_SIZE) + dy;
+                if (newY >= 0 && newY < this.ROWS && newX >= 0 && newX < this.COLS && this.map[newY][newX].type === TILE.FLOOR) {
+                    const isOccupied = this.units.some(u => u.gridX === newX && u.gridY === newY) || this.weapons.some(w => w.gridX === newX && w.gridY === newY) || this.nexuses.some(n => n.gridX === newX && n.gridY === newY);
+                    if (!isOccupied) {
+                        const newUnit = new Unit(this, newX, newY, spawner.team);
+                        
+                        if (this.isNametagEnabled && this.nametagList.length > 0) {
+                            const availableNames = this.nametagList.filter(name => !this.usedNametagsInSim.has(name));
+                            if (availableNames.length > 0) {
+                                const randomName = availableNames[Math.floor(this.random() * availableNames.length)];
+                                newUnit.name = randomName;
+                                this.usedNametagsInSim.add(randomName);
+                            }
+                        }
+
+                        if (cloneWeapon && spawner.weapon) {
+                            newUnit.equipWeapon(spawner.weapon.type, true);
+                        }
+                        this.units.push(newUnit);
+                        return;
+                    }
+                }
+            }
+        }
+    }
+    
+    createEffect(type, x, y, target, options = {}) { this.effects.push(new Effect(this, x, y, type, target, options)); }
+    createProjectile(owner, target, type, options = {}) { this.projectiles.push(new Projectile(this, owner, target, type, options)); }
+    
+    castAreaSpell(pos, type, ...args) {
+        if (type === 'poison_cloud') {
+            const ownerTeam = args[0];
+            this.poisonClouds.push(new PoisonCloud(this, pos.x, pos.y, ownerTeam));
+        } else if (type === 'fire_pillar') {
+            const damage = args[0];
+            const ownerTeam = args[1];
+            this.areaEffects.push(new AreaEffect(this, pos.x, pos.y, type, { damage, ownerTeam }));
+        } else {
+            const options = args[0] || {};
+            this.areaEffects.push(new AreaEffect(this, pos.x, pos.y, type, options));
+        }
+    }
+    
     async loadMapForEditing(mapId) {
         const mapData = await this.getMapById(mapId);
         if (!mapData) {
@@ -1667,7 +1441,7 @@ export class GameManager {
         }
         
         document.getElementById('nametagToggle').checked = this.isNametagEnabled;
-        this.renderNametagList();
+        this.uiManager.renderNametagList();
     }
     
     async saveNametagSettings() {
@@ -1691,48 +1465,19 @@ export class GameManager {
         }
     }
     
-    renderNametagList() {
-        const container = document.getElementById('nametagListContainer');
-        const countSpan = document.getElementById('nameCount');
-        container.innerHTML = '';
-        this.nametagList.forEach(name => {
-            const item = document.createElement('div');
-            item.className = 'nametag-item';
-            item.innerHTML = `<span>${name}</span><button class="nametag-delete-btn">X</button>`;
-            container.appendChild(item);
-        });
-        countSpan.textContent = this.nametagList.length;
-    }
-
-    handleNametagFileUpload(event) {
-        const file = event.target.files[0];
-        if (!file) return;
-
-        const reader = new FileReader();
-        reader.onload = (e) => {
-            const text = e.target.result;
-            const names = text.split(/[\r\n]+/).filter(name => name.trim() !== '');
-            this.nametagList.push(...names);
-            this.nametagList = [...new Set(this.nametagList)];
-            this.renderNametagList();
-            event.target.value = '';
-        };
-        reader.readAsText(file);
-    }
-    
     addNametagManually() {
         const input = document.getElementById('addNameInput');
         const name = input.value.trim();
         if (name && !this.nametagList.includes(name)) {
             this.nametagList.push(name);
-            this.renderNametagList();
+            this.uiManager.renderNametagList();
             input.value = '';
         }
     }
     
     deleteNametag(nameToDelete) {
         this.nametagList = this.nametagList.filter(name => name !== nameToDelete);
-        this.renderNametagList();
+        this.uiManager.renderNametagList();
     }
     
     async openSaveReplayModal() {
@@ -1775,133 +1520,7 @@ export class GameManager {
             alert("리플레이 저장에 실패했습니다.");
         }
     }
-
-    async renderReplayCards() {
-        if (!this.currentUser) return;
-        
-        const replaysColRef = collection(this.db, "replays", this.currentUser.uid, "userReplays");
-        const replaySnapshot = await getDocs(replaysColRef);
-        const replays = replaySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-
-        const replayGrid = document.getElementById('replayGrid');
-        replayGrid.innerHTML = '';
-
-        replays.forEach(replayData => {
-            const card = this.createReplayCard(replayData);
-            replayGrid.appendChild(card);
-        });
-    }
     
-    createReplayCard(replayData) {
-        const card = document.createElement('div');
-        card.className = 'relative group bg-gray-800 rounded-lg overflow-hidden flex flex-col cursor-pointer shadow-lg hover:shadow-green-500/30 transition-shadow duration-300';
-        
-        card.addEventListener('click', (e) => {
-            if (!e.target.closest('.map-menu-button')) {
-                this.loadReplay(replayData.id);
-            }
-        });
-
-        const previewCanvas = document.createElement('canvas');
-        previewCanvas.className = 'w-full aspect-[3/4] object-cover';
-        
-        const infoDiv = document.createElement('div');
-        infoDiv.className = 'p-3 flex-grow flex items-center justify-between';
-        const nameP = document.createElement('p');
-        nameP.className = 'font-bold text-white truncate';
-        nameP.textContent = replayData.name;
-        
-        const replayBadge = document.createElement('span');
-        replayBadge.className = 'ml-2 text-xs font-semibold bg-green-500 text-white px-2 py-0.5 rounded-full';
-        replayBadge.textContent = '리플레이';
-        nameP.appendChild(replayBadge);
-
-        infoDiv.appendChild(nameP);
-
-        const menuButton = document.createElement('button');
-        menuButton.className = 'map-menu-button absolute top-2 right-2 p-1.5 rounded-full bg-gray-900/50 hover:bg-gray-700/70 opacity-0 group-hover:opacity-100 transition-opacity';
-        menuButton.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-gray-300" viewBox="0 0 20 20" fill="currentColor"><path d="M10 6a2 2 0 110-4 2 2 0 010 4zM10 12a2 2 0 110-4 2 2 0 010 4zM10 18a2 2 0 110-4 2 2 0 010 4z" /></svg>`;
-        
-        const menu = document.createElement('div');
-        menu.className = 'map-menu hidden absolute top-10 right-2 z-10 bg-gray-700 p-2 rounded-md shadow-lg w-32';
-        const renameBtn = document.createElement('button');
-        renameBtn.className = 'w-full text-left px-3 py-1.5 text-sm rounded hover:bg-gray-600';
-        renameBtn.textContent = '이름 변경';
-        renameBtn.onclick = () => {
-            menu.style.display = 'none';
-            this.openRenameModal(replayData.id, replayData.name, 'replay');
-        };
-        const deleteBtn = document.createElement('button');
-        deleteBtn.className = 'w-full text-left px-3 py-1.5 text-sm text-red-400 rounded hover:bg-gray-600';
-        deleteBtn.textContent = '삭제';
-        deleteBtn.onclick = () => {
-            menu.style.display = 'none';
-            this.openDeleteConfirmModal(replayData.id, replayData.name, 'replay');
-        };
-        menu.append(renameBtn, deleteBtn);
-
-        menuButton.addEventListener('click', (e) => {
-            e.stopPropagation();
-            document.querySelectorAll('.map-menu').forEach(m => {
-                if (m !== menu) m.style.display = 'none';
-            });
-            menu.style.display = menu.style.display === 'block' ? 'none' : 'block';
-        });
-        card.append(menuButton, menu);
-
-        card.append(previewCanvas, infoDiv);
-        
-        const tempMapData = {
-            width: replayData.mapWidth,
-            height: replayData.mapHeight,
-            map: replayData.initialMapState,
-            units: JSON.parse(replayData.initialUnitsState || '[]'),
-            weapons: JSON.parse(replayData.initialWeaponsState || '[]'),
-            nexuses: JSON.parse(replayData.initialNexusesState || '[]'),
-        };
-        this.drawMapPreview(previewCanvas, tempMapData);
-
-        return card;
-    }
-
-    async loadReplay(replayId) {
-        if (!this.currentUser) return;
-        const replayDocRef = doc(this.db, "replays", this.currentUser.uid, "userReplays", replayId);
-        const replaySnap = await getDoc(replayDocRef);
-        
-        if (!replaySnap.exists()) {
-            console.error("Replay not found:", replayId);
-            return;
-        }
-        
-        const replayData = replaySnap.data();
-
-        await this.showEditorScreen('replay');
-        this.isReplayMode = true;
-        this.simulationSeed = replayData.simulationSeed;
-        this.currentMapId = replayId; 
-        this.currentMapName = replayData.name;
-
-        this.canvas.width = replayData.mapWidth;
-        this.canvas.height = replayData.mapHeight;
-        const map = JSON.parse(replayData.initialMapState);
-        this.COLS = map[0].length;
-        this.ROWS = map.length;
-        this.map = map;
-
-        this.initialUnitsState = replayData.initialUnitsState;
-        this.initialWeaponsState = replayData.initialWeaponsState;
-        this.initialNexusesState = replayData.initialNexusesState;
-        this.initialMapState = replayData.initialMapState;
-        this.initialGrowingFieldsState = replayData.initialGrowingFieldsState;
-        this.initialAutoFieldState = replayData.initialAutoFieldState;
-
-        this.updateUIToReplayMode();
-        this.resetPlacement();
-        
-        this.draw();
-    }
-
     updateUIToReplayMode() {
         document.getElementById('toolbox').style.display = 'none';
         document.getElementById('editor-controls').style.display = 'none';
@@ -1920,4 +1539,3 @@ export class GameManager {
         placementResetBtn.style.display = 'inline-block';
     }
 }
-
