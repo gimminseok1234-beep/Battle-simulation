@@ -969,7 +969,6 @@ export class Projectile {
         this.damageCooldown = 0;
         this.alreadyDamagedOnReturn = new Set();
         this.lingerRotationSpeed = 0.5;
-        this.bouncesLeft = options.bouncesLeft || 0;
 
         if (type === 'hadoken') this.speed = 4;
         else if (type === 'shuriken' || type === 'returning_shuriken') this.speed = 5;
@@ -1001,9 +1000,8 @@ export class Projectile {
             this.damage = 12;
         } else if (type === 'black_sphere_projectile') { 
             this.damage = 15;
-        } else if (type === 'bouncing_sword') { 
-            this.damage = 2;
-            this.bouncesLeft = 1;
+        } else if (type === 'bouncing_sword') { // [수정] 쌍검 투사체 데미지 설정
+            this.damage = 15;
         }
 
         this.knockback = (type === 'hadoken') ? gameManager.hadokenKnockback : 0;
@@ -1228,7 +1226,7 @@ export class Projectile {
             ctx.save();
             ctx.translate(this.pixelX, this.pixelY);
             ctx.rotate(this.rotationAngle);
-            ctx.scale(0.6, 0.6);
+            ctx.scale(0.72, 0.72); // [수정] 크기 20% 증가 (0.6 * 1.2 = 0.72)
 
             ctx.fillStyle = '#6b7280';
             ctx.strokeStyle = 'black';
