@@ -486,4 +486,420 @@ export class GameUIManager {
             }
         }
     }
+
+    addRecentColor(color, type) {
+        const recentColors = type === 'floor' ? this.recentFloorColors : this.recentWallColors;
+        const index = recentColors.indexOf(color);
+        if (index > -1) {
+            recentColors.splice(index, 1);
+        }
+        recentColors.unshift(color);
+        if (recentColors.length > MAX_RECENT_COLORS) {
+            recentColors.pop();
+        }
+        this.renderRecentColors(type);
+    }
+
+    renderRecentColors(type) {
+        const containerId = type === 'floor' ? 'recentFloorColors' : 'recentWallColors';
+        const container = document.getElementById(containerId);
+        const recentColors = type === 'floor' ? this.recentFloorColors : this.recentWallColors;
+        
+        if (!container) return;
+        container.innerHTML = '';
+        recentColors.forEach(color => {
+            const swatch = document.createElement('div');
+            swatch.className = 'recent-color-swatch w-full h-6 rounded cursor-pointer border-2 border-gray-700 hover:border-gray-400';
+            swatch.style.backgroundColor = color;
+            swatch.dataset.color = color;
+            swatch.dataset.type = type;
+            container.appendChild(swatch);
+        });
+    }
+
+    setCurrentColor(color, type, addToRecent = false) {
+        if (type === 'floor') {
+            this.currentFloorColor = color;
+            const picker = document.getElementById('floorColorPicker');
+            if (picker && picker.value !== color) picker.value = color;
+        } else {
+            this.currentWallColor = color;
+            const picker = document.getElementById('wallColorPicker');
+            if (picker && picker.value !== color) picker.value = color;
+        }
+        if (addToRecent) {
+            this.addRecentColor(color, type);
+        }
+        this.gameManager.draw();
+    }
+
+    handleMapColors(mapData) {
+        const gm = this.gameManager;
+        this.recentFloorColors = mapData.recentFloorColors || [];
+        this.recentWallColors = mapData.recentWallColors || [];
+        
+        let floorColor = mapData.floorColor;
+        let wallColor = mapData.wallColor;
+
+        if (!floorColor || !wallColor) {
+            const mapGridData = (typeof mapData.map === 'string') ? JSON.parse(mapData.map) : mapData.map;
+            const floorColors = {};
+            const wallColors = {};
+            
+            mapGridData.forEach(row => {
+                row.forEach(tile => {
+                    if (tile.type === TILE.FLOOR && tile.color) {
+                        floorColors[tile.color] = (floorColors[tile.color] || 0) + 1;
+                    } else if (tile.type === TILE.WALL && tile.color) {
+                        wallColors[tile.color] = (wallColors[tile.color] || 0) + 1;
+                    }
+                });
+            });
+
+            const mostCommonFloor = Object.keys(floorColors).reduce((a, b) => floorColors[a] > floorColors[b] ? a : b, null);
+            const mostCommonWall = Object.keys(wallColors).reduce((a, b) => wallColors[a] > wallColors[b] ? a : b, null);
+
+            floorColor = mostCommonFloor || COLORS.FLOOR;
+            wallColor = mostCommonWall || COLORS.WALL;
+        }
+        
+        this.setCurrentColor(floorColor, 'floor', false);
+        this.setCurrentColor(wallColor, 'wall', false);
+    }
+
+    renderNametagList() {
+        const container = document.getElementById('nametagListContainer');
+        const countSpan = document.getElementById('nameCount');
+        if (!container || !countSpan) return;
+        
+        container.innerHTML = '';
+        this.gameManager.nametagList.forEach(name => {
+            const item = document.createElement('div');
+            item.className = 'nametag-item';
+            item.innerHTML = `<span>${name}</span><button class="nametag-delete-btn">X</button>`;
+            container.appendChild(item);
+        });
+        countSpan.textContent = this.gameManager.nametagList.length;
+    }
+
+    async renderMapCards() {
+        const gm = this.gameManager;
+        document.getElementById('loadingStatus').textContent = "맵 목록을 불러오는 중...";
+        const maps = await gm.getAllMaps();
+        document.getElementById('loadingStatus').style.display = 'none';
+        
+        const mapGrid = document.getElementById('mapGrid');
+        const addNewMapCard = document.getElementById('addNewMapCard');
+        while (mapGrid.firstChild && mapGrid.firstChild !== addNewMapCard) {
+            mapGrid.removeChild(mapGrid.firstChild);
+        }
+
+        maps.forEach(mapData => {
+            const card = this.createMapCard(mapData, false);
+            mapGrid.insertBefore(card, addNewMapCard);
+        });
+
+        document.addEventListener('click', (e) => {
+             if (!e.target.closest('.map-menu-button')) {
+                document.querySelectorAll('.map-menu').forEach(menu => {
+                     menu.style.display = 'none';
+                });
+            }
+        }, true);
+    }
+
+    renderDefaultMapCards() {
+        const defaultMapGrid = document.getElementById('defaultMapGrid');
+        while (defaultMapGrid.firstChild) {
+            defaultMapGrid.removeChild(defaultMapGrid.firstChild);
+        }
+
+        localMaps.forEach(mapData => {
+            const card = this.createMapCard(mapData, true);
+            defaultMapGrid.appendChild(card);
+        });
+    }
+
+    createMapCard(mapData, isLocal) {
+        const gm = this.gameManager;
+        const card = document.createElement('div');
+        card.className = 'relative group bg-gray-800 rounded-lg overflow-hidden flex flex-col cursor-pointer shadow-lg hover:shadow-indigo-500/30 transition-shadow duration-300';
+        
+        const mapId = isLocal ? mapData.name : mapData.id;
+
+        card.addEventListener('click', (e) => {
+            if (!e.target.closest('.map-menu-button')) {
+                if (isLocal) {
+                    gm.loadLocalMapForEditing(mapData);
+                } else {
+                    gm.showEditorScreen(mapId);
+                }
+            }
+        });
+
+        const previewCanvas = document.createElement('canvas');
+        previewCanvas.className = 'w-full aspect-[3/4] object-cover';
+        
+        const infoDiv = document.createElement('div');
+        infoDiv.className = 'p-3 flex-grow flex items-center justify-between';
+        const nameP = document.createElement('p');
+        nameP.className = 'font-bold text-white truncate';
+        nameP.id = `map-name-${mapId}`;
+        nameP.textContent = mapData.name;
+        
+        if (isLocal) {
+            const localBadge = document.createElement('span');
+            localBadge.className = 'ml-2 text-xs font-semibold bg-indigo-500 text-white px-2 py-0.5 rounded-full';
+            localBadge.textContent = '기본';
+            nameP.appendChild(localBadge);
+        }
+
+        infoDiv.appendChild(nameP);
+
+        if (!isLocal) {
+            const menuButton = document.createElement('button');
+            menuButton.className = 'map-menu-button absolute top-2 right-2 p-1.5 rounded-full bg-gray-900/50 hover:bg-gray-700/70 opacity-0 group-hover:opacity-100 transition-opacity';
+            menuButton.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-gray-300" viewBox="0 0 20 20" fill="currentColor"><path d="M10 6a2 2 0 110-4 2 2 0 010 4zM10 12a2 2 0 110-4 2 2 0 010 4zM10 18a2 2 0 110-4 2 2 0 010 4z" /></svg>`;
+            
+            const menu = document.createElement('div');
+            menu.className = 'map-menu hidden absolute top-10 right-2 z-10 bg-gray-700 p-2 rounded-md shadow-lg w-32';
+            const renameBtn = document.createElement('button');
+            renameBtn.className = 'w-full text-left px-3 py-1.5 text-sm rounded hover:bg-gray-600';
+            renameBtn.textContent = '이름 변경';
+            renameBtn.onclick = () => {
+                menu.style.display = 'none';
+                this.openRenameModal(mapId, mapData.name, 'map');
+            };
+            const deleteBtn = document.createElement('button');
+            deleteBtn.className = 'w-full text-left px-3 py-1.5 text-sm text-red-400 rounded hover:bg-gray-600';
+            deleteBtn.textContent = '삭제';
+            deleteBtn.onclick = () => {
+                menu.style.display = 'none';
+                this.openDeleteConfirmModal(mapId, mapData.name, 'map');
+            };
+            menu.append(renameBtn, deleteBtn);
+
+            menuButton.addEventListener('click', (e) => {
+                e.stopPropagation();
+                document.querySelectorAll('.map-menu').forEach(m => {
+                    if (m !== menu) m.style.display = 'none';
+                });
+                menu.style.display = menu.style.display === 'block' ? 'none' : 'block';
+            });
+            card.append(menuButton, menu);
+        }
+
+        card.append(previewCanvas, infoDiv);
+        this.drawMapPreview(previewCanvas, mapData);
+        return card;
+    }
+
+    drawMapPreview(previewCanvas, mapData) {
+        const prevCtx = previewCanvas.getContext('2d');
+        const mapGridData = (typeof mapData.map === 'string') ? JSON.parse(mapData.map) : mapData.map;
+        
+        const mapHeight = mapGridData.length * GRID_SIZE;
+        const mapWidth = mapGridData.length > 0 ? mapGridData[0].length * GRID_SIZE : 0;
+
+        if(mapWidth === 0 || mapHeight === 0) return;
+        
+        const cardWidth = previewCanvas.parentElement.clientWidth || 200;
+        previewCanvas.width = cardWidth;
+        previewCanvas.height = cardWidth * (mapHeight / mapWidth);
+
+
+        const pixelSizeX = previewCanvas.width / (mapWidth / GRID_SIZE);
+        const pixelSizeY = previewCanvas.height / (mapHeight / GRID_SIZE);
+
+        prevCtx.fillStyle = '#111827';
+        prevCtx.fillRect(0, 0, previewCanvas.width, previewCanvas.height);
+        
+        if (mapGridData) {
+            const floorColor = mapData.floorColor || COLORS.FLOOR;
+            const wallColor = mapData.wallColor || COLORS.WALL;
+            mapGridData.forEach((row, y) => {
+                row.forEach((tile, x) => {
+                    switch(tile.type) {
+                        case TILE.WALL: prevCtx.fillStyle = tile.color || wallColor; break;
+                        case TILE.FLOOR: prevCtx.fillStyle = tile.color || floorColor; break;
+                        case TILE.LAVA: prevCtx.fillStyle = COLORS.LAVA; break;
+                        case TILE.CRACKED_WALL: prevCtx.fillStyle = COLORS.CRACKED_WALL; break;
+                        case TILE.HEAL_PACK: prevCtx.fillStyle = COLORS.HEAL_PACK; break;
+                        case TILE.AWAKENING_POTION: prevCtx.fillStyle = COLORS.AWAKENING_POTION; break;
+                        case TILE.REPLICATION_TILE: prevCtx.fillStyle = COLORS.REPLICATION_TILE; break;
+                        case TILE.TELEPORTER: prevCtx.fillStyle = COLORS.TELEPORTER; break;
+                        case TILE.QUESTION_MARK: prevCtx.fillStyle = COLORS.QUESTION_MARK; break;
+                        case TILE.DASH_TILE: prevCtx.fillStyle = COLORS.DASH_TILE; break;
+                        case TILE.GLASS_WALL: prevCtx.fillStyle = COLORS.GLASS_WALL; break;
+                        default: prevCtx.fillStyle = floorColor; break;
+                    }
+                    prevCtx.fillRect(x * pixelSizeX, y * pixelSizeY, pixelSizeX + 0.5, pixelSizeY + 0.5);
+                });
+            });
+        }
+        
+        const drawItem = (item, colorOverride = null) => {
+            let color;
+            if (colorOverride) {
+                color = colorOverride;
+            } else {
+                switch(item.team) {
+                    case TEAM.A: color = COLORS.TEAM_A; break;
+                    case TEAM.B: color = COLORS.TEAM_B; break;
+                    case TEAM.C: color = COLORS.TEAM_C; break;
+                    case TEAM.D: color = COLORS.TEAM_D; break;
+                    default: color = '#9ca3af'; break;
+                }
+            }
+            prevCtx.fillStyle = color;
+            prevCtx.beginPath();
+            prevCtx.arc(
+                item.gridX * pixelSizeX + pixelSizeX / 2, 
+                item.gridY * pixelSizeY + pixelSizeY / 2, 
+                Math.min(pixelSizeX, pixelSizeY) / 1.8, 
+                0, 2 * Math.PI
+            );
+            prevCtx.fill();
+        };
+
+        (mapData.nexuses || []).forEach(item => drawItem(item));
+        (mapData.units || []).forEach(item => drawItem(item));
+        (mapData.weapons || []).forEach(item => drawItem(item, '#eab308'));
+    }
+
+    openRenameModal(id, currentName, type) {
+        const gm = this.gameManager;
+        const input = document.getElementById('renameMapInput');
+        const renameMapModal = document.getElementById('renameMapModal');
+        input.value = currentName;
+        renameMapModal.classList.add('show-modal');
+        
+        document.getElementById('confirmRenameBtn').onclick = async () => {
+            const newName = input.value.trim();
+            if (newName && gm.currentUser) {
+                const collectionPath = type === 'map' ? 'userMaps' : 'userReplays';
+                const docRef = doc(gm.db, type === 'map' ? "maps" : "replays", gm.currentUser.uid, collectionPath, id);
+                try {
+                    await setDoc(docRef, { name: newName }, { merge: true });
+                    if (type === 'map') this.renderMapCards();
+                    else this.renderReplayCards();
+                } catch (error) {
+                    console.error(`Error renaming ${type}:`, error);
+                }
+                renameMapModal.classList.remove('show-modal');
+            }
+        };
+    }
+
+    openDeleteConfirmModal(id, name, type) {
+        const gm = this.gameManager;
+        const deleteConfirmModal = document.getElementById('deleteConfirmModal');
+        document.getElementById('deleteConfirmText').textContent = `'${name}' ${type === 'map' ? '맵' : '리플레이'}을(를) 정말 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.`;
+        deleteConfirmModal.classList.add('show-modal');
+
+        document.getElementById('confirmDeleteBtn').onclick = async () => {
+            if (!gm.currentUser) return;
+            const collectionPath = type === 'map' ? 'userMaps' : 'userReplays';
+            const docRef = doc(gm.db, type === 'map' ? "maps" : "replays", gm.currentUser.uid, collectionPath, id);
+            try {
+                await deleteDoc(docRef);
+                if (type === 'map') this.renderMapCards();
+                else this.renderReplayCards();
+            } catch (error) {
+                console.error(`Error deleting ${type}:`, error);
+            }
+            deleteConfirmModal.classList.remove('show-modal');
+        };
+    }
+
+    async renderReplayCards() {
+        const gm = this.gameManager;
+        if (!gm.currentUser) return;
+        
+        const replaysColRef = collection(gm.db, "replays", gm.currentUser.uid, "userReplays");
+        const replaySnapshot = await getDocs(replaysColRef);
+        const replays = replaySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+
+        const replayGrid = document.getElementById('replayGrid');
+        replayGrid.innerHTML = '';
+
+        replays.forEach(replayData => {
+            const card = this.createReplayCard(replayData);
+            replayGrid.appendChild(card);
+        });
+    }
+    
+    createReplayCard(replayData) {
+        const gm = this.gameManager;
+        const card = document.createElement('div');
+        card.className = 'relative group bg-gray-800 rounded-lg overflow-hidden flex flex-col cursor-pointer shadow-lg hover:shadow-green-500/30 transition-shadow duration-300';
+        
+        card.addEventListener('click', (e) => {
+            if (!e.target.closest('.map-menu-button')) {
+                gm.loadReplay(replayData.id);
+            }
+        });
+
+        const previewCanvas = document.createElement('canvas');
+        previewCanvas.className = 'w-full aspect-[3/4] object-cover';
+        
+        const infoDiv = document.createElement('div');
+        infoDiv.className = 'p-3 flex-grow flex items-center justify-between';
+        const nameP = document.createElement('p');
+        nameP.className = 'font-bold text-white truncate';
+        nameP.textContent = replayData.name;
+        
+        const replayBadge = document.createElement('span');
+        replayBadge.className = 'ml-2 text-xs font-semibold bg-green-500 text-white px-2 py-0.5 rounded-full';
+        replayBadge.textContent = '리플레이';
+        nameP.appendChild(replayBadge);
+
+        infoDiv.appendChild(nameP);
+
+        const menuButton = document.createElement('button');
+        menuButton.className = 'map-menu-button absolute top-2 right-2 p-1.5 rounded-full bg-gray-900/50 hover:bg-gray-700/70 opacity-0 group-hover:opacity-100 transition-opacity';
+        menuButton.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-gray-300" viewBox="0 0 20 20" fill="currentColor"><path d="M10 6a2 2 0 110-4 2 2 0 010 4zM10 12a2 2 0 110-4 2 2 0 010 4zM10 18a2 2 0 110-4 2 2 0 010 4z" /></svg>`;
+        
+        const menu = document.createElement('div');
+        menu.className = 'map-menu hidden absolute top-10 right-2 z-10 bg-gray-700 p-2 rounded-md shadow-lg w-32';
+        const renameBtn = document.createElement('button');
+        renameBtn.className = 'w-full text-left px-3 py-1.5 text-sm rounded hover:bg-gray-600';
+        renameBtn.textContent = '이름 변경';
+        renameBtn.onclick = () => {
+            menu.style.display = 'none';
+            this.openRenameModal(replayData.id, replayData.name, 'replay');
+        };
+        const deleteBtn = document.createElement('button');
+        deleteBtn.className = 'w-full text-left px-3 py-1.5 text-sm text-red-400 rounded hover:bg-gray-600';
+        deleteBtn.textContent = '삭제';
+        deleteBtn.onclick = () => {
+            menu.style.display = 'none';
+            this.openDeleteConfirmModal(replayData.id, replayData.name, 'replay');
+        };
+        menu.append(renameBtn, deleteBtn);
+
+        menuButton.addEventListener('click', (e) => {
+            e.stopPropagation();
+            document.querySelectorAll('.map-menu').forEach(m => {
+                if (m !== menu) m.style.display = 'none';
+            });
+            menu.style.display = menu.style.display === 'block' ? 'none' : 'block';
+        });
+        card.append(menuButton, menu);
+
+        card.append(previewCanvas, infoDiv);
+        
+        const tempMapData = {
+            width: replayData.mapWidth,
+            height: replayData.mapHeight,
+            map: replayData.initialMapState,
+            units: JSON.parse(replayData.initialUnitsState || '[]'),
+            weapons: JSON.parse(replayData.initialWeaponsState || '[]'),
+            nexuses: JSON.parse(replayData.initialNexusesState || '[]'),
+        };
+        this.drawMapPreview(previewCanvas, tempMapData);
+
+        return card;
+    }
 }
+
