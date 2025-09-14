@@ -1,38 +1,40 @@
-import { TILE, COLORS, GRID_SIZE } from './constants.js';
+import { TILE, COLORS, GRID_SIZE, TEAM } from './constants.js';
 import { Weapon } from './weaponary.js';
 import { Unit } from './unit.js';
-import { Nexus, GrowingMagneticField } from './entities.js';
+import { Nexus } from './entities.js';
+import { GrowingMagneticField } from './entities.js';
 
 const MAX_RECENT_COLORS = 8;
 
 /**
- * UI 관련 로직 및 자주 수정되는 코드를 관리하는 클래스입니다.
- * (툴박스, 그리기, 사용자 입력, 무기/타일 생성 등)
+ * UI 렌더링, 사용자 입력 처리, DOM 요소 조작 등
+ * 화면 표시와 관련된 모든 로직을 담당하는 클래스입니다.
+ * (수정이 잦은 코드)
  */
 export class GameUIManager {
     constructor(gameManager) {
         this.gameManager = gameManager;
+        this.ctx = gameManager.ctx;
 
-        // UI 상태 및 편집 도구 관련 속성
+        // UI 상태 및 설정
+        this.currentTool = { tool: 'tile', type: 'FLOOR' };
         this.isPainting = false;
         this.dragStartPos = null;
-        this.currentTool = { tool: 'tile', type: 'FLOOR' };
         
-        // 색상 관련 속성
-        this.currentFloorColor = COLORS.FLOOR;
         this.currentWallColor = COLORS.WALL;
-        this.recentFloorColors = [];
+        this.currentFloorColor = COLORS.FLOOR;
         this.recentWallColors = [];
-
-        // 타일 및 무기 설정 관련 속성
-        this.replicationValue = 1;
-        this.dashTileSettings = { direction: 'RIGHT' };
-        this.growingFieldSettings = { direction: 'DOWN', speed: 4, delay: 0 };
+        this.recentFloorColors = [];
+        this.replicationValue = 2;
+        
+        this.growingFieldSettings = {
+            direction: 'DOWN', speed: 4, delay: 0
+        };
+        this.dashTileSettings = {
+            direction: 'RIGHT'
+        };
     }
 
-    /**
-     * 왼쪽 툴박스 UI를 생성하고 HTML에 삽입합니다.
-     */
     createToolboxUI() {
         const toolbox = document.getElementById('toolbox');
         if (!toolbox) return;
@@ -131,49 +133,34 @@ export class GameUIManager {
         `;
     }
 
-    /**
-     * 사용자가 선택한 도구를 현재 도구로 설정합니다.
-     * @param {HTMLElement} toolButton - 사용자가 클릭한 도구 버튼 요소
-     */
-    selectTool(toolButton) {
-        document.querySelectorAll('.tool-btn').forEach(btn => btn.classList.remove('selected'));
-        toolButton.classList.add('selected');
-        this.currentTool = {
-            tool: toolButton.dataset.tool,
-            type: toolButton.dataset.type,
-            team: toolButton.dataset.team
-        };
+    selectTool(button) {
+        const { tool, team, type } = button.dataset;
+
+        document.querySelectorAll('#toolbox .tool-btn').forEach(btn => btn.classList.remove('selected'));
+        button.classList.add('selected');
+
+        this.currentTool = { tool, team, type };
     }
 
-    /**
-     * 마우스 이벤트로부터 캔버스 좌표를 계산하여 반환합니다.
-     * @param {MouseEvent} evt - 마우스 이벤트 객체
-     * @returns {{pixelX: number, pixelY: number, gridX: number, gridY: number}}
-     */
-    getMousePos(evt) {
-        const gm = this.gameManager;
-        const rect = gm.canvas.getBoundingClientRect();
-        const transform = gm.ctx.getTransform();
-        const invTransform = transform.inverse();
+    getMousePos(e) {
+         const rect = this.gameManager.canvas.getBoundingClientRect();
+         const transform = this.ctx.getTransform();
+         const invTransform = transform.inverse();
 
-        const canvasX = evt.clientX - rect.left;
-        const canvasY = evt.clientY - rect.top;
+         const canvasX = e.clientX - rect.left;
+         const canvasY = e.clientY - rect.top;
 
-        const worldX = canvasX * invTransform.a + canvasY * invTransform.c + invTransform.e;
-        const worldY = canvasX * invTransform.b + canvasY * invTransform.d + invTransform.f;
+         const worldX = canvasX * invTransform.a + canvasY * invTransform.c + invTransform.e;
+         const worldY = canvasX * invTransform.b + canvasY * invTransform.d + invTransform.f;
         
-        return {
-            pixelX: worldX,
-            pixelY: worldY,
-            gridX: Math.floor(worldX / GRID_SIZE),
-            gridY: Math.floor(worldY / GRID_SIZE)
-        };
+         return {
+             pixelX: worldX,
+             pixelY: worldY,
+             gridX: Math.floor(worldX / GRID_SIZE),
+             gridY: Math.floor(worldY / GRID_SIZE)
+         };
     }
 
-    /**
-     * 현재 선택된 도구를 지정된 위치에 적용합니다.
-     * @param {{pixelX: number, pixelY: number, gridX: number, gridY: number}} pos 
-     */
     applyTool(pos) {
         const gm = this.gameManager;
         const {gridX: x, gridY: y} = pos;
@@ -240,16 +227,8 @@ export class GameUIManager {
         gm.draw();
     }
 
-    /**
-     * 지정된 타입의 무기를 생성하고 능력치를 설정하여 반환합니다.
-     * @param {number} x - 그리드 X 좌표
-     * @param {number} y - 그리드 Y 좌표
-     * @param {string} type - 무기 타입
-     * @returns {Weapon}
-     */
     createWeapon(x, y, type) {
         const weapon = new Weapon(this.gameManager, x, y, type);
-        // 무기 타입별 능력치 설정 (수정이 잦은 부분이므로 여기에 위치)
         if (type === 'sword') {
             weapon.attackPowerBonus = 15;
         } else if (type === 'bow') {
@@ -303,10 +282,6 @@ export class GameUIManager {
         return weapon;
     }
 
-    /**
-     * '물음표' 타일 효과로 주변에 무작위 무기를 생성합니다.
-     * @param {{x: number, y: number}} pos 
-     */
     spawnRandomWeaponNear(pos) {
         const gm = this.gameManager;
         const weaponTypes = ['sword', 'bow', 'dual_swords', 'fire_staff', 'lightning', 'magic_spear', 'boomerang', 'poison_potion', 'magic_dagger', 'axe', 'hadoken', 'shuriken', 'ice_diamond'];
@@ -327,61 +302,55 @@ export class GameUIManager {
             }
         }
     }
-    
-    /**
-     * 현재 게임 상태를 캔버스에 그립니다.
-     * @param {MouseEvent | null} mouseEvent - 마우스 이동 이벤트 (드래그 영역 표시에 사용)
-     */
+
     draw(mouseEvent = null) {
         const gm = this.gameManager;
-        const ctx = gm.ctx;
-
-        ctx.save();
-        ctx.fillStyle = '#1f2937';
-        ctx.fillRect(0, 0, gm.canvas.width, gm.canvas.height);
+        this.ctx.save();
+        this.ctx.fillStyle = '#1f2937';
+        this.ctx.fillRect(0, 0, gm.canvas.width, gm.canvas.height);
 
         const cam = gm.actionCam;
-        ctx.translate(gm.canvas.width / 2, gm.canvas.height / 2);
-        ctx.scale(cam.current.scale, cam.current.scale);
-        ctx.translate(-cam.current.x, -cam.current.y);
+        this.ctx.translate(gm.canvas.width / 2, gm.canvas.height / 2);
+        this.ctx.scale(cam.current.scale, cam.current.scale);
+        this.ctx.translate(-cam.current.x, -cam.current.y);
 
         this.drawMap();
-        gm.magicCircles.forEach(c => c.draw(ctx));
-        gm.poisonClouds.forEach(c => c.draw(ctx));
+        gm.magicCircles.forEach(c => c.draw(this.ctx));
+        gm.poisonClouds.forEach(c => c.draw(this.ctx));
         
         if (gm.state === 'SIMULATE' || gm.state === 'PAUSED' || gm.state === 'ENDING') {
             if (gm.autoMagneticField.isActive) {
-                ctx.fillStyle = `rgba(168, 85, 247, 0.2)`;
+                this.ctx.fillStyle = `rgba(168, 85, 247, 0.2)`;
                 const b = gm.autoMagneticField.currentBounds;
-                ctx.fillRect(0, 0, b.minX * GRID_SIZE, gm.canvas.height);
-                ctx.fillRect(b.maxX * GRID_SIZE, 0, gm.canvas.width - b.maxX * GRID_SIZE, gm.canvas.height);
-                ctx.fillRect(b.minX * GRID_SIZE, 0, (b.maxX - b.minX) * GRID_SIZE, b.minY * GRID_SIZE);
-                ctx.fillRect(b.minX * GRID_SIZE, b.maxY * GRID_SIZE, (b.maxX - b.minX) * GRID_SIZE, gm.canvas.height - b.maxY * GRID_SIZE);
+                this.ctx.fillRect(0, 0, b.minX * GRID_SIZE, gm.canvas.height);
+                this.ctx.fillRect(b.maxX * GRID_SIZE, 0, gm.canvas.width - b.maxX * GRID_SIZE, gm.canvas.height);
+                this.ctx.fillRect(b.minX * GRID_SIZE, 0, (b.maxX - b.minX) * GRID_SIZE, b.minY * GRID_SIZE);
+                this.ctx.fillRect(b.minX * GRID_SIZE, b.maxY * GRID_SIZE, (b.maxX - b.minX) * GRID_SIZE, gm.canvas.height - b.maxY * GRID_SIZE);
             }
 
             gm.growingFields.forEach(field => {
                 if (field.delayTimer < field.delay) return;
-                ctx.fillStyle = `rgba(168, 85, 247, 0.2)`;
+                this.ctx.fillStyle = `rgba(168, 85, 247, 0.2)`;
                 const startX = field.gridX * GRID_SIZE;
                 const startY = field.gridY * GRID_SIZE;
                 const totalWidth = field.width * GRID_SIZE;
                 const totalHeight = field.height * GRID_SIZE;
 
-                if (field.direction === 'DOWN') ctx.fillRect(startX, startY, totalWidth, totalHeight * field.progress);
-                else if (field.direction === 'UP') ctx.fillRect(startX, startY + totalHeight * (1 - field.progress), totalWidth, totalHeight * field.progress);
-                else if (field.direction === 'RIGHT') ctx.fillRect(startX, startY, totalWidth * field.progress, totalHeight);
-                else if (field.direction === 'LEFT') ctx.fillRect(startX + totalWidth * (1 - field.progress), startY, totalWidth * field.progress, totalHeight);
+                if (field.direction === 'DOWN') this.ctx.fillRect(startX, startY, totalWidth, totalHeight * field.progress);
+                else if (field.direction === 'UP') this.ctx.fillRect(startX, startY + totalHeight * (1 - field.progress), totalWidth, totalHeight * field.progress);
+                else if (field.direction === 'RIGHT') this.ctx.fillRect(startX, startY, totalWidth * field.progress, totalHeight);
+                else if (field.direction === 'LEFT') this.ctx.fillRect(startX + totalWidth * (1 - field.progress), startY, totalWidth * field.progress, totalHeight);
             });
         }
         
-        gm.growingFields.forEach(w => w.draw(ctx));
-        gm.weapons.forEach(w => w.draw(ctx));
-        gm.nexuses.forEach(n => n.draw(ctx));
-        gm.projectiles.forEach(p => p.draw(ctx));
-        gm.units.forEach(u => u.draw(ctx, gm.isUnitOutlineEnabled, gm.unitOutlineWidth));
-        gm.effects.forEach(e => e.draw(ctx));
-        gm.areaEffects.forEach(e => e.draw(ctx));
-        gm.particles.forEach(p => p.draw(ctx));
+        gm.growingFields.forEach(w => w.draw(this.ctx));
+        gm.weapons.forEach(w => w.draw(this.ctx));
+        gm.nexuses.forEach(n => n.draw(this.ctx));
+        gm.projectiles.forEach(p => p.draw(this.ctx));
+        gm.units.forEach(u => u.draw(this.ctx, gm.isUnitOutlineEnabled, gm.unitOutlineWidth));
+        gm.effects.forEach(e => e.draw(this.ctx));
+        gm.areaEffects.forEach(e => e.draw(this.ctx));
+        gm.particles.forEach(p => p.draw(this.ctx));
 
         if (gm.state === 'EDIT' && this.currentTool.tool === 'growing_field' && this.dragStartPos && this.isPainting && mouseEvent) {
             const currentPos = this.getMousePos(mouseEvent);
@@ -390,296 +359,131 @@ export class GameUIManager {
             const width = (Math.abs(this.dragStartPos.gridX - currentPos.gridX) + 1) * GRID_SIZE;
             const height = (Math.abs(this.dragStartPos.gridY - currentPos.gridY) + 1) * GRID_SIZE;
             
-            ctx.fillStyle = 'rgba(168, 85, 247, 0.3)';
-            ctx.fillRect(x, y, width, height);
-            ctx.strokeStyle = 'rgba(168, 85, 247, 0.7)';
-            ctx.strokeRect(x, y, width, height);
+            this.ctx.fillStyle = 'rgba(168, 85, 247, 0.3)';
+            this.ctx.fillRect(x, y, width, height);
+            this.ctx.strokeStyle = 'rgba(168, 85, 247, 0.7)';
+            this.ctx.strokeRect(x, y, width, height);
         }
 
-        ctx.restore();
+        this.ctx.restore();
     }
 
-    /**
-     * 맵의 타일들을 캔버스에 그립니다.
-     */
     drawMap() {
         const gm = this.gameManager;
-        const ctx = gm.ctx;
-
         for (let y = 0; y < gm.ROWS; y++) {
             for (let x = 0; x < gm.COLS; x++) {
                 if (!gm.map || !gm.map[y] || !gm.map[y][x]) continue;
                 const tile = gm.map[y][x];
                 
                 switch(tile.type) {
-                    case TILE.WALL: ctx.fillStyle = tile.color || this.currentWallColor; break;
-                    case TILE.FLOOR: ctx.fillStyle = tile.color || this.currentFloorColor; break;
-                    case TILE.LAVA: ctx.fillStyle = COLORS.LAVA; break;
-                    case TILE.CRACKED_WALL: ctx.fillStyle = COLORS.CRACKED_WALL; break;
-                    case TILE.HEAL_PACK: ctx.fillStyle = COLORS.HEAL_PACK; break;
-                    case TILE.AWAKENING_POTION: ctx.fillStyle = this.currentFloorColor; break;
-                    case TILE.REPLICATION_TILE: ctx.fillStyle = COLORS.REPLICATION_TILE; break;
-                    case TILE.QUESTION_MARK: ctx.fillStyle = COLORS.QUESTION_MARK; break;
-                    case TILE.DASH_TILE: ctx.fillStyle = COLORS.DASH_TILE; break;
-                    case TILE.GLASS_WALL: ctx.fillStyle = COLORS.GLASS_WALL; break;
-                    case TILE.TELEPORTER: ctx.fillStyle = this.currentFloorColor; break;
-                    default: ctx.fillStyle = this.currentFloorColor;
+                    case TILE.WALL: this.ctx.fillStyle = tile.color || this.currentWallColor; break;
+                    case TILE.FLOOR: this.ctx.fillStyle = tile.color || this.currentFloorColor; break;
+                    case TILE.LAVA: this.ctx.fillStyle = COLORS.LAVA; break;
+                    case TILE.CRACKED_WALL: this.ctx.fillStyle = COLORS.CRACKED_WALL; break;
+                    case TILE.HEAL_PACK: this.ctx.fillStyle = COLORS.HEAL_PACK; break;
+                    case TILE.AWAKENING_POTION: this.ctx.fillStyle = this.currentFloorColor; break;
+                    case TILE.REPLICATION_TILE: this.ctx.fillStyle = COLORS.REPLICATION_TILE; break;
+                    case TILE.QUESTION_MARK: this.ctx.fillStyle = COLORS.QUESTION_MARK; break;
+                    case TILE.DASH_TILE: this.ctx.fillStyle = COLORS.DASH_TILE; break;
+                    case TILE.GLASS_WALL: this.ctx.fillStyle = COLORS.GLASS_WALL; break;
+                    case TILE.TELEPORTER: this.ctx.fillStyle = this.currentFloorColor; break;
+                    default: this.ctx.fillStyle = this.currentFloorColor;
                 }
                 
-                ctx.fillRect(x * GRID_SIZE, y * GRID_SIZE, GRID_SIZE, GRID_SIZE);
+                this.ctx.fillRect(x * GRID_SIZE, y * GRID_SIZE, GRID_SIZE, GRID_SIZE);
 
                 if(tile.type === TILE.LAVA) {
                     const flicker = Math.sin(gm.animationFrameCounter * 0.1 + x + y) * 10 + 10;
-                    ctx.fillStyle = `rgba(255, 255, 0, 0.3)`;
-                    ctx.beginPath(); ctx.arc(x * GRID_SIZE + 10, y * GRID_SIZE + 10, flicker / 4, 0, Math.PI * 2); ctx.fill();
+                    this.ctx.fillStyle = `rgba(255, 255, 0, 0.3)`;
+                    this.ctx.beginPath(); this.ctx.arc(x * GRID_SIZE + 10, y * GRID_SIZE + 10, flicker / 4, 0, Math.PI * 2); this.ctx.fill();
                 } else if(tile.type === TILE.CRACKED_WALL) {
-                    ctx.strokeStyle = 'rgba(0,0,0,0.7)'; ctx.lineWidth = 1.5;
-                    ctx.beginPath();
-                    ctx.moveTo(x * GRID_SIZE + 4, y * GRID_SIZE + 4); ctx.lineTo(x * GRID_SIZE + 10, y * GRID_SIZE + 10);
-                    ctx.moveTo(x * GRID_SIZE + 10, y * GRID_SIZE + 10); ctx.lineTo(x * GRID_SIZE + 8, y * GRID_SIZE + 16);
-                    ctx.moveTo(x * GRID_SIZE + 16, y * GRID_SIZE + 5); ctx.lineTo(x * GRID_SIZE + 10, y * GRID_SIZE + 9);
-                    ctx.moveTo(x * GRID_SIZE + 10, y * GRID_SIZE + 9); ctx.lineTo(x * GRID_SIZE + 15, y * GRID_SIZE + 17);
-                    ctx.stroke();
+                    this.ctx.strokeStyle = 'rgba(0,0,0,0.7)'; this.ctx.lineWidth = 1.5;
+                    this.ctx.beginPath();
+                    this.ctx.moveTo(x * GRID_SIZE + 4, y * GRID_SIZE + 4); this.ctx.lineTo(x * GRID_SIZE + 10, y * GRID_SIZE + 10);
+                    this.ctx.moveTo(x * GRID_SIZE + 10, y * GRID_SIZE + 10); this.ctx.lineTo(x * GRID_SIZE + 8, y * GRID_SIZE + 16);
+                    this.ctx.moveTo(x * GRID_SIZE + 16, y * GRID_SIZE + 5); this.ctx.lineTo(x * GRID_SIZE + 10, y * GRID_SIZE + 9);
+                    this.ctx.moveTo(x * GRID_SIZE + 10, y * GRID_SIZE + 9); this.ctx.lineTo(x * GRID_SIZE + 15, y * GRID_SIZE + 17);
+                    this.ctx.stroke();
                 } else if(tile.type === TILE.TELEPORTER) {
                     const angle = gm.animationFrameCounter * 0.05;
-                    ctx.save();
-                    ctx.translate(x * GRID_SIZE + GRID_SIZE / 2, y * GRID_SIZE + GRID_SIZE / 2);
-                    ctx.rotate(angle);
+                    this.ctx.save();
+                    this.ctx.translate(x * GRID_SIZE + GRID_SIZE / 2, y * GRID_SIZE + GRID_SIZE / 2);
+                    this.ctx.rotate(angle);
                     for (let i = 0; i < 6; i++) {
-                        ctx.fillStyle = i % 2 === 0 ? COLORS.TELEPORTER : '#4c1d95';
-                        ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(GRID_SIZE * 0.5, 0);
-                        ctx.arc(0, 0, GRID_SIZE * 0.5, 0, Math.PI / 3); ctx.closePath();
-                        ctx.fill(); ctx.rotate(Math.PI / 3);
+                        this.ctx.fillStyle = i % 2 === 0 ? COLORS.TELEPORTER : '#4c1d95';
+                        this.ctx.beginPath(); this.ctx.moveTo(0, 0); this.ctx.lineTo(GRID_SIZE * 0.5, 0);
+                        this.ctx.arc(0, 0, GRID_SIZE * 0.5, 0, Math.PI / 3); this.ctx.closePath();
+                        this.ctx.fill(); this.ctx.rotate(Math.PI / 3);
                     }
-                    ctx.restore();
+                    this.ctx.restore();
                 } else if(tile.type === TILE.HEAL_PACK) {
-                    ctx.fillStyle = 'white';
+                    this.ctx.fillStyle = 'white';
                     const plusWidth = 4;
                     const plusLength = GRID_SIZE - 8;
-                    ctx.fillRect(x * GRID_SIZE + (GRID_SIZE - plusWidth) / 2, y * GRID_SIZE + 4, plusWidth, plusLength);
-                    ctx.fillRect(x * GRID_SIZE + 4, y * GRID_SIZE + (GRID_SIZE - plusWidth) / 2, plusLength, plusWidth);
+                    this.ctx.fillRect(x * GRID_SIZE + (GRID_SIZE - plusWidth) / 2, y * GRID_SIZE + 4, plusWidth, plusLength);
+                    this.ctx.fillRect(x * GRID_SIZE + 4, y * GRID_SIZE + (GRID_SIZE - plusWidth) / 2, plusLength, plusWidth);
                 } else if (tile.type === TILE.AWAKENING_POTION) {
                     const centerX = x * GRID_SIZE + GRID_SIZE / 2;
                     const centerY = y * GRID_SIZE + GRID_SIZE / 2;
-                    ctx.fillStyle = 'rgba(150, 150, 150, 0.4)';
-                    ctx.strokeStyle = '#9CA3AF';
-                    ctx.lineWidth = 1.5;
-                    ctx.beginPath();
-                    ctx.arc(centerX, centerY, GRID_SIZE * 0.4, 0, Math.PI * 2);
-                    ctx.fill();
-                    ctx.stroke();
-                    ctx.fillStyle = '#A1662F';
-                    ctx.fillRect(centerX - GRID_SIZE * 0.15, centerY - GRID_SIZE * 0.6, GRID_SIZE * 0.3, GRID_SIZE * 0.2);
-                    ctx.fillStyle = '#FFFFFF';
-                    ctx.beginPath();
-                    ctx.arc(centerX, centerY, GRID_SIZE * 0.35, 0, Math.PI * 2);
-                    ctx.fill();
-                    ctx.fillStyle = 'rgba(255, 255, 255, 0.7)';
-                    ctx.beginPath();
-                    ctx.arc(centerX - GRID_SIZE * 0.15, centerY - GRID_SIZE * 0.15, GRID_SIZE * 0.08, 0, Math.PI * 2);
-                    ctx.fill();
+                    this.ctx.fillStyle = 'rgba(150, 150, 150, 0.4)';
+                    this.ctx.strokeStyle = '#9CA3AF';
+                    this.ctx.lineWidth = 1.5;
+                    this.ctx.beginPath();
+                    this.ctx.arc(centerX, centerY, GRID_SIZE * 0.4, 0, Math.PI * 2);
+                    this.ctx.fill();
+                    this.ctx.stroke();
+                    this.ctx.fillStyle = '#A1662F';
+                    this.ctx.fillRect(centerX - GRID_SIZE * 0.15, centerY - GRID_SIZE * 0.6, GRID_SIZE * 0.3, GRID_SIZE * 0.2);
+                    this.ctx.fillStyle = '#FFFFFF';
+                    this.ctx.beginPath();
+                    this.ctx.arc(centerX, centerY, GRID_SIZE * 0.35, 0, Math.PI * 2);
+                    this.ctx.fill();
+                    this.ctx.fillStyle = 'rgba(255, 255, 255, 0.7)';
+                    this.ctx.beginPath();
+                    this.ctx.arc(centerX - GRID_SIZE * 0.15, centerY - GRID_SIZE * 0.15, GRID_SIZE * 0.08, 0, Math.PI * 2);
+                    this.ctx.fill();
                 } else if(tile.type === TILE.REPLICATION_TILE) {
-                    ctx.fillStyle = 'black'; ctx.font = 'bold 12px Arial'; ctx.textAlign = 'center';
-                    ctx.fillText(`+${tile.replicationValue}`, x * GRID_SIZE + 10, y * GRID_SIZE + 14);
+                    this.ctx.fillStyle = 'black'; this.ctx.font = 'bold 12px Arial'; this.ctx.textAlign = 'center';
+                    this.ctx.fillText(`+${tile.replicationValue}`, x * GRID_SIZE + 10, y * GRID_SIZE + 14);
                 } else if (tile.type === TILE.QUESTION_MARK) {
-                    ctx.fillStyle = 'black';
-                    ctx.font = 'bold 16px Arial';
-                    ctx.textAlign = 'center';
-                    ctx.fillText('?', x * GRID_SIZE + 10, y * GRID_SIZE + 16);
+                    this.ctx.fillStyle = 'black';
+                    this.ctx.font = 'bold 16px Arial';
+                    this.ctx.textAlign = 'center';
+                    this.ctx.fillText('?', x * GRID_SIZE + 10, y * GRID_SIZE + 16);
                 } else if (tile.type === TILE.DASH_TILE) {
-                    ctx.save();
-                    ctx.translate(x * GRID_SIZE + GRID_SIZE / 2, y * GRID_SIZE + GRID_SIZE / 2);
+                    this.ctx.save();
+                    this.ctx.translate(x * GRID_SIZE + GRID_SIZE / 2, y * GRID_SIZE + GRID_SIZE / 2);
                     let angle = 0;
                     switch(tile.direction) {
                         case 'RIGHT': angle = 0; break;
                         case 'LEFT': angle = Math.PI; break;
                         case 'DOWN': angle = Math.PI / 2; break;
-                        case 'UP':    angle = -Math.PI / 2; break;
+                        case 'UP': angle = -Math.PI / 2; break;
                     }
-                    ctx.rotate(angle);
-                    ctx.fillStyle = 'black';
-                    ctx.beginPath();
-                    ctx.moveTo(-6, -6);
-                    ctx.lineTo(4, 0);
-                    ctx.lineTo(-6, 6);
-                    ctx.lineTo(-4, 0);
-                    ctx.closePath();
-                    ctx.fill();
-                    ctx.restore();
+                    this.ctx.rotate(angle);
+                    this.ctx.fillStyle = 'black';
+                    this.ctx.beginPath();
+                    this.ctx.moveTo(-6, -6);
+                    this.ctx.lineTo(4, 0);
+                    this.ctx.lineTo(-6, 6);
+                    this.ctx.lineTo(-4, 0);
+                    this.ctx.closePath();
+                    this.ctx.fill();
+                    this.ctx.restore();
                 } else if(tile.type === TILE.GLASS_WALL) {
-                    ctx.strokeStyle = 'rgba(255, 255, 255, 0.4)';
-                    ctx.lineWidth = 1.5;
-                    ctx.beginPath();
-                    ctx.moveTo(x * GRID_SIZE + 4, y * GRID_SIZE + 4);
-                    ctx.lineTo(x * GRID_SIZE + GRID_SIZE - 4, y * GRID_SIZE + GRID_SIZE - 4);
-                    ctx.stroke();
+                    this.ctx.strokeStyle = 'rgba(255, 255, 255, 0.4)';
+                    this.ctx.lineWidth = 1.5;
+                    this.ctx.beginPath();
+                    this.ctx.moveTo(x * GRID_SIZE + 4, y * GRID_SIZE + 4);
+                    this.ctx.lineTo(x * GRID_SIZE + GRID_SIZE - 4, y * GRID_SIZE + GRID_SIZE - 4);
+                    this.ctx.stroke();
                 }
 
                 if (gm.state === 'EDIT') {
-                    ctx.strokeStyle = COLORS.GRID;
-                    ctx.strokeRect(x * GRID_SIZE, y * GRID_SIZE, GRID_SIZE, GRID_SIZE);
+                    this.ctx.strokeStyle = COLORS.GRID;
+                    this.ctx.strokeRect(x * GRID_SIZE, y * GRID_SIZE, GRID_SIZE, GRID_SIZE);
                 }
             }
         }
-    }
-    
-    /**
-     * 맵 카드에 표시될 작은 미리보기 이미지를 그립니다.
-     * @param {HTMLCanvasElement} previewCanvas 
-     * @param {object} mapData 
-     */
-    drawMapPreview(previewCanvas, mapData) {
-        const gm = this.gameManager;
-        const prevCtx = previewCanvas.getContext('2d');
-        const mapGridData = (typeof mapData.map === 'string') ? JSON.parse(mapData.map) : mapData.map;
-        
-        const mapHeight = mapGridData.length * GRID_SIZE;
-        const mapWidth = mapGridData.length > 0 ? mapGridData[0].length * GRID_SIZE : 0;
-
-        if(mapWidth === 0 || mapHeight === 0) return;
-        
-        const cardWidth = previewCanvas.parentElement.clientWidth || 200;
-        previewCanvas.width = cardWidth;
-        previewCanvas.height = cardWidth * (mapHeight / mapWidth);
-
-
-        const pixelSizeX = previewCanvas.width / (mapWidth / GRID_SIZE);
-        const pixelSizeY = previewCanvas.height / (mapHeight / GRID_SIZE);
-
-        prevCtx.fillStyle = '#111827';
-        prevCtx.fillRect(0, 0, previewCanvas.width, previewCanvas.height);
-        
-        if (mapGridData) {
-            const floorColor = mapData.floorColor || COLORS.FLOOR;
-            const wallColor = mapData.wallColor || COLORS.WALL;
-            mapGridData.forEach((row, y) => {
-                row.forEach((tile, x) => {
-                    switch(tile.type) {
-                        case TILE.WALL: prevCtx.fillStyle = tile.color || wallColor; break;
-                        case TILE.FLOOR: prevCtx.fillStyle = tile.color || floorColor; break;
-                        case TILE.LAVA: prevCtx.fillStyle = COLORS.LAVA; break;
-                        case TILE.CRACKED_WALL: prevCtx.fillStyle = COLORS.CRACKED_WALL; break;
-                        case TILE.HEAL_PACK: prevCtx.fillStyle = COLORS.HEAL_PACK; break;
-                        case TILE.AWAKENING_POTION: prevCtx.fillStyle = COLORS.AWAKENING_POTION; break;
-                        case TILE.REPLICATION_TILE: prevCtx.fillStyle = COLORS.REPLICATION_TILE; break;
-                        case TILE.TELEPORTER: prevCtx.fillStyle = COLORS.TELEPORTER; break;
-                        case TILE.QUESTION_MARK: prevCtx.fillStyle = COLORS.QUESTION_MARK; break;
-                        case TILE.DASH_TILE: prevCtx.fillStyle = COLORS.DASH_TILE; break;
-                        case TILE.GLASS_WALL: prevCtx.fillStyle = COLORS.GLASS_WALL; break;
-                        default: prevCtx.fillStyle = floorColor; break;
-                    }
-                    prevCtx.fillRect(x * pixelSizeX, y * pixelSizeY, pixelSizeX + 0.5, pixelSizeY + 0.5);
-                });
-            });
-        }
-        
-        const drawItem = (item, colorOverride = null) => {
-            let color;
-            if (colorOverride) {
-                color = colorOverride;
-            } else {
-                switch(item.team) {
-                    case 'A': color = COLORS.TEAM_A; break;
-                    case 'B': color = COLORS.TEAM_B; break;
-                    case 'C': color = COLORS.TEAM_C; break;
-                    case 'D': color = COLORS.TEAM_D; break;
-                    default: color = '#9ca3af'; break;
-                }
-            }
-            prevCtx.fillStyle = color;
-            prevCtx.beginPath();
-            prevCtx.arc(
-                item.gridX * pixelSizeX + pixelSizeX / 2, 
-                item.gridY * pixelSizeY + pixelSizeY / 2, 
-                Math.min(pixelSizeX, pixelSizeY) / 1.8, 
-                0, 2 * Math.PI
-            );
-            prevCtx.fill();
-        };
-
-        (mapData.nexuses || []).forEach(item => drawItem(item));
-        (mapData.units || []).forEach(item => drawItem(item));
-        (mapData.weapons || []).forEach(item => drawItem(item, '#eab308'));
-    }
-
-    // --- 색상 관리 메서드 ---
-    setCurrentColor(color, type, addToRecent = false) {
-        if (type === 'floor') {
-            this.currentFloorColor = color;
-            const picker = document.getElementById('floorColorPicker');
-            if (picker.value !== color) picker.value = color;
-        } else {
-            this.currentWallColor = color;
-            const picker = document.getElementById('wallColorPicker');
-            if (picker.value !== color) picker.value = color;
-        }
-        if (addToRecent) {
-            this.addRecentColor(color, type);
-        }
-        this.gameManager.draw();
-    }
-
-    addRecentColor(color, type) {
-        const recentColors = type === 'floor' ? this.recentFloorColors : this.recentWallColors;
-        const index = recentColors.indexOf(color);
-        if (index > -1) {
-            recentColors.splice(index, 1);
-        }
-        recentColors.unshift(color);
-        if (recentColors.length > MAX_RECENT_COLORS) {
-            recentColors.pop();
-        }
-        this.renderRecentColors(type);
-    }
-
-    renderRecentColors(type) {
-        const containerId = type === 'floor' ? 'recentFloorColors' : 'recentWallColors';
-        const container = document.getElementById(containerId);
-        const recentColors = type === 'floor' ? this.recentFloorColors : this.recentWallColors;
-        
-        if (!container) return;
-        container.innerHTML = '';
-        recentColors.forEach(color => {
-            const swatch = document.createElement('div');
-            swatch.className = 'recent-color-swatch w-full h-6 rounded cursor-pointer border-2 border-gray-700 hover:border-gray-400';
-            swatch.style.backgroundColor = color;
-            swatch.dataset.color = color;
-            swatch.dataset.type = type;
-            container.appendChild(swatch);
-        });
-    }
-
-    handleMapColors(mapData) {
-        this.recentFloorColors = mapData.recentFloorColors || [];
-        this.recentWallColors = mapData.recentWallColors || [];
-        
-        let floorColor = mapData.floorColor;
-        let wallColor = mapData.wallColor;
-
-        if (!floorColor || !wallColor) {
-            const mapGridData = (typeof mapData.map === 'string') ? JSON.parse(mapData.map) : mapData.map;
-            const floorColors = {};
-            const wallColors = {};
-            
-            mapGridData.forEach(row => {
-                row.forEach(tile => {
-                    if (tile.type === TILE.FLOOR && tile.color) {
-                        floorColors[tile.color] = (floorColors[tile.color] || 0) + 1;
-                    } else if (tile.type === TILE.WALL && tile.color) {
-                        wallColors[tile.color] = (wallColors[tile.color] || 0) + 1;
-                    }
-                });
-            });
-
-            const mostCommonFloor = Object.keys(floorColors).reduce((a, b) => floorColors[a] > floorColors[b] ? a : b, null);
-            const mostCommonWall = Object.keys(wallColors).reduce((a, b) => wallColors[a] > wallColors[b] ? a : b, null);
-
-            floorColor = mostCommonFloor || COLORS.FLOOR;
-            wallColor = mostCommonWall || COLORS.WALL;
-        }
-        
-        this.setCurrentColor(floorColor, 'floor', false);
-        this.setCurrentColor(wallColor, 'wall', false);
     }
 }
-
