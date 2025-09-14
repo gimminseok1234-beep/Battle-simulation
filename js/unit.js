@@ -475,21 +475,11 @@ export class Unit {
             }
         }
 
-        if (this.dualSwordSkillTargets.length > 0 && this.dualSwordTeleportDelayTimer <= 0) {
-            const target = this.dualSwordSkillTargets.shift(); // 첫 번째 타겟을 가져오고 배열에서 제거
-            if (target && target.hp > 0) {
-                this.pixelX = target.pixelX;
-                this.pixelY = target.pixelY;
-                this.dualSwordSpinAttackTimer = 20; // 회전 공격 애니메이션 시작
-                
-                // 주변 적에게 10 데미지
-                const damageRadius = GRID_SIZE * 2;
-                enemies.forEach(enemy => {
-                    if (Math.hypot(this.pixelX - enemy.pixelX, this.pixelY - enemy.pixelY) < damageRadius) {
-                        enemy.takeDamage(10);
-                    }
-                });
-                gameManager.audioManager.play('swordHit');
+        if (this.dualSwordTeleportDelayTimer > 0) {
+            this.dualSwordTeleportDelayTimer -= gameManager.gameSpeed;
+            if (this.dualSwordTeleportDelayTimer <= 0) {
+                // 첫 번째 타겟으로 순간이동 및 공격
+                this.performDualSwordTeleportAttack(enemies);
             }
         }
 
@@ -867,9 +857,9 @@ export class Unit {
         if (this.isMarkedByDualSword.active) {
             ctx.save();
             ctx.translate(this.pixelX, this.pixelY - GRID_SIZE * 1.2);
-            const scale = 0.8 + Math.sin(this.gameManager.animationFrameCounter * 0.1) * 0.1;
+            const scale = 0.4 + Math.sin(this.gameManager.animationFrameCounter * 0.1) * 0.05; // [수정] 크기 50% 감소 및 약간의 애니메이션
             ctx.scale(scale, scale);
-            ctx.rotate(this.gameManager.animationFrameCounter * 0.05);
+            // ctx.rotate(this.gameManager.animationFrameCounter * 0.05); // [수정] 회전 제거
 
             ctx.strokeStyle = '#9ca3af'; // gray-400
             ctx.lineWidth = 2.5;
@@ -1075,6 +1065,36 @@ export class Unit {
             ctx.fillText(this.state === 'SEEKING_HEAL_PACK' ? '+' : '!', this.pixelX, this.pixelY + yOffset);
         }
     }
-}
+    
+    performDualSwordTeleportAttack(enemies) {
+        if (this.dualSwordSkillTargets.length > 0) {
+            const target = this.dualSwordSkillTargets.shift(); // 첫 번째 타겟을 가져오고 배열에서 제거
+            if (target && target.hp > 0) {
+                const teleportPos = this.gameManager.findEmptySpotNear(target);
+                this.pixelX = teleportPos.x;
+                this.pixelY = teleportPos.y;
+                this.dualSwordSpinAttackTimer = 20; // 회전 공격 애니메이션 시작
+                
+                // 주변 적에게 10 데미지
+                const damageRadius = GRID_SIZE * 2;
+                enemies.forEach(enemy => {
+                    if (Math.hypot(this.pixelX - enemy.pixelX, enemy.pixelY) < damageRadius) {
+                        enemy.takeDamage(10);
+                    }
+                });
+                this.gameManager.audioManager.play('swordHit');
 
+                // 다음 타겟이 있으면 짧은 딜레이 후 다시 공격
+                if (this.dualSwordSkillTargets.length > 0) {
+                    this.dualSwordTeleportDelayTimer = 25; // 0.4초 후 다음 타겟 공격
+                } else {
+                    this.state = 'IDLE'; // 모든 특수 공격 후 IDLE 상태로 전환
+                }
+            } else if (this.dualSwordSkillTargets.length > 0) {
+                // 타겟이 죽었으면 즉시 다음 타겟으로
+                this.performDualSwordTeleportAttack(enemies);
+            }
+        }
+    }
+}
 
