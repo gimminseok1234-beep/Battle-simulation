@@ -1344,6 +1344,40 @@ export class GameManager {
         
             for (const unit of this.units) {
                 if (p.owner.team !== unit.team && !p.hitTargets.has(unit) && Math.hypot(p.pixelX - unit.pixelX, p.pixelY - unit.pixelY) < GRID_SIZE / 2) {
+                    
+                    if (p.type === 'bouncing_sword') {
+                        p.hitTargets.add(unit);
+                        hit = true;
+                        unit.takeDamage(p.damage);
+
+                        // 표식 남기기 및 텔레포트 딜레이 설정
+                        unit.isMarkedByDualSword = { active: true, timer: 240 }; // 4초간 표식
+                        if (p.owner.dualSwordSkillTargets.length < 2) {
+                            p.owner.dualSwordSkillTargets.push(unit);
+                        }
+                        // 2명 모두 표식이 생기거나 더 튕길 수 없으면 텔레포트 딜레이 시작
+                        if (p.owner.dualSwordSkillTargets.length >= 2 || p.bouncesLeft === 0) {
+                            p.owner.dualSwordTeleportDelayTimer = 120; // 2초 후 텔레포트
+                        }
+
+                        if (p.bouncesLeft > 0) {
+                            p.bouncesLeft--;
+                            const nextTarget = this.findClosestEnemy(p.pixelX, p.pixelY, p.owner.team, p.hitTargets);
+                            if (nextTarget) {
+                                const dx = nextTarget.pixelX - p.pixelX;
+                                const dy = nextTarget.pixelY - p.pixelY;
+                                p.angle = Math.atan2(dy, dx);
+                            } else {
+                                p.destroyed = true;
+                            }
+                        } else {
+                            p.destroyed = true;
+                        }
+                        
+                        if (p.destroyed) break; 
+                        else continue; 
+                    }
+
                     p.hitTargets.add(unit);
                     hit = true;
         
@@ -1412,8 +1446,11 @@ export class GameManager {
                         }
                     }
         
-                    if (!p.piercing && p.type !== 'lightning_bolt' && p.type !== 'fireball_projectile') {
-                        break;
+                    if (!p.piercing) {
+                        if (p.type !== 'lightning_bolt' && p.type !== 'fireball_projectile') {
+                            p.destroyed = true;
+                            break;
+                        }
                     }
                 }
             }
@@ -1447,15 +1484,20 @@ export class GameManager {
                             if (p.type === 'hadoken') this.audioManager.play('hadokenHit');
                         }
                         hit = true;
+                        if (!p.piercing) {
+                           p.destroyed = true;
+                        }
                         break;
                     }
                 }
             }
         
-            if ((!p.piercing && hit) || p.pixelX < 0 || p.pixelX > this.canvas.width || p.pixelY < 0 || p.pixelY > this.canvas.height) {
-                if (p.type === 'fireball_projectile' && !hit) {
-                    createFireballHitEffect(this, p.pixelX, p.pixelY);
-                }
+            if (p.pixelX < 0 || p.pixelX > this.canvas.width || p.pixelY < 0 || p.pixelY > this.canvas.height) {
+                p.destroyed = true;
+            }
+
+            if (hit && p.type === 'fireball_projectile' && !p.destroyed) {
+                createFireballHitEffect(this, p.pixelX, p.pixelY);
                 p.destroyed = true;
             }
         }
@@ -1890,6 +1932,21 @@ export class GameManager {
         return closestSpot || { x: this.canvas.width / 2, y: this.canvas.height / 2 };
     }
     
+    findClosestEnemy(x, y, ownerTeam, excludeSet) {
+        let closest = null;
+        let minDistance = Infinity;
+        for (const unit of this.units) {
+            if (unit.team !== ownerTeam && !excludeSet.has(unit) && unit.hp > 0) {
+                const dist = Math.hypot(x - unit.pixelX, y - unit.pixelY);
+                if (dist < minDistance) {
+                    minDistance = dist;
+                    closest = unit;
+                }
+            }
+        }
+        return closest;
+    }
+
     findStunnedEnemy(team) {
         return this.units.find(u => u.team !== team && u.isStunned > 0);
     }
@@ -2412,3 +2469,4 @@ export class GameManager {
         placementResetBtn.style.display = 'inline-block';
     }
 }
+
