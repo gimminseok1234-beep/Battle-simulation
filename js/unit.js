@@ -52,6 +52,7 @@ export class Unit {
         this.fireStaffSpecialCooldown = 0;
         this.isSlowed = 0;
         this.attackCount = 0; // [추가] 3타 스킬을 위한 공격 횟수 카운터
+        this.swordSpecialAttackAnimationTimer = 0; // [추가] 검 3타 공격 모션 타이머
     }
     
     get speed() {
@@ -418,6 +419,7 @@ export class Unit {
         if (this.magicDaggerSkillCooldown > 0) this.magicDaggerSkillCooldown -= gameManager.gameSpeed;
         if (this.axeSkillCooldown > 0) this.axeSkillCooldown -= gameManager.gameSpeed;
         if (this.spinAnimationTimer > 0) this.spinAnimationTimer -= gameManager.gameSpeed;
+        if (this.swordSpecialAttackAnimationTimer > 0) this.swordSpecialAttackAnimationTimer -= gameManager.gameSpeed; // [추가] 검 3타 공격 모션 타이머 감소
         if (this.attackCooldown > 0) this.attackCooldown -= gameManager.gameSpeed;
         if (this.teleportCooldown > 0) this.teleportCooldown -= gameManager.gameSpeed;
         if (this.alertedCounter > 0) this.alertedCounter -= gameManager.gameSpeed;
@@ -1037,3 +1039,4 @@ export class Unit {
         }
     }
 }
+
