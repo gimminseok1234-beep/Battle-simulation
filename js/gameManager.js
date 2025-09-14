@@ -1412,7 +1412,7 @@ export class GameManager {
                         }
                     }
         
-                    if (p.type !== 'lightning_bolt' && p.type !== 'fireball_projectile') {
+                    if (!p.piercing && p.type !== 'lightning_bolt' && p.type !== 'fireball_projectile') {
                         break;
                     }
                 }
@@ -1452,7 +1452,7 @@ export class GameManager {
                 }
             }
         
-            if (hit || p.pixelX < 0 || p.pixelX > this.canvas.width || p.pixelY < 0 || p.pixelY > this.canvas.height) {
+            if ((!p.piercing && hit) || p.pixelX < 0 || p.pixelX > this.canvas.width || p.pixelY < 0 || p.pixelY > this.canvas.height) {
                 if (p.type === 'fireball_projectile' && !hit) {
                     createFireballHitEffect(this, p.pixelX, p.pixelY);
                 }
@@ -2412,4 +2412,3 @@ export class GameManager {
         placementResetBtn.style.display = 'inline-block';
     }
 }
-
