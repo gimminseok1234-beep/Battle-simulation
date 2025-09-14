@@ -111,7 +111,18 @@ export class GameManager {
         this.particles.push(new Particle(this, options));
     }
     
-    // [오류 수정] 누락된 hasLineOfSight와 hasLineOfSightForWeapon 함수를 추가합니다.
+    // [오류 수정] 누락된 damageTile 함수를 추가합니다.
+    damageTile(x, y, damage) {
+        const tile = this.map[y][x];
+        if (tile.type === TILE.CRACKED_WALL) {
+            tile.hp -= damage;
+            if (tile.hp <= 0) {
+                this.map[y][x] = { type: TILE.FLOOR, color: this.uiManager.currentFloorColor };
+                this.audioManager.play('crackedWallBreak');
+            }
+        }
+    }
+
     hasLineOfSight(startEntity, endEntity) {
         let x0 = Math.floor(startEntity.pixelX / GRID_SIZE);
         let y0 = Math.floor(startEntity.pixelY / GRID_SIZE);
