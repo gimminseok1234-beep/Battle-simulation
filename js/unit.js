@@ -51,6 +51,7 @@ export class Unit {
         this.iceDiamondChargeTimer = 0;
         this.fireStaffSpecialCooldown = 0;
         this.isSlowed = 0;
+        this.attackCount = 0; // [추가] 3타 스킬을 위한 공격 횟수 카운터
     }
     
     get speed() {
@@ -1036,4 +1037,3 @@ export class Unit {
         }
     }
 }
-
