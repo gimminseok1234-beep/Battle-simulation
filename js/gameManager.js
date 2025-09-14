@@ -1348,6 +1348,7 @@ export class GameManager {
                     // [수정] 쌍검 투사체 명중 시 로직 변경
                     if (p.type === 'bouncing_sword') {
                         unit.takeDamage(p.damage);
+                        unit.isMarkedByDualSword = { active: true, timer: 240 }; // 표식 남기기 (4초)
                         p.owner.dualSwordTeleportTarget = unit; // 순간이동 대상 저장
                         p.owner.dualSwordTeleportDelayTimer = 60; // 1초(60프레임) 딜레이 설정
                         p.destroyed = true;
@@ -2477,3 +2478,4 @@ export class GameManager {
         placementResetBtn.style.display = 'inline-block';
     }
 }
+
