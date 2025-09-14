@@ -435,6 +435,7 @@ export class Unit {
         if (this.spinAnimationTimer > 0) this.spinAnimationTimer -= gameManager.gameSpeed;
         if (this.swordSpecialAttackAnimationTimer > 0) this.swordSpecialAttackAnimationTimer -= gameManager.gameSpeed; // [추가] 검 3타 공격 모션 타이머 감소
         if (this.dualSwordSkillCooldown > 0) this.dualSwordSkillCooldown -= gameManager.gameSpeed;
+        if (this.dualSwordTeleportDelayTimer > 0) this.dualSwordTeleportDelayTimer -= gameManager.gameSpeed;
         if (this.dualSwordSpinAttackTimer > 0) this.dualSwordSpinAttackTimer -= gameManager.gameSpeed;
         if (this.attackCooldown > 0) this.attackCooldown -= gameManager.gameSpeed;
         if (this.teleportCooldown > 0) this.teleportCooldown -= gameManager.gameSpeed;
@@ -465,56 +466,20 @@ export class Unit {
             }
         }
         
-        if (this.weapon && this.weapon.type === 'fire_staff' && this.fireStaffSpecialCooldown <= 0) {
-            const { item: closestEnemy } = this.findClosest(enemies);
-            if (closestEnemy && Math.hypot(this.pixelX - closestEnemy.pixelX, this.pixelY - closestEnemy.pixelY) <= this.attackRange && gameManager.hasLineOfSight(this, closestEnemy)) {
-                gameManager.audioManager.play('fireball');
-                gameManager.createProjectile(this, closestEnemy, 'fireball_projectile');
-                this.fireStaffSpecialCooldown = 240;
-                this.attackCooldown = 60; // [추가] 특수 공격 시 짧은 일반 공격 딜레이 부여
-            }
-        }
-        
-        // [수정] 순간이동 딜레이와 실제 텔레포트 로직 분리
-        if (this.dualSwordTeleportDelayTimer > 0) {
-            this.dualSwordTeleportDelayTimer -= gameManager.gameSpeed;
-            if (this.dualSwordTeleportDelayTimer <= 0) {
-                this.performDualSwordTeleportAttack(enemies);
-            }
-            // 딜레이 중에는 다른 행동을 하지 않도록 return
-            this.applyPhysics();
-            return;
-        }
-        
-        if (this.isCasting) {
-            this.castingProgress += gameManager.gameSpeed;
-            if (!this.target || (this.target instanceof Unit && this.target.hp <= 0)) {
-                this.isCasting = false; this.castingProgress = 0; return;
-            }
-            if (this.castingProgress >= this.castDuration) {
-                this.isCasting = false; this.castingProgress = 0;
-                
-                if (this.weapon.type === 'poison_potion') {
-                    gameManager.audioManager.play('poison');
-                    this.hp = 0;
-                }
-            }
-            this.applyPhysics();
-            return;
-        }
-
-        if (this.isKing && this.spawnCooldown <= 0) {
-            gameManager.spawnUnit(this, false);
-            this.spawnCooldown = this.spawnInterval;
-        }
-        
-        // [수정] 시야 조건 추가
         if (this.weapon && this.weapon.type === 'dual_swords' && this.dualSwordSkillCooldown <= 0) {
-            const { item: closestEnemy, distance: enemyDist } = this.findClosest(enemies);
-            if (closestEnemy && enemyDist <= this.detectionRange && gameManager.hasLineOfSight(this, closestEnemy)) {
+            const { item: closestEnemy } = this.findClosest(enemies);
+            if (closestEnemy && gameManager.hasLineOfSight(this, closestEnemy)) {
                 gameManager.createProjectile(this, closestEnemy, 'bouncing_sword');
                 this.dualSwordSkillCooldown = 300; // 5초 쿨다운
                 this.dualSwordSkillTargets = []; // 새 스킬 시전 시 타겟 리스트 초기화
+            }
+        }
+
+        if (this.dualSwordTeleportDelayTimer > 0) {
+            this.dualSwordTeleportDelayTimer -= gameManager.gameSpeed;
+            if (this.dualSwordTeleportDelayTimer <= 0) {
+                // 첫 번째 타겟으로 순간이동 및 공격
+                this.performDualSwordTeleportAttack(enemies);
             }
         }
 
@@ -1102,27 +1067,33 @@ export class Unit {
     }
     
     performDualSwordTeleportAttack(enemies) {
-        // [수정] 스킬 시퀀스가 끝난 후 상태를 확실하게 초기화하도록 로직 변경
-        const target = this.dualSwordSkillTargets.shift(); // 유일한 타겟을 가져옴
-        
-        if (target && target.hp > 0) {
-            const teleportPos = this.gameManager.findEmptySpotNear(target);
-            this.pixelX = teleportPos.x;
-            this.pixelY = teleportPos.y;
-            this.dualSwordSpinAttackTimer = 20; // 회전 공격 애니메이션 시작
-            
-            const damageRadius = GRID_SIZE * 2;
-            enemies.forEach(enemy => {
-                if (Math.hypot(this.pixelX - enemy.pixelX, this.pixelY - enemy.pixelY) < damageRadius) {
-                    enemy.takeDamage(10);
-                }
-            });
-            this.gameManager.audioManager.play('swordHit');
-        }
+        if (this.dualSwordSkillTargets.length > 0) {
+            const target = this.dualSwordSkillTargets.shift(); // 첫 번째 타겟을 가져오고 배열에서 제거
+            if (target && target.hp > 0) {
+                const teleportPos = this.gameManager.findEmptySpotNear(target);
+                this.pixelX = teleportPos.x;
+                this.pixelY = teleportPos.y;
+                this.dualSwordSpinAttackTimer = 20; // 회전 공격 애니메이션 시작
+                
+                // 주변 적에게 10 데미지
+                const damageRadius = GRID_SIZE * 2;
+                enemies.forEach(enemy => {
+                    if (Math.hypot(this.pixelX - enemy.pixelX, enemy.pixelY) < damageRadius) {
+                        enemy.takeDamage(10);
+                    }
+                });
+                this.gameManager.audioManager.play('swordHit');
 
-        // 스킬 시퀀스가 완전히 끝났으므로 타겟 목록을 비우고 상태를 IDLE로 설정
-        this.dualSwordSkillTargets = [];
-        this.state = 'IDLE';
+                // 다음 타겟이 있으면 짧은 딜레이 후 다시 공격
+                if (this.dualSwordSkillTargets.length > 0) {
+                    this.dualSwordTeleportDelayTimer = 25; // 0.4초 후 다음 타겟 공격
+                } else {
+                    this.state = 'IDLE'; // 모든 특수 공격 후 IDLE 상태로 전환
+                }
+            } else if (this.dualSwordSkillTargets.length > 0) {
+                // 타겟이 죽었으면 즉시 다음 타겟으로
+                this.performDualSwordTeleportAttack(enemies);
+            }
+        }
     }
 }
-
