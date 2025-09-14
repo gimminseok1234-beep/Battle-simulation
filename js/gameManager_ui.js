@@ -1,28 +1,38 @@
 import { TILE, COLORS, GRID_SIZE } from './constants.js';
 import { Weapon } from './weaponary.js';
 import { Unit } from './unit.js';
-import { Nexus } from './entities.js';
-import { GrowingMagneticField } from './entities.js';
+import { Nexus, GrowingMagneticField } from './entities.js';
 
+const MAX_RECENT_COLORS = 8;
+
+/**
+ * UI 관련 로직 및 자주 수정되는 코드를 관리하는 클래스입니다.
+ * (툴박스, 그리기, 사용자 입력, 무기/타일 생성 등)
+ */
 export class GameUIManager {
     constructor(gameManager) {
         this.gameManager = gameManager;
 
-        // [오류 수정] UIManager의 속성들을 생성자에서 명확하게 초기화합니다.
+        // UI 상태 및 편집 도구 관련 속성
         this.isPainting = false;
         this.dragStartPos = null;
-        this.currentTool = { tool: 'tile', type: 'FLOOR' }; // currentTool에 기본값을 설정하여 오류를 방지합니다.
+        this.currentTool = { tool: 'tile', type: 'FLOOR' };
         
+        // 색상 관련 속성
         this.currentFloorColor = COLORS.FLOOR;
         this.currentWallColor = COLORS.WALL;
         this.recentFloorColors = [];
         this.recentWallColors = [];
 
+        // 타일 및 무기 설정 관련 속성
         this.replicationValue = 1;
         this.dashTileSettings = { direction: 'RIGHT' };
         this.growingFieldSettings = { direction: 'DOWN', speed: 4, delay: 0 };
     }
 
+    /**
+     * 왼쪽 툴박스 UI를 생성하고 HTML에 삽입합니다.
+     */
     createToolboxUI() {
         const toolbox = document.getElementById('toolbox');
         if (!toolbox) return;
@@ -120,7 +130,11 @@ export class GameUIManager {
             </div>
         `;
     }
-    
+
+    /**
+     * 사용자가 선택한 도구를 현재 도구로 설정합니다.
+     * @param {HTMLElement} toolButton - 사용자가 클릭한 도구 버튼 요소
+     */
     selectTool(toolButton) {
         document.querySelectorAll('.tool-btn').forEach(btn => btn.classList.remove('selected'));
         toolButton.classList.add('selected');
@@ -130,62 +144,23 @@ export class GameUIManager {
             team: toolButton.dataset.team
         };
     }
-    
-    setCurrentColor(color, type, updatePicker = false) {
-        if (type === 'floor') {
-            this.currentFloorColor = color;
-            if (updatePicker) document.getElementById('floorColorPicker').value = color;
-        } else if (type === 'wall') {
-            this.currentWallColor = color;
-            if (updatePicker) document.getElementById('wallColorPicker').value = color;
-        }
-        this.gameManager.draw();
-    }
-    
-    addRecentColor(color, type) {
-        const recentColors = type === 'floor' ? this.recentFloorColors : this.recentWallColors;
-        if (!recentColors.includes(color)) {
-            recentColors.unshift(color);
-            if (recentColors.length > 8) recentColors.pop();
-            this.renderRecentColors(type);
-        }
-    }
-    
-    renderRecentColors(type) {
-        const containerId = type === 'floor' ? 'recentFloorColors' : 'recentWallColors';
-        const recentColors = type === 'floor' ? this.recentFloorColors : this.recentWallColors;
-        const container = document.getElementById(containerId);
-        container.innerHTML = '';
-        recentColors.forEach(color => {
-            const swatch = document.createElement('div');
-            swatch.className = 'recent-color-swatch w-full h-6 rounded cursor-pointer border-2 border-transparent hover:border-white';
-            swatch.style.backgroundColor = color;
-            swatch.dataset.color = color;
-            swatch.dataset.type = type;
-            container.appendChild(swatch);
-        });
-    }
 
-    handleMapColors(mapData) {
-        this.currentFloorColor = mapData.floorColor || COLORS.FLOOR;
-        this.currentWallColor = mapData.wallColor || COLORS.WALL;
-        this.recentFloorColors = mapData.recentFloorColors || [];
-        this.recentWallColors = mapData.recentWallColors || [];
-        document.getElementById('floorColorPicker').value = this.currentFloorColor;
-        document.getElementById('wallColorPicker').value = this.currentWallColor;
-    }
-
+    /**
+     * 마우스 이벤트로부터 캔버스 좌표를 계산하여 반환합니다.
+     * @param {MouseEvent} evt - 마우스 이벤트 객체
+     * @returns {{pixelX: number, pixelY: number, gridX: number, gridY: number}}
+     */
     getMousePos(evt) {
-        const rect = this.gameManager.canvas.getBoundingClientRect();
-        const scaleX = this.gameManager.canvas.width / rect.width;
-        const scaleY = this.gameManager.canvas.height / rect.height;
-        
-        const cam = this.gameManager.actionCam;
-        const mouseX = (evt.clientX - rect.left) * scaleX;
-        const mouseY = (evt.clientY - rect.top) * scaleY;
+        const gm = this.gameManager;
+        const rect = gm.canvas.getBoundingClientRect();
+        const transform = gm.ctx.getTransform();
+        const invTransform = transform.inverse();
 
-        const worldX = (mouseX - this.gameManager.canvas.width / 2) / cam.current.scale + cam.current.x;
-        const worldY = (mouseY - this.gameManager.canvas.height / 2) / cam.current.scale + cam.current.y;
+        const canvasX = evt.clientX - rect.left;
+        const canvasY = evt.clientY - rect.top;
+
+        const worldX = canvasX * invTransform.a + canvasY * invTransform.c + invTransform.e;
+        const worldY = canvasX * invTransform.b + canvasY * invTransform.d + invTransform.f;
         
         return {
             pixelX: worldX,
@@ -195,29 +170,10 @@ export class GameUIManager {
         };
     }
 
-    spawnRandomWeaponNear(pos) {
-        const gm = this.gameManager;
-        const weaponTypes = Object.keys(gm.uiManager.createWeapon(0, 0, 'sword').constructor.prototype).filter(type => type !== 'constructor' && type !== 'drawEquipped');
-        const randomType = weaponTypes[Math.floor(gm.random() * weaponTypes.length)];
-        
-        let placed = false;
-        for (let i = 0; i < 10; i++) {
-            const angle = gm.random() * Math.PI * 2;
-            const distance = GRID_SIZE * (gm.random() * 2 + 1);
-            const newX = pos.x + Math.cos(angle) * distance;
-            const newY = pos.y + Math.sin(angle) * distance;
-            const gridX = Math.floor(newX / GRID_SIZE);
-            const gridY = Math.floor(newY / GRID_SIZE);
-
-            if (gridX >= 0 && gridX < gm.COLS && gridY >= 0 && gridY < gm.ROWS && gm.map[gridY][gridX].type === TILE.FLOOR) {
-                const weapon = gm.uiManager.createWeapon(gridX, gridY, randomType);
-                gm.weapons.push(weapon);
-                placed = true;
-                break;
-            }
-        }
-    }
-    
+    /**
+     * 현재 선택된 도구를 지정된 위치에 적용합니다.
+     * @param {{pixelX: number, pixelY: number, gridX: number, gridY: number}} pos 
+     */
     applyTool(pos) {
         const gm = this.gameManager;
         const {gridX: x, gridY: y} = pos;
@@ -284,8 +240,16 @@ export class GameUIManager {
         gm.draw();
     }
 
+    /**
+     * 지정된 타입의 무기를 생성하고 능력치를 설정하여 반환합니다.
+     * @param {number} x - 그리드 X 좌표
+     * @param {number} y - 그리드 Y 좌표
+     * @param {string} type - 무기 타입
+     * @returns {Weapon}
+     */
     createWeapon(x, y, type) {
         const weapon = new Weapon(this.gameManager, x, y, type);
+        // 무기 타입별 능력치 설정 (수정이 잦은 부분이므로 여기에 위치)
         if (type === 'sword') {
             weapon.attackPowerBonus = 15;
         } else if (type === 'bow') {
@@ -339,6 +303,105 @@ export class GameUIManager {
         return weapon;
     }
 
+    /**
+     * '물음표' 타일 효과로 주변에 무작위 무기를 생성합니다.
+     * @param {{x: number, y: number}} pos 
+     */
+    spawnRandomWeaponNear(pos) {
+        const gm = this.gameManager;
+        const weaponTypes = ['sword', 'bow', 'dual_swords', 'fire_staff', 'lightning', 'magic_spear', 'boomerang', 'poison_potion', 'magic_dagger', 'axe', 'hadoken', 'shuriken', 'ice_diamond'];
+        const randomType = weaponTypes[Math.floor(gm.random() * weaponTypes.length)];
+
+        for (let i = 0; i < 10; i++) {
+            const angle = gm.random() * Math.PI * 2;
+            const radius = GRID_SIZE * (gm.random() * 2 + 1);
+            const spawnX = Math.floor((pos.x + Math.cos(angle) * radius) / GRID_SIZE);
+            const spawnY = Math.floor((pos.y + Math.sin(angle) * radius) / GRID_SIZE);
+
+            if (spawnY >= 0 && spawnY < gm.ROWS && spawnX >= 0 && spawnX < gm.COLS && gm.map[spawnY][spawnX].type === TILE.FLOOR) {
+                const isOccupied = gm.weapons.some(w => w.gridX === spawnX && w.gridY === spawnY);
+                if (!isOccupied) {
+                    gm.weapons.push(this.createWeapon(spawnX, spawnY, randomType));
+                    return;
+                }
+            }
+        }
+    }
+    
+    /**
+     * 현재 게임 상태를 캔버스에 그립니다.
+     * @param {MouseEvent | null} mouseEvent - 마우스 이동 이벤트 (드래그 영역 표시에 사용)
+     */
+    draw(mouseEvent = null) {
+        const gm = this.gameManager;
+        const ctx = gm.ctx;
+
+        ctx.save();
+        ctx.fillStyle = '#1f2937';
+        ctx.fillRect(0, 0, gm.canvas.width, gm.canvas.height);
+
+        const cam = gm.actionCam;
+        ctx.translate(gm.canvas.width / 2, gm.canvas.height / 2);
+        ctx.scale(cam.current.scale, cam.current.scale);
+        ctx.translate(-cam.current.x, -cam.current.y);
+
+        this.drawMap();
+        gm.magicCircles.forEach(c => c.draw(ctx));
+        gm.poisonClouds.forEach(c => c.draw(ctx));
+        
+        if (gm.state === 'SIMULATE' || gm.state === 'PAUSED' || gm.state === 'ENDING') {
+            if (gm.autoMagneticField.isActive) {
+                ctx.fillStyle = `rgba(168, 85, 247, 0.2)`;
+                const b = gm.autoMagneticField.currentBounds;
+                ctx.fillRect(0, 0, b.minX * GRID_SIZE, gm.canvas.height);
+                ctx.fillRect(b.maxX * GRID_SIZE, 0, gm.canvas.width - b.maxX * GRID_SIZE, gm.canvas.height);
+                ctx.fillRect(b.minX * GRID_SIZE, 0, (b.maxX - b.minX) * GRID_SIZE, b.minY * GRID_SIZE);
+                ctx.fillRect(b.minX * GRID_SIZE, b.maxY * GRID_SIZE, (b.maxX - b.minX) * GRID_SIZE, gm.canvas.height - b.maxY * GRID_SIZE);
+            }
+
+            gm.growingFields.forEach(field => {
+                if (field.delayTimer < field.delay) return;
+                ctx.fillStyle = `rgba(168, 85, 247, 0.2)`;
+                const startX = field.gridX * GRID_SIZE;
+                const startY = field.gridY * GRID_SIZE;
+                const totalWidth = field.width * GRID_SIZE;
+                const totalHeight = field.height * GRID_SIZE;
+
+                if (field.direction === 'DOWN') ctx.fillRect(startX, startY, totalWidth, totalHeight * field.progress);
+                else if (field.direction === 'UP') ctx.fillRect(startX, startY + totalHeight * (1 - field.progress), totalWidth, totalHeight * field.progress);
+                else if (field.direction === 'RIGHT') ctx.fillRect(startX, startY, totalWidth * field.progress, totalHeight);
+                else if (field.direction === 'LEFT') ctx.fillRect(startX + totalWidth * (1 - field.progress), startY, totalWidth * field.progress, totalHeight);
+            });
+        }
+        
+        gm.growingFields.forEach(w => w.draw(ctx));
+        gm.weapons.forEach(w => w.draw(ctx));
+        gm.nexuses.forEach(n => n.draw(ctx));
+        gm.projectiles.forEach(p => p.draw(ctx));
+        gm.units.forEach(u => u.draw(ctx, gm.isUnitOutlineEnabled, gm.unitOutlineWidth));
+        gm.effects.forEach(e => e.draw(ctx));
+        gm.areaEffects.forEach(e => e.draw(ctx));
+        gm.particles.forEach(p => p.draw(ctx));
+
+        if (gm.state === 'EDIT' && this.currentTool.tool === 'growing_field' && this.dragStartPos && this.isPainting && mouseEvent) {
+            const currentPos = this.getMousePos(mouseEvent);
+            const x = Math.min(this.dragStartPos.gridX, currentPos.gridX) * GRID_SIZE;
+            const y = Math.min(this.dragStartPos.gridY, currentPos.gridY) * GRID_SIZE;
+            const width = (Math.abs(this.dragStartPos.gridX - currentPos.gridX) + 1) * GRID_SIZE;
+            const height = (Math.abs(this.dragStartPos.gridY - currentPos.gridY) + 1) * GRID_SIZE;
+            
+            ctx.fillStyle = 'rgba(168, 85, 247, 0.3)';
+            ctx.fillRect(x, y, width, height);
+            ctx.strokeStyle = 'rgba(168, 85, 247, 0.7)';
+            ctx.strokeRect(x, y, width, height);
+        }
+
+        ctx.restore();
+    }
+
+    /**
+     * 맵의 타일들을 캔버스에 그립니다.
+     */
     drawMap() {
         const gm = this.gameManager;
         const ctx = gm.ctx;
@@ -459,4 +522,164 @@ export class GameUIManager {
             }
         }
     }
+    
+    /**
+     * 맵 카드에 표시될 작은 미리보기 이미지를 그립니다.
+     * @param {HTMLCanvasElement} previewCanvas 
+     * @param {object} mapData 
+     */
+    drawMapPreview(previewCanvas, mapData) {
+        const gm = this.gameManager;
+        const prevCtx = previewCanvas.getContext('2d');
+        const mapGridData = (typeof mapData.map === 'string') ? JSON.parse(mapData.map) : mapData.map;
+        
+        const mapHeight = mapGridData.length * GRID_SIZE;
+        const mapWidth = mapGridData.length > 0 ? mapGridData[0].length * GRID_SIZE : 0;
+
+        if(mapWidth === 0 || mapHeight === 0) return;
+        
+        const cardWidth = previewCanvas.parentElement.clientWidth || 200;
+        previewCanvas.width = cardWidth;
+        previewCanvas.height = cardWidth * (mapHeight / mapWidth);
+
+
+        const pixelSizeX = previewCanvas.width / (mapWidth / GRID_SIZE);
+        const pixelSizeY = previewCanvas.height / (mapHeight / GRID_SIZE);
+
+        prevCtx.fillStyle = '#111827';
+        prevCtx.fillRect(0, 0, previewCanvas.width, previewCanvas.height);
+        
+        if (mapGridData) {
+            const floorColor = mapData.floorColor || COLORS.FLOOR;
+            const wallColor = mapData.wallColor || COLORS.WALL;
+            mapGridData.forEach((row, y) => {
+                row.forEach((tile, x) => {
+                    switch(tile.type) {
+                        case TILE.WALL: prevCtx.fillStyle = tile.color || wallColor; break;
+                        case TILE.FLOOR: prevCtx.fillStyle = tile.color || floorColor; break;
+                        case TILE.LAVA: prevCtx.fillStyle = COLORS.LAVA; break;
+                        case TILE.CRACKED_WALL: prevCtx.fillStyle = COLORS.CRACKED_WALL; break;
+                        case TILE.HEAL_PACK: prevCtx.fillStyle = COLORS.HEAL_PACK; break;
+                        case TILE.AWAKENING_POTION: prevCtx.fillStyle = COLORS.AWAKENING_POTION; break;
+                        case TILE.REPLICATION_TILE: prevCtx.fillStyle = COLORS.REPLICATION_TILE; break;
+                        case TILE.TELEPORTER: prevCtx.fillStyle = COLORS.TELEPORTER; break;
+                        case TILE.QUESTION_MARK: prevCtx.fillStyle = COLORS.QUESTION_MARK; break;
+                        case TILE.DASH_TILE: prevCtx.fillStyle = COLORS.DASH_TILE; break;
+                        case TILE.GLASS_WALL: prevCtx.fillStyle = COLORS.GLASS_WALL; break;
+                        default: prevCtx.fillStyle = floorColor; break;
+                    }
+                    prevCtx.fillRect(x * pixelSizeX, y * pixelSizeY, pixelSizeX + 0.5, pixelSizeY + 0.5);
+                });
+            });
+        }
+        
+        const drawItem = (item, colorOverride = null) => {
+            let color;
+            if (colorOverride) {
+                color = colorOverride;
+            } else {
+                switch(item.team) {
+                    case 'A': color = COLORS.TEAM_A; break;
+                    case 'B': color = COLORS.TEAM_B; break;
+                    case 'C': color = COLORS.TEAM_C; break;
+                    case 'D': color = COLORS.TEAM_D; break;
+                    default: color = '#9ca3af'; break;
+                }
+            }
+            prevCtx.fillStyle = color;
+            prevCtx.beginPath();
+            prevCtx.arc(
+                item.gridX * pixelSizeX + pixelSizeX / 2, 
+                item.gridY * pixelSizeY + pixelSizeY / 2, 
+                Math.min(pixelSizeX, pixelSizeY) / 1.8, 
+                0, 2 * Math.PI
+            );
+            prevCtx.fill();
+        };
+
+        (mapData.nexuses || []).forEach(item => drawItem(item));
+        (mapData.units || []).forEach(item => drawItem(item));
+        (mapData.weapons || []).forEach(item => drawItem(item, '#eab308'));
+    }
+
+    // --- 색상 관리 메서드 ---
+    setCurrentColor(color, type, addToRecent = false) {
+        if (type === 'floor') {
+            this.currentFloorColor = color;
+            const picker = document.getElementById('floorColorPicker');
+            if (picker.value !== color) picker.value = color;
+        } else {
+            this.currentWallColor = color;
+            const picker = document.getElementById('wallColorPicker');
+            if (picker.value !== color) picker.value = color;
+        }
+        if (addToRecent) {
+            this.addRecentColor(color, type);
+        }
+        this.gameManager.draw();
+    }
+
+    addRecentColor(color, type) {
+        const recentColors = type === 'floor' ? this.recentFloorColors : this.recentWallColors;
+        const index = recentColors.indexOf(color);
+        if (index > -1) {
+            recentColors.splice(index, 1);
+        }
+        recentColors.unshift(color);
+        if (recentColors.length > MAX_RECENT_COLORS) {
+            recentColors.pop();
+        }
+        this.renderRecentColors(type);
+    }
+
+    renderRecentColors(type) {
+        const containerId = type === 'floor' ? 'recentFloorColors' : 'recentWallColors';
+        const container = document.getElementById(containerId);
+        const recentColors = type === 'floor' ? this.recentFloorColors : this.recentWallColors;
+        
+        if (!container) return;
+        container.innerHTML = '';
+        recentColors.forEach(color => {
+            const swatch = document.createElement('div');
+            swatch.className = 'recent-color-swatch w-full h-6 rounded cursor-pointer border-2 border-gray-700 hover:border-gray-400';
+            swatch.style.backgroundColor = color;
+            swatch.dataset.color = color;
+            swatch.dataset.type = type;
+            container.appendChild(swatch);
+        });
+    }
+
+    handleMapColors(mapData) {
+        this.recentFloorColors = mapData.recentFloorColors || [];
+        this.recentWallColors = mapData.recentWallColors || [];
+        
+        let floorColor = mapData.floorColor;
+        let wallColor = mapData.wallColor;
+
+        if (!floorColor || !wallColor) {
+            const mapGridData = (typeof mapData.map === 'string') ? JSON.parse(mapData.map) : mapData.map;
+            const floorColors = {};
+            const wallColors = {};
+            
+            mapGridData.forEach(row => {
+                row.forEach(tile => {
+                    if (tile.type === TILE.FLOOR && tile.color) {
+                        floorColors[tile.color] = (floorColors[tile.color] || 0) + 1;
+                    } else if (tile.type === TILE.WALL && tile.color) {
+                        wallColors[tile.color] = (wallColors[tile.color] || 0) + 1;
+                    }
+                });
+            });
+
+            const mostCommonFloor = Object.keys(floorColors).reduce((a, b) => floorColors[a] > floorColors[b] ? a : b, null);
+            const mostCommonWall = Object.keys(wallColors).reduce((a, b) => wallColors[a] > wallColors[b] ? a : b, null);
+
+            floorColor = mostCommonFloor || COLORS.FLOOR;
+            wallColor = mostCommonWall || COLORS.WALL;
+        }
+        
+        this.setCurrentColor(floorColor, 'floor', false);
+        this.setCurrentColor(wallColor, 'wall', false);
+    }
 }
+
