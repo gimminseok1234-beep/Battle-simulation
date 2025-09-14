@@ -53,6 +53,13 @@ export class Unit {
         this.isSlowed = 0;
         this.attackCount = 0; // [추가] 3타 스킬을 위한 공격 횟수 카운터
         this.swordSpecialAttackAnimationTimer = 0; // [추가] 검 3타 공격 모션 타이머
+
+        // [추가] 쌍검 스킬 관련
+        this.dualSwordSkillCooldown = 0;
+        this.dualSwordSkillTargets = []; // 표식이 생긴 적 목록
+        this.dualSwordTeleportDelayTimer = 0; // 표식 후 순간이동까지의 딜레이
+        this.dualSwordSpinAttackTimer = 0; // 순간이동 후 회전 공격 애니메이션
+        this.isMarkedByDualSword = { active: false, timer: 0 }; // 자신이 표식에 걸렸는지 여부
     }
     
     get speed() {
@@ -392,7 +399,7 @@ export class Unit {
             this.applyPhysics();
             return;
         }
-        
+        // ...
         if (this.isStunned > 0) {
             this.isStunned -= gameManager.gameSpeed;
             if (this.isStunned <= 0) { // [추가] 기절이 풀리면 상태 초기화
@@ -404,6 +411,13 @@ export class Unit {
 
         if (this.isSlowed > 0) {
             this.isSlowed -= gameManager.gameSpeed;
+        }
+
+        if (this.isMarkedByDualSword.active) {
+            this.isMarkedByDualSword.timer -= gameManager.gameSpeed;
+            if (this.isMarkedByDualSword.timer <= 0) {
+                this.isMarkedByDualSword.active = false;
+            }
         }
 
         if (this.awakeningEffect.active && this.awakeningEffect.stacks < 2) {
@@ -420,6 +434,9 @@ export class Unit {
         if (this.axeSkillCooldown > 0) this.axeSkillCooldown -= gameManager.gameSpeed;
         if (this.spinAnimationTimer > 0) this.spinAnimationTimer -= gameManager.gameSpeed;
         if (this.swordSpecialAttackAnimationTimer > 0) this.swordSpecialAttackAnimationTimer -= gameManager.gameSpeed; // [추가] 검 3타 공격 모션 타이머 감소
+        if (this.dualSwordSkillCooldown > 0) this.dualSwordSkillCooldown -= gameManager.gameSpeed;
+        if (this.dualSwordTeleportDelayTimer > 0) this.dualSwordTeleportDelayTimer -= gameManager.gameSpeed;
+        if (this.dualSwordSpinAttackTimer > 0) this.dualSwordSpinAttackTimer -= gameManager.gameSpeed;
         if (this.attackCooldown > 0) this.attackCooldown -= gameManager.gameSpeed;
         if (this.teleportCooldown > 0) this.teleportCooldown -= gameManager.gameSpeed;
         if (this.alertedCounter > 0) this.alertedCounter -= gameManager.gameSpeed;
@@ -449,38 +466,33 @@ export class Unit {
             }
         }
         
-        if (this.weapon && this.weapon.type === 'fire_staff' && this.fireStaffSpecialCooldown <= 0) {
+        if (this.weapon && this.weapon.type === 'dual_swords' && this.dualSwordSkillCooldown <= 0) {
             const { item: closestEnemy } = this.findClosest(enemies);
-            if (closestEnemy && Math.hypot(this.pixelX - closestEnemy.pixelX, this.pixelY - closestEnemy.pixelY) <= this.attackRange && gameManager.hasLineOfSight(this, closestEnemy)) {
-                gameManager.audioManager.play('fireball');
-                gameManager.createProjectile(this, closestEnemy, 'fireball_projectile');
-                this.fireStaffSpecialCooldown = 240;
-                this.attackCooldown = 60; // [추가] 특수 공격 시 짧은 일반 공격 딜레이 부여
+            if (closestEnemy && gameManager.hasLineOfSight(this, closestEnemy)) {
+                gameManager.createProjectile(this, closestEnemy, 'bouncing_sword');
+                this.dualSwordSkillCooldown = 300; // 5초 쿨다운
+                this.dualSwordSkillTargets = []; // 새 스킬 시전 시 타겟 리스트 초기화
             }
-        }
-        
-        if (this.isCasting) {
-            this.castingProgress += gameManager.gameSpeed;
-            if (!this.target || (this.target instanceof Unit && this.target.hp <= 0)) {
-                this.isCasting = false; this.castingProgress = 0; return;
-            }
-            if (this.castingProgress >= this.castDuration) {
-                this.isCasting = false; this.castingProgress = 0;
-                
-                if (this.weapon.type === 'poison_potion') {
-                    gameManager.audioManager.play('poison');
-                    this.hp = 0;
-                }
-            }
-            this.applyPhysics();
-            return;
         }
 
-        if (this.isKing && this.spawnCooldown <= 0) {
-            gameManager.spawnUnit(this, false);
-            this.spawnCooldown = this.spawnInterval;
+        if (this.dualSwordSkillTargets.length > 0 && this.dualSwordTeleportDelayTimer <= 0) {
+            const target = this.dualSwordSkillTargets.shift(); // 첫 번째 타겟을 가져오고 배열에서 제거
+            if (target && target.hp > 0) {
+                this.pixelX = target.pixelX;
+                this.pixelY = target.pixelY;
+                this.dualSwordSpinAttackTimer = 20; // 회전 공격 애니메이션 시작
+                
+                // 주변 적에게 10 데미지
+                const damageRadius = GRID_SIZE * 2;
+                enemies.forEach(enemy => {
+                    if (Math.hypot(this.pixelX - enemy.pixelX, this.pixelY - enemy.pixelY) < damageRadius) {
+                        enemy.takeDamage(10);
+                    }
+                });
+                gameManager.audioManager.play('swordHit');
+            }
         }
-        
+
         if (this.weapon && this.weapon.type === 'magic_dagger' && !this.isAimingMagicDagger && this.magicDaggerSkillCooldown <= 0 && this.attackCooldown <= 0) {
             const { item: closestEnemy } = this.findClosest(enemies);
             if (closestEnemy && gameManager.hasLineOfSight(this, closestEnemy)) {
@@ -852,6 +864,28 @@ export class Unit {
             ctx.globalAlpha = 0.7;
         }
 
+        if (this.isMarkedByDualSword.active) {
+            ctx.save();
+            ctx.translate(this.pixelX, this.pixelY - GRID_SIZE * 1.2);
+            const scale = 0.8 + Math.sin(this.gameManager.animationFrameCounter * 0.1) * 0.1;
+            ctx.scale(scale, scale);
+            ctx.rotate(this.gameManager.animationFrameCounter * 0.05);
+
+            ctx.strokeStyle = '#9ca3af'; // gray-400
+            ctx.lineWidth = 2.5;
+            
+            // 두 개의 교차된 칼날 모양 그리기
+            const L = GRID_SIZE * 0.5;
+            ctx.beginPath();
+            ctx.moveTo(-L, -L);
+            ctx.lineTo(L, L);
+            ctx.moveTo(L, -L);
+            ctx.lineTo(-L, L);
+            ctx.stroke();
+
+            ctx.restore();
+        }
+
         switch(this.team) {
             case TEAM.A: ctx.fillStyle = COLORS.TEAM_A; break;
             case TEAM.B: ctx.fillStyle = COLORS.TEAM_B; break;
@@ -938,6 +972,7 @@ export class Unit {
             (this.weapon?.type === 'boomerang' && this.boomerangCooldown > 0) ||
             (this.weapon?.type === 'shuriken' && this.shurikenSkillCooldown > 0) ||
             (this.weapon?.type === 'fire_staff' && this.fireStaffSpecialCooldown > 0) ||
+            (this.weapon?.type === 'dual_swords' && this.dualSwordSkillCooldown > 0) ||
             (this.isCasting && this.weapon?.type === 'poison_potion');
 
         if (this.attackCooldown > 0 && !this.isCasting) {
@@ -992,7 +1027,7 @@ export class Unit {
                 } else if (this.weapon?.type === 'magic_spear') {
                     fgColor = '#a855f7';
                     progress = 300 - this.magicCircleCooldown; max = 300;
-                } else if (this.weapon?.type === 'boomerang' || this.weapon?.type === 'shuriken' || this.weapon?.type === 'poison_potion' || this.weapon?.type === 'magic_dagger' || this.weapon?.type === 'axe') {
+                } else if (this.weapon?.type === 'boomerang' || this.weapon?.type === 'shuriken' || this.weapon?.type === 'poison_potion' || this.weapon?.type === 'magic_dagger' || this.weapon?.type === 'axe' || this.weapon?.type === 'dual_swords') {
                     fgColor = '#94a3b8';
                     if(this.weapon.type === 'boomerang') {
                         progress = 480 - this.boomerangCooldown; max = 480;
@@ -1002,6 +1037,8 @@ export class Unit {
                         progress = 420 - this.magicDaggerSkillCooldown; max = 420;
                     } else if(this.weapon.type === 'axe') {
                         progress = 240 - this.axeSkillCooldown; max = 240;
+                    } else if(this.weapon.type === 'dual_swords') {
+                        progress = 300 - this.dualSwordSkillCooldown; max = 300;
                     } else {
                         progress = this.castingProgress; max = this.castDuration;
                     }
@@ -1039,4 +1076,5 @@ export class Unit {
         }
     }
 }
+
 
