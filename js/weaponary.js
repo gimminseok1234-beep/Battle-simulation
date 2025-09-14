@@ -1159,21 +1159,45 @@ export class Projectile {
         }
 
         if (this.type === 'arrow') {
-            ctx.save(); ctx.translate(this.pixelX, this.pixelY); ctx.rotate(this.angle);
-            ctx.fillStyle = '#a16207';
-            ctx.fillRect(-GRID_SIZE * 0.6, -1, GRID_SIZE * 0.6, 2);
-            ctx.strokeRect(-GRID_SIZE * 0.6, -1, GRID_SIZE * 0.6, 2);
-            ctx.fillStyle = '#e5e7eb';
-            ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(-4, -3); ctx.lineTo(-4, 3); ctx.closePath(); ctx.fill();
-            ctx.fillStyle = '#d1d5db';
+            ctx.save(); 
+            ctx.translate(this.pixelX, this.pixelY); 
+            ctx.rotate(this.angle);
+            ctx.scale(1.2, 1.2); // [수정] 화살 크기 1.2배 확대
+
+            ctx.fillStyle = '#FFFFFF'; // [수정] 흰색으로 변경
+            ctx.strokeStyle = '#000000'; // [수정] 검은색 테두리
+            ctx.lineWidth = 1;
+
+            // 화살 몸통
             ctx.beginPath();
-            ctx.moveTo(-GRID_SIZE * 0.6, -1); ctx.lineTo(-GRID_SIZE * 0.7, -3);
-            ctx.lineTo(-GRID_SIZE * 0.5, -1); ctx.closePath();
-            ctx.fill()
+            ctx.moveTo(-GRID_SIZE * 0.7, 0);
+            ctx.lineTo(GRID_SIZE * 0.4, 0);
+            ctx.lineTo(GRID_SIZE * 0.4, -1.5);
+            ctx.lineTo(GRID_SIZE * 0.6, -1.5);
+            ctx.lineTo(GRID_SIZE * 0.6, 1.5);
+            ctx.lineTo(GRID_SIZE * 0.4, 1.5);
+            ctx.lineTo(GRID_SIZE * 0.4, 0);
+            ctx.closePath();
+            ctx.fill();
+            ctx.stroke();
+
+            // 화살촉
             ctx.beginPath();
-            ctx.moveTo(-GRID_SIZE * 0.6, 1); ctx.lineTo(-GRID_SIZE * 0.7, 3);
-            ctx.lineTo(-GRID_SIZE * 0.5, 1); ctx.closePath();
-            ctx.fill()
+            ctx.moveTo(GRID_SIZE * 0.6, -2.5);
+            ctx.lineTo(GRID_SIZE * 0.9, 0);
+            ctx.lineTo(GRID_SIZE * 0.6, 2.5);
+            ctx.closePath();
+            ctx.fill();
+            ctx.stroke();
+
+            // 깃털
+            ctx.beginPath();
+            ctx.moveTo(-GRID_SIZE * 0.7, 0);
+            ctx.lineTo(-GRID_SIZE * 0.8, -3);
+            ctx.moveTo(-GRID_SIZE * 0.7, 0);
+            ctx.lineTo(-GRID_SIZE * 0.8, 3);
+            ctx.stroke();
+
             ctx.restore();
         } else if (this.type === 'sword_wave') {
             ctx.save();
@@ -1574,4 +1598,5 @@ export class AreaEffect {
         }
     }
 }
+
 
