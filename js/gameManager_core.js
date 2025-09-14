@@ -110,6 +110,72 @@ export class GameManager {
     addParticle(options) {
         this.particles.push(new Particle(this, options));
     }
+    
+    // [오류 수정] 누락된 hasLineOfSight와 hasLineOfSightForWeapon 함수를 추가합니다.
+    hasLineOfSight(startEntity, endEntity) {
+        let x0 = Math.floor(startEntity.pixelX / GRID_SIZE);
+        let y0 = Math.floor(startEntity.pixelY / GRID_SIZE);
+        const x1 = Math.floor(endEntity.pixelX / GRID_SIZE);
+        const y1 = Math.floor(endEntity.pixelY / GRID_SIZE);
+
+        const dx = Math.abs(x1 - x0);
+        const dy = -Math.abs(y1 - y0);
+        const sx = x0 < x1 ? 1 : -1;
+        const sy = y0 < y1 ? 1 : -1;
+        let err = dx + dy;
+
+        while (true) {
+            if (x0 === x1 && y0 === y1) break;
+            const tile = this.map[y0][x0];
+            if (tile.type === TILE.WALL || tile.type === TILE.CRACKED_WALL || tile.type === TILE.GLASS_WALL) {
+                return false;
+            }
+            const e2 = 2 * err;
+            if (e2 >= dy) {
+                err += dy;
+                x0 += sx;
+            }
+            if (e2 <= dx) {
+                err += dx;
+                y0 += sy;
+            }
+        }
+        return true;
+    }
+
+    hasLineOfSightForWeapon(startEntity, weapon) {
+        let x0 = Math.floor(startEntity.pixelX / GRID_SIZE);
+        let y0 = Math.floor(startEntity.pixelY / GRID_SIZE);
+        const x1 = weapon.gridX;
+        const y1 = weapon.gridY;
+
+        const dx = Math.abs(x1 - x0);
+        const dy = -Math.abs(y1 - y0);
+        const sx = x0 < x1 ? 1 : -1;
+        const sy = y0 < y1 ? 1 : -1;
+        let err = dx + dy;
+
+        while (true) {
+            if (x0 === x1 && y0 === y1) break;
+            if (this.map[y0] && this.map[y0][x0]) {
+                 const tile = this.map[y0][x0];
+                if (tile.type === TILE.WALL || tile.type === TILE.CRACKED_WALL) {
+                    return false;
+                }
+            }
+            const e2 = 2 * err;
+            if (e2 >= dy) {
+                err += dy;
+                x0 += sx;
+            }
+            if (e2 <= dx) {
+                err += dx;
+                y0 += sy;
+            }
+        }
+        return true;
+    }
+
 
     setCurrentUser(user) {
         this.currentUser = user;
@@ -589,7 +655,7 @@ export class GameManager {
         this.canvas.addEventListener('mousedown', (e) => {
             if (this.isActionCam) {
                 if (this.actionCam.isAnimating) return;
-                const pos = this.getMousePos(e);
+                const pos = this.uiManager.getMousePos(e);
                 if (this.actionCam.target.scale === 1) {
                     this.actionCam.target.x = pos.pixelX;
                     this.actionCam.target.y = pos.pixelY;
@@ -604,7 +670,7 @@ export class GameManager {
                 return;
             }
             if (this.state === 'EDIT') {
-                const pos = this.getMousePos(e);
+                const pos = this.uiManager.getMousePos(e);
                 
                 if (this.uiManager.currentTool.tool === 'nametag') {
                     const clickedUnit = this.units.find(u => Math.hypot(u.pixelX - pos.pixelX, u.pixelY - pos.pixelY) < GRID_SIZE / 2);
@@ -623,14 +689,14 @@ export class GameManager {
         });
         this.canvas.addEventListener('mouseup', (e) => {
             if (this.state === 'EDIT' && this.uiManager.currentTool.tool === 'growing_field' && this.uiManager.dragStartPos) {
-                this.uiManager.applyTool(this.getMousePos(e));
+                this.uiManager.applyTool(this.uiManager.getMousePos(e));
             }
             this.uiManager.isPainting = false;
             this.uiManager.dragStartPos = null;
         });
         this.canvas.addEventListener('mousemove', (e) => {
             if (this.uiManager.isPainting && this.state === 'EDIT' && this.uiManager.currentTool.tool !== 'growing_field') {
-                this.uiManager.applyTool(this.getMousePos(e));
+                this.uiManager.applyTool(this.uiManager.getMousePos(e));
             }
             if (this.state === 'EDIT' && this.uiManager.dragStartPos) this.draw(e);
         });
@@ -1340,7 +1406,7 @@ export class GameManager {
         this.particles.forEach(p => p.draw(this.ctx));
 
         if (this.state === 'EDIT' && this.uiManager.currentTool.tool === 'growing_field' && this.uiManager.dragStartPos && this.uiManager.isPainting && mouseEvent) {
-            const currentPos = this.getMousePos(mouseEvent);
+            const currentPos = this.uiManager.getMousePos(mouseEvent);
             const x = Math.min(this.uiManager.dragStartPos.gridX, currentPos.gridX) * GRID_SIZE;
             const y = Math.min(this.uiManager.dragStartPos.gridY, currentPos.gridY) * GRID_SIZE;
             const width = (Math.abs(this.uiManager.dragStartPos.gridX - currentPos.gridX) + 1) * GRID_SIZE;
@@ -1843,3 +1909,4 @@ export class GameManager {
         placementResetBtn.style.display = 'inline-block';
     }
 }
+
