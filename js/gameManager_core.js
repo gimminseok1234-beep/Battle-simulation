@@ -1077,9 +1077,284 @@ export class GameManager {
     }
     
     draw(mouseEvent = null) {
-        this.uiManager.draw(mouseEvent);
+        this.ctx.save();
+        this.ctx.fillStyle = '#1f2937';
+        this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+
+        const cam = this.actionCam;
+        this.ctx.translate(this.canvas.width / 2, this.canvas.height / 2);
+        this.ctx.scale(cam.current.scale, cam.current.scale);
+        this.ctx.translate(-cam.current.x, -cam.current.y);
+
+        this.drawMap();
+        this.magicCircles.forEach(c => c.draw(this.ctx));
+        this.poisonClouds.forEach(c => c.draw(this.ctx));
+        
+        if (this.state === 'SIMULATE' || this.state === 'PAUSED' || this.state === 'ENDING') {
+            if (this.autoMagneticField.isActive) {
+                this.ctx.fillStyle = `rgba(168, 85, 247, 0.2)`;
+                const b = this.autoMagneticField.currentBounds;
+                this.ctx.fillRect(0, 0, b.minX * GRID_SIZE, this.canvas.height);
+                this.ctx.fillRect(b.maxX * GRID_SIZE, 0, this.canvas.width - b.maxX * GRID_SIZE, this.canvas.height);
+                this.ctx.fillRect(b.minX * GRID_SIZE, 0, (b.maxX - b.minX) * GRID_SIZE, b.minY * GRID_SIZE);
+                this.ctx.fillRect(b.minX * GRID_SIZE, b.maxY * GRID_SIZE, (b.maxX - b.minX) * GRID_SIZE, this.canvas.height - b.maxY * GRID_SIZE);
+            }
+
+            this.growingFields.forEach(field => {
+                if (field.delayTimer < field.delay) return;
+                this.ctx.fillStyle = `rgba(168, 85, 247, 0.2)`;
+                const startX = field.gridX * GRID_SIZE;
+                const startY = field.gridY * GRID_SIZE;
+                const totalWidth = field.width * GRID_SIZE;
+                const totalHeight = field.height * GRID_SIZE;
+
+                if (field.direction === 'DOWN') this.ctx.fillRect(startX, startY, totalWidth, totalHeight * field.progress);
+                else if (field.direction === 'UP') this.ctx.fillRect(startX, startY + totalHeight * (1 - field.progress), totalWidth, totalHeight * field.progress);
+                else if (field.direction === 'RIGHT') this.ctx.fillRect(startX, startY, totalWidth * field.progress, totalHeight);
+                else if (field.direction === 'LEFT') this.ctx.fillRect(startX + totalWidth * (1 - field.progress), startY, totalWidth * field.progress, totalHeight);
+            });
+        }
+        
+        this.growingFields.forEach(w => w.draw(this.ctx));
+        this.weapons.forEach(w => w.draw(this.ctx));
+        this.nexuses.forEach(n => n.draw(this.ctx));
+        this.projectiles.forEach(p => p.draw(this.ctx));
+        this.units.forEach(u => u.draw(this.ctx, this.isUnitOutlineEnabled, this.unitOutlineWidth));
+        this.effects.forEach(e => e.draw(this.ctx));
+        this.areaEffects.forEach(e => e.draw(this.ctx));
+        this.particles.forEach(p => p.draw(this.ctx));
+
+        if (this.state === 'EDIT' && this.currentTool.tool === 'growing_field' && this.dragStartPos && this.isPainting && mouseEvent) {
+            const currentPos = this.getMousePos(mouseEvent);
+            const x = Math.min(this.dragStartPos.gridX, currentPos.gridX) * GRID_SIZE;
+            const y = Math.min(this.dragStartPos.gridY, currentPos.gridY) * GRID_SIZE;
+            const width = (Math.abs(this.dragStartPos.gridX - currentPos.gridX) + 1) * GRID_SIZE;
+            const height = (Math.abs(this.dragStartPos.gridY - currentPos.gridY) + 1) * GRID_SIZE;
+            
+            this.ctx.fillStyle = 'rgba(168, 85, 247, 0.3)';
+            this.ctx.fillRect(x, y, width, height);
+            this.ctx.strokeStyle = 'rgba(168, 85, 247, 0.7)';
+            this.ctx.strokeRect(x, y, width, height);
+        }
+
+        this.ctx.restore();
+    }
+
+    drawMap() {
+        for (let y = 0; y < this.ROWS; y++) {
+            for (let x = 0; x < this.COLS; x++) {
+                if (!this.map || !this.map[y] || !this.map[y][x]) continue;
+                const tile = this.map[y][x];
+                
+                switch(tile.type) {
+                    case TILE.WALL: this.ctx.fillStyle = tile.color || this.currentWallColor; break;
+                    case TILE.FLOOR: this.ctx.fillStyle = tile.color || this.currentFloorColor; break;
+                    case TILE.LAVA: this.ctx.fillStyle = COLORS.LAVA; break;
+                    case TILE.CRACKED_WALL: this.ctx.fillStyle = COLORS.CRACKED_WALL; break;
+                    case TILE.HEAL_PACK: this.ctx.fillStyle = COLORS.HEAL_PACK; break;
+                    case TILE.AWAKENING_POTION: this.ctx.fillStyle = this.currentFloorColor; break;
+                    case TILE.REPLICATION_TILE: this.ctx.fillStyle = COLORS.REPLICATION_TILE; break;
+                    case TILE.QUESTION_MARK: this.ctx.fillStyle = COLORS.QUESTION_MARK; break;
+                    case TILE.DASH_TILE: this.ctx.fillStyle = COLORS.DASH_TILE; break;
+                    case TILE.GLASS_WALL: this.ctx.fillStyle = COLORS.GLASS_WALL; break;
+                    case TILE.TELEPORTER: this.ctx.fillStyle = this.currentFloorColor; break;
+                    default: this.ctx.fillStyle = this.currentFloorColor;
+                }
+                
+                this.ctx.fillRect(x * GRID_SIZE, y * GRID_SIZE, GRID_SIZE, GRID_SIZE);
+
+                if(tile.type === TILE.LAVA) {
+                    const flicker = Math.sin(this.animationFrameCounter * 0.1 + x + y) * 10 + 10;
+                    this.ctx.fillStyle = `rgba(255, 255, 0, 0.3)`;
+                    this.ctx.beginPath(); this.ctx.arc(x * GRID_SIZE + 10, y * GRID_SIZE + 10, flicker / 4, 0, Math.PI * 2); this.ctx.fill();
+                } else if(tile.type === TILE.CRACKED_WALL) {
+                    this.ctx.strokeStyle = 'rgba(0,0,0,0.7)'; this.ctx.lineWidth = 1.5;
+                    this.ctx.beginPath();
+                    this.ctx.moveTo(x * GRID_SIZE + 4, y * GRID_SIZE + 4); this.ctx.lineTo(x * GRID_SIZE + 10, y * GRID_SIZE + 10);
+                    this.ctx.moveTo(x * GRID_SIZE + 10, y * GRID_SIZE + 10); this.ctx.lineTo(x * GRID_SIZE + 8, y * GRID_SIZE + 16);
+                    this.ctx.moveTo(x * GRID_SIZE + 16, y * GRID_SIZE + 5); this.ctx.lineTo(x * GRID_SIZE + 10, y * GRID_SIZE + 9);
+                    this.ctx.moveTo(x * GRID_SIZE + 10, y * GRID_SIZE + 9); this.ctx.lineTo(x * GRID_SIZE + 15, y * GRID_SIZE + 17);
+                    this.ctx.stroke();
+                } else if(tile.type === TILE.TELEPORTER) {
+                    const angle = this.animationFrameCounter * 0.05;
+                    this.ctx.save();
+                    this.ctx.translate(x * GRID_SIZE + GRID_SIZE / 2, y * GRID_SIZE + GRID_SIZE / 2);
+                    this.ctx.rotate(angle);
+                    for (let i = 0; i < 6; i++) {
+                        this.ctx.fillStyle = i % 2 === 0 ? COLORS.TELEPORTER : '#4c1d95';
+                        this.ctx.beginPath(); this.ctx.moveTo(0, 0); this.ctx.lineTo(GRID_SIZE * 0.5, 0);
+                        this.ctx.arc(0, 0, GRID_SIZE * 0.5, 0, Math.PI / 3); this.ctx.closePath();
+                        this.ctx.fill(); this.ctx.rotate(Math.PI / 3);
+                    }
+                    this.ctx.restore();
+                } else if(tile.type === TILE.HEAL_PACK) {
+                    this.ctx.fillStyle = 'white';
+                    const plusWidth = 4;
+                    const plusLength = GRID_SIZE - 8;
+                    this.ctx.fillRect(x * GRID_SIZE + (GRID_SIZE - plusWidth) / 2, y * GRID_SIZE + 4, plusWidth, plusLength);
+                    this.ctx.fillRect(x * GRID_SIZE + 4, y * GRID_SIZE + (GRID_SIZE - plusWidth) / 2, plusLength, plusWidth);
+                } else if (tile.type === TILE.AWAKENING_POTION) {
+                    const centerX = x * GRID_SIZE + GRID_SIZE / 2;
+                    const centerY = y * GRID_SIZE + GRID_SIZE / 2;
+                    this.ctx.fillStyle = 'rgba(150, 150, 150, 0.4)';
+                    this.ctx.strokeStyle = '#9CA3AF';
+                    this.ctx.lineWidth = 1.5;
+                    this.ctx.beginPath();
+                    this.ctx.arc(centerX, centerY, GRID_SIZE * 0.4, 0, Math.PI * 2);
+                    this.ctx.fill();
+                    this.ctx.stroke();
+                    this.ctx.fillStyle = '#A1662F';
+                    this.ctx.fillRect(centerX - GRID_SIZE * 0.15, centerY - GRID_SIZE * 0.6, GRID_SIZE * 0.3, GRID_SIZE * 0.2);
+                    this.ctx.fillStyle = '#FFFFFF';
+                    this.ctx.beginPath();
+                    this.ctx.arc(centerX, centerY, GRID_SIZE * 0.35, 0, Math.PI * 2);
+                    this.ctx.fill();
+                    this.ctx.fillStyle = 'rgba(255, 255, 255, 0.7)';
+                    this.ctx.beginPath();
+                    this.ctx.arc(centerX - GRID_SIZE * 0.15, centerY - GRID_SIZE * 0.15, GRID_SIZE * 0.08, 0, Math.PI * 2);
+                    this.ctx.fill();
+                } else if(tile.type === TILE.REPLICATION_TILE) {
+                    this.ctx.fillStyle = 'black'; this.ctx.font = 'bold 12px Arial'; this.ctx.textAlign = 'center';
+                    this.ctx.fillText(`+${tile.replicationValue}`, x * GRID_SIZE + 10, y * GRID_SIZE + 14);
+                } else if (tile.type === TILE.QUESTION_MARK) {
+                    this.ctx.fillStyle = 'black';
+                    this.ctx.font = 'bold 16px Arial';
+                    this.ctx.textAlign = 'center';
+                    this.ctx.fillText('?', x * GRID_SIZE + 10, y * GRID_SIZE + 16);
+                } else if (tile.type === TILE.DASH_TILE) {
+                    this.ctx.save();
+                    this.ctx.translate(x * GRID_SIZE + GRID_SIZE / 2, y * GRID_SIZE + GRID_SIZE / 2);
+                    let angle = 0;
+                    switch(tile.direction) {
+                        case 'RIGHT': angle = 0; break;
+                        case 'LEFT': angle = Math.PI; break;
+                        case 'DOWN': angle = Math.PI / 2; break;
+                        case 'UP': angle = -Math.PI / 2; break;
+                    }
+                    this.ctx.rotate(angle);
+                    this.ctx.fillStyle = 'black';
+                    this.ctx.beginPath();
+                    this.ctx.moveTo(-6, -6);
+                    this.ctx.lineTo(4, 0);
+                    this.ctx.lineTo(-6, 6);
+                    this.ctx.lineTo(-4, 0);
+                    this.ctx.closePath();
+                    this.ctx.fill();
+                    this.ctx.restore();
+                } else if(tile.type === TILE.GLASS_WALL) {
+                    this.ctx.strokeStyle = 'rgba(255, 255, 255, 0.4)';
+                    this.ctx.lineWidth = 1.5;
+                    this.ctx.beginPath();
+                    this.ctx.moveTo(x * GRID_SIZE + 4, y * GRID_SIZE + 4);
+                    this.ctx.lineTo(x * GRID_SIZE + GRID_SIZE - 4, y * GRID_SIZE + GRID_SIZE - 4);
+                    this.ctx.stroke();
+                }
+
+                if (this.state === 'EDIT') {
+                    this.ctx.strokeStyle = COLORS.GRID;
+                    this.ctx.strokeRect(x * GRID_SIZE, y * GRID_SIZE, GRID_SIZE, GRID_SIZE);
+                }
+            }
+        }
     }
     
+    hasLineOfSight(startUnit, endTarget, isWeaponCheck = false) {
+        let x1 = startUnit.pixelX;
+        let y1 = startUnit.pixelY;
+        const x2 = endTarget.pixelX;
+        const y2 = endTarget.pixelY;
+
+        const dx = x2 - x1;
+        const dy = y2 - y1;
+        const distance = Math.hypot(dx, dy);
+        const step = GRID_SIZE / 4;
+
+        for (let i = step; i < distance; i += step) {
+            const currentX = x1 + (dx / distance) * i;
+            const currentY = y1 + (dy / distance) * i;
+
+            const gridX = Math.floor(currentX / GRID_SIZE);
+            const gridY = Math.floor(currentY / GRID_SIZE);
+
+            if (gridY < 0 || gridY >= this.ROWS || gridX < 0 || gridX >= this.COLS) return false;
+
+            const tile = this.map[gridY][gridX];
+            
+            if (isWeaponCheck) {
+                if (tile.type === TILE.WALL) return false;
+            } else {
+                if (tile.type === TILE.WALL || tile.type === TILE.CRACKED_WALL || tile.type === TILE.GLASS_WALL) {
+                    return false;
+                }
+            }
+        }
+        return true;
+    }
+
+    hasLineOfSightForWeapon(startUnit, endTarget) {
+        return this.hasLineOfSight(startUnit, endTarget, true);
+    }
+    
+    spawnUnit(spawner, cloneWeapon = false) {
+        for(let dx = -1; dx <= 1; dx++) {
+            for(let dy = -1; dy <= 1; dy++) {
+                if(dx === 0 && dy === 0) continue;
+                const newX = Math.floor(spawner.pixelX / GRID_SIZE) + dx;
+                const newY = Math.floor(spawner.pixelY / GRID_SIZE) + dy;
+                if (newY >= 0 && newY < this.ROWS && newX >= 0 && newX < this.COLS && this.map[newY][newX].type === TILE.FLOOR) {
+                    const isOccupied = this.units.some(u => u.gridX === newX && u.gridY === newY) || this.weapons.some(w => w.gridX === newX && w.gridY === newY) || this.nexuses.some(n => n.gridX === newX && n.gridY === newY);
+                    if (!isOccupied) {
+                        const newUnit = new Unit(this, newX, newY, spawner.team);
+                        
+                        if (this.isNametagEnabled && this.nametagList.length > 0) {
+                            const availableNames = this.nametagList.filter(name => !this.usedNametagsInSim.has(name));
+                            if (availableNames.length > 0) {
+                                const randomName = availableNames[Math.floor(this.random() * availableNames.length)];
+                                newUnit.name = randomName;
+                                this.usedNametagsInSim.add(randomName);
+                            }
+                        }
+
+                        if (cloneWeapon && spawner.weapon) {
+                            newUnit.equipWeapon(spawner.weapon.type, true);
+                        }
+                        this.units.push(newUnit);
+                        return;
+                    }
+                }
+            }
+        }
+    }
+    
+    createEffect(type, x, y, target, options = {}) { this.effects.push(new Effect(this, x, y, type, target, options)); }
+    createProjectile(owner, target, type, options = {}) { this.projectiles.push(new Projectile(this, owner, target, type, options)); }
+    
+    castAreaSpell(pos, type, ...args) {
+        if (type === 'poison_cloud') {
+            const ownerTeam = args[0];
+            this.poisonClouds.push(new PoisonCloud(this, pos.x, pos.y, ownerTeam));
+        } else if (type === 'fire_pillar') {
+            const damage = args[0];
+            const ownerTeam = args[1];
+            this.areaEffects.push(new AreaEffect(this, pos.x, pos.y, type, { damage, ownerTeam }));
+        } else {
+            const options = args[0] || {};
+            this.areaEffects.push(new AreaEffect(this, pos.x, pos.y, type, options));
+        }
+    }
+
+    damageTile(x, y, damage) {
+        if (y >= 0 && y < this.ROWS && x >= 0 && x < this.COLS) {
+            const tile = this.map[y][x];
+            if (tile.type === TILE.CRACKED_WALL) {
+                tile.hp -= damage;
+                if (tile.hp <= 0) {
+                    this.map[y][x] = { type: TILE.FLOOR, color: this.uiManager.currentFloorColor };
+                    this.audioManager.play('crackedWallBreak');
+                }
+            }
+        }
+    }
     getTilesOfType(type) {
         const tiles = [];
         for (let y = 0; y < this.ROWS; y++) {
@@ -1090,17 +1365,6 @@ export class GameManager {
             }
         }
         return tiles;
-    }
-
-    damageTile(x, y, damage) {
-        const tile = this.map[y][x];
-        if (tile.type === TILE.CRACKED_WALL) {
-            tile.hp -= damage;
-            if (tile.hp <= 0) {
-                this.map[y][x] = { type: TILE.FLOOR, color: this.uiManager.currentFloorColor };
-                this.audioManager.play('crackedWallBreak');
-            }
-        }
     }
 
     isPosInAnyField(gridX, gridY) {
@@ -1164,73 +1428,6 @@ export class GameManager {
         return this.units.find(u => u.team !== team && u.isStunned > 0 && u.stunnedByMagicCircle);
     }
 
-    hasLineOfSight(startEntity, endEntity) {
-        let x0 = Math.floor(startEntity.pixelX / GRID_SIZE);
-        let y0 = Math.floor(startEntity.pixelY / GRID_SIZE);
-        const x1 = Math.floor(endEntity.pixelX / GRID_SIZE);
-        const y1 = Math.floor(endEntity.pixelY / GRID_SIZE);
-
-        const dx = Math.abs(x1 - x0);
-        const dy = -Math.abs(y1 - y0);
-        const sx = x0 < x1 ? 1 : -1;
-        const sy = y0 < y1 ? 1 : -1;
-        let err = dx + dy;
-
-        while (true) {
-            if (x0 === x1 && y0 === y1) break;
-            if (y0 < 0 || y0 >= this.ROWS || x0 < 0 || x0 >= this.COLS) return false;
-            const tile = this.map[y0][x0];
-            if (tile.type === TILE.WALL || tile.type === TILE.CRACKED_WALL || tile.type === TILE.GLASS_WALL) {
-                return false;
-            }
-            const e2 = 2 * err;
-            if (e2 >= dy) {
-                err += dy;
-                x0 += sx;
-            }
-            if (e2 <= dx) {
-                err += dx;
-                y0 += sy;
-            }
-        }
-        return true;
-    }
-
-    hasLineOfSightForWeapon(startEntity, weapon) {
-        let x0 = Math.floor(startEntity.pixelX / GRID_SIZE);
-        let y0 = Math.floor(startEntity.pixelY / GRID_SIZE);
-        const x1 = weapon.gridX;
-        const y1 = weapon.gridY;
-
-        const dx = Math.abs(x1 - x0);
-        const dy = -Math.abs(y1 - y0);
-        const sx = x0 < x1 ? 1 : -1;
-        const sy = y0 < y1 ? 1 : -1;
-        let err = dx + dy;
-
-        while (true) {
-            if (x0 === x1 && y0 === y1) break;
-            if (y0 < 0 || y0 >= this.ROWS || x0 < 0 || x0 >= this.COLS) return false;
-            if (this.map[y0] && this.map[y0][x0]) {
-                 const tile = this.map[y0][x0];
-                if (tile.type === TILE.WALL || tile.type === TILE.CRACKED_WALL) {
-                    return false;
-                }
-            }
-            const e2 = 2 * err;
-            if (e2 >= dy) {
-                err += dy;
-                x0 += sx;
-            }
-            if (e2 <= dx) {
-                err += dx;
-                y0 += sy;
-            }
-        }
-        return true;
-    }
-
-
     spawnMagicCircle(team) {
         const availableTiles = [];
         for (let y = 0; y < this.ROWS; y++) {
@@ -1249,54 +1446,6 @@ export class GameManager {
         if (availableTiles.length > 0) {
             const pos = availableTiles[Math.floor(this.random() * availableTiles.length)];
             this.magicCircles.push(new MagicCircle(this, pos.x, pos.y, team));
-        }
-    }
-
-    spawnUnit(spawner, cloneWeapon = false) {
-        for(let dx = -1; dx <= 1; dx++) {
-            for(let dy = -1; dy <= 1; dy++) {
-                if(dx === 0 && dy === 0) continue;
-                const newX = Math.floor(spawner.pixelX / GRID_SIZE) + dx;
-                const newY = Math.floor(spawner.pixelY / GRID_SIZE) + dy;
-                if (newY >= 0 && newY < this.ROWS && newX >= 0 && newX < this.COLS && this.map[newY][newX].type === TILE.FLOOR) {
-                    const isOccupied = this.units.some(u => u.gridX === newX && u.gridY === newY) || this.weapons.some(w => w.gridX === newX && w.gridY === newY) || this.nexuses.some(n => n.gridX === newX && n.gridY === newY);
-                    if (!isOccupied) {
-                        const newUnit = new Unit(this, newX, newY, spawner.team);
-                        
-                        if (this.isNametagEnabled && this.nametagList.length > 0) {
-                            const availableNames = this.nametagList.filter(name => !this.usedNametagsInSim.has(name));
-                            if (availableNames.length > 0) {
-                                const randomName = availableNames[Math.floor(this.random() * availableNames.length)];
-                                newUnit.name = randomName;
-                                this.usedNametagsInSim.add(randomName);
-                            }
-                        }
-
-                        if (cloneWeapon && spawner.weapon) {
-                            newUnit.equipWeapon(spawner.weapon.type, true);
-                        }
-                        this.units.push(newUnit);
-                        return;
-                    }
-                }
-            }
-        }
-    }
-    
-    createEffect(type, x, y, target, options = {}) { this.effects.push(new Effect(this, x, y, type, target, options)); }
-    createProjectile(owner, target, type, options = {}) { this.projectiles.push(new Projectile(this, owner, target, type, options)); }
-    
-    castAreaSpell(pos, type, ...args) {
-        if (type === 'poison_cloud') {
-            const ownerTeam = args[0];
-            this.poisonClouds.push(new PoisonCloud(this, pos.x, pos.y, ownerTeam));
-        } else if (type === 'fire_pillar') {
-            const damage = args[0];
-            const ownerTeam = args[1];
-            this.areaEffects.push(new AreaEffect(this, pos.x, pos.y, type, { damage, ownerTeam }));
-        } else {
-            const options = args[0] || {};
-            this.areaEffects.push(new AreaEffect(this, pos.x, pos.y, type, options));
         }
     }
     
@@ -1521,6 +1670,44 @@ export class GameManager {
         }
     }
     
+    async loadReplay(replayId) {
+        if (!this.currentUser) return;
+        const replayDocRef = doc(this.db, "replays", this.currentUser.uid, "userReplays", replayId);
+        const replaySnap = await getDoc(replayDocRef);
+        
+        if (!replaySnap.exists()) {
+            console.error("Replay not found:", replayId);
+            return;
+        }
+        
+        const replayData = replaySnap.data();
+
+        await this.showEditorScreen('replay');
+        this.isReplayMode = true;
+        this.simulationSeed = replayData.simulationSeed;
+        this.currentMapId = replayId; 
+        this.currentMapName = replayData.name;
+
+        this.canvas.width = replayData.mapWidth;
+        this.canvas.height = replayData.mapHeight;
+        const map = JSON.parse(replayData.initialMapState);
+        this.COLS = map[0].length;
+        this.ROWS = map.length;
+        this.map = map;
+
+        this.initialUnitsState = replayData.initialUnitsState;
+        this.initialWeaponsState = replayData.initialWeaponsState;
+        this.initialNexusesState = replayData.initialNexusesState;
+        this.initialMapState = replayData.initialMapState;
+        this.initialGrowingFieldsState = replayData.initialGrowingFieldsState;
+        this.initialAutoFieldState = replayData.initialAutoFieldState;
+
+        this.updateUIToReplayMode();
+        this.resetPlacement();
+        
+        this.draw();
+    }
+
     updateUIToReplayMode() {
         document.getElementById('toolbox').style.display = 'none';
         document.getElementById('editor-controls').style.display = 'none';
@@ -1539,3 +1726,4 @@ export class GameManager {
         placementResetBtn.style.display = 'inline-block';
     }
 }
+
