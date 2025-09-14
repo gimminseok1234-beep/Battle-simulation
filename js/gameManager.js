@@ -1345,37 +1345,14 @@ export class GameManager {
             for (const unit of this.units) {
                 if (p.owner.team !== unit.team && !p.hitTargets.has(unit) && Math.hypot(p.pixelX - unit.pixelX, p.pixelY - unit.pixelY) < GRID_SIZE / 2) {
                     
+                    // [수정] 쌍검 투사체 명중 시 로직 변경
                     if (p.type === 'bouncing_sword') {
-                        p.hitTargets.add(unit);
-                        hit = true;
                         unit.takeDamage(p.damage);
-
-                        // 표식 남기기 및 텔레포트 딜레이 설정
-                        unit.isMarkedByDualSword = { active: true, timer: 240 }; // 4초간 표식
-                        if (p.owner.dualSwordSkillTargets.length < 2) {
-                            p.owner.dualSwordSkillTargets.push(unit);
-                        }
-                        // 2명 모두 표식이 생기거나 더 튕길 수 없으면 텔레포트 딜레이 시작
-                        if (p.owner.dualSwordSkillTargets.length >= 2 || p.bouncesLeft === 0) {
-                            p.owner.dualSwordTeleportDelayTimer = 120; // 2초 후 텔레포트
-                        }
-
-                        if (p.bouncesLeft > 0) {
-                            p.bouncesLeft--;
-                            const nextTarget = this.findClosestEnemy(p.pixelX, p.pixelY, p.owner.team, p.hitTargets);
-                            if (nextTarget) {
-                                const dx = nextTarget.pixelX - p.pixelX;
-                                const dy = nextTarget.pixelY - p.pixelY;
-                                p.angle = Math.atan2(dy, dx);
-                            } else {
-                                p.destroyed = true;
-                            }
-                        } else {
-                            p.destroyed = true;
-                        }
-                        
-                        if (p.destroyed) break; 
-                        else continue; 
+                        p.owner.dualSwordTeleportTarget = unit; // 순간이동 대상 저장
+                        p.owner.dualSwordTeleportDelayTimer = 60; // 1초(60프레임) 딜레이 설정
+                        p.destroyed = true;
+                        hit = true;
+                        break; 
                     }
 
                     p.hitTargets.add(unit);
@@ -2500,4 +2477,3 @@ export class GameManager {
         placementResetBtn.style.display = 'inline-block';
     }
 }
-
