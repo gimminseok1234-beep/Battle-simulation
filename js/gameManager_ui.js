@@ -3,6 +3,7 @@ import { Weapon } from './weaponary.js';
 import { Unit } from './unit.js';
 import { Nexus } from './entities.js';
 import { GrowingMagneticField } from './entities.js';
+import { localMaps } from './maps/index.js';
 
 const MAX_RECENT_COLORS = 8;
 
@@ -534,7 +535,6 @@ export class GameUIManager {
     }
 
     handleMapColors(mapData) {
-        const gm = this.gameManager;
         this.recentFloorColors = mapData.recentFloorColors || [];
         this.recentWallColors = mapData.recentWallColors || [];
         
