@@ -420,55 +420,9 @@ export class Unit {
             }
         }
 
-        if (this.awakeningEffect.active && this.awakeningEffect.stacks < 2) {
-            this.awakeningEffect.timer += gameManager.gameSpeed;
-            if (this.awakeningEffect.timer >= 300) {
-                this.awakeningEffect.timer = 0;
-                this.awakeningEffect.stacks++;
-                this.hp = Math.min(100, this.hp + 30);
-                this.baseAttackPower += 3;
-            }
-        }
-
-        if (this.magicDaggerSkillCooldown > 0) this.magicDaggerSkillCooldown -= gameManager.gameSpeed;
-        if (this.axeSkillCooldown > 0) this.axeSkillCooldown -= gameManager.gameSpeed;
-        if (this.spinAnimationTimer > 0) this.spinAnimationTimer -= gameManager.gameSpeed;
-        if (this.swordSpecialAttackAnimationTimer > 0) this.swordSpecialAttackAnimationTimer -= gameManager.gameSpeed; // [추가] 검 3타 공격 모션 타이머 감소
-        if (this.dualSwordSkillCooldown > 0) this.dualSwordSkillCooldown -= gameManager.gameSpeed;
-        if (this.dualSwordTeleportDelayTimer > 0) this.dualSwordTeleportDelayTimer -= gameManager.gameSpeed;
-        if (this.dualSwordSpinAttackTimer > 0) this.dualSwordSpinAttackTimer -= gameManager.gameSpeed;
-        if (this.attackCooldown > 0) this.attackCooldown -= gameManager.gameSpeed;
-        if (this.teleportCooldown > 0) this.teleportCooldown -= gameManager.gameSpeed;
-        if (this.alertedCounter > 0) this.alertedCounter -= gameManager.gameSpeed;
-        if (this.isKing && this.spawnCooldown > 0) this.spawnCooldown -= gameManager.gameSpeed;
-        if (this.evasionCooldown > 0) this.evasionCooldown -= gameManager.gameSpeed;
-        if (this.attackAnimationTimer > 0) this.attackAnimationTimer -= gameManager.gameSpeed;
-        if (this.magicCircleCooldown > 0) this.magicCircleCooldown -= gameManager.gameSpeed;
-        if (this.boomerangCooldown > 0) this.boomerangCooldown -= gameManager.gameSpeed;
-        if (this.shurikenSkillCooldown > 0) this.shurikenSkillCooldown -= gameManager.gameSpeed;
-        if (this.fireStaffSpecialCooldown > 0) this.fireStaffSpecialCooldown -= gameManager.gameSpeed;
-        
-        if (this.poisonEffect.active) {
-            this.poisonEffect.duration -= gameManager.gameSpeed;
-            this.takeDamage(this.poisonEffect.damage, { isTileDamage: true });
-            if (this.poisonEffect.duration <= 0) {
-                this.poisonEffect.active = false;
-            }
-        }
-
-        if (this.weapon && this.weapon.type === 'ice_diamond') {
-            if (this.iceDiamondCharges < 5) {
-                this.iceDiamondChargeTimer += gameManager.gameSpeed;
-                if (this.iceDiamondChargeTimer >= 240) {
-                    this.iceDiamondCharges++;
-                    this.iceDiamondChargeTimer = 0;
-                }
-            }
-        }
-        
         if (this.weapon && this.weapon.type === 'dual_swords' && this.dualSwordSkillCooldown <= 0) {
-            const { item: closestEnemy } = this.findClosest(enemies);
-            if (closestEnemy && gameManager.hasLineOfSight(this, closestEnemy)) {
+            const { item: closestEnemy, distance: enemyDist } = this.findClosest(enemies);
+            if (closestEnemy && enemyDist <= this.detectionRange && gameManager.hasLineOfSight(this, closestEnemy)) {
                 gameManager.createProjectile(this, closestEnemy, 'bouncing_sword');
                 this.dualSwordSkillCooldown = 300; // 5초 쿨다운
                 this.dualSwordSkillTargets = []; // 새 스킬 시전 시 타겟 리스트 초기화
@@ -1097,4 +1051,5 @@ export class Unit {
         }
     }
 }
+
 
