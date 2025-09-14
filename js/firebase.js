@@ -1,6 +1,7 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import { getAuth, onAuthStateChanged, GoogleAuthProvider, signInWithPopup, signOut, signInAnonymously } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 import { getFirestore } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+import { GameManager } from './gameManager_core.js'; // [오류 수정] 'gameManager.js'에서 'gameManager_core.js'로 경로를 수정했습니다.
 
 const firebaseConfig = {
     apiKey: "AIzaSyDCB9bou34n3nKntyDbCIV-s3ccifgwI-k",
@@ -26,7 +27,7 @@ function logout() {
 
 /**
  * @param {import("firebase/auth").User | null} user
- * @param {import("./gameManager.js").GameManager} gameManager
+ * @param {import("./gameManager_core.js").GameManager} gameManager // [오류 수정] JSDoc 주석의 경로도 수정했습니다.
  */
 async function handleAuthStateChange(user, gameManager) {
     const loadingStatus = document.getElementById('loadingStatus');
@@ -79,4 +80,3 @@ function setupAuthEventListeners() {
 }
 
 export { auth, db, onAuthStateChanged, handleAuthStateChange, setupAuthEventListeners };
-
