@@ -1026,14 +1026,9 @@ export class Projectile {
         this.rotationAngle = 0;
 
         this.hitTargets = options.hitTargets || new Set();
+        this.piercing = (type === 'sword_wave');
         if (type === 'lightning_bolt' && options.initialTarget) {
             this.hitTargets.add(options.initialTarget);
-        }
-        if (type === 'bouncing_sword') {
-            this.damage = 2; // 약한 데미지
-            this.speed = 7;
-            this.bounceCount = 0; // [수정] 이제 튕기지 않음
-            this.piercing = false; 
         }
     }
 
@@ -1185,33 +1180,33 @@ export class Projectile {
 
             // 화살 몸통
             ctx.beginPath();
-            ctx.lineTo(-GRID_SIZE * 0.5, 1); ctx.closePath();
-            ctx.fill()
-            ctx.restore();
-        } else if (this.type === 'bouncing_sword') { 
-            ctx.save();
-            ctx.translate(this.pixelX, this.pixelY);
-            ctx.rotate(this.rotationAngle);
-            ctx.scale(0.84, 0.84); // [수정] 크기 20% 증가
+            ctx.moveTo(-GRID_SIZE * 0.7, 0);
+            ctx.lineTo(GRID_SIZE * 0.4, 0);
+            ctx.lineTo(GRID_SIZE * 0.4, -1.5);
+            ctx.lineTo(GRID_SIZE * 0.6, -1.5);
+            ctx.lineTo(GRID_SIZE * 0.6, 1.5);
+            ctx.lineTo(GRID_SIZE * 0.4, 1.5);
+            ctx.lineTo(GRID_SIZE * 0.4, 0);
+            ctx.closePath();
+            ctx.fill();
+            ctx.stroke();
 
-            ctx.fillStyle = '#6b7280';
-            ctx.strokeStyle = 'black';
-            ctx.lineWidth = 1.5;
+            // 화살촉
+            ctx.beginPath();
+            ctx.moveTo(GRID_SIZE * 0.6, -2.5);
+            ctx.lineTo(GRID_SIZE * 0.9, 0);
+            ctx.lineTo(GRID_SIZE * 0.6, 2.5);
+            ctx.closePath();
+            ctx.fill();
+            ctx.stroke();
 
-            ctx.fillRect(-GRID_SIZE * 0.1, GRID_SIZE * 0.3, GRID_SIZE * 0.2, GRID_SIZE * 0.3);
-            ctx.strokeRect(-GRID_SIZE * 0.1, GRID_SIZE * 0.3, GRID_SIZE * 0.2, GRID_SIZE * 0.3);
+            // 깃털
             ctx.beginPath();
-            ctx.moveTo(-GRID_SIZE * 0.3, GRID_SIZE * 0.3); ctx.lineTo(GRID_SIZE * 0.3, GRID_SIZE * 0.3);
-            ctx.lineTo(GRID_SIZE * 0.3, GRID_SIZE * 0.2); ctx.lineTo(-GRID_SIZE * 0.3, GRID_SIZE * 0.2);
-            ctx.closePath(); ctx.fill(); ctx.stroke();
-            const bladeGradient = ctx.createLinearGradient(0, -GRID_SIZE, 0, 0);
-            bladeGradient.addColorStop(0, '#f3f4f6'); bladeGradient.addColorStop(0.5, '#9ca3af'); bladeGradient.addColorStop(1, '#d1d5db');
-            ctx.fillStyle = bladeGradient;
-            ctx.beginPath();
-            ctx.moveTo(0, GRID_SIZE * 0.2);
-            ctx.quadraticCurveTo(GRID_SIZE * 0.5, -GRID_SIZE * 0.4, 0, -GRID_SIZE * 0.9);
-            ctx.quadraticCurveTo(-GRID_SIZE * 0.1, -GRID_SIZE * 0.4, 0, GRID_SIZE * 0.2);
-            ctx.closePath(); ctx.fill(); ctx.stroke();
+            ctx.moveTo(-GRID_SIZE * 0.7, 0);
+            ctx.lineTo(-GRID_SIZE * 0.8, -3);
+            ctx.moveTo(-GRID_SIZE * 0.7, 0);
+            ctx.lineTo(-GRID_SIZE * 0.8, 3);
+            ctx.stroke();
 
             ctx.restore();
         } else if (this.type === 'sword_wave') {
@@ -1638,5 +1633,3 @@ export class AreaEffect {
         }
     }
 }
-
-
