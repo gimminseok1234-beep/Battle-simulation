@@ -208,6 +208,7 @@ export class Weapon {
             
             if (unit.attackCount >= 3) {
                 unit.attackCount = 0;
+                unit.swordSpecialAttackAnimationTimer = 30; // 회전 애니메이션 타이머 설정
                 gameManager.createProjectile(unit, target, 'sword_wave');
 
                 for (let i = 0; i < 20; i++) {
@@ -228,6 +229,13 @@ export class Weapon {
 
             if (unit.attackCount >= 3) {
                 unit.attackCount = 0;
+                
+                // 뒤로 밀려나는 반동 효과
+                const recoilAngle = unit.facingAngle + Math.PI;
+                const recoilForce = 4;
+                unit.knockbackX += Math.cos(recoilAngle) * recoilForce;
+                unit.knockbackY += Math.sin(recoilAngle) * recoilForce;
+
                 gameManager.createProjectile(unit, target, 'arrow');
                 setTimeout(() => {
                     if (unit.hp > 0) {
@@ -679,6 +687,10 @@ export class Weapon {
             rotation += ((30 - unit.spinAnimationTimer) / 30) * Math.PI * 2;
         }
         
+        if (this.type === 'sword' && unit.swordSpecialAttackAnimationTimer > 0) {
+            rotation += ((30 - unit.swordSpecialAttackAnimationTimer) / 30) * Math.PI * 2;
+        }
+
         if (this.type !== 'lightning' && this.type !== 'ice_diamond') {
             ctx.rotate(rotation);
         }
@@ -1166,7 +1178,7 @@ export class Projectile {
         } else if (this.type === 'sword_wave') {
             ctx.save();
             ctx.translate(this.pixelX, this.pixelY);
-            ctx.rotate(this.angle + Math.PI / 2);
+            ctx.rotate(this.angle - Math.PI / 2); // [수정] 검기 방향 수정
             
             ctx.strokeStyle = '#ef4444';
             ctx.lineWidth = 4;
@@ -1562,3 +1574,4 @@ export class AreaEffect {
         }
     }
 }
+
