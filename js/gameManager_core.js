@@ -1,9 +1,9 @@
 import { Unit } from './unit.js';
-import { Weapon, Projectile, AreaEffect, Effect, MagicDaggerDashEffect, createFireballHitEffect, Particle } from './weaponary.js';
+import { Weapon, Projectile, AreaEffect, Effect, Particle } from './weaponary.js';
 import { Nexus, GrowingMagneticField, MagicCircle, PoisonCloud } from './entities.js';
 import { getFirestore, collection, doc, getDoc, getDocs, setDoc, deleteDoc, query, where } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 import { AudioManager } from './audioManager.js';
-import { TILE, TEAM, COLORS, GRID_SIZE } from './constants.js';
+import { TILE, TEAM } from './constants.js';
 import { localMaps } from './maps/index.js';
 import { GameUIManager } from './gameManager_ui.js';
 
@@ -1294,7 +1294,62 @@ export class GameManager {
     hasLineOfSightForWeapon(startUnit, endTarget) {
         return this.hasLineOfSight(startUnit, endTarget, true);
     }
-    
+
+    createWeapon(x, y, type) {
+        const weapon = new Weapon(this, x, y, type);
+        if (type === 'sword') {
+            weapon.attackPowerBonus = 15;
+        } else if (type === 'bow') {
+            weapon.attackPowerBonus = 10;
+            weapon.attackRangeBonus = 5 * GRID_SIZE;
+            weapon.detectionRangeBonus = 4 * GRID_SIZE;
+        } else if (type === 'ice_diamond') {
+            weapon.attackPowerBonus = 8;
+            weapon.attackRangeBonus = 5 * GRID_SIZE;
+            weapon.detectionRangeBonus = 4 * GRID_SIZE;
+        } else if (type === 'dual_swords') {
+            weapon.attackPowerBonus = 3;
+            weapon.speedBonus = 0.6;
+            weapon.attackCooldownBonus = -40;
+        } else if (type === 'fire_staff') {
+            weapon.attackPowerBonus = 25;
+            weapon.attackRangeBonus = 6 * GRID_SIZE;
+            weapon.detectionRangeBonus = 2 * GRID_SIZE;
+        } else if (type === 'hadoken') {
+            weapon.attackPowerBonus = 20;
+            weapon.attackRangeBonus = 5 * GRID_SIZE;
+            weapon.detectionRangeBonus = 4 * GRID_SIZE;
+        } else if (type === 'shuriken') {
+            weapon.attackPowerBonus = 12;
+            weapon.speedBonus = 0.3;
+            weapon.attackCooldownBonus = 100;
+            weapon.attackRangeBonus = 5 * GRID_SIZE;
+            weapon.detectionRangeBonus = 4 * GRID_SIZE;
+        } else if (type === 'lightning') {
+            weapon.attackPowerBonus = 8; 
+            weapon.attackRangeBonus = 6 * GRID_SIZE;
+            weapon.attackCooldownBonus = -20;
+        } else if (type === 'magic_spear') {
+            weapon.attackRangeBonus = 5 * GRID_SIZE;
+            weapon.normalAttackPowerBonus = 5;
+            weapon.specialAttackPowerBonus = 15;
+        } else if (type === 'boomerang') {
+            weapon.attackPowerBonus = 10;
+            weapon.attackRangeBonus = 7 * GRID_SIZE;
+            weapon.detectionRangeBonus = 6 * GRID_SIZE;
+        } else if (type === 'poison_potion') {
+            weapon.attackPowerBonus = 10;
+        } else if (type === 'magic_dagger') {
+            weapon.attackPowerBonus = 12;
+        } else if (type === 'axe') {
+            weapon.attackPowerBonus = 18;
+            weapon.attackRangeBonus = -0.2 * GRID_SIZE;
+        } else if (type === 'crown') {
+            weapon.attackPowerBonus = 5;
+        }
+        return weapon;
+    }
+
     spawnUnit(spawner, cloneWeapon = false) {
         for(let dx = -1; dx <= 1; dx++) {
             for(let dy = -1; dy <= 1; dy++) {
