@@ -7,6 +7,20 @@ import { GrowingMagneticField } from './entities.js';
 export class GameUIManager {
     constructor(gameManager) {
         this.gameManager = gameManager;
+
+        // [오류 수정] UIManager의 속성들을 생성자에서 명확하게 초기화합니다.
+        this.isPainting = false;
+        this.dragStartPos = null;
+        this.currentTool = { tool: 'tile', type: 'FLOOR' }; // currentTool에 기본값을 설정하여 오류를 방지합니다.
+        
+        this.currentFloorColor = COLORS.FLOOR;
+        this.currentWallColor = COLORS.WALL;
+        this.recentFloorColors = [];
+        this.recentWallColors = [];
+
+        this.replicationValue = 1;
+        this.dashTileSettings = { direction: 'RIGHT' };
+        this.growingFieldSettings = { direction: 'DOWN', speed: 4, delay: 0 };
     }
 
     createToolboxUI() {
@@ -18,14 +32,14 @@ export class GameUIManager {
             <div id="category-basic-tiles" class="category-content collapsed">
                 <button class="tool-btn selected" data-tool="tile" data-type="FLOOR">바닥</button>
                 <div class="flex items-center gap-2 my-1">
-                    <input type="color" id="floorColorPicker" value="${this.gameManager.currentFloorColor}" class="w-full h-8 p-1 rounded">
+                    <input type="color" id="floorColorPicker" value="${this.currentFloorColor}" class="w-full h-8 p-1 rounded">
                     <button id="defaultFloorColorBtn" class="p-2 rounded bg-gray-600 hover:bg-gray-500" title="기본값으로">🔄</button>
                 </div>
                 <div id="recentFloorColors" class="grid grid-cols-4 gap-1 mb-2"></div>
                 
                 <button class="tool-btn" data-tool="tile" data-type="WALL">벽</button>
                 <div class="flex items-center gap-2 my-1">
-                    <input type="color" id="wallColorPicker" value="${this.gameManager.currentWallColor}" class="w-full h-8 p-1 rounded">
+                    <input type="color" id="wallColorPicker" value="${this.currentWallColor}" class="w-full h-8 p-1 rounded">
                     <button id="defaultWallColorBtn" class="p-2 rounded bg-gray-600 hover:bg-gray-500" title="기본값으로">🔄</button>
                 </div>
                 <div id="recentWallColors" class="grid grid-cols-4 gap-1 mb-2"></div>
@@ -43,7 +57,7 @@ export class GameUIManager {
                     <button class="tool-btn" data-tool="tile" data-type="QUESTION_MARK">물음표</button>
                     <div class="flex items-center gap-2 mt-1">
                         <button class="tool-btn flex-grow" data-tool="tile" data-type="REPLICATION_TILE">+N 복제</button>
-                        <input type="number" id="replicationValue" value="${this.gameManager.replicationValue}" min="1" class="modal-input w-16">
+                        <input type="number" id="replicationValue" value="${this.replicationValue}" min="1" class="modal-input w-16">
                     </div>
                     <div class="flex items-center gap-1 mt-1">
                         <button class="tool-btn flex-grow" data-tool="tile" data-type="DASH_TILE">돌진 타일</button>
@@ -106,14 +120,111 @@ export class GameUIManager {
             </div>
         `;
     }
+    
+    selectTool(toolButton) {
+        document.querySelectorAll('.tool-btn').forEach(btn => btn.classList.remove('selected'));
+        toolButton.classList.add('selected');
+        this.currentTool = {
+            tool: toolButton.dataset.tool,
+            type: toolButton.dataset.type,
+            team: toolButton.dataset.team
+        };
+    }
+    
+    setCurrentColor(color, type, updatePicker = false) {
+        if (type === 'floor') {
+            this.currentFloorColor = color;
+            if (updatePicker) document.getElementById('floorColorPicker').value = color;
+        } else if (type === 'wall') {
+            this.currentWallColor = color;
+            if (updatePicker) document.getElementById('wallColorPicker').value = color;
+        }
+        this.gameManager.draw();
+    }
+    
+    addRecentColor(color, type) {
+        const recentColors = type === 'floor' ? this.recentFloorColors : this.recentWallColors;
+        if (!recentColors.includes(color)) {
+            recentColors.unshift(color);
+            if (recentColors.length > 8) recentColors.pop();
+            this.renderRecentColors(type);
+        }
+    }
+    
+    renderRecentColors(type) {
+        const containerId = type === 'floor' ? 'recentFloorColors' : 'recentWallColors';
+        const recentColors = type === 'floor' ? this.recentFloorColors : this.recentWallColors;
+        const container = document.getElementById(containerId);
+        container.innerHTML = '';
+        recentColors.forEach(color => {
+            const swatch = document.createElement('div');
+            swatch.className = 'recent-color-swatch w-full h-6 rounded cursor-pointer border-2 border-transparent hover:border-white';
+            swatch.style.backgroundColor = color;
+            swatch.dataset.color = color;
+            swatch.dataset.type = type;
+            container.appendChild(swatch);
+        });
+    }
 
+    handleMapColors(mapData) {
+        this.currentFloorColor = mapData.floorColor || COLORS.FLOOR;
+        this.currentWallColor = mapData.wallColor || COLORS.WALL;
+        this.recentFloorColors = mapData.recentFloorColors || [];
+        this.recentWallColors = mapData.recentWallColors || [];
+        document.getElementById('floorColorPicker').value = this.currentFloorColor;
+        document.getElementById('wallColorPicker').value = this.currentWallColor;
+    }
+
+    getMousePos(evt) {
+        const rect = this.gameManager.canvas.getBoundingClientRect();
+        const scaleX = this.gameManager.canvas.width / rect.width;
+        const scaleY = this.gameManager.canvas.height / rect.height;
+        
+        const cam = this.gameManager.actionCam;
+        const mouseX = (evt.clientX - rect.left) * scaleX;
+        const mouseY = (evt.clientY - rect.top) * scaleY;
+
+        const worldX = (mouseX - this.gameManager.canvas.width / 2) / cam.current.scale + cam.current.x;
+        const worldY = (mouseY - this.gameManager.canvas.height / 2) / cam.current.scale + cam.current.y;
+        
+        return {
+            pixelX: worldX,
+            pixelY: worldY,
+            gridX: Math.floor(worldX / GRID_SIZE),
+            gridY: Math.floor(worldY / GRID_SIZE)
+        };
+    }
+
+    spawnRandomWeaponNear(pos) {
+        const gm = this.gameManager;
+        const weaponTypes = Object.keys(gm.uiManager.createWeapon(0, 0, 'sword').constructor.prototype).filter(type => type !== 'constructor' && type !== 'drawEquipped');
+        const randomType = weaponTypes[Math.floor(gm.random() * weaponTypes.length)];
+        
+        let placed = false;
+        for (let i = 0; i < 10; i++) {
+            const angle = gm.random() * Math.PI * 2;
+            const distance = GRID_SIZE * (gm.random() * 2 + 1);
+            const newX = pos.x + Math.cos(angle) * distance;
+            const newY = pos.y + Math.sin(angle) * distance;
+            const gridX = Math.floor(newX / GRID_SIZE);
+            const gridY = Math.floor(newY / GRID_SIZE);
+
+            if (gridX >= 0 && gridX < gm.COLS && gridY >= 0 && gridY < gm.ROWS && gm.map[gridY][gridX].type === TILE.FLOOR) {
+                const weapon = gm.uiManager.createWeapon(gridX, gridY, randomType);
+                gm.weapons.push(weapon);
+                placed = true;
+                break;
+            }
+        }
+    }
+    
     applyTool(pos) {
         const gm = this.gameManager;
         const {gridX: x, gridY: y} = pos;
         if (x < 0 || x >= gm.COLS || y < 0 || y >= gm.ROWS) return;
 
-        if (gm.currentTool.tool === 'erase') {
-            gm.map[y][x] = { type: TILE.FLOOR, color: gm.currentFloorColor };
+        if (this.currentTool.tool === 'erase') {
+            gm.map[y][x] = { type: TILE.FLOOR, color: this.currentFloorColor };
             gm.units = gm.units.filter(u => u.gridX !== x || u.gridY !== y);
             gm.weapons = gm.weapons.filter(w => w.gridX !== x || w.gridY !== y);
             gm.nexuses = gm.nexuses.filter(n => n.gridX !== x || n.gridY !== y);
@@ -122,7 +233,7 @@ export class GameUIManager {
             return;
         }
 
-        const isWallTypeTool = gm.currentTool.tool === 'tile' && (gm.currentTool.type === 'WALL' || gm.currentTool.type === 'GLASS_WALL');
+        const isWallTypeTool = this.currentTool.tool === 'tile' && (this.currentTool.type === 'WALL' || this.currentTool.type === 'GLASS_WALL');
 
         if (!isWallTypeTool && (gm.map[y][x].type === TILE.WALL || gm.map[y][x].type === TILE.GLASS_WALL)) {
             return; 
@@ -138,37 +249,37 @@ export class GameUIManager {
                          gm.weapons.some(w => w.gridX === x && w.gridY === y) || 
                          gm.nexuses.some(n => n.gridX === x && n.gridY === y);
 
-        if (gm.currentTool.tool === 'growing_field' && gm.dragStartPos) {
-             const startX = Math.min(gm.dragStartPos.gridX, x);
-             const startY = Math.min(gm.dragStartPos.gridY, y);
-             const endX = Math.max(gm.dragStartPos.gridX, x);
-             const endY = Math.max(gm.dragStartPos.gridY, y);
+        if (this.currentTool.tool === 'growing_field' && this.dragStartPos) {
+             const startX = Math.min(this.dragStartPos.gridX, x);
+             const startY = Math.min(this.dragStartPos.gridY, y);
+             const endX = Math.max(this.dragStartPos.gridX, x);
+             const endY = Math.max(this.dragStartPos.gridY, y);
              const width = endX - startX + 1;
              const height = endY - startY + 1;
              
-             const newZone = new GrowingMagneticField(gm, Date.now(), startX, startY, width, height, {...gm.growingFieldSettings});
+             const newZone = new GrowingMagneticField(gm, Date.now(), startX, startY, width, height, {...this.growingFieldSettings});
              gm.growingFields.push(newZone);
-             gm.dragStartPos = null;
-        } else if (gm.currentTool.tool === 'tile') {
+             this.dragStartPos = null;
+        } else if (this.currentTool.tool === 'tile') {
             if (itemExists) return;
             
-            const tileType = TILE[gm.currentTool.type];
+            const tileType = TILE[this.currentTool.type];
             if (tileType === TILE.TELEPORTER && gm.getTilesOfType(TILE.TELEPORTER).length >= 2) { return; }
             gm.map[y][x] = {
                 type: tileType,
                 hp: tileType === TILE.CRACKED_WALL ? 50 : undefined,
-                color: tileType === TILE.WALL ? gm.currentWallColor : (tileType === TILE.FLOOR ? gm.currentFloorColor : undefined),
-                replicationValue: tileType === TILE.REPLICATION_TILE ? gm.replicationValue : undefined,
-                direction: tileType === TILE.DASH_TILE ? gm.dashTileSettings.direction : undefined
+                color: tileType === TILE.WALL ? this.currentWallColor : (tileType === TILE.FLOOR ? this.currentFloorColor : undefined),
+                replicationValue: tileType === TILE.REPLICATION_TILE ? this.replicationValue : undefined,
+                direction: tileType === TILE.DASH_TILE ? this.dashTileSettings.direction : undefined
             };
-        } else if (gm.currentTool.tool === 'unit' && !itemExists) {
-            gm.units.push(new Unit(gm, x, y, gm.currentTool.team));
-        } else if (gm.currentTool.tool === 'weapon' && !itemExists) {
-            const weapon = gm.createWeapon(x, y, gm.currentTool.type);
+        } else if (this.currentTool.tool === 'unit' && !itemExists) {
+            gm.units.push(new Unit(gm, x, y, this.currentTool.team));
+        } else if (this.currentTool.tool === 'weapon' && !itemExists) {
+            const weapon = this.createWeapon(x, y, this.currentTool.type);
             gm.weapons.push(weapon);
-        } else if (gm.currentTool.tool === 'nexus' && !itemExists) {
-            if (gm.nexuses.some(n => n.team === gm.currentTool.team)) { return; }
-            gm.nexuses.push(new Nexus(gm, x, y, gm.currentTool.team));
+        } else if (this.currentTool.tool === 'nexus' && !itemExists) {
+            if (gm.nexuses.some(n => n.team === this.currentTool.team)) { return; }
+            gm.nexuses.push(new Nexus(gm, x, y, this.currentTool.team));
         }
         gm.draw();
     }
@@ -238,18 +349,18 @@ export class GameUIManager {
                 const tile = gm.map[y][x];
                 
                 switch(tile.type) {
-                    case TILE.WALL: ctx.fillStyle = tile.color || gm.currentWallColor; break;
-                    case TILE.FLOOR: ctx.fillStyle = tile.color || gm.currentFloorColor; break;
+                    case TILE.WALL: ctx.fillStyle = tile.color || this.currentWallColor; break;
+                    case TILE.FLOOR: ctx.fillStyle = tile.color || this.currentFloorColor; break;
                     case TILE.LAVA: ctx.fillStyle = COLORS.LAVA; break;
                     case TILE.CRACKED_WALL: ctx.fillStyle = COLORS.CRACKED_WALL; break;
                     case TILE.HEAL_PACK: ctx.fillStyle = COLORS.HEAL_PACK; break;
-                    case TILE.AWAKENING_POTION: ctx.fillStyle = gm.currentFloorColor; break;
+                    case TILE.AWAKENING_POTION: ctx.fillStyle = this.currentFloorColor; break;
                     case TILE.REPLICATION_TILE: ctx.fillStyle = COLORS.REPLICATION_TILE; break;
                     case TILE.QUESTION_MARK: ctx.fillStyle = COLORS.QUESTION_MARK; break;
                     case TILE.DASH_TILE: ctx.fillStyle = COLORS.DASH_TILE; break;
                     case TILE.GLASS_WALL: ctx.fillStyle = COLORS.GLASS_WALL; break;
-                    case TILE.TELEPORTER: ctx.fillStyle = gm.currentFloorColor; break;
-                    default: ctx.fillStyle = gm.currentFloorColor;
+                    case TILE.TELEPORTER: ctx.fillStyle = this.currentFloorColor; break;
+                    default: ctx.fillStyle = this.currentFloorColor;
                 }
                 
                 ctx.fillRect(x * GRID_SIZE, y * GRID_SIZE, GRID_SIZE, GRID_SIZE);
@@ -320,7 +431,7 @@ export class GameUIManager {
                         case 'RIGHT': angle = 0; break;
                         case 'LEFT': angle = Math.PI; break;
                         case 'DOWN': angle = Math.PI / 2; break;
-                        case 'UP': angle = -Math.PI / 2; break;
+                        case 'UP':    angle = -Math.PI / 2; break;
                     }
                     ctx.rotate(angle);
                     ctx.fillStyle = 'black';
