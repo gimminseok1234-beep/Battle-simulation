@@ -690,6 +690,11 @@ export class Weapon {
         if (this.type === 'sword' && unit.swordSpecialAttackAnimationTimer > 0) {
             rotation += ((30 - unit.swordSpecialAttackAnimationTimer) / 30) * Math.PI * 2;
         }
+        
+        if (this.type === 'dual_swords' && unit.dualSwordSpinAttackTimer > 0) {
+            const spinProgress = (20 - unit.dualSwordSpinAttackTimer) / 20;
+            rotation += spinProgress * Math.PI * 4;
+        }
 
         if (this.type !== 'lightning' && this.type !== 'ice_diamond') {
             ctx.rotate(rotation);
@@ -964,6 +969,7 @@ export class Projectile {
         this.damageCooldown = 0;
         this.alreadyDamagedOnReturn = new Set();
         this.lingerRotationSpeed = 0.5;
+        this.bouncesLeft = options.bouncesLeft || 0;
 
         if (type === 'hadoken') this.speed = 4;
         else if (type === 'shuriken' || type === 'returning_shuriken') this.speed = 5;
@@ -973,8 +979,9 @@ export class Projectile {
         else if (type === 'ice_bolt_projectile') this.speed = 7;
         else if (type === 'fireball_projectile') this.speed = 5;
         else if (type === 'mini_fireball_projectile') this.speed = 8;
-        else if (type === 'black_sphere_projectile') this.speed = 6; // [추가] 검은 구체 속도
+        else if (type === 'black_sphere_projectile') this.speed = 6;
         else if (type === 'sword_wave') this.speed = 4.5;
+        else if (type === 'bouncing_sword') this.speed = 7;
         else this.speed = 6;
 
         this.damage = owner.attackPower;
@@ -992,8 +999,11 @@ export class Projectile {
             this.damage = 28;
         } else if (type === 'mini_fireball_projectile') {
             this.damage = 12;
-        } else if (type === 'black_sphere_projectile') { // [추가] 검은 구체 데미지
+        } else if (type === 'black_sphere_projectile') { 
             this.damage = 15;
+        } else if (type === 'bouncing_sword') { 
+            this.damage = 2;
+            this.bouncesLeft = 1;
         }
 
         this.knockback = (type === 'hadoken') ? gameManager.hadokenKnockback : 0;
@@ -1094,7 +1104,7 @@ export class Projectile {
             this.trail.push({x: this.pixelX, y: this.pixelY});
             if (this.trail.length > 10) this.trail.shift();
         }
-        if (this.type.includes('shuriken') || this.type.includes('boomerang')) {
+        if (this.type.includes('shuriken') || this.type.includes('boomerang') || this.type.includes('bouncing_sword')) {
             this.rotationAngle += 0.4 * gameManager.gameSpeed;
         }
 
@@ -1213,6 +1223,31 @@ export class Projectile {
             ctx.arc(0, 0, GRID_SIZE * 0.7, 0, Math.PI, false);
             ctx.stroke();
             
+            ctx.restore();
+        } else if (this.type === 'bouncing_sword') {
+            ctx.save();
+            ctx.translate(this.pixelX, this.pixelY);
+            ctx.rotate(this.rotationAngle);
+            ctx.scale(0.6, 0.6);
+
+            ctx.fillStyle = '#6b7280';
+            ctx.strokeStyle = 'black';
+            ctx.lineWidth = 1.5;
+
+            ctx.fillRect(-GRID_SIZE * 0.1, GRID_SIZE * 0.3, GRID_SIZE * 0.2, GRID_SIZE * 0.3);
+            ctx.strokeRect(-GRID_SIZE * 0.1, GRID_SIZE * 0.3, GRID_SIZE * 0.2, GRID_SIZE * 0.3);
+            ctx.beginPath();
+            ctx.moveTo(-GRID_SIZE * 0.3, GRID_SIZE * 0.3); ctx.lineTo(GRID_SIZE * 0.3, GRID_SIZE * 0.3);
+            ctx.lineTo(GRID_SIZE * 0.3, GRID_SIZE * 0.2); ctx.lineTo(-GRID_SIZE * 0.3, GRID_SIZE * 0.2);
+            ctx.closePath(); ctx.fill(); ctx.stroke();
+            const bladeGradient = ctx.createLinearGradient(0, -GRID_SIZE, 0, 0);
+            bladeGradient.addColorStop(0, '#f3f4f6'); bladeGradient.addColorStop(0.5, '#9ca3af'); bladeGradient.addColorStop(1, '#d1d5db');
+            ctx.fillStyle = bladeGradient;
+            ctx.beginPath();
+            ctx.moveTo(0, GRID_SIZE * 0.2);
+            ctx.quadraticCurveTo(GRID_SIZE * 0.5, -GRID_SIZE * 0.4, 0, -GRID_SIZE * 0.9);
+            ctx.quadraticCurveTo(-GRID_SIZE * 0.1, -GRID_SIZE * 0.4, 0, GRID_SIZE * 0.2);
+            ctx.closePath(); ctx.fill(); ctx.stroke();
             ctx.restore();
         } else if (this.type === 'hadoken') {
             for (let i = 0; i < this.trail.length; i++) {
@@ -1598,5 +1633,4 @@ export class AreaEffect {
         }
     }
 }
-
 
