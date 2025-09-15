@@ -466,6 +466,28 @@ export class Unit {
         if (this.shurikenSkillCooldown > 0) this.shurikenSkillCooldown -= gameManager.gameSpeed;
         if (this.fireStaffSpecialCooldown > 0) this.fireStaffSpecialCooldown -= gameManager.gameSpeed;
         
+        // [수정] 회피 기동 로직 추가
+        if (this.weapon && (this.weapon.type === 'shuriken' || this.weapon.type === 'lightning') && this.evasionCooldown <= 0) {
+            for (const p of projectiles) {
+                if (p.owner.team === this.team) continue;
+                const dist = Math.hypot(this.pixelX - p.pixelX, this.pixelY - p.pixelY);
+                if (dist < GRID_SIZE * 3) {
+                    const angleToUnit = Math.atan2(this.pixelY - p.pixelY, this.pixelX - p.pixelX);
+                    const angleDiff = Math.abs(angleToUnit - p.angle);
+                    if (angleDiff < Math.PI / 4 || angleDiff > Math.PI * 1.75) {
+                        if (gameManager.random() > 0.5) {
+                            const dodgeAngle = p.angle + (Math.PI / 2) * (gameManager.random() < 0.5 ? 1 : -1);
+                            const dodgeForce = 4;
+                            this.knockbackX += Math.cos(dodgeAngle) * dodgeForce;
+                            this.knockbackY += Math.sin(dodgeAngle) * dodgeForce;
+                            this.evasionCooldown = 30;
+                            break;
+                        }
+                    }
+                }
+            }
+        }
+
         if (this.poisonEffect.active) {
             this.poisonEffect.duration -= gameManager.gameSpeed;
             this.takeDamage(this.poisonEffect.damage, { isTileDamage: true });
@@ -1149,4 +1171,3 @@ export class Unit {
         this.state = 'IDLE';
     }
 }
-
