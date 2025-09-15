@@ -224,7 +224,12 @@
         <div class="modal-content">
             <h3 class="text-xl font-bold mb-4">자동 자기장 설정</h3>
             <label class="flex items-center mb-2"><input type="checkbox" id="autoFieldActiveToggle" class="mr-2"> 활성화</label>
-            <label for="autoFieldShrinkTime">축소 시간 (분):</label>
+            <label for="autoFieldShrinkType" class="mt-2">축소 방향:</label>
+            <select id="autoFieldShrinkType" class="modal-input">
+                <option value="all">상하좌우</option>
+                <option value="vertical">상하</option>
+            </select>
+            <label for="autoFieldShrinkTime" class="mt-2">축소 시간 (분):</label>
             <input type="number" id="autoFieldShrinkTime" value="1" class="modal-input">
             <label for="autoFieldSafeZoneSize" class="mt-2">최종 안전구역 크기 (타일):</label>
             <input type="number" id="autoFieldSafeZoneSize" value="6" class="modal-input">
@@ -308,4 +313,3 @@
     <script type="module" src="js/main.js"></script>
 </body>
 </html>
-
