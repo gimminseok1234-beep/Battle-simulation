@@ -500,6 +500,8 @@ export class GameManager {
         const prevCtx = previewCanvas.getContext('2d');
         const mapGridData = (typeof mapData.map === 'string') ? JSON.parse(mapData.map) : mapData.map;
         
+        if (!mapGridData) return;
+
         const mapHeight = mapGridData.length * GRID_SIZE;
         const mapWidth = mapGridData.length > 0 ? mapGridData[0].length * GRID_SIZE : 0;
 
@@ -1789,7 +1791,7 @@ export class GameManager {
             weapon.attackRangeBonus = 5 * GRID_SIZE;
             weapon.detectionRangeBonus = 4 * GRID_SIZE;
         } else if (type === 'lightning') {
-            weapon.attackPowerBonus = 10; // [수정] 데미지 8 -> 10으로 상향
+            weapon.attackPowerBonus = 10;
             weapon.attackRangeBonus = 6 * GRID_SIZE;
             weapon.attackCooldownBonus = -20;
         } else if (type === 'magic_spear') {
@@ -2211,15 +2213,17 @@ export class GameManager {
             const floorColors = {};
             const wallColors = {};
             
-            mapGridData.forEach(row => {
-                row.forEach(tile => {
-                    if (tile.type === TILE.FLOOR && tile.color) {
-                        floorColors[tile.color] = (floorColors[tile.color] || 0) + 1;
-                    } else if (tile.type === TILE.WALL && tile.color) {
-                        wallColors[tile.color] = (wallColors[tile.color] || 0) + 1;
-                    }
+            if (mapGridData) {
+                mapGridData.forEach(row => {
+                    row.forEach(tile => {
+                        if (tile.type === TILE.FLOOR && tile.color) {
+                            floorColors[tile.color] = (floorColors[tile.color] || 0) + 1;
+                        } else if (tile.type === TILE.WALL && tile.color) {
+                            wallColors[tile.color] = (wallColors[tile.color] || 0) + 1;
+                        }
+                    });
                 });
-            });
+            }
 
             const mostCommonFloor = Object.keys(floorColors).reduce((a, b) => floorColors[a] > floorColors[b] ? a : b, null);
             const mostCommonWall = Object.keys(wallColors).reduce((a, b) => wallColors[a] > wallColors[b] ? a : b, null);
@@ -2443,6 +2447,8 @@ export class GameManager {
             units: JSON.parse(replayData.initialUnitsState || '[]'),
             weapons: JSON.parse(replayData.initialWeaponsState || '[]'),
             nexuses: JSON.parse(replayData.initialNexusesState || '[]'),
+            floorColor: replayData.floorColor,
+            wallColor: replayData.wallColor,
         };
         this.drawMapPreview(previewCanvas, tempMapData);
 
@@ -2474,7 +2480,12 @@ export class GameManager {
         this.ROWS = map.length;
         this.map = map;
 
-        this.handleMapColors(replayData);
+        const mapColorData = {
+            floorColor: replayData.floorColor,
+            wallColor: replayData.wallColor,
+            map: replayData.initialMapState
+        };
+        this.handleMapColors(mapColorData);
 
         this.initialUnitsState = replayData.initialUnitsState;
         this.initialWeaponsState = replayData.initialWeaponsState;
