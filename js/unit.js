@@ -28,7 +28,7 @@ export class Unit {
         this.boomerangCooldown = 0;
         this.shurikenSkillCooldown = 0;
         this.isStunned = 0;
-        this.stunnedByMagicCircle = false; // [추가] 마법진에 의한 기절 여부
+        this.stunnedByMagicCircle = false;
         this.poisonEffect = { active: false, duration: 0, damage: 0 };
         this.isBeingPulled = false;
         this.puller = null;
@@ -51,8 +51,8 @@ export class Unit {
         this.iceDiamondChargeTimer = 0;
         this.fireStaffSpecialCooldown = 0;
         this.isSlowed = 0;
-        this.attackCount = 0; // [추가] 3타 스킬을 위한 공격 횟수 카운터
-        this.swordSpecialAttackAnimationTimer = 0; // [추가] 검 3타 공격 모션 타이머
+        this.attackCount = 0;
+        this.swordSpecialAttackAnimationTimer = 0;
 
         this.dualSwordSkillCooldown = 0;
         this.dualSwordTeleportTarget = null;
@@ -472,10 +472,10 @@ export class Unit {
             }
         }
 
-        // [복원] 왕 유닛 생성 로직
+        // [수정] 왕이 생성한 유닛은 무기를 복제하지 않도록 false 전달
         if (this.isKing && this.spawnCooldown <= 0) {
             this.spawnCooldown = this.spawnInterval;
-            gameManager.spawnUnit(this, true);
+            gameManager.spawnUnit(this, false);
         }
         
         if (this.isCasting) {
@@ -717,7 +717,6 @@ export class Unit {
             case 'ATTACKING_NEXUS':
             case 'AGGRESSIVE':
                 if (this.target) {
-                    // [수정] 특수 공격 우선순위 로직
                     if (this.weapon && this.weapon.type === 'fire_staff' && this.fireStaffSpecialCooldown <= 0) {
                         const distanceToTarget = Math.hypot(this.pixelX - this.target.pixelX, this.pixelY - this.target.pixelY);
                         if (distanceToTarget <= this.attackRange && gameManager.hasLineOfSight(this, this.target)) {
@@ -739,7 +738,6 @@ export class Unit {
                         }
                     }
 
-                    // 일반 공격 로직
                     let attackDistance = this.attackRange;
                     if (this.weapon && this.weapon.type === 'poison_potion') {
                         attackDistance = this.baseAttackRange;
@@ -1013,7 +1011,7 @@ export class Unit {
                 ctx.fillStyle = '#0c4a6e'; 
                 ctx.fillRect(barX, currentBarY, barWidth, barHeight);
                 let progress = 0;
-                if (this.isCasting && this.weapon?.type === 'poison_potion') {
+                if (this.isCasting && this.weapon?.type === 'fire_staff') {
                     progress = this.castingProgress / this.castDuration;
                 } else {
                     progress = Math.max(0, 1 - (this.attackCooldown / this.cooldownTime));
@@ -1116,4 +1114,3 @@ export class Unit {
         this.state = 'IDLE';
     }
 }
-
