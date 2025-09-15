@@ -28,7 +28,7 @@ export class Unit {
         this.boomerangCooldown = 0;
         this.shurikenSkillCooldown = 0;
         this.isStunned = 0;
-        this.stunnedByMagicCircle = false; // [추가] 마법진에 의한 기절 여부
+        this.stunnedByMagicCircle = false;
         this.poisonEffect = { active: false, duration: 0, damage: 0 };
         this.isBeingPulled = false;
         this.puller = null;
@@ -51,15 +51,14 @@ export class Unit {
         this.iceDiamondChargeTimer = 0;
         this.fireStaffSpecialCooldown = 0;
         this.isSlowed = 0;
-        this.attackCount = 0; // [추가] 3타 스킬을 위한 공격 횟수 카운터
-        this.swordSpecialAttackAnimationTimer = 0; // [추가] 검 3타 공격 모션 타이머
+        this.attackCount = 0;
+        this.swordSpecialAttackAnimationTimer = 0;
 
-        // [수정] 쌍검 스킬 관련 변수 변경
         this.dualSwordSkillCooldown = 0;
-        this.dualSwordTeleportTarget = null; // 순간이동할 단일 대상
-        this.dualSwordTeleportDelayTimer = 0; // 순간이동까지의 딜레이
-        this.dualSwordSpinAttackTimer = 0; // 순간이동 후 회전 공격 애니메이션
-        this.isMarkedByDualSword = { active: false, timer: 0 }; // 자신이 표식에 걸렸는지 여부
+        this.dualSwordTeleportTarget = null;
+        this.dualSwordTeleportDelayTimer = 0;
+        this.dualSwordSpinAttackTimer = 0;
+        this.isMarkedByDualSword = { active: false, timer: 0 };
     }
     
     get speed() {
@@ -300,7 +299,7 @@ export class Unit {
                 gameManager.audioManager.play('stern');
             }
             this.isStunned = Math.max(this.isStunned, effectInfo.stun);
-            if (effectInfo.stunSource === 'magic_circle') { // [추가] 기절 출처 확인
+            if (effectInfo.stunSource === 'magic_circle') {
                 this.stunnedByMagicCircle = true;
             }
         }
@@ -399,10 +398,10 @@ export class Unit {
             this.applyPhysics();
             return;
         }
-        // ...
+        
         if (this.isStunned > 0) {
             this.isStunned -= gameManager.gameSpeed;
-            if (this.isStunned <= 0) { // [추가] 기절이 풀리면 상태 초기화
+            if (this.isStunned <= 0) { 
                 this.stunnedByMagicCircle = false;
             }
             this.applyPhysics();
@@ -433,7 +432,7 @@ export class Unit {
         if (this.magicDaggerSkillCooldown > 0) this.magicDaggerSkillCooldown -= gameManager.gameSpeed;
         if (this.axeSkillCooldown > 0) this.axeSkillCooldown -= gameManager.gameSpeed;
         if (this.spinAnimationTimer > 0) this.spinAnimationTimer -= gameManager.gameSpeed;
-        if (this.swordSpecialAttackAnimationTimer > 0) this.swordSpecialAttackAnimationTimer -= gameManager.gameSpeed; // [추가] 검 3타 공격 모션 타이머 감소
+        if (this.swordSpecialAttackAnimationTimer > 0) this.swordSpecialAttackAnimationTimer -= gameManager.gameSpeed;
         if (this.dualSwordSkillCooldown > 0) this.dualSwordSkillCooldown -= gameManager.gameSpeed;
         if (this.dualSwordTeleportDelayTimer > 0) this.dualSwordTeleportDelayTimer -= gameManager.gameSpeed;
         if (this.dualSwordSpinAttackTimer > 0) this.dualSwordSpinAttackTimer -= gameManager.gameSpeed;
@@ -466,15 +465,42 @@ export class Unit {
             }
         }
         
-        // [삭제] 기존 쌍검 스킬 발동 로직을 AGGRESSIVE 상태로 이전합니다.
-
-        // [수정] 쌍검 순간이동 로직 변경
         if (this.dualSwordTeleportDelayTimer > 0) {
             this.dualSwordTeleportDelayTimer -= gameManager.gameSpeed;
             if (this.dualSwordTeleportDelayTimer <= 0) {
                 this.performDualSwordTeleportAttack(enemies);
             }
         }
+
+        // [복원] 왕 유닛 생성 로직
+        if (this.isKing && this.spawnCooldown <= 0) {
+            this.spawnCooldown = this.spawnInterval;
+            gameManager.spawnUnit(this, true);
+        }
+
+        // [복원 및 수정] 불 지팡이 특수 공격 로직 (화염구 발사)
+        if (this.weapon && this.weapon.type === 'fire_staff' && this.fireStaffSpecialCooldown <= 0 && !this.isCasting) {
+            const { item: closestEnemy } = this.findClosest(enemies);
+            if (closestEnemy && Math.hypot(this.pixelX - closestEnemy.pixelX, this.pixelY - closestEnemy.pixelY) < this.detectionRange) {
+                this.isCasting = true;
+                this.castingProgress = 0;
+                this.castTargetPos = { x: closestEnemy.pixelX, y: closestEnemy.pixelY };
+                this.fireStaffSpecialCooldown = 240; // 4초 쿨다운
+            }
+        }
+
+        if (this.isCasting && this.weapon && this.weapon.type === 'fire_staff') {
+            this.castingProgress += gameManager.gameSpeed;
+            if (this.castingProgress >= this.castDuration) {
+                this.isCasting = false;
+                const targetForProjectile = { pixelX: this.castTargetPos.x, pixelY: this.castTargetPos.y };
+                gameManager.createProjectile(this, targetForProjectile, 'fireball_projectile');
+                gameManager.audioManager.play('fireball');
+            }
+            this.applyPhysics();
+            return; // 시전 중에는 다른 행동을 하지 않음
+        }
+
 
         if (this.weapon && this.weapon.type === 'magic_dagger' && !this.isAimingMagicDagger && this.magicDaggerSkillCooldown <= 0 && this.attackCooldown <= 0) {
             const { item: closestEnemy } = this.findClosest(enemies);
@@ -539,7 +565,6 @@ export class Unit {
                 gameManager.spawnMagicCircle(this.team);
                 this.magicCircleCooldown = 300;
             }
-            // [수정] 마법진에 의해 기절한 적만 찾도록 변경
             const stunnedEnemy = gameManager.findStunnedByMagicCircleEnemy(this.team);
             if (stunnedEnemy && this.attackCooldown <= 0) {
                 this.alertedCounter = 60;
@@ -592,7 +617,7 @@ export class Unit {
 
         let newState = 'IDLE';
         let newTarget = null;
-        let targetEnemyForAlert = null; // [추가] 느낌표 표시를 위한 변수
+        let targetEnemyForAlert = null;
 
         const currentGridXBeforeMove = Math.floor(this.pixelX / GRID_SIZE);
         const currentGridYBeforeMove = Math.floor(this.pixelY / GRID_SIZE);
@@ -622,7 +647,7 @@ export class Unit {
             let targetEnemy = null;
             if (closestEnemy && enemyDist <= this.detectionRange && gameManager.hasLineOfSight(this, closestEnemy)) {
                 targetEnemy = closestEnemy;
-                targetEnemyForAlert = closestEnemy; // [추가] 느낌표를 위해 타겟 저장
+                targetEnemyForAlert = closestEnemy;
             }
 
             if (this.isKing && targetEnemy) {
@@ -661,7 +686,6 @@ export class Unit {
         }
 
         if (this.state !== newState && newState !== 'IDLE' && newState !== 'FLEEING_FIELD') {
-            // [수정] 특수 공격 시에는 이미 느낌표가 뜨므로, 일반 공격 상태일 때만 느낌표를 띄웁니다.
             if (!(this.weapon && this.weapon.type === 'magic_spear' && this.target instanceof Unit && this.target.stunnedByMagicCircle)) {
                  this.alertedCounter = 60;
             }
@@ -865,14 +889,12 @@ export class Unit {
         if (this.isMarkedByDualSword.active) {
             ctx.save();
             ctx.translate(this.pixelX, this.pixelY - GRID_SIZE * 1.2);
-            const scale = 0.4 + Math.sin(this.gameManager.animationFrameCounter * 0.1) * 0.05; // [수정] 크기 50% 감소 및 약간의 애니메이션
+            const scale = 0.4 + Math.sin(this.gameManager.animationFrameCounter * 0.1) * 0.05;
             ctx.scale(scale, scale);
-            // ctx.rotate(this.gameManager.animationFrameCounter * 0.05); // [수정] 회전 제거
 
-            ctx.strokeStyle = '#9ca3af'; // gray-400
+            ctx.strokeStyle = '#9ca3af';
             ctx.lineWidth = 2.5;
             
-            // 두 개의 교차된 칼날 모양 그리기
             const L = GRID_SIZE * 0.5;
             ctx.beginPath();
             ctx.moveTo(-L, -L);
@@ -960,7 +982,7 @@ export class Unit {
         const barX = this.pixelX - barWidth / 2;
         
         const healthBarIsVisible = this.hp < 100 || this.hpBarVisibleTimer > 0;
-        const normalAttackIsVisible = (this.isCasting && this.weapon?.type === 'poison_potion') || (this.attackCooldown > 0);
+        const normalAttackIsVisible = (this.isCasting && this.weapon?.type !== 'fire_staff') || (this.attackCooldown > 0);
         let specialSkillIsVisible = 
             (this.isKing && this.spawnCooldown > 0) ||
             (this.weapon?.type === 'magic_dagger' && this.magicDaggerSkillCooldown > 0) ||
@@ -971,7 +993,7 @@ export class Unit {
             (this.weapon?.type === 'shuriken' && this.shurikenSkillCooldown > 0) ||
             (this.weapon?.type === 'fire_staff' && this.fireStaffSpecialCooldown > 0) ||
             (this.weapon?.type === 'dual_swords' && this.dualSwordSkillCooldown > 0) ||
-            (this.isCasting && this.weapon?.type === 'poison_potion');
+            (this.isCasting);
 
         if (this.attackCooldown > 0 && !this.isCasting) {
             specialSkillIsVisible = false;
@@ -1065,7 +1087,6 @@ export class Unit {
             }
         }
         
-        // [수정] 느낌표 표시 로직 변경
         const showAlert = this.alertedCounter > 0 || (this.weapon?.type === 'magic_spear' && this.target instanceof Unit && this.target.stunnedByMagicCircle);
         if (showAlert && this.state !== 'FLEEING_FIELD') {
             const yOffset = -GRID_SIZE;
@@ -1074,16 +1095,14 @@ export class Unit {
         }
     }
     
-    // [수정] 쌍검 순간이동 공격 로직 변경
     performDualSwordTeleportAttack(enemies) {
         const target = this.dualSwordTeleportTarget;
         if (target && target.hp > 0) {
             const teleportPos = this.gameManager.findEmptySpotNear(target);
             this.pixelX = teleportPos.x;
             this.pixelY = teleportPos.y;
-            this.dualSwordSpinAttackTimer = 20; // 회전 공격 애니메이션 시작
+            this.dualSwordSpinAttackTimer = 20;
             
-            // 주변 적에게 15 데미지 (데미지 상향)
             const damageRadius = GRID_SIZE * 2;
             enemies.forEach(enemy => {
                 if (Math.hypot(this.pixelX - enemy.pixelX, this.pixelY - enemy.pixelY) < damageRadius) {
@@ -1092,8 +1111,8 @@ export class Unit {
             });
             this.gameManager.audioManager.play('swordHit');
         }
-        this.dualSwordTeleportTarget = null; // 타겟 초기화
-        this.state = 'IDLE'; // 공격 후 IDLE 상태로 전환
+        this.dualSwordTeleportTarget = null;
+        this.state = 'IDLE';
     }
 }
 
