@@ -544,6 +544,7 @@ export class Unit {
                     const distToLine = Math.abs((endPos.y - startPos.y) * enemy.pixelX - (endPos.x - startPos.x) * enemy.pixelY + endPos.x * startPos.y - endPos.y * startPos.x) / Math.hypot(endPos.y - startPos.y, endPos.x - startPos.x);
                     if (distToLine < GRID_SIZE) {
                        enemy.takeDamage(20, { stun: 60 });
+                       // gameManager.audioManager.play('magicdagger');
                     }
                 });
 
@@ -953,8 +954,6 @@ export class Unit {
             ctx.stroke();
         }
         
-        // ctx.restore()는 맨 마지막으로 이동
-
         if (this.name) {
             ctx.fillStyle = 'black';
             ctx.font = 'bold 10px Arial';
@@ -1126,7 +1125,7 @@ export class Unit {
             ctx.fillStyle = 'yellow'; ctx.font = 'bold 20px Arial'; ctx.textAlign = 'center';
             ctx.fillText(this.state === 'SEEKING_HEAL_PACK' ? '+' : '!', this.pixelX, this.pixelY + yOffset);
         }
-        
+
         ctx.restore();
     }
     
