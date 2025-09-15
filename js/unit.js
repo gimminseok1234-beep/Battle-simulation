@@ -472,7 +472,6 @@ export class Unit {
             }
         }
 
-        // [수정] 왕이 생성한 유닛은 무기를 복제하지 않도록 false 전달
         if (this.isKing && this.spawnCooldown <= 0) {
             this.spawnCooldown = this.spawnInterval;
             gameManager.spawnUnit(this, false);
@@ -495,11 +494,12 @@ export class Unit {
             return;
         }
         
+        // [수정] 마법 단검 특수 공격 조건 변경 (거리 제한 제거)
         if (this.weapon && this.weapon.type === 'magic_dagger' && !this.isAimingMagicDagger && this.magicDaggerSkillCooldown <= 0 && this.attackCooldown <= 0) {
             const { item: closestEnemy } = this.findClosest(enemies);
             if (closestEnemy && gameManager.hasLineOfSight(this, closestEnemy)) {
                 const dist = Math.hypot(this.pixelX - closestEnemy.pixelX, this.pixelY - closestEnemy.pixelY);
-                if (dist < this.detectionRange && dist > this.attackRange) {
+                if (dist < this.detectionRange) { // <-- 이 부분에서 `dist > this.attackRange` 조건 삭제
                     this.isAimingMagicDagger = true;
                     this.magicDaggerAimTimer = 60;
                     const angle = Math.atan2(closestEnemy.pixelY - this.pixelY, closestEnemy.pixelX - this.pixelX);
@@ -1114,3 +1114,4 @@ export class Unit {
         this.state = 'IDLE';
     }
 }
+
