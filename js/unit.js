@@ -419,7 +419,7 @@ export class Unit {
             }
         }
 
-        if (this.awakeningEffect.active && this.awakeningEffect.stacks < 2) {
+        if (this.awakeningEffect.active && this.awakeningEffect.stacks < 3) {
             this.awakeningEffect.timer += gameManager.gameSpeed;
             if (this.awakeningEffect.timer >= 300) {
                 this.awakeningEffect.timer = 0;
@@ -494,12 +494,11 @@ export class Unit {
             return;
         }
         
-        // [수정] 마법 단검 특수 공격 조건 변경 (거리 제한 제거)
         if (this.weapon && this.weapon.type === 'magic_dagger' && !this.isAimingMagicDagger && this.magicDaggerSkillCooldown <= 0 && this.attackCooldown <= 0) {
             const { item: closestEnemy } = this.findClosest(enemies);
             if (closestEnemy && gameManager.hasLineOfSight(this, closestEnemy)) {
                 const dist = Math.hypot(this.pixelX - closestEnemy.pixelX, this.pixelY - closestEnemy.pixelY);
-                if (dist < this.detectionRange) { // <-- 이 부분에서 `dist > this.attackRange` 조건 삭제
+                if (dist < this.detectionRange) {
                     this.isAimingMagicDagger = true;
                     this.magicDaggerAimTimer = 60;
                     const angle = Math.atan2(closestEnemy.pixelY - this.pixelY, closestEnemy.pixelX - this.pixelX);
@@ -815,6 +814,21 @@ export class Unit {
                 this.awakeningEffect.stacks = 0;
                 this.awakeningEffect.timer = 0;
                 gameManager.map[finalGridY][finalGridX] = { type: TILE.FLOOR, color: gameManager.currentFloorColor };
+                for (let i = 0; i < 30; i++) {
+                    const angle = gameManager.random() * Math.PI * 2;
+                    const speed = 1 + gameManager.random() * 3;
+                    const color = gameManager.random() > 0.5 ? '#FFFFFF' : '#3b82f6';
+                    gameManager.addParticle({
+                        x: this.pixelX,
+                        y: this.pixelY,
+                        vx: Math.cos(angle) * speed,
+                        vy: Math.sin(angle) * speed,
+                        life: 0.8,
+                        color: color,
+                        size: gameManager.random() * 2 + 1.5,
+                        gravity: 0.05
+                    });
+                }
             }
         }
     }
@@ -958,8 +972,9 @@ export class Unit {
 
         if (this.isKing) {
             ctx.save();
+            const scale = 1 + (this.awakeningEffect?.stacks || 0) * 0.2;
             ctx.translate(this.pixelX, this.pixelY - GRID_SIZE * 0.5);
-            const kingScale = 1.2;
+            const kingScale = 1.2 * scale;
             ctx.scale(kingScale, kingScale);
             ctx.fillStyle = '#facc15'; ctx.strokeStyle = 'black'; ctx.lineWidth = 1 / kingScale;
             ctx.beginPath();
@@ -1011,7 +1026,7 @@ export class Unit {
                 ctx.fillStyle = '#0c4a6e'; 
                 ctx.fillRect(barX, currentBarY, barWidth, barHeight);
                 let progress = 0;
-                if (this.isCasting && this.weapon?.type === 'fire_staff') {
+                if (this.isCasting && this.weapon?.type === 'poison_potion') {
                     progress = this.castingProgress / this.castDuration;
                 } else {
                     progress = Math.max(0, 1 - (this.attackCooldown / this.cooldownTime));
