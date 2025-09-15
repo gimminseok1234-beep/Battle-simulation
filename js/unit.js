@@ -426,9 +426,10 @@ export class Unit {
             if (this.awakeningEffect.timer >= 300) {
                 this.awakeningEffect.timer = 0;
                 this.awakeningEffect.stacks++;
-                this.maxHp += 20; // 최대 체력 증가
-                this.hp = Math.min(this.maxHp, this.hp + 20); // 현재 체력도 증가
+                this.maxHp += 20;
+                this.hp = Math.min(this.maxHp, this.hp + 20);
                 this.baseAttackPower += 3;
+                gameManager.audioManager.play('Arousal');
                 for (let i = 0; i < 30; i++) {
                     const angle = gameManager.random() * Math.PI * 2;
                     const speed = 1 + gameManager.random() * 3;
@@ -543,6 +544,7 @@ export class Unit {
                     const distToLine = Math.abs((endPos.y - startPos.y) * enemy.pixelX - (endPos.x - startPos.x) * enemy.pixelY + endPos.x * startPos.y - endPos.y * startPos.x) / Math.hypot(endPos.y - startPos.y, endPos.x - startPos.x);
                     if (distToLine < GRID_SIZE) {
                        enemy.takeDamage(20, { stun: 60 });
+                       gameManager.audioManager.play('magicdagger');
                     }
                 });
 
@@ -606,7 +608,7 @@ export class Unit {
             if (closestEnemy && Math.hypot(this.pixelX - closestEnemy.pixelX, this.pixelY - closestEnemy.pixelY) < GRID_SIZE * 3) {
                 this.axeSkillCooldown = 240;
                 this.spinAnimationTimer = 30;
-
+                gameManager.audioManager.play('axe');
                 gameManager.createEffect('axe_spin_effect', this.pixelX, this.pixelY, this);
 
                 const damageRadius = GRID_SIZE * 3.5;
@@ -662,7 +664,7 @@ export class Unit {
 
             if (this.isKing && targetEnemy) {
                 newState = 'FLEEING'; newTarget = targetEnemy;
-            } else if (this.hp < 50) {
+            } else if (this.hp < this.maxHp / 2) {
                 const healPacks = gameManager.getTilesOfType(TILE.HEAL_PACK);
                 if (healPacks.length > 0) {
                     const healPackPositions = healPacks.map(pos => ({
@@ -832,6 +834,7 @@ export class Unit {
                 this.awakeningEffect.stacks = 0;
                 this.awakeningEffect.timer = 0;
                 gameManager.map[finalGridY][finalGridX] = { type: TILE.FLOOR, color: gameManager.currentFloorColor };
+                gameManager.audioManager.play('Arousal');
                 for (let i = 0; i < 30; i++) {
                     const angle = gameManager.random() * Math.PI * 2;
                     const speed = 1 + gameManager.random() * 3;
