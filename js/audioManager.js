@@ -15,13 +15,14 @@ export class AudioManager {
             fireball: './sounds/fireball.mp3',
             heal: './sounds/heal.mp3',
             unitDeath: './sounds/kill.mp3',
-            hadokenShoot: './sounds/shuriken.mp3',
+            hadokenShoot: './sounds/shuriken.mp3', // 장풍 발사 효과음
             nexusDestruction: './sounds/Nexus destruction.mp3',
             punch: './sounds/punch.mp3',
             shurikenShoot: './sounds/shuriken.mp3',
             swordHit: './sounds/sword.mp3',
             teleport: './sounds/teleport.mp3',
             hadokenHit: './sounds/punch.mp3',
+            // 요청하신 효과음 추가
             boomerang: './sounds/boomerang.mp3',
             poison: './sounds/Poison.mp3',
             questionmark: './sounds/questionmark.mp3',
@@ -29,12 +30,11 @@ export class AudioManager {
             spear: './sounds/spear.mp3',
             stern: './sounds/Stern.mp3',
             electricity: './sounds/electricity.mp3',
-            // 신규 효과음 추가
-            magicdagger: './sounds/magicdagger.mp3',
             Aurablade: './sounds/Aurablade.mp3',
             axe: './sounds/axe.mp3',
             Ice: './sounds/Ice.mp3',
-            Arousal: './sounds/Arousal.mp3'
+            Arousal: './sounds/Arousal.mp3',
+            rotaryknife: './sounds/rotaryknife.mp3', // 쌍검 회전베기 효과음
         };
     }
 
@@ -107,3 +107,4 @@ export class AudioManager {
         localStorage.setItem('arenaKillSoundEnabled', isEnabled);
     }
 }
+
