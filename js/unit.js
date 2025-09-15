@@ -9,7 +9,9 @@ export class Unit {
         this.gridX = x; this.gridY = y;
         this.pixelX = x * GRID_SIZE + GRID_SIZE / 2;
         this.pixelY = y * GRID_SIZE + GRID_SIZE / 2;
-        this.team = team; this.hp = 100;
+        this.team = team; 
+        this.hp = 100;
+        this.maxHp = 100; // 최대 체력 속성 추가
         this.baseSpeed = 1.0; this.facingAngle = gameManager.random() * Math.PI * 2;
         this.baseAttackPower = 5; this.baseAttackRange = 1.5 * GRID_SIZE;
         this.baseDetectionRange = 6 * GRID_SIZE;
@@ -424,8 +426,24 @@ export class Unit {
             if (this.awakeningEffect.timer >= 300) {
                 this.awakeningEffect.timer = 0;
                 this.awakeningEffect.stacks++;
-                this.hp = Math.min(100, this.hp + 30);
+                this.maxHp += 20; // 최대 체력 증가
+                this.hp = Math.min(this.maxHp, this.hp + 20); // 현재 체력도 증가
                 this.baseAttackPower += 3;
+                for (let i = 0; i < 30; i++) {
+                    const angle = gameManager.random() * Math.PI * 2;
+                    const speed = 1 + gameManager.random() * 3;
+                    const color = gameManager.random() > 0.5 ? '#FFFFFF' : '#3b82f6';
+                    gameManager.addParticle({
+                        x: this.pixelX,
+                        y: this.pixelY,
+                        vx: Math.cos(angle) * speed,
+                        vy: Math.sin(angle) * speed,
+                        life: 0.8,
+                        color: color,
+                        size: gameManager.random() * 2 + 1.5,
+                        gravity: 0.05
+                    });
+                }
             }
         }
 
@@ -771,7 +789,7 @@ export class Unit {
             const currentTile = gameManager.map[finalGridY][finalGridX];
             if (currentTile.type === TILE.LAVA) this.takeDamage(0.2 * gameManager.gameSpeed, { isTileDamage: true });
             if (currentTile.type === TILE.HEAL_PACK) {
-                this.hp = 100;
+                this.hp = this.maxHp;
                 gameManager.map[finalGridY][finalGridX] = { type: TILE.FLOOR, color: gameManager.currentFloorColor };
                 gameManager.audioManager.play('heal');
             }
@@ -995,7 +1013,7 @@ export class Unit {
         const barGap = 1;
         const barX = this.pixelX - barWidth / 2;
         
-        const healthBarIsVisible = this.hp < 100 || this.hpBarVisibleTimer > 0;
+        const healthBarIsVisible = this.hp < this.maxHp || this.hpBarVisibleTimer > 0;
         const normalAttackIsVisible = (this.isCasting && this.weapon?.type === 'poison_potion') || (this.attackCooldown > 0);
         let specialSkillIsVisible = 
             (this.isKing && this.spawnCooldown > 0) ||
@@ -1040,7 +1058,7 @@ export class Unit {
                 ctx.fillStyle = '#111827';
                 ctx.fillRect(barX, currentBarY, barWidth, barHeight);
                 ctx.fillStyle = '#10b981';
-                ctx.fillRect(barX, currentBarY, barWidth * (this.hp / 100), barHeight);
+                ctx.fillRect(barX, currentBarY, barWidth * (this.hp / this.maxHp), barHeight);
             }
         }
         
