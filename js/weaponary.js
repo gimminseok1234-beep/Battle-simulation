@@ -194,7 +194,6 @@ export class Weapon {
         const gameManager = this.gameManager;
         if (!gameManager) return;
 
-        // Set default attack animation timer, individual weapons can override
         if (['sword', 'dual_swords', 'boomerang', 'poison_potion', 'magic_dagger', 'axe'].includes(this.type)) {
             unit.attackAnimationTimer = 15;
         }
@@ -208,8 +207,9 @@ export class Weapon {
             
             if (unit.attackCount >= 3) {
                 unit.attackCount = 0;
-                unit.swordSpecialAttackAnimationTimer = 30; // 회전 애니메이션 타이머 설정
+                unit.swordSpecialAttackAnimationTimer = 30;
                 gameManager.createProjectile(unit, target, 'sword_wave');
+                gameManager.audioManager.play('Aurablade');
 
                 for (let i = 0; i < 20; i++) {
                     const angle = gameManager.random() * Math.PI * 2;
@@ -230,7 +230,6 @@ export class Weapon {
             if (unit.attackCount >= 3) {
                 unit.attackCount = 0;
                 
-                // 뒤로 밀려나는 반동 효과
                 const recoilAngle = unit.facingAngle + Math.PI;
                 const recoilForce = 4;
                 unit.knockbackX += Math.cos(recoilAngle) * recoilForce;
@@ -259,8 +258,8 @@ export class Weapon {
         } else if (this.type === 'magic_dagger') {
             target.takeDamage(unit.attackPower);
             gameManager.createEffect('slash', unit.pixelX, unit.pixelY, target);
-            gameManager.audioManager.play('swordHit');
-            unit.attackCooldown = 120; // 2 second cooldown
+            gameManager.audioManager.play('dualSwordHit');
+            unit.attackCooldown = 120;
         } else if (this.type === 'dual_swords') {
             target.takeDamage(unit.attackPower);
             gameManager.createEffect('dual_sword_slash', unit.pixelX, unit.pixelY, target);
@@ -269,10 +268,10 @@ export class Weapon {
         } else if (this.type === 'axe') {
             target.takeDamage(unit.attackPower);
             gameManager.createEffect('slash', unit.pixelX, unit.pixelY, target);
-            gameManager.audioManager.play('swordHit'); // Temporarily using sword sound
+            gameManager.audioManager.play('swordHit');
             unit.attackCooldown = unit.cooldownTime;
         } else if (this.type === 'ice_diamond') {
-            if (unit.iceDiamondCharges > 0) { // Special attack
+            if (unit.iceDiamondCharges > 0) {
                 for (let i = 0; i < unit.iceDiamondCharges; i++) {
                     setTimeout(() => {
                         if (unit.hp > 0) {
@@ -280,15 +279,17 @@ export class Weapon {
                         }
                     }, i * 100);
                 }
+                gameManager.audioManager.play('Ice');
                 unit.iceDiamondCharges = 0;
                 unit.iceDiamondChargeTimer = 0;
-            } else { // Normal attack
+            } else {
                 gameManager.createProjectile(unit, target, 'ice_bolt_projectile');
+                gameManager.audioManager.play('punch');
             }
             unit.attackCooldown = unit.cooldownTime;
         } else if (this.type === 'fire_staff') {
             gameManager.createProjectile(unit, target, 'black_sphere_projectile');
-            gameManager.audioManager.play('arrowShoot');
+            gameManager.audioManager.play('punch');
             unit.attackCooldown = unit.cooldownTime;
         } else if (this.type === 'shuriken') {
             if (unit.shurikenSkillCooldown <= 0) {
@@ -1623,4 +1624,3 @@ export class AreaEffect {
         }
     }
 }
-
