@@ -1104,7 +1104,7 @@ export class GameManager {
             this.map[y][x] = { type: TILE.FLOOR, color: this.currentFloorColor };
             this.units = this.units.filter(u => u.gridX !== x || u.gridY !== y);
             this.weapons = this.weapons.filter(w => w.gridX !== x || w.gridY !== y);
-            this.nexuses = this.nexuses.filter(n => n.gridX !== x || u.gridY !== y);
+            this.nexuses = this.nexuses.filter(n => n.gridX !== x || n.gridY !== y);
             this.growingFields = this.growingFields.filter(zone => !(x >= zone.gridX && x < zone.gridX + zone.width && y >= zone.gridY && y < zone.gridY + zone.height));
             this.draw();
             return;
@@ -1247,7 +1247,9 @@ export class GameManager {
                     simulationSeed: this.simulationSeed,
                     mapName: this.currentMapName || '기본 맵',
                     mapWidth: this.canvas.width,
-                    mapHeight: this.canvas.height
+                    mapHeight: this.canvas.height,
+                    floorColor: this.currentFloorColor,
+                    wallColor: this.currentWallColor
                 };
 
                 if (!this.isReplayMode) {
@@ -1400,6 +1402,13 @@ export class GameManager {
                                 hitTargets: initialHitTargets
                              });
                         }
+                    } else if (p.type === 'lightning_bolt') {
+                        const effectInfo = {
+                            interrupt: false,
+                            force: 3, // [수정] 번개 넉백 효과 추가
+                            angle: p.angle
+                        };
+                        unit.takeDamage(p.damage, effectInfo);
                     } else {
                         const effectInfo = {
                             interrupt: p.type === 'hadoken',
@@ -1780,7 +1789,7 @@ export class GameManager {
             weapon.attackRangeBonus = 5 * GRID_SIZE;
             weapon.detectionRangeBonus = 4 * GRID_SIZE;
         } else if (type === 'lightning') {
-            weapon.attackPowerBonus = 8; 
+            weapon.attackPowerBonus = 10; // [수정] 데미지 8 -> 10으로 상향
             weapon.attackRangeBonus = 6 * GRID_SIZE;
             weapon.attackCooldownBonus = -20;
         } else if (type === 'magic_spear') {
@@ -2464,6 +2473,8 @@ export class GameManager {
         this.COLS = map[0].length;
         this.ROWS = map.length;
         this.map = map;
+
+        this.handleMapColors(replayData);
 
         this.initialUnitsState = replayData.initialUnitsState;
         this.initialWeaponsState = replayData.initialWeaponsState;
