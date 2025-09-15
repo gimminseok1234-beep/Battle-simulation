@@ -28,7 +28,7 @@ export class Unit {
         this.boomerangCooldown = 0;
         this.shurikenSkillCooldown = 0;
         this.isStunned = 0;
-        this.stunnedByMagicCircle = false;
+        this.stunnedByMagicCircle = false; // [추가] 마법진에 의한 기절 여부
         this.poisonEffect = { active: false, duration: 0, damage: 0 };
         this.isBeingPulled = false;
         this.puller = null;
@@ -51,8 +51,8 @@ export class Unit {
         this.iceDiamondChargeTimer = 0;
         this.fireStaffSpecialCooldown = 0;
         this.isSlowed = 0;
-        this.attackCount = 0;
-        this.swordSpecialAttackAnimationTimer = 0;
+        this.attackCount = 0; // [추가] 3타 스킬을 위한 공격 횟수 카운터
+        this.swordSpecialAttackAnimationTimer = 0; // [추가] 검 3타 공격 모션 타이머
 
         this.dualSwordSkillCooldown = 0;
         this.dualSwordTeleportTarget = null;
@@ -477,31 +477,24 @@ export class Unit {
             this.spawnCooldown = this.spawnInterval;
             gameManager.spawnUnit(this, true);
         }
-
-        // [복원 및 수정] 불 지팡이 특수 공격 로직 (화염구 발사)
-        if (this.weapon && this.weapon.type === 'fire_staff' && this.fireStaffSpecialCooldown <= 0 && !this.isCasting) {
-            const { item: closestEnemy } = this.findClosest(enemies);
-            if (closestEnemy && Math.hypot(this.pixelX - closestEnemy.pixelX, this.pixelY - closestEnemy.pixelY) < this.detectionRange) {
-                this.isCasting = true;
-                this.castingProgress = 0;
-                this.castTargetPos = { x: closestEnemy.pixelX, y: closestEnemy.pixelY };
-                this.fireStaffSpecialCooldown = 240; // 4초 쿨다운
-            }
-        }
-
-        if (this.isCasting && this.weapon && this.weapon.type === 'fire_staff') {
+        
+        if (this.isCasting) {
             this.castingProgress += gameManager.gameSpeed;
+            if (!this.target || (this.target instanceof Unit && this.target.hp <= 0)) {
+                this.isCasting = false; this.castingProgress = 0; return;
+            }
             if (this.castingProgress >= this.castDuration) {
-                this.isCasting = false;
-                const targetForProjectile = { pixelX: this.castTargetPos.x, pixelY: this.castTargetPos.y };
-                gameManager.createProjectile(this, targetForProjectile, 'fireball_projectile');
-                gameManager.audioManager.play('fireball');
+                this.isCasting = false; this.castingProgress = 0;
+                
+                if (this.weapon.type === 'poison_potion') {
+                    gameManager.audioManager.play('poison');
+                    this.hp = 0;
+                }
             }
             this.applyPhysics();
-            return; // 시전 중에는 다른 행동을 하지 않음
+            return;
         }
-
-
+        
         if (this.weapon && this.weapon.type === 'magic_dagger' && !this.isAimingMagicDagger && this.magicDaggerSkillCooldown <= 0 && this.attackCooldown <= 0) {
             const { item: closestEnemy } = this.findClosest(enemies);
             if (closestEnemy && gameManager.hasLineOfSight(this, closestEnemy)) {
@@ -724,21 +717,29 @@ export class Unit {
             case 'ATTACKING_NEXUS':
             case 'AGGRESSIVE':
                 if (this.target) {
-                    // [추가] 쌍검 특수 공격 우선 로직
-                    if (this.weapon && this.weapon.type === 'dual_swords' && this.dualSwordSkillCooldown <= 0) {
+                    // [수정] 특수 공격 우선순위 로직
+                    if (this.weapon && this.weapon.type === 'fire_staff' && this.fireStaffSpecialCooldown <= 0) {
                         const distanceToTarget = Math.hypot(this.pixelX - this.target.pixelX, this.pixelY - this.target.pixelY);
-                        // 감지 사거리 내에 있으면 특수 공격 발동
+                        if (distanceToTarget <= this.attackRange && gameManager.hasLineOfSight(this, this.target)) {
+                            gameManager.createProjectile(this, this.target, 'fireball_projectile');
+                            gameManager.audioManager.play('fireball');
+                            this.fireStaffSpecialCooldown = 240;
+                            this.attackCooldown = 60;
+                            break;
+                        }
+                    } else if (this.weapon && this.weapon.type === 'dual_swords' && this.dualSwordSkillCooldown <= 0) {
+                        const distanceToTarget = Math.hypot(this.pixelX - this.target.pixelX, this.pixelY - this.target.pixelY);
                         if (distanceToTarget <= this.detectionRange && gameManager.hasLineOfSight(this, this.target)) {
                             gameManager.createProjectile(this, this.target, 'bouncing_sword');
-                            this.dualSwordSkillCooldown = 300; // 5초 쿨다운
-                            this.attackCooldown = 60; // 스킬 사용 후 짧은 딜레이
+                            this.dualSwordSkillCooldown = 300;
+                            this.attackCooldown = 60;
                             this.moveTarget = null;
                             this.facingAngle = Math.atan2(this.target.pixelY - this.pixelY, this.target.pixelX - this.pixelX);
-                            break; // 특수 공격 후 행동 종료
+                            break;
                         }
                     }
 
-                    // 일반 공격 로직 (특수 공격이 쿨타임이거나 조건이 맞지 않을 때 실행)
+                    // 일반 공격 로직
                     let attackDistance = this.attackRange;
                     if (this.weapon && this.weapon.type === 'poison_potion') {
                         attackDistance = this.baseAttackRange;
@@ -982,7 +983,7 @@ export class Unit {
         const barX = this.pixelX - barWidth / 2;
         
         const healthBarIsVisible = this.hp < 100 || this.hpBarVisibleTimer > 0;
-        const normalAttackIsVisible = (this.isCasting && this.weapon?.type !== 'fire_staff') || (this.attackCooldown > 0);
+        const normalAttackIsVisible = (this.isCasting && this.weapon?.type === 'poison_potion') || (this.attackCooldown > 0);
         let specialSkillIsVisible = 
             (this.isKing && this.spawnCooldown > 0) ||
             (this.weapon?.type === 'magic_dagger' && this.magicDaggerSkillCooldown > 0) ||
@@ -1012,7 +1013,7 @@ export class Unit {
                 ctx.fillStyle = '#0c4a6e'; 
                 ctx.fillRect(barX, currentBarY, barWidth, barHeight);
                 let progress = 0;
-                if (this.isCasting && this.weapon?.type === 'fire_staff') {
+                if (this.isCasting && this.weapon?.type === 'poison_potion') {
                     progress = this.castingProgress / this.castDuration;
                 } else {
                     progress = Math.max(0, 1 - (this.attackCooldown / this.cooldownTime));
