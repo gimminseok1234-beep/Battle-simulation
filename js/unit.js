@@ -544,7 +544,7 @@ export class Unit {
                     const distToLine = Math.abs((endPos.y - startPos.y) * enemy.pixelX - (endPos.x - startPos.x) * enemy.pixelY + endPos.x * startPos.y - endPos.y * startPos.x) / Math.hypot(endPos.y - startPos.y, endPos.x - startPos.x);
                     if (distToLine < GRID_SIZE) {
                        enemy.takeDamage(20, { stun: 60 });
-                       gameManager.audioManager.play('magicdagger');
+                       // gameManager.audioManager.play('magicdagger'); // 이전 요청으로 제거됨
                     }
                 });
 
@@ -748,6 +748,7 @@ export class Unit {
                     } else if (this.weapon && this.weapon.type === 'dual_swords' && this.dualSwordSkillCooldown <= 0) {
                         const distanceToTarget = Math.hypot(this.pixelX - this.target.pixelX, this.pixelY - this.target.pixelY);
                         if (distanceToTarget <= this.detectionRange && gameManager.hasLineOfSight(this, this.target)) {
+                            gameManager.audioManager.play('shurikenShoot');
                             gameManager.createProjectile(this, this.target, 'bouncing_sword');
                             this.dualSwordSkillCooldown = 300;
                             this.attackCooldown = 60;
@@ -1144,7 +1145,7 @@ export class Unit {
                     enemy.takeDamage(15);
                 }
             });
-            this.gameManager.audioManager.play('swordHit');
+            this.gameManager.audioManager.play('rotaryknife');
         }
         this.dualSwordTeleportTarget = null;
         this.state = 'IDLE';
