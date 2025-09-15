@@ -1404,13 +1404,6 @@ export class GameManager {
                                 hitTargets: initialHitTargets
                              });
                         }
-                    } else if (p.type === 'lightning_bolt') {
-                        const effectInfo = {
-                            interrupt: false,
-                            force: 3, // [수정] 번개 넉백 효과 추가
-                            angle: p.angle
-                        };
-                        unit.takeDamage(p.damage, effectInfo);
                     } else {
                         const effectInfo = {
                             interrupt: p.type === 'hadoken',
@@ -1422,7 +1415,8 @@ export class GameManager {
                     }
         
                     if (p.type === 'lightning_bolt') {
-                        p.destroyed = true; 
+                        unit.takeDamage(p.damage); // [수정] 넉백 효과 제거
+                        p.destroyed = true;
         
                         const potentialTargets = this.units.filter(u =>
                             u.team !== p.owner.team && !p.hitTargets.has(u) && u.hp > 0
@@ -1791,7 +1785,7 @@ export class GameManager {
             weapon.attackRangeBonus = 5 * GRID_SIZE;
             weapon.detectionRangeBonus = 4 * GRID_SIZE;
         } else if (type === 'lightning') {
-            weapon.attackPowerBonus = 10;
+            weapon.attackPowerBonus = 8;
             weapon.attackRangeBonus = 6 * GRID_SIZE;
             weapon.attackCooldownBonus = -20;
         } else if (type === 'magic_spear') {
@@ -2483,7 +2477,9 @@ export class GameManager {
         const mapColorData = {
             floorColor: replayData.floorColor,
             wallColor: replayData.wallColor,
-            map: replayData.initialMapState
+            map: replayData.initialMapState,
+            recentFloorColors: replayData.recentFloorColors,
+            recentWallColors: replayData.recentWallColors
         };
         this.handleMapColors(mapColorData);
 
