@@ -84,6 +84,7 @@ export class GameManager {
             safeZoneSize: 6,
             simulationTime: 0,
             totalShrinkTime: 60 * 60,
+            shrinkType: 'all',
             currentBounds: { minX: 0, maxX: 0, minY: 0, maxY: 0 }
         };
         this.hadokenKnockback = 15;
@@ -787,6 +788,7 @@ export class GameManager {
                  document.getElementById('autoFieldActiveToggle').checked = this.autoMagneticField.isActive;
                 document.getElementById('autoFieldShrinkTime').value = this.autoMagneticField.totalShrinkTime / 60;
                 document.getElementById('autoFieldSafeZoneSize').value = this.autoMagneticField.safeZoneSize;
+                document.getElementById('autoFieldShrinkType').value = this.autoMagneticField.shrinkType || 'all';
                 document.getElementById('autoFieldModal').classList.add('show-modal');
             } else if (target.id === 'hadokenSettingsBtn' || target.parentElement.id === 'hadokenSettingsBtn') {
                 document.getElementById('hadokenKnockback').value = this.hadokenKnockback;
@@ -816,13 +818,15 @@ export class GameManager {
             this.autoMagneticField.isActive = document.getElementById('autoFieldActiveToggle').checked;
             this.autoMagneticField.totalShrinkTime = parseFloat(document.getElementById('autoFieldShrinkTime').value) * 60;
             this.autoMagneticField.safeZoneSize = parseInt(document.getElementById('autoFieldSafeZoneSize').value);
+            this.autoMagneticField.shrinkType = document.getElementById('autoFieldShrinkType').value;
             document.getElementById('autoFieldModal').classList.remove('show-modal');
         });
         document.getElementById('autoFieldDefaultBtn').addEventListener('click', () => {
-            this.autoMagneticField = { isActive: false, totalShrinkTime: 60 * 60, safeZoneSize: 6, simulationTime: 0, currentBounds: { minX: 0, maxX: 0, minY: 0, maxY: 0 } };
+            this.autoMagneticField = { isActive: false, totalShrinkTime: 60 * 60, safeZoneSize: 6, shrinkType: 'all', simulationTime: 0, currentBounds: { minX: 0, maxX: 0, minY: 0, maxY: 0 } };
             document.getElementById('autoFieldActiveToggle').checked = this.autoMagneticField.isActive;
             document.getElementById('autoFieldShrinkTime').value = this.autoMagneticField.totalShrinkTime / 60;
             document.getElementById('autoFieldSafeZoneSize').value = this.autoMagneticField.safeZoneSize;
+            document.getElementById('autoFieldShrinkType').value = this.autoMagneticField.shrinkType;
         });
         
         document.getElementById('closeHadokenModal').addEventListener('click', () => document.getElementById('hadokenModal').classList.remove('show-modal'));
@@ -1100,7 +1104,7 @@ export class GameManager {
             this.map[y][x] = { type: TILE.FLOOR, color: this.currentFloorColor };
             this.units = this.units.filter(u => u.gridX !== x || u.gridY !== y);
             this.weapons = this.weapons.filter(w => w.gridX !== x || w.gridY !== y);
-            this.nexuses = this.nexuses.filter(n => n.gridX !== x || n.gridY !== y);
+            this.nexuses = this.nexuses.filter(n => n.gridX !== x || u.gridY !== y);
             this.growingFields = this.growingFields.filter(zone => !(x >= zone.gridX && x < zone.gridX + zone.width && y >= zone.gridY && y < zone.gridY + zone.height));
             this.draw();
             return;
@@ -1291,19 +1295,31 @@ export class GameManager {
         if (this.autoMagneticField.isActive) {
             this.autoMagneticField.simulationTime++;
             const progress = Math.min(1, this.autoMagneticField.simulationTime / this.autoMagneticField.totalShrinkTime);
-            
-            const finalWidth = this.autoMagneticField.safeZoneSize;
-            const finalHeight = this.autoMagneticField.safeZoneSize;
-            
-            const finalMinX = (this.COLS - finalWidth) / 2;
-            const finalMaxX = (this.COLS + finalWidth) / 2;
-            const finalMinY = (this.ROWS - finalHeight) / 2;
-            const finalMaxY = (this.ROWS + finalHeight) / 2;
 
-            this.autoMagneticField.currentBounds.minX = 0 + (finalMinX - 0) * progress;
-            this.autoMagneticField.currentBounds.maxX = this.COLS - (this.COLS - finalMaxX) * progress;
-            this.autoMagneticField.currentBounds.minY = 0 + (finalMinY - 0) * progress;
-            this.autoMagneticField.currentBounds.maxY = this.ROWS - (this.ROWS - finalMaxY) * progress;
+            if (this.autoMagneticField.shrinkType === 'vertical') {
+                const finalHeight = this.autoMagneticField.safeZoneSize;
+                const finalMinY = (this.ROWS - finalHeight) / 2;
+                const finalMaxY = (this.ROWS + finalHeight) / 2;
+                this.autoMagneticField.currentBounds = {
+                    minX: 0,
+                    maxX: this.COLS,
+                    minY: 0 + (finalMinY - 0) * progress,
+                    maxY: this.ROWS - (this.ROWS - finalMaxY) * progress,
+                };
+            } else { // 'all'
+                const finalWidth = this.autoMagneticField.safeZoneSize;
+                const finalHeight = this.autoMagneticField.safeZoneSize;
+                const finalMinX = (this.COLS - finalWidth) / 2;
+                const finalMaxX = (this.COLS + finalWidth) / 2;
+                const finalMinY = (this.ROWS - finalHeight) / 2;
+                const finalMaxY = (this.ROWS + finalHeight) / 2;
+                this.autoMagneticField.currentBounds = {
+                    minX: 0 + (finalMinX - 0) * progress,
+                    maxX: this.COLS - (this.COLS - finalMaxX) * progress,
+                    minY: 0 + (finalMinY - 0) * progress,
+                    maxY: this.ROWS - (this.ROWS - finalMaxY) * progress,
+                };
+            }
         }
         
         this.growingFields.forEach(field => field.update());
@@ -1345,12 +1361,10 @@ export class GameManager {
             for (const unit of this.units) {
                 if (p.owner.team !== unit.team && !p.hitTargets.has(unit) && Math.hypot(p.pixelX - unit.pixelX, p.pixelY - unit.pixelY) < GRID_SIZE / 2) {
                     
-                    // [수정] 쌍검 투사체 명중 시 로직 변경
                     if (p.type === 'bouncing_sword') {
                         unit.takeDamage(p.damage);
-                        unit.isMarkedByDualSword = { active: true, timer: 240 }; // 표식 남기기 (4초)
-                        p.owner.dualSwordTeleportTarget = unit; // 순간이동 대상 저장
-                        p.owner.dualSwordTeleportDelayTimer = 60; // 1초(60프레임) 딜레이 설정
+                        p.owner.dualSwordTeleportTarget = unit;
+                        p.owner.dualSwordTeleportDelayTimer = 60;
                         p.destroyed = true;
                         hit = true;
                         break; 
@@ -1529,10 +1543,15 @@ export class GameManager {
             if (this.autoMagneticField.isActive) {
                 this.ctx.fillStyle = `rgba(168, 85, 247, 0.2)`;
                 const b = this.autoMagneticField.currentBounds;
-                this.ctx.fillRect(0, 0, b.minX * GRID_SIZE, this.canvas.height);
-                this.ctx.fillRect(b.maxX * GRID_SIZE, 0, this.canvas.width - b.maxX * GRID_SIZE, this.canvas.height);
-                this.ctx.fillRect(b.minX * GRID_SIZE, 0, (b.maxX - b.minX) * GRID_SIZE, b.minY * GRID_SIZE);
-                this.ctx.fillRect(b.minX * GRID_SIZE, b.maxY * GRID_SIZE, (b.maxX - b.minX) * GRID_SIZE, this.canvas.height - b.maxY * GRID_SIZE);
+                if (this.autoMagneticField.shrinkType === 'vertical') {
+                    this.ctx.fillRect(0, 0, this.canvas.width, b.minY * GRID_SIZE);
+                    this.ctx.fillRect(0, b.maxY * GRID_SIZE, this.canvas.width, this.canvas.height - b.maxY * GRID_SIZE);
+                } else {
+                    this.ctx.fillRect(0, 0, b.minX * GRID_SIZE, this.canvas.height);
+                    this.ctx.fillRect(b.maxX * GRID_SIZE, 0, this.canvas.width - b.maxX * GRID_SIZE, this.canvas.height);
+                    this.ctx.fillRect(b.minX * GRID_SIZE, 0, (b.maxX - b.minX) * GRID_SIZE, b.minY * GRID_SIZE);
+                    this.ctx.fillRect(b.minX * GRID_SIZE, b.maxY * GRID_SIZE, (b.maxX - b.minX) * GRID_SIZE, this.canvas.height - b.maxY * GRID_SIZE);
+                }
             }
 
             this.growingFields.forEach(field => {
@@ -1718,7 +1737,7 @@ export class GameManager {
             if (isWeaponCheck) {
                 if (tile.type === TILE.WALL) return false;
             } else {
-                if (tile.type === TILE.WALL || tile.type === TILE.CRACKED_WALL || tile.type === TILE.GLASS_WALL) {
+                if (tile.type === TILE.WALL || tile.type === TILE.CRACKED_WALL) {
                     return false;
                 }
             }
@@ -1952,7 +1971,6 @@ export class GameManager {
                 }
             }
         }
-        // 만약 빈 공간을 찾지 못하면, 원래 타겟 위치를 반환합니다.
         return { x: targetUnit.pixelX, y: targetUnit.pixelY };
     }
 
@@ -2044,7 +2062,7 @@ export class GameManager {
         });
 
         this.autoMagneticField = mapData.autoMagneticField || {
-            isActive: false, safeZoneSize: 6, simulationTime: 0,
+            isActive: false, safeZoneSize: 6, simulationTime: 0, shrinkType: 'all',
             totalShrinkTime: 60 * 60, currentBounds: { minX: 0, maxX: 0, minY: 0, maxY: 0 }
         };
         this.hadokenKnockback = mapData.hadokenKnockback || 15;
