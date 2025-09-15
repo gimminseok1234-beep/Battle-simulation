@@ -544,7 +544,6 @@ export class Unit {
                     const distToLine = Math.abs((endPos.y - startPos.y) * enemy.pixelX - (endPos.x - startPos.x) * enemy.pixelY + endPos.x * startPos.y - endPos.y * startPos.x) / Math.hypot(endPos.y - startPos.y, endPos.x - startPos.x);
                     if (distToLine < GRID_SIZE) {
                        enemy.takeDamage(20, { stun: 60 });
-                       // gameManager.audioManager.play('magicdagger');
                     }
                 });
 
@@ -859,39 +858,6 @@ export class Unit {
         const gameManager = this.gameManager;
         if (!gameManager) return;
 
-        if (this.isAimingMagicDagger) {
-            ctx.save();
-            const aimProgress = 1 - (this.magicDaggerAimTimer / 60);
-            const currentEndX = this.pixelX + (this.magicDaggerTargetPos.x - this.pixelX) * aimProgress;
-            const currentEndY = this.pixelY + (this.magicDaggerTargetPos.y - this.pixelY) * aimProgress;
-
-            ctx.globalAlpha = 0.7;
-            ctx.strokeStyle = '#FFFFFF';
-            ctx.lineWidth = 3;
-            ctx.setLineDash([10, 5]);
-            ctx.beginPath();
-            ctx.moveTo(this.pixelX, this.pixelY);
-            ctx.lineTo(currentEndX, currentEndY);
-            ctx.stroke();
-            ctx.restore();
-        }
-
-        if (this.isDashing) {
-            this.dashTrail.forEach((pos, index) => {
-                const opacity = (index / this.dashTrail.length) * 0.5;
-                ctx.save();
-                ctx.globalAlpha = opacity;
-                switch(this.team) {
-                    case TEAM.A: ctx.fillStyle = COLORS.TEAM_A; break;
-                    case TEAM.B: ctx.fillStyle = COLORS.TEAM_B; break;
-                    case TEAM.C: ctx.fillStyle = COLORS.TEAM_C; break;
-                    case TEAM.D: ctx.fillStyle = COLORS.TEAM_D; break;
-                }
-                ctx.beginPath(); ctx.arc(pos.x, pos.y, GRID_SIZE / 2.5, 0, Math.PI * 2); ctx.fill();
-                ctx.restore();
-            });
-        }
-        
         ctx.save();
         
         const scale = 1 + this.awakeningEffect.stacks * 0.2;
@@ -912,6 +878,38 @@ export class Unit {
             ctx.restore();
         }
 
+        if (this.isAimingMagicDagger) {
+            const aimProgress = 1 - (this.magicDaggerAimTimer / 60);
+            const currentEndX = this.pixelX + (this.magicDaggerTargetPos.x - this.pixelX) * aimProgress;
+            const currentEndY = this.pixelY + (this.magicDaggerTargetPos.y - this.pixelY) * aimProgress;
+
+            ctx.globalAlpha = 0.7;
+            ctx.strokeStyle = '#FFFFFF';
+            ctx.lineWidth = 3;
+            ctx.setLineDash([10, 5]);
+            ctx.beginPath();
+            ctx.moveTo(this.pixelX, this.pixelY);
+            ctx.lineTo(currentEndX, currentEndY);
+            ctx.stroke();
+            ctx.setLineDash([]);
+        }
+
+        if (this.isDashing) {
+            this.dashTrail.forEach((pos, index) => {
+                const opacity = (index / this.dashTrail.length) * 0.5;
+                ctx.save();
+                ctx.globalAlpha = opacity;
+                switch(this.team) {
+                    case TEAM.A: ctx.fillStyle = COLORS.TEAM_A; break;
+                    case TEAM.B: ctx.fillStyle = COLORS.TEAM_B; break;
+                    case TEAM.C: ctx.fillStyle = COLORS.TEAM_C; break;
+                    case TEAM.D: ctx.fillStyle = COLORS.TEAM_D; break;
+                }
+                ctx.beginPath(); ctx.arc(pos.x, pos.y, GRID_SIZE / 2.5, 0, Math.PI * 2); ctx.fill();
+                ctx.restore();
+            });
+        }
+        
         ctx.translate(this.pixelX, this.pixelY);
         ctx.scale(scale, scale);
         ctx.translate(-this.pixelX, -this.pixelY);
@@ -924,8 +922,8 @@ export class Unit {
         if (this.isMarkedByDualSword.active) {
             ctx.save();
             ctx.translate(this.pixelX, this.pixelY - GRID_SIZE * 1.2);
-            const scale = 0.4 + Math.sin(this.gameManager.animationFrameCounter * 0.1) * 0.05;
-            ctx.scale(scale, scale);
+            const markScale = 0.4 + Math.sin(this.gameManager.animationFrameCounter * 0.1) * 0.05;
+            ctx.scale(markScale, markScale);
 
             ctx.strokeStyle = '#9ca3af';
             ctx.lineWidth = 2.5;
@@ -955,7 +953,7 @@ export class Unit {
             ctx.stroke();
         }
         
-        ctx.restore(); 
+        // ctx.restore()는 맨 마지막으로 이동
 
         if (this.name) {
             ctx.fillStyle = 'black';
@@ -994,11 +992,10 @@ export class Unit {
 
         if (this.isKing) {
             ctx.save();
-            const scale = 1 + (this.awakeningEffect?.stacks || 0) * 0.2;
+            const kingTotalScale = scale * 1.2;
             ctx.translate(this.pixelX, this.pixelY - GRID_SIZE * 0.5);
-            const kingScale = 1.2 * scale;
-            ctx.scale(kingScale, kingScale);
-            ctx.fillStyle = '#facc15'; ctx.strokeStyle = 'black'; ctx.lineWidth = 1 / kingScale;
+            ctx.scale(kingTotalScale, kingTotalScale);
+            ctx.fillStyle = '#facc15'; ctx.strokeStyle = 'black'; ctx.lineWidth = 1 / kingTotalScale;
             ctx.beginPath();
             ctx.moveTo(-GRID_SIZE * 0.4, -GRID_SIZE * 0.1); ctx.lineTo(-GRID_SIZE * 0.4, GRID_SIZE * 0.2);
             ctx.lineTo(GRID_SIZE * 0.4, GRID_SIZE * 0.2); ctx.lineTo(GRID_SIZE * 0.4, -GRID_SIZE * 0.1);
@@ -1129,6 +1126,8 @@ export class Unit {
             ctx.fillStyle = 'yellow'; ctx.font = 'bold 20px Arial'; ctx.textAlign = 'center';
             ctx.fillText(this.state === 'SEEKING_HEAL_PACK' ? '+' : '!', this.pixelX, this.pixelY + yOffset);
         }
+        
+        ctx.restore();
     }
     
     performDualSwordTeleportAttack(enemies) {
