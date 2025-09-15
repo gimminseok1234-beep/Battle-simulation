@@ -951,6 +951,7 @@ export class Projectile {
     constructor(gameManager, owner, target, type = 'arrow', options = {}) {
         this.gameManager = gameManager;
         this.owner = owner;
+        this.target = target;
         this.pixelX = options.startX !== undefined ? options.startX : owner.pixelX;
         this.pixelY = options.startY !== undefined ? options.startY : owner.pixelY;
         this.type = type;
@@ -1092,6 +1093,25 @@ export class Projectile {
                 }
             }
             return;
+        }
+
+        // [수정] 얼음 다이아 투사체 유도 기능 추가
+        if (this.type === 'ice_diamond_projectile') {
+            if (this.target && this.target.hp > 0) {
+                const targetAngle = Math.atan2(this.target.pixelY - this.pixelY, this.target.pixelX - this.pixelX);
+                let angleDiff = targetAngle - this.angle;
+
+                // 각도 차이를 -PI ~ PI 범위로 정규화
+                while (angleDiff > Math.PI) angleDiff -= 2 * Math.PI;
+                while (angleDiff < -Math.PI) angleDiff += 2 * Math.PI;
+
+                const turnSpeed = 0.03; // 프레임당 회전 속도 (라디안)
+                if (Math.abs(angleDiff) > turnSpeed) {
+                    this.angle += Math.sign(angleDiff) * turnSpeed * gameManager.gameSpeed;
+                } else {
+                    this.angle = targetAngle;
+                }
+            }
         }
 
         if (['hadoken', 'lightning_bolt', 'magic_spear', 'ice_diamond_projectile', 'fireball_projectile', 'mini_fireball_projectile', 'black_sphere_projectile'].some(t => this.type.startsWith(t))) {
@@ -1534,6 +1554,7 @@ export class MagicDaggerDashEffect {
     }
 }
 
+// [수정] AreaEffect 클래스를 export 합니다.
 export class AreaEffect {
     constructor(gameManager, x, y, type, options = {}) {
         this.gameManager = gameManager;
