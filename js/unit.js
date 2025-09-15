@@ -544,7 +544,7 @@ export class Unit {
                     const distToLine = Math.abs((endPos.y - startPos.y) * enemy.pixelX - (endPos.x - startPos.x) * enemy.pixelY + endPos.x * startPos.y - endPos.y * startPos.x) / Math.hypot(endPos.y - startPos.y, endPos.x - startPos.x);
                     if (distToLine < GRID_SIZE) {
                        enemy.takeDamage(20, { stun: 60 });
-                       // gameManager.audioManager.play('magicdagger'); // 이전 요청으로 제거됨
+                       // gameManager.audioManager.play('magicdagger');
                     }
                 });
 
