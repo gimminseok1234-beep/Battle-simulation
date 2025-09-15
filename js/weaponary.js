@@ -287,32 +287,26 @@ export class Weapon {
             }
             unit.attackCooldown = unit.cooldownTime;
         } else if (this.type === 'fire_staff') {
-            // [수정] 이제 일반 공격은 '검은 구체'를 발사합니다.
             gameManager.createProjectile(unit, target, 'black_sphere_projectile');
-            gameManager.audioManager.play('arrowShoot'); // 임시 사운드
+            gameManager.audioManager.play('arrowShoot');
             unit.attackCooldown = unit.cooldownTime;
         } else if (this.type === 'shuriken') {
             if (unit.shurikenSkillCooldown <= 0) {
-                // Special Attack: Fire 3 returning shurikens at a fixed distance.
                 const angleToTarget = Math.atan2(target.pixelY - unit.pixelY, target.pixelX - unit.pixelX);
                 const spread = 0.3;
                 const angles = [angleToTarget - spread, angleToTarget, angleToTarget + spread];
 
-                // A dummy target is created just to satisfy the Projectile constructor,
-                // but the actual direction is determined by the `angle` option.
-                // The target's position doesn't matter because the travel distance is fixed.
                 const dummyTarget = { pixelX: 0, pixelY: 0 }; 
 
                 angles.forEach(angle => {
                     gameManager.createProjectile(unit, dummyTarget, 'returning_shuriken', {
                         angle: angle,
                         state: 'MOVING_OUT',
-                        maxDistance: GRID_SIZE * 8 // Flies out 8 tiles, regardless of target distance.
+                        maxDistance: GRID_SIZE * 8
                     });
                 });
-                unit.shurikenSkillCooldown = 480; // 8 second cooldown
+                unit.shurikenSkillCooldown = 480;
             } else {
-                // Normal attack
                 gameManager.createProjectile(unit, target, 'shuriken');
             }
             gameManager.audioManager.play('shurikenShoot');
@@ -336,7 +330,6 @@ export class Weapon {
         } else if (this.type === 'poison_potion') {
             target.takeDamage(15);
             unit.attackCooldown = unit.cooldownTime;
-            // The poison potion's death effect is handled in Unit.handleDeath()
         }
     }
 
@@ -674,8 +667,11 @@ export class Weapon {
         const gameManager = this.gameManager;
         if (!gameManager) return;
         
+        const scale = 1 + (unit.awakeningEffect?.stacks || 0) * 0.2;
+
         ctx.save(); 
         ctx.translate(unit.pixelX, unit.pixelY);
+        ctx.scale(scale, scale);
         
         let rotation = unit.facingAngle;
         if (unit.attackAnimationTimer > 0) {
@@ -734,10 +730,9 @@ export class Weapon {
             ctx.fillRect(-1.5, GRID_SIZE * 0.3 + 3, 3, GRID_SIZE * 0.3);
             ctx.strokeRect(-1.5, GRID_SIZE * 0.3 + 3, 3, GRID_SIZE * 0.3);
         } else if (this.type === 'magic_dagger') {
-            // [수정] 유닛의 왼쪽에 붙이고 크기를 30% 줄입니다.
-            ctx.translate(-GRID_SIZE * 0.4, 0); // 위치 조정 (왼쪽으로)
-            ctx.scale(0.7, 0.7); // 크기 조정
-            ctx.rotate(-Math.PI / 8); // 살짝 기울임
+            ctx.translate(-GRID_SIZE * 0.4, 0);
+            ctx.scale(0.7, 0.7);
+            ctx.rotate(-Math.PI / 8);
             drawMagicDaggerIcon(ctx);
         } else if (this.type === 'axe') {
             ctx.translate(GRID_SIZE * 0.8, -GRID_SIZE * 0.7);
@@ -1000,7 +995,7 @@ export class Projectile {
             this.damage = 12;
         } else if (type === 'black_sphere_projectile') { 
             this.damage = 15;
-        } else if (type === 'bouncing_sword') { // [수정] 쌍검 투사체 데미지 설정
+        } else if (type === 'bouncing_sword') {
             this.damage = 15;
         }
 
@@ -1170,10 +1165,10 @@ export class Projectile {
             ctx.save(); 
             ctx.translate(this.pixelX, this.pixelY); 
             ctx.rotate(this.angle);
-            ctx.scale(1.2, 1.2); // [수정] 화살 크기 1.2배 확대
+            ctx.scale(1.2, 1.2);
 
-            ctx.fillStyle = '#FFFFFF'; // [수정] 흰색으로 변경
-            ctx.strokeStyle = '#000000'; // [수정] 검은색 테두리
+            ctx.fillStyle = '#FFFFFF';
+            ctx.strokeStyle = '#000000';
             ctx.lineWidth = 1;
 
             // 화살 몸통
@@ -1210,7 +1205,7 @@ export class Projectile {
         } else if (this.type === 'sword_wave') {
             ctx.save();
             ctx.translate(this.pixelX, this.pixelY);
-            ctx.rotate(this.angle - Math.PI / 2); // [수정] 검기 방향 수정
+            ctx.rotate(this.angle - Math.PI / 2);
             
             ctx.strokeStyle = '#ef4444';
             ctx.lineWidth = 4;
@@ -1226,7 +1221,7 @@ export class Projectile {
             ctx.save();
             ctx.translate(this.pixelX, this.pixelY);
             ctx.rotate(this.rotationAngle);
-            ctx.scale(0.72, 0.72); // [수정] 크기 20% 증가 (0.6 * 1.2 = 0.72)
+            ctx.scale(0.72, 0.72);
 
             ctx.fillStyle = '#6b7280';
             ctx.strokeStyle = 'black';
@@ -1387,9 +1382,8 @@ export class Projectile {
             ctx.beginPath();
             ctx.arc(this.pixelX, this.pixelY, size, 0, Math.PI * 2);
             ctx.fill();
-        } else if (this.type === 'black_sphere_projectile') { // [수정] 검은 구체 그리기 로직
+        } else if (this.type === 'black_sphere_projectile') {
             const size = GRID_SIZE / 3;
-            // Trail
             for (let i = 0; i < this.trail.length; i++) {
                 const pos = this.trail[i];
                 const alpha = (i / this.trail.length) * 0.2;
@@ -1398,9 +1392,8 @@ export class Projectile {
                 ctx.arc(pos.x, pos.y, size * (i / this.trail.length), 0, Math.PI * 2);
                 ctx.fill();
             }
-            // Main sphere
-            ctx.fillStyle = '#000000'; // 완전한 검은색
-            ctx.strokeStyle = '#4a5568'; // 시인성을 위한 어두운 회색 테두리
+            ctx.fillStyle = '#000000';
+            ctx.strokeStyle = '#4a5568';
             ctx.lineWidth = 2;
             ctx.beginPath();
             ctx.arc(this.pixelX, this.pixelY, size, 0, Math.PI * 2);
@@ -1540,7 +1533,6 @@ export class MagicDaggerDashEffect {
     }
 }
 
-// [수정] AreaEffect 클래스를 export 합니다.
 export class AreaEffect {
     constructor(gameManager, x, y, type, options = {}) {
         this.gameManager = gameManager;
@@ -1631,3 +1623,4 @@ export class AreaEffect {
         }
     }
 }
+
