@@ -1542,7 +1542,8 @@ export class GameManager {
             for (let i = this.magicCircles.length - 1; i >= 0; i--) {
                 const circle = this.magicCircles[i];
                 if (circle.gridX === gridX && circle.gridY === gridY && circle.team !== unit.team) {
-                    unit.takeDamage(0, { stun: 120, stunSource: 'magic_circle' });
+                    // [MODIFIED] 마법진을 밟으면 15의 데미지와 함께 기절하도록 수정
+                    unit.takeDamage(15, { stun: 120, stunSource: 'magic_circle' });
                     this.magicCircles.splice(i, 1);
                 }
             }
@@ -2535,7 +2536,19 @@ export class GameManager {
     }
 
     updateUIToReplayMode() {
-        document.getElementById('toolbox').style.display = 'none';
+        // [MODIFIED] 리플레이 모드에서 이름표 기능을 사용할 수 있도록 UI 로직 수정
+        const toolbox = document.getElementById('toolbox');
+        toolbox.style.display = 'flex';
+        toolbox.classList.add('replay-mode');
+
+        // '기타' 카테고리가 기본적으로 열려 있도록 설정
+        const utilsHeader = toolbox.querySelector('[data-target="category-utils"]');
+        const utilsContent = document.getElementById('category-utils');
+        if (utilsHeader && utilsContent) {
+            utilsHeader.classList.remove('collapsed');
+            utilsContent.classList.remove('collapsed');
+        }
+
         document.getElementById('editor-controls').style.display = 'none';
         document.getElementById('simResetBtn').style.display = 'none';
         const placementResetBtn = document.getElementById('simPlacementResetBtn');
@@ -2544,7 +2557,11 @@ export class GameManager {
     }
 
     updateUIToEditorMode() {
-        document.getElementById('toolbox').style.display = 'flex';
+        // [MODIFIED] 에디터 모드로 돌아갈 때, 리플레이 모드에서 숨겨진 UI를 다시 표시
+        const toolbox = document.getElementById('toolbox');
+        toolbox.style.display = 'flex';
+        toolbox.classList.remove('replay-mode');
+
         document.getElementById('editor-controls').style.display = 'flex';
         document.getElementById('simResetBtn').style.display = 'inline-block';
         const placementResetBtn = document.getElementById('simPlacementResetBtn');
@@ -2552,3 +2569,4 @@ export class GameManager {
         placementResetBtn.style.display = 'inline-block';
     }
 }
+
