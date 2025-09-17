@@ -11,9 +11,9 @@ export class Unit {
         this.pixelY = y * GRID_SIZE + GRID_SIZE / 2;
         this.team = team; 
         this.hp = 100;
-        this.maxHp = 100; // 최대 체력 속성 추가
+        this.maxHp = 100;
 
-        // [신규] 레벨업 시스템 속성
+        // 레벨업 시스템 속성
         this.level = 1;
         this.maxLevel = 5;
         this.killedBy = null; // 자신을 처치한 유닛 기록
@@ -93,15 +93,18 @@ export class Unit {
         }
         let finalSpeed = (this.baseSpeed + (this.weapon ? this.weapon.speedBonus || 0 : 0) + combatSpeedBoost) + speedModifier;
         
-        // [신규] 레벨에 따른 이동 속도 보너스
-        finalSpeed *= (1 + (this.level - 1) * 0.12);
+        if (this.gameManager.isLevelUpEnabled) {
+            finalSpeed *= (1 + (this.level - 1) * 0.12);
+        }
 
         return Math.max(0.1, finalSpeed);
     }
 
     get attackPower() { 
-        // [신규] 레벨에 따른 공격력 보너스
-        const levelBonus = (this.level - 1) * 4;
+        let levelBonus = 0;
+        if (this.gameManager.isLevelUpEnabled) {
+            levelBonus = (this.level - 1) * 4;
+        }
         return this.baseAttackPower + (this.weapon ? this.weapon.attackPowerBonus || 0 : 0) + levelBonus; 
     }
     get attackRange() { return this.baseAttackRange + (this.weapon ? this.weapon.attackRangeBonus || 0 : 0); }
@@ -109,16 +112,17 @@ export class Unit {
     
     get cooldownTime() { 
         let finalCooldown = this.baseCooldownTime + (this.weapon ? this.weapon.attackCooldownBonus || 0 : 0);
-
-        // [신규] 레벨에 따른 공격 속도 보너스 (쿨다운 감소)
-        finalCooldown *= (1 - (this.level - 1) * 0.08);
+        
+        if (this.gameManager.isLevelUpEnabled) {
+            finalCooldown *= (1 - (this.level - 1) * 0.08);
+        }
 
         if (this.weapon && this.weapon.type === 'fire_staff') return Math.max(20, Math.min(finalCooldown, 120));
         if (this.weapon && this.weapon.type === 'hadoken') return Math.max(20, Math.min(finalCooldown, 120));
         if (this.weapon && this.weapon.type === 'axe') return Math.max(20, Math.min(finalCooldown, 120));
         if (this.weapon && this.weapon.type === 'ice_diamond') return Math.max(20, Math.min(finalCooldown, 180));
         
-        return Math.max(20, finalCooldown); // 최소 쿨다운 보장
+        return Math.max(20, finalCooldown);
     }
 
     equipWeapon(weaponType, isClone = false) {
@@ -133,21 +137,22 @@ export class Unit {
         this.state = 'IDLE';
     }
 
-    // [신규] 레벨업 처리 메소드
-    levelUp() {
-        if (this.level >= this.maxLevel) return;
+    levelUp(killedUnitLevel = 0) {
+        const targetLevel = Math.max(this.level + 1, killedUnitLevel);
+        const levelsGained = targetLevel - this.level;
 
-        this.level++;
+        if (this.level >= this.maxLevel || levelsGained <= 0) return;
 
-        // 능력치 상승 및 체력 회복
-        this.maxHp += 20;
-        this.hp = Math.min(this.maxHp, this.hp + this.maxHp * 0.3); // 최대 체력의 30% 회복
-        this.baseAttackPower += 4;
+        const finalLevel = Math.min(this.maxLevel, targetLevel);
+        const actualLevelsGained = finalLevel - this.level;
+        this.level = finalLevel;
 
-        // TODO: audioManager에 'levelUp' 사운드 추가
+        this.maxHp += 20 * actualLevelsGained;
+        this.hp = Math.min(this.maxHp, this.hp + this.maxHp * 0.3);
+        this.baseAttackPower += 4 * actualLevelsGained;
+
         // this.gameManager.audioManager.play('levelUp');
 
-        // 레벨업 시각 효과 (GameManager에게 이펙트 생성 요청)
         this.gameManager.createEffect('level_up', this.pixelX, this.pixelY, this);
     }
 
@@ -510,7 +515,6 @@ export class Unit {
         if (this.shurikenSkillCooldown > 0) this.shurikenSkillCooldown -= gameManager.gameSpeed;
         if (this.fireStaffSpecialCooldown > 0) this.fireStaffSpecialCooldown -= gameManager.gameSpeed;
         
-        // [수정] 회피 기동 로직 추가
         if (this.weapon && (this.weapon.type === 'shuriken' || this.weapon.type === 'lightning') && this.evasionCooldown <= 0) {
             for (const p of projectiles) {
                 if (p.owner.team === this.team) continue;
@@ -928,7 +932,10 @@ export class Unit {
         ctx.save();
         
         const scale = 1 + this.awakeningEffect.stacks * 0.2;
-        const levelScale = 1 + (this.level - 1) * 0.08; // 레벨에 따른 크기 증가
+        let levelScale = 1;
+        if (this.gameManager.isLevelUpEnabled) {
+            levelScale = 1 + (this.level - 1) * 0.08;
+        }
         const totalScale = scale * levelScale;
 
         if (this.awakeningEffect.active) {
@@ -1017,11 +1024,10 @@ export class Unit {
         }
         ctx.beginPath(); ctx.arc(this.pixelX, this.pixelY, GRID_SIZE / 2.5, 0, Math.PI * 2); ctx.fill();
         
-        // [신규] 레벨 숫자 표시
-        if (this.level > 0) {
+        if (this.gameManager.isLevelUpEnabled && this.level > 0) {
             const fontSize = 8 + this.level; 
             ctx.font = `bold ${fontSize}px Arial`;
-            ctx.fillStyle = 'white';
+            ctx.fillStyle = '#1a202c';
             ctx.textAlign = 'center';
             ctx.textBaseline = 'middle';
             ctx.fillText(this.level, this.pixelX, this.pixelY);
@@ -1220,3 +1226,4 @@ export class Unit {
         this.state = 'IDLE';
     }
 }
+
