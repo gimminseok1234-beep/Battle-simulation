@@ -129,7 +129,9 @@ export class Unit {
         const gameManager = this.gameManager;
         if (!gameManager) return;
 
-        this.weapon = gameManager.createWeapon(0, 0, weaponType);
+        this.weapon = gameManager.createWeapon(this.gridX, this.gridY, weaponType);
+        this.weapon.isEquipped = true;
+
         gameManager.audioManager.play('equip');
         if (this.weapon.type === 'crown' && !isClone) {
             this.isKing = true;
@@ -795,9 +797,11 @@ export class Unit {
                 if (this.target) {
                     const distance = Math.hypot(this.pixelX - this.target.pixelX, this.pixelY - this.target.pixelY);
                     if (distance < GRID_SIZE * 0.8 && !this.target.isEquipped) {
-                        this.equipWeapon(this.target.type);
-                        this.target.isEquipped = true;
+                        this.weapon = this.target;
+                        this.weapon.isEquipped = true;
+                        gameManager.audioManager.play('equip');
                         this.target = null;
+                        this.state = 'IDLE';
                     } else {
                         this.moveTarget = { x: this.target.pixelX, y: this.target.pixelY };
                     }
