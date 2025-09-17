@@ -96,9 +96,8 @@ export class GameManager {
         this.isUnitOutlineEnabled = true;
         this.unitOutlineWidth = 1.5;
 
-        // [신규] 레벨업 시스템 활성화 상태를 저장할 변수
         this.isLevelUpEnabled = false;
-        
+
         this.isNametagEnabled = false;
         this.nametagList = [];
         this.usedNametagsInSim = new Set();
@@ -373,7 +372,6 @@ export class GameManager {
             growingFields: plainGrowingFields,
             autoMagneticField: this.autoMagneticField,
             hadokenKnockback: this.hadokenKnockback,
-            // [신규] 맵 데이터에 레벨업 설정 저장
             isLevelUpEnabled: this.isLevelUpEnabled,
             floorColor: this.currentFloorColor,
             wallColor: this.currentWallColor,
@@ -658,7 +656,6 @@ export class GameManager {
                 height: height,
                 map: JSON.stringify(Array(Math.floor(height / GRID_SIZE)).fill().map(() => Array(Math.floor(width / GRID_SIZE)).fill({ type: TILE.FLOOR, color: COLORS.FLOOR }))),
                 units: [], weapons: [], nexuses: [], growingFields: [],
-                isLevelUpEnabled: false, // 기본적으로 비활성화
                 floorColor: COLORS.FLOOR, wallColor: COLORS.WALL,
                 recentFloorColors: [], recentWallColors: []
             };
@@ -676,15 +673,14 @@ export class GameManager {
         document.getElementById('backToHomeBtn').addEventListener('click', () => this.showHomeScreen());
         document.getElementById('saveMapBtn').addEventListener('click', () => this.saveCurrentMap());
         document.getElementById('saveReplayBtn').addEventListener('click', () => this.openSaveReplayModal());
+        
         document.getElementById('mapSettingsBtn').addEventListener('click', () => {
             document.getElementById('widthInput').value = this.canvas.width;
             document.getElementById('heightInput').value = this.canvas.height;
-            // [신규] 모달을 열 때, 현재 맵의 레벨업 설정을 토글에 반영
             document.getElementById('levelUpToggle').checked = this.isLevelUpEnabled;
             document.getElementById('mapSettingsModal').classList.add('show-modal');
         });
 
-        // [신규] 레벨업 토글 스위치 이벤트 리스너 추가
         document.getElementById('levelUpToggle').addEventListener('change', (e) => {
             this.isLevelUpEnabled = e.target.checked;
         });
@@ -960,9 +956,6 @@ export class GameManager {
     
     startSimulation() {
         if (this.state !== 'EDIT') return;
-
-        // Reset levels before simulation
-        this.units.forEach(unit => unit.level = 1);
 
         if (!this.isReplayMode) {
             this.simulationSeed = Date.now();
@@ -1268,8 +1261,7 @@ export class GameManager {
                     mapWidth: this.canvas.width,
                     mapHeight: this.canvas.height,
                     floorColor: this.currentFloorColor,
-                    wallColor: this.currentWallColor,
-                    isLevelUpEnabled: this.isLevelUpEnabled
+                    wallColor: this.currentWallColor
                 };
 
                 if (!this.isReplayMode) {
@@ -1364,12 +1356,11 @@ export class GameManager {
         });
         
         const deadUnits = this.units.filter(u => u.hp <= 0);
-
-        // [수정] 레벨업 시스템이 활성화된 경우에만 경험치 부여 로직 실행
+        
         if (this.isLevelUpEnabled) {
             deadUnits.forEach(deadUnit => {
                 if (deadUnit.killedBy && deadUnit.killedBy.hp > 0) {
-                    deadUnit.killedBy.levelUp(); // 1킬 = 1레벨업
+                    deadUnit.killedBy.levelUp(deadUnit.level);
                 }
             });
         }
@@ -1443,7 +1434,7 @@ export class GameManager {
                     }
         
                     if (p.type === 'lightning_bolt') {
-                        unit.takeDamage(p.damage, {}, p.owner); // [수정] 넉백 효과 제거
+                        unit.takeDamage(p.damage, {}, p.owner);
                         p.destroyed = true;
         
                         const potentialTargets = this.units.filter(u =>
@@ -1484,9 +1475,9 @@ export class GameManager {
                 for (const nexus of this.nexuses) {
                     if (p.owner.team !== nexus.team && Math.hypot(p.pixelX - nexus.pixelX, p.pixelY - nexus.pixelY) < GRID_SIZE) {
                         if (p.type === 'ice_diamond_projectile') {
-                           nexus.takeDamage(p.damage, p.owner);
+                           nexus.takeDamage(p.damage);
                         } else if (p.type === 'fireball_projectile') {
-                            nexus.takeDamage(p.damage, p.owner);
+                            nexus.takeDamage(p.damage);
                             createFireballHitEffect(this, nexus.pixelX, nexus.pixelY);
                             p.destroyed = true;
                             
@@ -1505,7 +1496,7 @@ export class GameManager {
                                 });
                             }
                         } else {
-                            nexus.takeDamage(p.damage, p.owner);
+                            nexus.takeDamage(p.damage);
                             if (p.type === 'hadoken') this.audioManager.play('hadokenHit');
                         }
                         hit = true;
@@ -1878,7 +1869,8 @@ export class GameManager {
         } else if (type === 'fire_pillar') {
             const damage = args[0];
             const ownerTeam = args[1];
-            this.areaEffects.push(new AreaEffect(this, pos.x, pos.y, type, { damage, ownerTeam }));
+            const owner = args[2];
+            this.areaEffects.push(new AreaEffect(this, pos.x, pos.y, type, { damage, ownerTeam, owner }));
         } else {
             const options = args[0] || {};
             this.areaEffects.push(new AreaEffect(this, pos.x, pos.y, type, options));
@@ -2075,6 +2067,8 @@ export class GameManager {
 
         this.handleMapColors(mapData);
 
+        this.isLevelUpEnabled = mapData.isLevelUpEnabled || false;
+
         if (mapData.map && typeof mapData.map === 'string') {
             this.map = JSON.parse(mapData.map);
         } else {
@@ -2100,9 +2094,6 @@ export class GameManager {
         };
         this.hadokenKnockback = mapData.hadokenKnockback || 15;
         
-        // [신규] 맵 로드 시 레벨업 설정 불러오기
-        this.isLevelUpEnabled = mapData.isLevelUpEnabled || false; // 설정이 없으면 기본값 false
-
         this.resetSimulationState();
         this.renderRecentColors('floor');
         this.renderRecentColors('wall');
@@ -2128,6 +2119,8 @@ export class GameManager {
         this.ROWS = Math.floor(this.canvas.height / GRID_SIZE);
 
         this.handleMapColors(mapData);
+        
+        this.isLevelUpEnabled = mapData.isLevelUpEnabled || false;
 
         this.map = JSON.parse(mapData.map);
         
@@ -2146,9 +2139,6 @@ export class GameManager {
 
         this.autoMagneticField = mapData.autoMagneticField;
         this.hadokenKnockback = mapData.hadokenKnockback;
-        
-        // [신규] 로컬 맵 로드 시 레벨업 설정 불러오기
-        this.isLevelUpEnabled = mapData.isLevelUpEnabled || false;
         
         this.resetSimulationState();
         this.renderRecentColors('floor');
@@ -2173,6 +2163,9 @@ export class GameManager {
         this.initialGrowingFieldsState = [];
         this.initialAutoFieldState = {};
         this.usedNametagsInSim.clear();
+        
+        this.units.forEach(u => u.level = 1);
+
         document.getElementById('statusText').textContent = "에디터 모드";
         document.getElementById('simStartBtn').classList.remove('hidden');
         document.getElementById('saveReplayBtn').classList.add('hidden');
@@ -2501,9 +2494,6 @@ export class GameManager {
         this.currentMapId = replayId; 
         this.currentMapName = replayData.name;
 
-        // [신규] 리플레이 로드 시 레벨업 설정 불러오기
-        this.isLevelUpEnabled = replayData.isLevelUpEnabled || false;
-
         this.canvas.width = replayData.mapWidth;
         this.canvas.height = replayData.mapHeight;
         const map = JSON.parse(replayData.initialMapState);
@@ -2519,6 +2509,8 @@ export class GameManager {
             recentWallColors: replayData.recentWallColors
         };
         this.handleMapColors(mapColorData);
+        
+        this.isLevelUpEnabled = replayData.isLevelUpEnabled || false;
 
         this.initialUnitsState = replayData.initialUnitsState;
         this.initialWeaponsState = replayData.initialWeaponsState;
@@ -2551,3 +2543,4 @@ export class GameManager {
         placementResetBtn.style.display = 'inline-block';
     }
 }
+
