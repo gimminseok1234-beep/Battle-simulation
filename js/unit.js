@@ -1128,7 +1128,8 @@ export class Unit {
         const barsToShow = [];
         if (normalAttackIsVisible) barsToShow.push('attack');
         if (healthBarIsVisible) barsToShow.push('health');
-        if (kingSpawnBarIsVisible) barsToShow.push('spawn');
+        
+        // [MODIFIED] 왕 유닛 생성 게이지는 별도로 처리하므로 barsToShow 배열에서 제외합니다.
 
         if (barsToShow.length > 0) {
             const kingYOffset = this.isKing ? GRID_SIZE * 0.4 * totalScale : 0; 
@@ -1175,14 +1176,16 @@ export class Unit {
                 }
                 currentBarY += barHeight + barGap;
             }
-
-            if (kingSpawnBarIsVisible) {
-                ctx.fillStyle = '#450a0a'; // Dark red background
-                ctx.fillRect(barX, currentBarY, barWidth, barHeight);
-                const progress = 1 - (this.spawnCooldown / this.spawnInterval);
-                ctx.fillStyle = '#ef4444'; // Bright red
-                ctx.fillRect(barX, currentBarY, barWidth * progress, barHeight);
-            }
+        }
+        
+        // [MODIFIED] 왕 유닛 생성 게이지를 유닛 아래, 이름표와 겹치지 않는 위치에 그립니다.
+        if (kingSpawnBarIsVisible) {
+            const spawnBarY = this.pixelY + GRID_SIZE + (this.name ? 5 : 0);
+            ctx.fillStyle = '#450a0a'; // Dark red background
+            ctx.fillRect(barX, spawnBarY, barWidth, barHeight);
+            const progress = 1 - (this.spawnCooldown / this.spawnInterval);
+            ctx.fillStyle = '#ef4444'; // Bright red
+            ctx.fillRect(barX, spawnBarY, barWidth * progress, barHeight);
         }
         
         if (specialSkillIsVisible) { // !this.isKing 조건 제거
@@ -1264,5 +1267,6 @@ export class Unit {
         this.state = 'IDLE';
     }
 }
+
 
 
