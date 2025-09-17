@@ -11,12 +11,13 @@ export class Unit {
         this.pixelY = y * GRID_SIZE + GRID_SIZE / 2;
         this.team = team; 
         this.hp = 100;
-        this.maxHp = 100; // 최대 체력 속성 추가
+        this.maxHp = 100;
 
-        // [MODIFIED] 레벨업 시스템 속성
+        // 레벨업 시스템 속성
         this.level = 1;
         this.maxLevel = 5;
-        this.killedBy = null; // 자신을 처치한 유닛 기록
+        this.killedBy = null;
+        this.specialAttackLevelBonus = 0;
 
         this.baseSpeed = 1.0; this.facingAngle = gameManager.random() * Math.PI * 2;
         this.baseAttackPower = 5; this.baseAttackRange = 1.5 * GRID_SIZE;
@@ -93,16 +94,13 @@ export class Unit {
         }
         let finalSpeed = (this.baseSpeed + (this.weapon ? this.weapon.speedBonus || 0 : 0) + combatSpeedBoost) + speedModifier;
         
-        // [MODIFIED] 레벨에 따른 이동 속도 보너스
         finalSpeed *= (1 + (this.level - 1) * 0.12);
 
         return Math.max(0.1, finalSpeed);
     }
 
     get attackPower() { 
-        // [MODIFIED] 레벨에 따른 공격력 보너스
-        const levelBonus = (this.level - 1) * 4;
-        return this.baseAttackPower + (this.weapon ? this.weapon.attackPowerBonus || 0 : 0) + levelBonus; 
+        return this.baseAttackPower + (this.weapon ? this.weapon.attackPowerBonus || 0 : 0); 
     }
     get attackRange() { return this.baseAttackRange + (this.weapon ? this.weapon.attackRangeBonus || 0 : 0); }
     get detectionRange() { return this.baseDetectionRange + (this.weapon ? this.weapon.detectionRangeBonus || 0 : 0); }
@@ -110,7 +108,6 @@ export class Unit {
     get cooldownTime() { 
         let finalCooldown = this.baseCooldownTime + (this.weapon ? this.weapon.attackCooldownBonus || 0 : 0);
 
-        // [MODIFIED] 레벨에 따른 공격 속도 보너스 (쿨다운 감소)
         finalCooldown *= (1 - (this.level - 1) * 0.08);
 
         if (this.weapon && this.weapon.type === 'fire_staff') return Math.max(20, Math.min(finalCooldown, 120));
@@ -118,7 +115,7 @@ export class Unit {
         if (this.weapon && this.weapon.type === 'axe') return Math.max(20, Math.min(finalCooldown, 120));
         if (this.weapon && this.weapon.type === 'ice_diamond') return Math.max(20, Math.min(finalCooldown, 180));
         
-        return Math.max(20, finalCooldown); // 최소 쿨다운 보장
+        return Math.max(20, finalCooldown);
     }
 
     equipWeapon(weaponType, isClone = false) {
@@ -133,10 +130,7 @@ export class Unit {
         this.state = 'IDLE';
     }
 
-    // [MODIFIED] 새로운 레벨업 규칙을 적용한 레벨업 처리 메소드
     levelUp(killedUnitLevel = 0) {
-        if (this.level >= this.maxLevel) return;
-
         const previousLevel = this.level;
         let newLevel = this.level;
 
@@ -147,17 +141,20 @@ export class Unit {
         }
 
         this.level = Math.min(this.maxLevel, newLevel);
-
-        // 레벨이 올랐을 경우에만 능력치 상승 및 효과 적용
+        
         if (this.level > previousLevel) {
             const levelGained = this.level - previousLevel;
             this.maxHp += 20 * levelGained;
-            this.hp = Math.min(this.maxHp, this.hp + this.maxHp * 0.3); // 최대 체력의 30% 회복
+            this.hp = Math.min(this.maxHp, this.hp + this.maxHp * 0.3);
+            
+            const weaponType = this.weapon ? this.weapon.type : null;
+            const specialAttackUnits = ['fire_staff', 'ice_diamond', 'magic_spear', 'boomerang', 'shuriken', 'hadoken'];
 
-            // TODO: audioManager에 'levelUp' 사운드 추가
-            // this.gameManager.audioManager.play('levelUp');
-
-            // 레벨업 시각 효과 (GameManager에게 이펙트 생성 요청)
+            if (specialAttackUnits.includes(weaponType)) {
+                this.specialAttackLevelBonus += 4 * levelGained;
+            } else {
+                this.baseAttackPower += 4 * levelGained;
+            }
             this.gameManager.createEffect('level_up', this.pixelX, this.pixelY, this);
         }
     }
@@ -521,7 +518,6 @@ export class Unit {
         if (this.shurikenSkillCooldown > 0) this.shurikenSkillCooldown -= gameManager.gameSpeed;
         if (this.fireStaffSpecialCooldown > 0) this.fireStaffSpecialCooldown -= gameManager.gameSpeed;
         
-        // [수정] 회피 기동 로직 추가
         if (this.weapon && (this.weapon.type === 'shuriken' || this.weapon.type === 'lightning') && this.evasionCooldown <= 0) {
             for (const p of projectiles) {
                 if (p.owner.team === this.team) continue;
@@ -620,9 +616,7 @@ export class Unit {
                 enemies.forEach(enemy => {
                     const distToLine = Math.abs((endPos.y - startPos.y) * enemy.pixelX - (endPos.x - startPos.x) * enemy.pixelY + endPos.x * startPos.y - endPos.y * startPos.x) / Math.hypot(endPos.y - startPos.y, endPos.x - startPos.x);
                     if (distToLine < GRID_SIZE) {
-                       // [MODIFIED] 특수 공격 데미지가 공격력에 비례하도록 수정
                        enemy.takeDamage(this.attackPower * 1.2, { stun: 60 }, this);
-                       // gameManager.audioManager.play('magicdagger');
                     }
                 });
 
@@ -692,13 +686,11 @@ export class Unit {
                 const damageRadius = GRID_SIZE * 3.5;
                 enemies.forEach(enemy => {
                     if (Math.hypot(this.pixelX - enemy.pixelX, this.pixelY - enemy.pixelY) < damageRadius) {
-                        // [MODIFIED] 특수 공격 데미지가 공격력에 비례하도록 수정
                         enemy.takeDamage(this.attackPower * 1.5, {}, this);
                     }
                 });
                  gameManager.nexuses.forEach(nexus => {
                     if (nexus.team !== this.team && !nexus.isDestroying && Math.hypot(this.pixelX - nexus.pixelX, this.pixelY - nexus.pixelY) < damageRadius) {
-                        // [MODIFIED] 특수 공격 데미지가 공격력에 비례하도록 수정
                         nexus.takeDamage(this.attackPower * 1.5, {}, this);
                     }
                 });
@@ -942,7 +934,7 @@ export class Unit {
         ctx.save();
         
         const scale = 1 + this.awakeningEffect.stacks * 0.2;
-        const levelScale = 1 + (this.level - 1) * 0.08; // 레벨에 따른 크기 증가
+        const levelScale = 1 + (this.level - 1) * 0.08;
         const totalScale = scale * levelScale;
 
         if (this.awakeningEffect.active) {
@@ -1031,16 +1023,6 @@ export class Unit {
         }
         ctx.beginPath(); ctx.arc(this.pixelX, this.pixelY, GRID_SIZE / 2.5, 0, Math.PI * 2); ctx.fill();
         
-        // [REMOVED]
-        // if (this.gameManager.isLevelUpEnabled && this.level > 0) {
-        //     const fontSize = 12 + this.level; // 크기 증가
-        //     ctx.font = `bold ${fontSize}px Arial`; // 굵게, 크기 적용
-        //     ctx.fillStyle = '#000000'; // 진한 검정색
-        //     ctx.textAlign = 'center';
-        //     ctx.textBaseline = 'middle';
-        //     ctx.fillText(this.level, this.pixelX, this.pixelY);
-        // }
-
         if (isOutlineEnabled) {
             ctx.strokeStyle = 'black'; 
             ctx.lineWidth = outlineWidth / totalScale;
@@ -1100,7 +1082,7 @@ export class Unit {
             this.weapon.drawEquipped(ctx, this);
         }
         
-        ctx.restore(); // Restore from the scaling transform
+        ctx.restore();
 
         const barWidth = GRID_SIZE * 0.8 * totalScale; 
         const barHeight = 4;
@@ -1129,8 +1111,6 @@ export class Unit {
         if (normalAttackIsVisible) barsToShow.push('attack');
         if (healthBarIsVisible) barsToShow.push('health');
         
-        // [MODIFIED] 왕 유닛 생성 게이지는 별도로 처리하므로 barsToShow 배열에서 제외합니다.
-
         if (barsToShow.length > 0) {
             const kingYOffset = this.isKing ? GRID_SIZE * 0.4 * totalScale : 0; 
             const totalBarsHeight = (barsToShow.length * barHeight) + ((barsToShow.length - 1) * barGap);
@@ -1156,7 +1136,6 @@ export class Unit {
                 ctx.fillStyle = '#10b981';
                 ctx.fillRect(barX, currentBarY, barWidth * (this.hp / this.maxHp), barHeight);
 
-                // 레벨 숫자를 체력바 오른쪽 옆에 원과 함께 표시
                 if (this.gameManager.isLevelUpEnabled && this.level > 0) {
                     const levelCircleRadius = 8;
                     const levelX = barX + barWidth + levelCircleRadius + 4;
@@ -1178,17 +1157,16 @@ export class Unit {
             }
         }
         
-        // [MODIFIED] 왕 유닛 생성 게이지를 유닛 아래, 이름표와 겹치지 않는 위치에 그립니다.
         if (kingSpawnBarIsVisible) {
             const spawnBarY = this.pixelY + GRID_SIZE + (this.name ? 5 : 0);
-            ctx.fillStyle = '#450a0a'; // Dark red background
+            ctx.fillStyle = '#450a0a';
             ctx.fillRect(barX, spawnBarY, barWidth, barHeight);
             const progress = 1 - (this.spawnCooldown / this.spawnInterval);
-            ctx.fillStyle = '#ef4444'; // Bright red
+            ctx.fillStyle = '#ef4444';
             ctx.fillRect(barX, spawnBarY, barWidth * progress, barHeight);
         }
         
-        if (specialSkillIsVisible) { // !this.isKing 조건 제거
+        if (specialSkillIsVisible) {
             let fgColor, progress = 0, max = 1;
 
             if (this.weapon?.type === 'fire_staff') {
@@ -1257,8 +1235,7 @@ export class Unit {
             const damageRadius = GRID_SIZE * 2;
             enemies.forEach(enemy => {
                 if (Math.hypot(this.pixelX - enemy.pixelX, this.pixelY - enemy.pixelY) < damageRadius) {
-                    // [MODIFIED] 특수 공격 데미지가 공격력에 비례하도록 수정
-                    enemy.takeDamage(this.attackPower * 0.8, {}, this);
+                    enemy.takeDamage(this.attackPower, {}, this);
                 }
             });
             this.gameManager.audioManager.play('rotaryknife');
@@ -1267,6 +1244,3 @@ export class Unit {
         this.state = 'IDLE';
     }
 }
-
-
-
