@@ -1031,15 +1031,15 @@ export class Unit {
         }
         ctx.beginPath(); ctx.arc(this.pixelX, this.pixelY, GRID_SIZE / 2.5, 0, Math.PI * 2); ctx.fill();
         
-        // [MODIFIED] 레벨 숫자 표시 스타일 및 조건부 렌더링
-        if (this.gameManager.isLevelUpEnabled && this.level > 0) {
-            const fontSize = 12 + this.level; // 크기 증가
-            ctx.font = `bold ${fontSize}px Arial`; // 굵게, 크기 적용
-            ctx.fillStyle = '#000000'; // 진한 검정색
-            ctx.textAlign = 'center';
-            ctx.textBaseline = 'middle';
-            ctx.fillText(this.level, this.pixelX, this.pixelY);
-        }
+        // [REMOVED]
+        // if (this.gameManager.isLevelUpEnabled && this.level > 0) {
+        //     const fontSize = 12 + this.level; // 크기 증가
+        //     ctx.font = `bold ${fontSize}px Arial`; // 굵게, 크기 적용
+        //     ctx.fillStyle = '#000000'; // 진한 검정색
+        //     ctx.textAlign = 'center';
+        //     ctx.textBaseline = 'middle';
+        //     ctx.fillText(this.level, this.pixelX, this.pixelY);
+        // }
 
         if (isOutlineEnabled) {
             ctx.strokeStyle = 'black'; 
@@ -1109,8 +1109,8 @@ export class Unit {
         
         const healthBarIsVisible = this.hp < this.maxHp || this.hpBarVisibleTimer > 0;
         const normalAttackIsVisible = (this.isCasting && this.weapon?.type === 'poison_potion') || (this.attackCooldown > 0);
+        const kingSpawnBarIsVisible = this.isKing && this.spawnCooldown > 0;
         let specialSkillIsVisible = 
-            (this.isKing && this.spawnCooldown > 0) ||
             (this.weapon?.type === 'magic_dagger' && this.magicDaggerSkillCooldown > 0) ||
             (this.weapon?.type === 'axe' && this.axeSkillCooldown > 0) ||
             (this.weapon?.type === 'ice_diamond' && this.iceDiamondChargeTimer > 0 && this.iceDiamondCharges < 5) ||
@@ -1125,13 +1125,14 @@ export class Unit {
             specialSkillIsVisible = false;
         }
         
-        let visibleBarCount = 0;
-        if (healthBarIsVisible) visibleBarCount++;
-        if (normalAttackIsVisible) visibleBarCount++;
+        const barsToShow = [];
+        if (normalAttackIsVisible) barsToShow.push('attack');
+        if (healthBarIsVisible) barsToShow.push('health');
+        if (kingSpawnBarIsVisible) barsToShow.push('spawn');
 
-        if (visibleBarCount > 0) {
+        if (barsToShow.length > 0) {
             const kingYOffset = this.isKing ? GRID_SIZE * 0.4 * totalScale : 0; 
-            const totalBarsHeight = (visibleBarCount * barHeight) + ((visibleBarCount - 1) * barGap);
+            const totalBarsHeight = (barsToShow.length * barHeight) + ((barsToShow.length - 1) * barGap);
             let currentBarY = this.pixelY - (GRID_SIZE * 0.6 * totalScale) - totalBarsHeight - kingYOffset;
 
             if (normalAttackIsVisible) {
@@ -1153,10 +1154,38 @@ export class Unit {
                 ctx.fillRect(barX, currentBarY, barWidth, barHeight);
                 ctx.fillStyle = '#10b981';
                 ctx.fillRect(barX, currentBarY, barWidth * (this.hp / this.maxHp), barHeight);
+
+                // 레벨 숫자를 체력바 오른쪽 옆에 원과 함께 표시
+                if (this.gameManager.isLevelUpEnabled && this.level > 0) {
+                    const levelCircleRadius = 8;
+                    const levelX = barX + barWidth + levelCircleRadius + 4;
+                    const levelY = currentBarY + barHeight / 2;
+
+                    ctx.fillStyle = 'rgba(0, 0, 0, 0.8)'; 
+                    ctx.beginPath();
+                    ctx.arc(levelX, levelY, levelCircleRadius, 0, Math.PI * 2);
+                    ctx.fill();
+
+                    const fontSize = 10;
+                    ctx.font = `bold ${fontSize}px Arial`;
+                    ctx.fillStyle = 'white';
+                    ctx.textAlign = 'center';
+                    ctx.textBaseline = 'middle';
+                    ctx.fillText(this.level, levelX, levelY);
+                }
+                currentBarY += barHeight + barGap;
+            }
+
+            if (kingSpawnBarIsVisible) {
+                ctx.fillStyle = '#450a0a'; // Dark red background
+                ctx.fillRect(barX, currentBarY, barWidth, barHeight);
+                const progress = 1 - (this.spawnCooldown / this.spawnInterval);
+                ctx.fillStyle = '#ef4444'; // Bright red
+                ctx.fillRect(barX, currentBarY, barWidth * progress, barHeight);
             }
         }
         
-        if (specialSkillIsVisible && !this.isKing) {
+        if (specialSkillIsVisible) { // !this.isKing 조건 제거
             let fgColor, progress = 0, max = 1;
 
             if (this.weapon?.type === 'fire_staff') {
@@ -1235,3 +1264,5 @@ export class Unit {
         this.state = 'IDLE';
     }
 }
+
+
