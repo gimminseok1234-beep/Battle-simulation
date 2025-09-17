@@ -982,24 +982,25 @@ export class Projectile {
         else this.speed = 6;
 
         this.damage = owner.attackPower;
+        // [MODIFIED] 특수 공격 데미지가 유닛의 현재 공격력에 비례하도록 수정
         if (type === 'magic_spear_special') {
-            this.damage = (owner.weapon?.specialAttackPowerBonus || 0) + owner.baseAttackPower;
+            this.damage = owner.attackPower + (owner.weapon?.specialAttackPowerBonus || 0);
         } else if (type === 'magic_spear_normal') {
-            this.damage = (owner.weapon?.normalAttackPowerBonus || 0) + owner.baseAttackPower;
+            this.damage = owner.attackPower + (owner.weapon?.normalAttackPowerBonus || 0) - owner.baseAttackPower;
         } else if (type === 'boomerang_projectile') {
             this.damage = 0;
         } else if (type === 'boomerang_normal_projectile') {
-            this.damage = 12;
+            this.damage = owner.attackPower * 0.5 + 5;
         } else if (type === 'ice_diamond_projectile') {
-            this.damage = 28;
+            this.damage = owner.attackPower * 1.5;
         } else if (type === 'fireball_projectile') {
-            this.damage = 28;
+            this.damage = owner.attackPower * 1.5;
         } else if (type === 'mini_fireball_projectile') {
-            this.damage = 12;
+            this.damage = owner.attackPower * 0.8;
         } else if (type === 'black_sphere_projectile') { 
-            this.damage = 15;
+            this.damage = owner.attackPower * 1.1;
         } else if (type === 'bouncing_sword') {
-            this.damage = 15;
+            this.damage = owner.attackPower * 0.9;
         }
 
         this.knockback = (type === 'hadoken') ? gameManager.hadokenKnockback : 0;
