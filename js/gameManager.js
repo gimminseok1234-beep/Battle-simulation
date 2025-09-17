@@ -2075,7 +2075,13 @@ export class GameManager {
             this.map = Array(this.ROWS).fill().map(() => Array(this.COLS).fill({ type: TILE.FLOOR, color: this.currentFloorColor }));
         }
         
-        this.units = (mapData.units || []).map(uData => Object.assign(new Unit(this, uData.gridX, uData.gridY, uData.team), uData));
+        this.units = (mapData.units || []).map(uData => {
+            const unit = Object.assign(new Unit(this, uData.gridX, uData.gridY, uData.team), uData);
+            if (uData.weapon && uData.weapon.type) {
+                unit.equipWeapon(uData.weapon.type, unit.isKing);
+            }
+            return unit;
+        });
         this.weapons = (mapData.weapons || []).map(wData => Object.assign(new Weapon(this, wData.gridX, wData.gridY, wData.type), wData));
         this.nexuses = (mapData.nexuses || []).map(nData => Object.assign(new Nexus(this, nData.gridX, nData.gridY, nData.team), nData));
         
@@ -2124,7 +2130,13 @@ export class GameManager {
 
         this.map = JSON.parse(mapData.map);
         
-        this.units = (mapData.units || []).map(uData => Object.assign(new Unit(this, uData.gridX, uData.gridY, uData.team), uData));
+        this.units = (mapData.units || []).map(uData => {
+            const unit = Object.assign(new Unit(this, uData.gridX, uData.gridY, uData.team), uData);
+            if (uData.weapon && uData.weapon.type) {
+                unit.equipWeapon(uData.weapon.type, unit.isKing);
+            }
+            return unit;
+        });
         this.weapons = (mapData.weapons || []).map(wData => Object.assign(new Weapon(this, wData.gridX, wData.gridY, wData.type), wData));
         this.nexuses = (mapData.nexuses || []).map(nData => Object.assign(new Nexus(this, nData.gridX, nData.gridY, nData.team), nData));
         
@@ -2543,4 +2555,5 @@ export class GameManager {
         placementResetBtn.style.display = 'inline-block';
     }
 }
+
 
