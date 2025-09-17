@@ -13,7 +13,7 @@ export class Unit {
         this.hp = 100;
         this.maxHp = 100; // 최대 체력 속성 추가
 
-        // [신규] 레벨업 시스템 속성
+        // [MODIFIED] 레벨업 시스템 속성
         this.level = 1;
         this.maxLevel = 5;
         this.killedBy = null; // 자신을 처치한 유닛 기록
@@ -93,14 +93,14 @@ export class Unit {
         }
         let finalSpeed = (this.baseSpeed + (this.weapon ? this.weapon.speedBonus || 0 : 0) + combatSpeedBoost) + speedModifier;
         
-        // [신규] 레벨에 따른 이동 속도 보너스
+        // [MODIFIED] 레벨에 따른 이동 속도 보너스
         finalSpeed *= (1 + (this.level - 1) * 0.12);
 
         return Math.max(0.1, finalSpeed);
     }
 
     get attackPower() { 
-        // [신규] 레벨에 따른 공격력 보너스
+        // [MODIFIED] 레벨에 따른 공격력 보너스
         const levelBonus = (this.level - 1) * 4;
         return this.baseAttackPower + (this.weapon ? this.weapon.attackPowerBonus || 0 : 0) + levelBonus; 
     }
@@ -110,7 +110,7 @@ export class Unit {
     get cooldownTime() { 
         let finalCooldown = this.baseCooldownTime + (this.weapon ? this.weapon.attackCooldownBonus || 0 : 0);
 
-        // [신규] 레벨에 따른 공격 속도 보너스 (쿨다운 감소)
+        // [MODIFIED] 레벨에 따른 공격 속도 보너스 (쿨다운 감소)
         finalCooldown *= (1 - (this.level - 1) * 0.08);
 
         if (this.weapon && this.weapon.type === 'fire_staff') return Math.max(20, Math.min(finalCooldown, 120));
@@ -133,22 +133,33 @@ export class Unit {
         this.state = 'IDLE';
     }
 
-    // [신규] 레벨업 처리 메소드
-    levelUp() {
+    // [MODIFIED] 새로운 레벨업 규칙을 적용한 레벨업 처리 메소드
+    levelUp(killedUnitLevel = 0) {
         if (this.level >= this.maxLevel) return;
 
-        this.level++;
+        const previousLevel = this.level;
+        let newLevel = this.level;
 
-        // 능력치 상승 및 체력 회복
-        this.maxHp += 20;
-        this.hp = Math.min(this.maxHp, this.hp + this.maxHp * 0.3); // 최대 체력의 30% 회복
-        this.baseAttackPower += 4;
+        if (killedUnitLevel > this.level) {
+            newLevel = killedUnitLevel;
+        } else {
+            newLevel++;
+        }
 
-        // TODO: audioManager에 'levelUp' 사운드 추가
-        // this.gameManager.audioManager.play('levelUp');
+        this.level = Math.min(this.maxLevel, newLevel);
 
-        // 레벨업 시각 효과 (GameManager에게 이펙트 생성 요청)
-        this.gameManager.createEffect('level_up', this.pixelX, this.pixelY, this);
+        // 레벨이 올랐을 경우에만 능력치 상승 및 효과 적용
+        if (this.level > previousLevel) {
+            const levelGained = this.level - previousLevel;
+            this.maxHp += 20 * levelGained;
+            this.hp = Math.min(this.maxHp, this.hp + this.maxHp * 0.3); // 최대 체력의 30% 회복
+
+            // TODO: audioManager에 'levelUp' 사운드 추가
+            // this.gameManager.audioManager.play('levelUp');
+
+            // 레벨업 시각 효과 (GameManager에게 이펙트 생성 요청)
+            this.gameManager.createEffect('level_up', this.pixelX, this.pixelY, this);
+        }
     }
 
     findClosest(items) {
@@ -609,7 +620,8 @@ export class Unit {
                 enemies.forEach(enemy => {
                     const distToLine = Math.abs((endPos.y - startPos.y) * enemy.pixelX - (endPos.x - startPos.x) * enemy.pixelY + endPos.x * startPos.y - endPos.y * startPos.x) / Math.hypot(endPos.y - startPos.y, endPos.x - startPos.x);
                     if (distToLine < GRID_SIZE) {
-                       enemy.takeDamage(20, { stun: 60 }, this);
+                       // [MODIFIED] 특수 공격 데미지가 공격력에 비례하도록 수정
+                       enemy.takeDamage(this.attackPower * 1.2, { stun: 60 }, this);
                        // gameManager.audioManager.play('magicdagger');
                     }
                 });
@@ -680,11 +692,13 @@ export class Unit {
                 const damageRadius = GRID_SIZE * 3.5;
                 enemies.forEach(enemy => {
                     if (Math.hypot(this.pixelX - enemy.pixelX, this.pixelY - enemy.pixelY) < damageRadius) {
+                        // [MODIFIED] 특수 공격 데미지가 공격력에 비례하도록 수정
                         enemy.takeDamage(this.attackPower * 1.5, {}, this);
                     }
                 });
                  gameManager.nexuses.forEach(nexus => {
                     if (nexus.team !== this.team && !nexus.isDestroying && Math.hypot(this.pixelX - nexus.pixelX, this.pixelY - nexus.pixelY) < damageRadius) {
+                        // [MODIFIED] 특수 공격 데미지가 공격력에 비례하도록 수정
                         nexus.takeDamage(this.attackPower * 1.5, {}, this);
                     }
                 });
@@ -1017,11 +1031,11 @@ export class Unit {
         }
         ctx.beginPath(); ctx.arc(this.pixelX, this.pixelY, GRID_SIZE / 2.5, 0, Math.PI * 2); ctx.fill();
         
-        // [신규] 레벨 숫자 표시
-        if (this.level > 0) {
-            const fontSize = 8 + this.level; 
-            ctx.font = `bold ${fontSize}px Arial`;
-            ctx.fillStyle = 'white';
+        // [MODIFIED] 레벨 숫자 표시 스타일 및 조건부 렌더링
+        if (this.gameManager.isLevelUpEnabled && this.level > 0) {
+            const fontSize = 12 + this.level; // 크기 증가
+            ctx.font = `bold ${fontSize}px Arial`; // 굵게, 크기 적용
+            ctx.fillStyle = '#000000'; // 진한 검정색
             ctx.textAlign = 'center';
             ctx.textBaseline = 'middle';
             ctx.fillText(this.level, this.pixelX, this.pixelY);
@@ -1211,7 +1225,8 @@ export class Unit {
             const damageRadius = GRID_SIZE * 2;
             enemies.forEach(enemy => {
                 if (Math.hypot(this.pixelX - enemy.pixelX, this.pixelY - enemy.pixelY) < damageRadius) {
-                    enemy.takeDamage(15, {}, this);
+                    // [MODIFIED] 특수 공격 데미지가 공격력에 비례하도록 수정
+                    enemy.takeDamage(this.attackPower * 0.8, {}, this);
                 }
             });
             this.gameManager.audioManager.play('rotaryknife');
