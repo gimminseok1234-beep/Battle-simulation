@@ -1369,8 +1369,7 @@ export class GameManager {
         if (this.isLevelUpEnabled) {
             deadUnits.forEach(deadUnit => {
                 if (deadUnit.killedBy && deadUnit.killedBy.hp > 0) {
-                    // [MODIFIED] 처치한 유닛의 레벨을 인자로 전달하여 레벨업 처리
-                    deadUnit.killedBy.levelUp(deadUnit.level);
+                    deadUnit.killedBy.levelUp(deadUnit.level); // [MODIFIED]
                 }
             });
         }
@@ -1433,18 +1432,9 @@ export class GameManager {
                                 hitTargets: initialHitTargets
                              });
                         }
-                    } else {
-                        const effectInfo = {
-                            interrupt: p.type === 'hadoken',
-                            force: p.knockback,
-                            angle: p.angle
-                        };
-                        unit.takeDamage(p.damage, effectInfo, p.owner);
-                        if (p.type === 'hadoken') this.audioManager.play('hadokenHit');
-                    }
-        
-                    if (p.type === 'lightning_bolt') {
-                        unit.takeDamage(p.damage, {}, p.owner); // [수정] 넉백 효과 제거
+                    } else if (p.type === 'lightning_bolt') {
+                        // [MODIFIED] 데미지 중복 적용 버그 수정
+                        unit.takeDamage(p.damage, {}, p.owner);
                         p.destroyed = true;
         
                         const potentialTargets = this.units.filter(u =>
@@ -1470,6 +1460,14 @@ export class GameManager {
                             newProjectile.pixelY = unit.pixelY;
                             this.projectiles.push(newProjectile);
                         }
+                    } else {
+                        const effectInfo = {
+                            interrupt: p.type === 'hadoken',
+                            force: p.knockback,
+                            angle: p.angle
+                        };
+                        unit.takeDamage(p.damage, effectInfo, p.owner);
+                        if (p.type === 'hadoken') this.audioManager.play('hadokenHit');
                     }
         
                     if (!p.piercing) {
@@ -2569,4 +2567,5 @@ export class GameManager {
         placementResetBtn.style.display = 'inline-block';
     }
 }
+
 
