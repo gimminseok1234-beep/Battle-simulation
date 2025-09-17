@@ -12,6 +12,12 @@ export class Unit {
         this.team = team; 
         this.hp = 100;
         this.maxHp = 100; // 최대 체력 속성 추가
+
+        // [신규] 레벨업 시스템 속성
+        this.level = 1;
+        this.maxLevel = 5;
+        this.killedBy = null; // 자신을 처치한 유닛 기록
+
         this.baseSpeed = 1.0; this.facingAngle = gameManager.random() * Math.PI * 2;
         this.baseAttackPower = 5; this.baseAttackRange = 1.5 * GRID_SIZE;
         this.baseDetectionRange = 6 * GRID_SIZE;
@@ -85,19 +91,34 @@ export class Unit {
         if (this.weapon && this.weapon.type === 'dual_swords' && (this.state === 'AGGRESSIVE' || this.state === 'ATTACKING_NEXUS')) {
             combatSpeedBoost = 0.5;
         }
-        const finalSpeed = (this.baseSpeed + (this.weapon ? this.weapon.speedBonus || 0 : 0) + combatSpeedBoost) + speedModifier;
+        let finalSpeed = (this.baseSpeed + (this.weapon ? this.weapon.speedBonus || 0 : 0) + combatSpeedBoost) + speedModifier;
+        
+        // [신규] 레벨에 따른 이동 속도 보너스
+        finalSpeed *= (1 + (this.level - 1) * 0.12);
+
         return Math.max(0.1, finalSpeed);
     }
 
-    get attackPower() { return this.baseAttackPower + (this.weapon ? this.weapon.attackPowerBonus || 0 : 0); }
+    get attackPower() { 
+        // [신규] 레벨에 따른 공격력 보너스
+        const levelBonus = (this.level - 1) * 4;
+        return this.baseAttackPower + (this.weapon ? this.weapon.attackPowerBonus || 0 : 0) + levelBonus; 
+    }
     get attackRange() { return this.baseAttackRange + (this.weapon ? this.weapon.attackRangeBonus || 0 : 0); }
     get detectionRange() { return this.baseDetectionRange + (this.weapon ? this.weapon.detectionRangeBonus || 0 : 0); }
+    
     get cooldownTime() { 
-        if (this.weapon && this.weapon.type === 'fire_staff') return 120;
-        if (this.weapon && this.weapon.type === 'hadoken') return 120;
-        if (this.weapon && this.weapon.type === 'axe') return 120;
-        if (this.weapon && this.weapon.type === 'ice_diamond') return 180;
-        return this.baseCooldownTime + (this.weapon ? this.weapon.attackCooldownBonus || 0 : 0); 
+        let finalCooldown = this.baseCooldownTime + (this.weapon ? this.weapon.attackCooldownBonus || 0 : 0);
+
+        // [신규] 레벨에 따른 공격 속도 보너스 (쿨다운 감소)
+        finalCooldown *= (1 - (this.level - 1) * 0.08);
+
+        if (this.weapon && this.weapon.type === 'fire_staff') return Math.max(20, Math.min(finalCooldown, 120));
+        if (this.weapon && this.weapon.type === 'hadoken') return Math.max(20, Math.min(finalCooldown, 120));
+        if (this.weapon && this.weapon.type === 'axe') return Math.max(20, Math.min(finalCooldown, 120));
+        if (this.weapon && this.weapon.type === 'ice_diamond') return Math.max(20, Math.min(finalCooldown, 180));
+        
+        return Math.max(20, finalCooldown); // 최소 쿨다운 보장
     }
 
     equipWeapon(weaponType, isClone = false) {
@@ -110,6 +131,24 @@ export class Unit {
             this.isKing = true;
         }
         this.state = 'IDLE';
+    }
+
+    // [신규] 레벨업 처리 메소드
+    levelUp() {
+        if (this.level >= this.maxLevel) return;
+
+        this.level++;
+
+        // 능력치 상승 및 체력 회복
+        this.maxHp += 20;
+        this.hp = Math.min(this.maxHp, this.hp + this.maxHp * 0.3); // 최대 체력의 30% 회복
+        this.baseAttackPower += 4;
+
+        // TODO: audioManager에 'levelUp' 사운드 추가
+        // this.gameManager.audioManager.play('levelUp');
+
+        // 레벨업 시각 효과 (GameManager에게 이펙트 생성 요청)
+        this.gameManager.createEffect('level_up', this.pixelX, this.pixelY, this);
     }
 
     findClosest(items) {
@@ -272,20 +311,25 @@ export class Unit {
             if (this.weapon) {
                 this.weapon.use(this, target);
             } else {
-                target.takeDamage(this.attackPower);
+                target.takeDamage(this.attackPower, {}, this);
                 gameManager.audioManager.play('punch');
                 this.attackCooldown = this.cooldownTime;
             }
         }
     }
 
-    takeDamage(damage, effectInfo = {}) {
+    takeDamage(damage, effectInfo = {}, attacker = null) {
         const gameManager = this.gameManager;
         if (gameManager && damage > 0 && !effectInfo.isTileDamage) {
             createPhysicalHitEffect(gameManager, this);
         }
         this.hp -= damage;
         this.hpBarVisibleTimer = 180;
+        
+        if (this.hp <= 0 && attacker) {
+            this.killedBy = attacker;
+        }
+
         if (effectInfo.interrupt) {
              if (!['shuriken', 'lightning'].includes(this.weapon?.type) || effectInfo.force > 0) {
                  this.isCasting = false;
@@ -389,7 +433,7 @@ export class Unit {
                 this.pixelY = this.pullTargetPos.y;
                 this.isBeingPulled = false;
                 this.puller = null;
-                this.takeDamage(20, { stun: 120 });
+                this.takeDamage(20, { stun: 120 }, this.puller);
             } else {
                 const angle = Math.atan2(dy, dx);
                 this.pixelX += Math.cos(angle) * pullSpeed * gameManager.gameSpeed;
@@ -565,7 +609,7 @@ export class Unit {
                 enemies.forEach(enemy => {
                     const distToLine = Math.abs((endPos.y - startPos.y) * enemy.pixelX - (endPos.x - startPos.x) * enemy.pixelY + endPos.x * startPos.y - endPos.y * startPos.x) / Math.hypot(endPos.y - startPos.y, endPos.x - startPos.x);
                     if (distToLine < GRID_SIZE) {
-                       enemy.takeDamage(20, { stun: 60 });
+                       enemy.takeDamage(20, { stun: 60 }, this);
                        // gameManager.audioManager.play('magicdagger');
                     }
                 });
@@ -636,12 +680,12 @@ export class Unit {
                 const damageRadius = GRID_SIZE * 3.5;
                 enemies.forEach(enemy => {
                     if (Math.hypot(this.pixelX - enemy.pixelX, this.pixelY - enemy.pixelY) < damageRadius) {
-                        enemy.takeDamage(this.attackPower * 1.5);
+                        enemy.takeDamage(this.attackPower * 1.5, {}, this);
                     }
                 });
                  gameManager.nexuses.forEach(nexus => {
                     if (nexus.team !== this.team && !nexus.isDestroying && Math.hypot(this.pixelX - nexus.pixelX, this.pixelY - nexus.pixelY) < damageRadius) {
-                        nexus.takeDamage(this.attackPower * 1.5);
+                        nexus.takeDamage(this.attackPower * 1.5, {}, this);
                     }
                 });
                 gameManager.audioManager.play('swordHit');
@@ -884,12 +928,15 @@ export class Unit {
         ctx.save();
         
         const scale = 1 + this.awakeningEffect.stacks * 0.2;
+        const levelScale = 1 + (this.level - 1) * 0.08; // 레벨에 따른 크기 증가
+        const totalScale = scale * levelScale;
+
         if (this.awakeningEffect.active) {
             ctx.save();
             ctx.translate(this.pixelX, this.pixelY);
-            ctx.scale(scale, scale);
+            ctx.scale(totalScale, totalScale);
 
-            const auraRadius = (GRID_SIZE / 1.4) * scale;
+            const auraRadius = (GRID_SIZE / 1.4);
             const gradient = ctx.createRadialGradient(0, 0, auraRadius * 0.5, 0, 0, auraRadius);
             gradient.addColorStop(0, 'rgba(255, 255, 255, 0.6)');
             gradient.addColorStop(1, 'rgba(255, 255, 255, 0)');
@@ -928,13 +975,13 @@ export class Unit {
                     case TEAM.C: ctx.fillStyle = COLORS.TEAM_C; break;
                     case TEAM.D: ctx.fillStyle = COLORS.TEAM_D; break;
                 }
-                ctx.beginPath(); ctx.arc(pos.x, pos.y, GRID_SIZE / 2.5, 0, Math.PI * 2); ctx.fill();
+                ctx.beginPath(); ctx.arc(pos.x, pos.y, (GRID_SIZE / 2.5) * totalScale, 0, Math.PI * 2); ctx.fill();
                 ctx.restore();
             });
         }
         
         ctx.translate(this.pixelX, this.pixelY);
-        ctx.scale(scale, scale);
+        ctx.scale(totalScale, totalScale);
         ctx.translate(-this.pixelX, -this.pixelY);
 
 
@@ -944,7 +991,7 @@ export class Unit {
 
         if (this.isMarkedByDualSword.active) {
             ctx.save();
-            ctx.translate(this.pixelX, this.pixelY - GRID_SIZE * 1.2);
+            ctx.translate(this.pixelX, this.pixelY - GRID_SIZE * 1.2 * totalScale);
             const markScale = 0.4 + Math.sin(this.gameManager.animationFrameCounter * 0.1) * 0.05;
             ctx.scale(markScale, markScale);
 
@@ -970,24 +1017,33 @@ export class Unit {
         }
         ctx.beginPath(); ctx.arc(this.pixelX, this.pixelY, GRID_SIZE / 2.5, 0, Math.PI * 2); ctx.fill();
         
+        // [신규] 레벨 숫자 표시
+        if (this.level > 0) {
+            const fontSize = 8 + this.level; 
+            ctx.font = `bold ${fontSize}px Arial`;
+            ctx.fillStyle = 'white';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(this.level, this.pixelX, this.pixelY);
+        }
+
         if (isOutlineEnabled) {
             ctx.strokeStyle = 'black'; 
-            ctx.lineWidth = outlineWidth;
+            ctx.lineWidth = outlineWidth / totalScale;
             ctx.stroke();
         }
         
         if (this.name) {
             ctx.fillStyle = 'black';
-            ctx.font = 'bold 10px Arial';
+            ctx.font = `bold ${10 / totalScale}px Arial`;
             ctx.textAlign = 'center';
             ctx.fillText(this.name, this.pixelX, this.pixelY + GRID_SIZE);
         }
 
-
         if (this.isBeingPulled && this.puller) {
             ctx.save();
             ctx.strokeStyle = '#94a3b8';
-            ctx.lineWidth = 3;
+            ctx.lineWidth = 3 / totalScale;
             ctx.beginPath();
             ctx.moveTo(this.puller.pixelX, this.puller.pixelY);
             ctx.lineTo(this.pixelX, this.pixelY);
@@ -1001,7 +1057,7 @@ export class Unit {
             const rotation = gameManager.animationFrameCounter * 0.1;
             ctx.rotate(rotation);
             ctx.strokeStyle = '#c084fc';
-            ctx.lineWidth = 2.5;
+            ctx.lineWidth = 2.5 / totalScale;
             ctx.beginPath();
             ctx.arc(0, 0, GRID_SIZE * 0.4, 0, Math.PI * 1.5);
             ctx.stroke();
@@ -1013,7 +1069,7 @@ export class Unit {
 
         if (this.isKing) {
             ctx.save();
-            const kingTotalScale = scale * 1.2;
+            const kingTotalScale = 1.2;
             ctx.translate(this.pixelX, this.pixelY - GRID_SIZE * 0.5);
             ctx.scale(kingTotalScale, kingTotalScale);
             ctx.fillStyle = '#facc15'; ctx.strokeStyle = 'black'; ctx.lineWidth = 1 / kingTotalScale;
@@ -1029,8 +1085,10 @@ export class Unit {
         if (this.weapon && !this.isKing) {
             this.weapon.drawEquipped(ctx, this);
         }
+        
+        ctx.restore(); // Restore from the scaling transform
 
-        const barWidth = GRID_SIZE * 0.8; 
+        const barWidth = GRID_SIZE * 0.8 * totalScale; 
         const barHeight = 4;
         const barGap = 1;
         const barX = this.pixelX - barWidth / 2;
@@ -1058,9 +1116,9 @@ export class Unit {
         if (normalAttackIsVisible) visibleBarCount++;
 
         if (visibleBarCount > 0) {
-            const kingYOffset = this.isKing ? GRID_SIZE * 0.4 : 0; 
+            const kingYOffset = this.isKing ? GRID_SIZE * 0.4 * totalScale : 0; 
             const totalBarsHeight = (visibleBarCount * barHeight) + ((visibleBarCount - 1) * barGap);
-            let currentBarY = this.pixelY - (GRID_SIZE * 0.6) - totalBarsHeight - kingYOffset;
+            let currentBarY = this.pixelY - (GRID_SIZE * 0.6 * totalScale) - totalBarsHeight - kingYOffset;
 
             if (normalAttackIsVisible) {
                 ctx.fillStyle = '#0c4a6e'; 
@@ -1084,71 +1142,62 @@ export class Unit {
             }
         }
         
-        if (specialSkillIsVisible) {
-            if (this.isKing) {
-                 const kingSpecialGaugeY = this.pixelY + GRID_SIZE + 2;
-                 const progress = 1 - (this.spawnCooldown / this.spawnInterval);
-                 ctx.fillStyle = '#111827';
-                 ctx.fillRect(barX, kingSpecialGaugeY, barWidth, barHeight);
-                 ctx.fillStyle = '#f97316';
-                 ctx.fillRect(barX, kingSpecialGaugeY, barWidth * progress, barHeight);
-            } else {
-                let fgColor, progress = 0, max = 1;
+        if (specialSkillIsVisible && !this.isKing) {
+            let fgColor, progress = 0, max = 1;
 
-                if (this.weapon?.type === 'fire_staff') {
-                    fgColor = '#ef4444';
-                    progress = 240 - this.fireStaffSpecialCooldown; max = 240;
-                } else if (this.weapon?.type === 'magic_spear') {
-                    fgColor = '#a855f7';
-                    progress = 300 - this.magicCircleCooldown; max = 300;
-                } else if (this.weapon?.type === 'boomerang' || this.weapon?.type === 'shuriken' || this.weapon?.type === 'poison_potion' || this.weapon?.type === 'magic_dagger' || this.weapon?.type === 'axe' || this.weapon?.type === 'dual_swords') {
-                    fgColor = '#94a3b8';
-                    if(this.weapon.type === 'boomerang') {
-                        progress = 480 - this.boomerangCooldown; max = 480;
-                    } else if(this.weapon.type === 'shuriken') {
-                        progress = 300 - this.shurikenSkillCooldown; max = 300;
-                    } else if(this.weapon.type === 'magic_dagger') {
-                        progress = 420 - this.magicDaggerSkillCooldown; max = 420;
-                    } else if(this.weapon.type === 'axe') {
-                        progress = 240 - this.axeSkillCooldown; max = 240;
-                    } else if(this.weapon.type === 'dual_swords') {
-                        progress = 300 - this.dualSwordSkillCooldown; max = 300;
-                    } else {
-                        progress = this.castingProgress; max = this.castDuration;
-                    }
-                } else if (this.weapon?.type === 'ice_diamond') {
-                    fgColor = '#38bdf8';
-                    progress = this.iceDiamondChargeTimer; max = 240;
+            if (this.weapon?.type === 'fire_staff') {
+                fgColor = '#ef4444';
+                progress = 240 - this.fireStaffSpecialCooldown; max = 240;
+            } else if (this.weapon?.type === 'magic_spear') {
+                fgColor = '#a855f7';
+                progress = 300 - this.magicCircleCooldown; max = 300;
+            } else if (['boomerang', 'shuriken', 'poison_potion', 'magic_dagger', 'axe', 'dual_swords'].includes(this.weapon?.type)) {
+                fgColor = '#94a3b8';
+                if(this.weapon.type === 'boomerang') {
+                    progress = 480 - this.boomerangCooldown; max = 480;
+                } else if(this.weapon.type === 'shuriken') {
+                    progress = 300 - this.shurikenSkillCooldown; max = 300;
+                } else if(this.weapon.type === 'magic_dagger') {
+                    progress = 420 - this.magicDaggerSkillCooldown; max = 420;
+                } else if(this.weapon.type === 'axe') {
+                    progress = 240 - this.axeSkillCooldown; max = 240;
+                } else if(this.weapon.type === 'dual_swords') {
+                    progress = 300 - this.dualSwordSkillCooldown; max = 300;
+                } else {
+                    progress = this.castingProgress; max = this.castDuration;
                 }
-                
-                if (fgColor) {
-                    ctx.save();
-                    ctx.lineWidth = 3;
-                    ctx.strokeStyle = 'rgba(0, 0, 0, 0.3)';
-                    const radius = GRID_SIZE / 2.5 + 3;
-                    ctx.beginPath();
-                    ctx.arc(this.pixelX, this.pixelY, radius, 0, Math.PI * 2);
-                    ctx.stroke();
+            } else if (this.weapon?.type === 'ice_diamond') {
+                fgColor = '#38bdf8';
+                progress = this.iceDiamondChargeTimer; max = 240;
+            }
+            
+            if (fgColor) {
+                ctx.save();
+                ctx.lineWidth = 3;
+                ctx.strokeStyle = 'rgba(0, 0, 0, 0.3)';
+                const radius = (GRID_SIZE / 2.5 + 3) * totalScale;
+                ctx.beginPath();
+                ctx.arc(this.pixelX, this.pixelY, radius, 0, Math.PI * 2);
+                ctx.stroke();
 
-                    ctx.strokeStyle = fgColor;
-                    ctx.beginPath();
-                    const startAngle = -Math.PI / 2;
-                    const endAngle = startAngle + (progress / max) * Math.PI * 2;
-                    ctx.arc(this.pixelX, this.pixelY, radius, startAngle, endAngle);
-                    ctx.stroke();
-                    ctx.restore();
-                }
+                ctx.strokeStyle = fgColor;
+                ctx.beginPath();
+                const startAngle = -Math.PI / 2;
+                const endAngle = startAngle + (progress / max) * Math.PI * 2;
+                ctx.arc(this.pixelX, this.pixelY, radius, startAngle, endAngle);
+                ctx.stroke();
+                ctx.restore();
             }
         }
         
         const showAlert = this.alertedCounter > 0 || (this.weapon?.type === 'magic_spear' && this.target instanceof Unit && this.target.stunnedByMagicCircle);
         if (showAlert && this.state !== 'FLEEING_FIELD') {
-            const yOffset = -GRID_SIZE;
-            ctx.fillStyle = 'yellow'; ctx.font = 'bold 20px Arial'; ctx.textAlign = 'center';
+            const yOffset = -GRID_SIZE * totalScale;
+            ctx.fillStyle = 'yellow'; 
+            ctx.font = `bold ${20}px Arial`; 
+            ctx.textAlign = 'center';
             ctx.fillText(this.state === 'SEEKING_HEAL_PACK' ? '+' : '!', this.pixelX, this.pixelY + yOffset);
         }
-
-        ctx.restore();
     }
     
     performDualSwordTeleportAttack(enemies) {
@@ -1162,7 +1211,7 @@ export class Unit {
             const damageRadius = GRID_SIZE * 2;
             enemies.forEach(enemy => {
                 if (Math.hypot(this.pixelX - enemy.pixelX, this.pixelY - enemy.pixelY) < damageRadius) {
-                    enemy.takeDamage(15);
+                    enemy.takeDamage(15, {}, this);
                 }
             });
             this.gameManager.audioManager.play('rotaryknife');
