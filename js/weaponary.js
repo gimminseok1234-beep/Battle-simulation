@@ -186,7 +186,7 @@ export class Weapon {
     }
 
     /**
-     * [MODIFIED] Handles the weapon's attack logic.
+     * [NEW] Handles the weapon's attack logic.
      * @param {Unit} unit - The unit using this weapon.
      * @param {Unit | Nexus} target - The attack target.
      */
@@ -668,12 +668,10 @@ export class Weapon {
         const gameManager = this.gameManager;
         if (!gameManager) return;
         
-        const scale = 1 + (unit.awakeningEffect?.stacks || 0) * 0.2;
-        const totalScale = scale * (1 + (unit.level - 1) * 0.08);
-
-        ctx.save(); 
-        ctx.translate(unit.pixelX, unit.pixelY);
-        ctx.scale(totalScale, totalScale);
+        const awakeningScale = 1 + (unit.awakeningEffect?.stacks || 0) * 0.2;
+        // This is the outer scale from the unit, not for the weapon itself
+        ctx.save();
+        ctx.scale(1 / awakeningScale, 1 / awakeningScale);
         
         let rotation = unit.facingAngle;
         if (unit.attackAnimationTimer > 0) {
@@ -981,31 +979,32 @@ export class Projectile {
         else if (type === 'bouncing_sword') this.speed = 7;
         else this.speed = 6;
 
+        const levelBonus = (this.owner.level - 1) * 4;
         this.damage = owner.attackPower;
+        
         if (type === 'magic_spear_special') {
-            this.damage = (owner.weapon?.specialAttackPowerBonus || 0) + owner.baseAttackPower;
+            this.damage = (owner.weapon?.specialAttackPowerBonus || 0) + owner.attackPower;
         } else if (type === 'magic_spear_normal') {
-            this.damage = (owner.weapon?.normalAttackPowerBonus || 0) + owner.baseAttackPower;
+            this.damage = (owner.weapon?.normalAttackPowerBonus || 0) + owner.attackPower;
         } else if (type === 'boomerang_projectile') {
             this.damage = 0;
         } else if (type === 'boomerang_normal_projectile') {
-            this.damage = 12;
+            this.damage = 12 + levelBonus;
         } else if (type === 'ice_diamond_projectile') {
-            this.damage = 28;
+            this.damage = 28 + levelBonus;
         } else if (type === 'fireball_projectile') {
-            this.damage = 28;
+            this.damage = 28 + levelBonus;
         } else if (type === 'mini_fireball_projectile') {
-            this.damage = 12;
+            this.damage = 12 + levelBonus;
         } else if (type === 'black_sphere_projectile') { 
-            this.damage = 15;
+            this.damage = 15 + levelBonus;
         } else if (type === 'bouncing_sword') {
-            this.damage = 15;
+            this.damage = 15 + levelBonus;
         }
 
         this.knockback = (type === 'hadoken') ? gameManager.hadokenKnockback : 0;
         const inaccuracy = (type === 'shuriken' || type === 'lightning_bolt' || type === 'sword_wave') ? 0 : GRID_SIZE * 0.8;
         
-        // For returning_shuriken, target is just a direction vector, not an actual entity
         let targetX, targetY;
         if (type === 'returning_shuriken') {
             targetX = this.pixelX + Math.cos(options.angle);
@@ -1059,7 +1058,7 @@ export class Projectile {
                 if (this.damageCooldown <= 0) {
                     for (const unit of gameManager.units) {
                         if (unit.team !== this.owner.team && Math.hypot(this.pixelX - unit.pixelX, this.pixelY - unit.pixelY) < GRID_SIZE * 2) {
-                            unit.takeDamage(this.damage * 0.15, {}, this.owner); // Reduced lingering damage
+                            unit.takeDamage(this.damage * 0.15, {}, this.owner);
                         }
                     }
                     this.damageCooldown = this.damageInterval;
@@ -1096,17 +1095,15 @@ export class Projectile {
             return;
         }
 
-        // [수정] 얼음 다이아 투사체 유도 기능 추가
         if (this.type === 'ice_diamond_projectile') {
             if (this.target && this.target.hp > 0) {
                 const targetAngle = Math.atan2(this.target.pixelY - this.pixelY, this.target.pixelX - this.pixelX);
                 let angleDiff = targetAngle - this.angle;
 
-                // 각도 차이를 -PI ~ PI 범위로 정규화
                 while (angleDiff > Math.PI) angleDiff -= 2 * Math.PI;
                 while (angleDiff < -Math.PI) angleDiff += 2 * Math.PI;
 
-                const turnSpeed = 0.03; // 프레임당 회전 속도 (라디안)
+                const turnSpeed = 0.03;
                 if (Math.abs(angleDiff) > turnSpeed) {
                     this.angle += Math.sign(angleDiff) * turnSpeed * gameManager.gameSpeed;
                 } else {
@@ -1504,11 +1501,11 @@ export class Effect {
             ctx.stroke();
             ctx.restore();
         } else if (this.type === 'level_up') {
-            const textOpacity = Math.sin((1 - this.duration / 60) * Math.PI);
+            const textOpacity = Math.min(1, this.duration / 30);
             ctx.fillStyle = `rgba(253, 224, 71, ${textOpacity})`;
             ctx.font = 'bold 14px Arial';
             ctx.textAlign = 'center';
-            ctx.fillText('LEVEL UP!', this.x, this.y - 20 - (60 - this.duration) * 0.5);
+            ctx.fillText('LEVEL UP!', this.x, this.y - GRID_SIZE - (60 - this.duration) * 0.5);
         }
     }
 }
@@ -1656,3 +1653,4 @@ export class AreaEffect {
         }
     }
 }
+
