@@ -187,3 +187,14 @@ body {
 .nametag-delete-btn:hover {
     background-color: #b91c1c; /* hover:bg-red-700 */
 }
+
+/* [NEW] 리플레이 모드에서 툴박스 스타일 수정 */
+.replay-mode > .category-header,
+.replay-mode > .category-content {
+    display: none;
+}
+
+.replay-mode > [data-target="category-utils"],
+.replay-mode > #category-utils {
+    display: block; /* '기타' 카테고리와 내용만 보이도록 설정 */
+}
