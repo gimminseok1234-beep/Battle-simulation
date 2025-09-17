@@ -952,7 +952,6 @@ export class Projectile {
     constructor(gameManager, owner, target, type = 'arrow', options = {}) {
         this.gameManager = gameManager;
         this.owner = owner;
-        this.target = target;
         this.pixelX = options.startX !== undefined ? options.startX : owner.pixelX;
         this.pixelY = options.startY !== undefined ? options.startY : owner.pixelY;
         this.type = type;
@@ -982,25 +981,26 @@ export class Projectile {
         else this.speed = 6;
 
         this.damage = owner.attackPower;
-        // [MODIFIED] 특수 공격 데미지가 유닛의 현재 공격력에 비례하도록 수정
         if (type === 'magic_spear_special') {
-            this.damage = owner.attackPower + (owner.weapon?.specialAttackPowerBonus || 0);
+            this.damage = (owner.weapon?.specialAttackPowerBonus || 0) + owner.baseAttackPower + owner.specialAttackLevelBonus;
         } else if (type === 'magic_spear_normal') {
-            this.damage = owner.attackPower + (owner.weapon?.normalAttackPowerBonus || 0) - owner.baseAttackPower;
+            this.damage = (owner.weapon?.normalAttackPowerBonus || 0) + owner.baseAttackPower;
         } else if (type === 'boomerang_projectile') {
             this.damage = 0;
         } else if (type === 'boomerang_normal_projectile') {
-            this.damage = owner.attackPower * 0.5 + 5;
+            this.damage = 12;
         } else if (type === 'ice_diamond_projectile') {
-            this.damage = owner.attackPower * 1.5;
+            this.damage = (owner.attackPower * 1.5) + owner.specialAttackLevelBonus;
         } else if (type === 'fireball_projectile') {
-            this.damage = owner.attackPower * 1.5;
+            // [MODIFIED] 불 지팡이 특수 공격(화염구)의 기본 데미지를 20으로 수정
+            this.damage = 20 + owner.specialAttackLevelBonus;
         } else if (type === 'mini_fireball_projectile') {
-            this.damage = owner.attackPower * 0.8;
+            this.damage = 12;
         } else if (type === 'black_sphere_projectile') { 
-            this.damage = owner.attackPower * 1.1;
+            // [MODIFIED] 불 지팡이 일반 공격(검은 구체)의 데미지를 13으로 수정
+            this.damage = 13;
         } else if (type === 'bouncing_sword') {
-            this.damage = owner.attackPower * 0.9;
+            this.damage = 15;
         }
 
         this.knockback = (type === 'hadoken') ? gameManager.hadokenKnockback : 0;
@@ -1657,3 +1657,5 @@ export class AreaEffect {
         }
     }
 }
+
+
