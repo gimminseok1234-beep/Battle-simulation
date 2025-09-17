@@ -96,6 +96,9 @@ export class GameManager {
         this.isUnitOutlineEnabled = true;
         this.unitOutlineWidth = 1.5;
 
+        // [신규] 레벨업 시스템 활성화 상태를 저장할 변수
+        this.isLevelUpEnabled = false;
+        
         this.isNametagEnabled = false;
         this.nametagList = [];
         this.usedNametagsInSim = new Set();
@@ -370,6 +373,8 @@ export class GameManager {
             growingFields: plainGrowingFields,
             autoMagneticField: this.autoMagneticField,
             hadokenKnockback: this.hadokenKnockback,
+            // [신규] 맵 데이터에 레벨업 설정 저장
+            isLevelUpEnabled: this.isLevelUpEnabled,
             floorColor: this.currentFloorColor,
             wallColor: this.currentWallColor,
             recentFloorColors: this.recentFloorColors,
@@ -653,6 +658,7 @@ export class GameManager {
                 height: height,
                 map: JSON.stringify(Array(Math.floor(height / GRID_SIZE)).fill().map(() => Array(Math.floor(width / GRID_SIZE)).fill({ type: TILE.FLOOR, color: COLORS.FLOOR }))),
                 units: [], weapons: [], nexuses: [], growingFields: [],
+                isLevelUpEnabled: false, // 기본적으로 비활성화
                 floorColor: COLORS.FLOOR, wallColor: COLORS.WALL,
                 recentFloorColors: [], recentWallColors: []
             };
@@ -673,8 +679,16 @@ export class GameManager {
         document.getElementById('mapSettingsBtn').addEventListener('click', () => {
             document.getElementById('widthInput').value = this.canvas.width;
             document.getElementById('heightInput').value = this.canvas.height;
+            // [신규] 모달을 열 때, 현재 맵의 레벨업 설정을 토글에 반영
+            document.getElementById('levelUpToggle').checked = this.isLevelUpEnabled;
             document.getElementById('mapSettingsModal').classList.add('show-modal');
         });
+
+        // [신규] 레벨업 토글 스위치 이벤트 리스너 추가
+        document.getElementById('levelUpToggle').addEventListener('change', (e) => {
+            this.isLevelUpEnabled = e.target.checked;
+        });
+
         document.getElementById('killSoundToggle').addEventListener('change', (e) => {
             this.audioManager.toggleKillSound(e.target.checked);
         });
@@ -946,6 +960,9 @@ export class GameManager {
     
     startSimulation() {
         if (this.state !== 'EDIT') return;
+
+        // Reset levels before simulation
+        this.units.forEach(unit => unit.level = 1);
 
         if (!this.isReplayMode) {
             this.simulationSeed = Date.now();
@@ -1251,7 +1268,8 @@ export class GameManager {
                     mapWidth: this.canvas.width,
                     mapHeight: this.canvas.height,
                     floorColor: this.currentFloorColor,
-                    wallColor: this.currentWallColor
+                    wallColor: this.currentWallColor,
+                    isLevelUpEnabled: this.isLevelUpEnabled
                 };
 
                 if (!this.isReplayMode) {
@@ -1346,6 +1364,16 @@ export class GameManager {
         });
         
         const deadUnits = this.units.filter(u => u.hp <= 0);
+
+        // [수정] 레벨업 시스템이 활성화된 경우에만 경험치 부여 로직 실행
+        if (this.isLevelUpEnabled) {
+            deadUnits.forEach(deadUnit => {
+                if (deadUnit.killedBy && deadUnit.killedBy.hp > 0) {
+                    deadUnit.killedBy.levelUp(); // 1킬 = 1레벨업
+                }
+            });
+        }
+
         deadUnits.forEach(u => u.handleDeath());
         
         this.units = this.units.filter(u => u.hp > 0);
@@ -1366,7 +1394,7 @@ export class GameManager {
                 if (p.owner.team !== unit.team && !p.hitTargets.has(unit) && Math.hypot(p.pixelX - unit.pixelX, p.pixelY - unit.pixelY) < GRID_SIZE / 2) {
                     
                     if (p.type === 'bouncing_sword') {
-                        unit.takeDamage(p.damage);
+                        unit.takeDamage(p.damage, {}, p.owner);
                         p.owner.dualSwordTeleportTarget = unit;
                         p.owner.dualSwordTeleportDelayTimer = 60;
                         p.destroyed = true;
@@ -1384,9 +1412,9 @@ export class GameManager {
                         const pullToY = p.owner.pixelY + Math.sin(p.owner.facingAngle) * GRID_SIZE;
                         unit.pullTargetPos = { x: pullToX, y: pullToY };
                     } else if (p.type === 'ice_diamond_projectile') {
-                        unit.takeDamage(p.damage, { slow: 120 });
+                        unit.takeDamage(p.damage, { slow: 120 }, p.owner);
                     } else if (p.type === 'fireball_projectile') {
-                        unit.takeDamage(p.damage);
+                        unit.takeDamage(p.damage, {}, p.owner);
                         createFireballHitEffect(this, unit.pixelX, unit.pixelY);
                         p.destroyed = true;
                         
@@ -1410,12 +1438,12 @@ export class GameManager {
                             force: p.knockback,
                             angle: p.angle
                         };
-                        unit.takeDamage(p.damage, effectInfo);
+                        unit.takeDamage(p.damage, effectInfo, p.owner);
                         if (p.type === 'hadoken') this.audioManager.play('hadokenHit');
                     }
         
                     if (p.type === 'lightning_bolt') {
-                        unit.takeDamage(p.damage); // [수정] 넉백 효과 제거
+                        unit.takeDamage(p.damage, {}, p.owner); // [수정] 넉백 효과 제거
                         p.destroyed = true;
         
                         const potentialTargets = this.units.filter(u =>
@@ -1456,9 +1484,9 @@ export class GameManager {
                 for (const nexus of this.nexuses) {
                     if (p.owner.team !== nexus.team && Math.hypot(p.pixelX - nexus.pixelX, p.pixelY - nexus.pixelY) < GRID_SIZE) {
                         if (p.type === 'ice_diamond_projectile') {
-                           nexus.takeDamage(p.damage);
+                           nexus.takeDamage(p.damage, p.owner);
                         } else if (p.type === 'fireball_projectile') {
-                            nexus.takeDamage(p.damage);
+                            nexus.takeDamage(p.damage, p.owner);
                             createFireballHitEffect(this, nexus.pixelX, nexus.pixelY);
                             p.destroyed = true;
                             
@@ -1477,7 +1505,7 @@ export class GameManager {
                                 });
                             }
                         } else {
-                            nexus.takeDamage(p.damage);
+                            nexus.takeDamage(p.damage, p.owner);
                             if (p.type === 'hadoken') this.audioManager.play('hadokenHit');
                         }
                         hit = true;
@@ -2072,6 +2100,9 @@ export class GameManager {
         };
         this.hadokenKnockback = mapData.hadokenKnockback || 15;
         
+        // [신규] 맵 로드 시 레벨업 설정 불러오기
+        this.isLevelUpEnabled = mapData.isLevelUpEnabled || false; // 설정이 없으면 기본값 false
+
         this.resetSimulationState();
         this.renderRecentColors('floor');
         this.renderRecentColors('wall');
@@ -2115,6 +2146,9 @@ export class GameManager {
 
         this.autoMagneticField = mapData.autoMagneticField;
         this.hadokenKnockback = mapData.hadokenKnockback;
+        
+        // [신규] 로컬 맵 로드 시 레벨업 설정 불러오기
+        this.isLevelUpEnabled = mapData.isLevelUpEnabled || false;
         
         this.resetSimulationState();
         this.renderRecentColors('floor');
@@ -2467,6 +2501,9 @@ export class GameManager {
         this.currentMapId = replayId; 
         this.currentMapName = replayData.name;
 
+        // [신규] 리플레이 로드 시 레벨업 설정 불러오기
+        this.isLevelUpEnabled = replayData.isLevelUpEnabled || false;
+
         this.canvas.width = replayData.mapWidth;
         this.canvas.height = replayData.mapHeight;
         const map = JSON.parse(replayData.initialMapState);
@@ -2514,4 +2551,3 @@ export class GameManager {
         placementResetBtn.style.display = 'inline-block';
     }
 }
-
