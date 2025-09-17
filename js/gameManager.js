@@ -96,7 +96,7 @@ export class GameManager {
         this.isUnitOutlineEnabled = true;
         this.unitOutlineWidth = 1.5;
 
-        // [신규] 레벨업 시스템 활성화 상태를 저장할 변수
+        // [MODIFIED] 레벨업 시스템 활성화 상태를 저장할 변수
         this.isLevelUpEnabled = false;
         
         this.isNametagEnabled = false;
@@ -373,7 +373,7 @@ export class GameManager {
             growingFields: plainGrowingFields,
             autoMagneticField: this.autoMagneticField,
             hadokenKnockback: this.hadokenKnockback,
-            // [신규] 맵 데이터에 레벨업 설정 저장
+            // [MODIFIED] 맵 데이터에 레벨업 설정 저장
             isLevelUpEnabled: this.isLevelUpEnabled,
             floorColor: this.currentFloorColor,
             wallColor: this.currentWallColor,
@@ -679,12 +679,12 @@ export class GameManager {
         document.getElementById('mapSettingsBtn').addEventListener('click', () => {
             document.getElementById('widthInput').value = this.canvas.width;
             document.getElementById('heightInput').value = this.canvas.height;
-            // [신규] 모달을 열 때, 현재 맵의 레벨업 설정을 토글에 반영
+            // [MODIFIED] 모달을 열 때, 현재 맵의 레벨업 설정을 토글에 반영
             document.getElementById('levelUpToggle').checked = this.isLevelUpEnabled;
             document.getElementById('mapSettingsModal').classList.add('show-modal');
         });
 
-        // [신규] 레벨업 토글 스위치 이벤트 리스너 추가
+        // [MODIFIED] 레벨업 토글 스위치 이벤트 리스너 추가
         document.getElementById('levelUpToggle').addEventListener('change', (e) => {
             this.isLevelUpEnabled = e.target.checked;
         });
@@ -1365,11 +1365,12 @@ export class GameManager {
         
         const deadUnits = this.units.filter(u => u.hp <= 0);
 
-        // [수정] 레벨업 시스템이 활성화된 경우에만 경험치 부여 로직 실행
+        // [MODIFIED] 레벨업 시스템이 활성화된 경우에만 경험치 부여 로직 실행
         if (this.isLevelUpEnabled) {
             deadUnits.forEach(deadUnit => {
                 if (deadUnit.killedBy && deadUnit.killedBy.hp > 0) {
-                    deadUnit.killedBy.levelUp(); // 1킬 = 1레벨업
+                    // [MODIFIED] 처치한 유닛의 레벨을 인자로 전달하여 레벨업 처리
+                    deadUnit.killedBy.levelUp(deadUnit.level);
                 }
             });
         }
@@ -2100,7 +2101,7 @@ export class GameManager {
         };
         this.hadokenKnockback = mapData.hadokenKnockback || 15;
         
-        // [신규] 맵 로드 시 레벨업 설정 불러오기
+        // [MODIFIED] 맵 로드 시 레벨업 설정 불러오기
         this.isLevelUpEnabled = mapData.isLevelUpEnabled || false; // 설정이 없으면 기본값 false
 
         this.resetSimulationState();
@@ -2147,7 +2148,7 @@ export class GameManager {
         this.autoMagneticField = mapData.autoMagneticField;
         this.hadokenKnockback = mapData.hadokenKnockback;
         
-        // [신규] 로컬 맵 로드 시 레벨업 설정 불러오기
+        // [MODIFIED] 로컬 맵 로드 시 레벨업 설정 불러오기
         this.isLevelUpEnabled = mapData.isLevelUpEnabled || false;
         
         this.resetSimulationState();
@@ -2501,7 +2502,7 @@ export class GameManager {
         this.currentMapId = replayId; 
         this.currentMapName = replayData.name;
 
-        // [신규] 리플레이 로드 시 레벨업 설정 불러오기
+        // [MODIFIED] 리플레이 로드 시 레벨업 설정 불러오기
         this.isLevelUpEnabled = replayData.isLevelUpEnabled || false;
 
         this.canvas.width = replayData.mapWidth;
