@@ -980,9 +980,9 @@ export class Projectile {
         else if (type === 'bouncing_sword') this.speed = 7;
         else this.speed = 6;
 
-        // [MODIFIED] 데미지 계산 로직 전면 수정: 모든 투사체 데미지가 유닛의 기본 공격력, 레벨업 보너스, 무기 보너스를 일관되게 따르도록 변경하여 비정상적인 데미지 오류를 해결합니다.
         let baseDamage = owner.baseAttackPower + (owner.specialAttackLevelBonus || 0);
     
+        // [MODIFIED] 요청사항에 맞춰 특수 공격 데미지 재조정
         switch (type) {
             case 'magic_spear_special':
                 this.damage = baseDamage + (owner.weapon?.specialAttackPowerBonus || 0);
@@ -991,28 +991,27 @@ export class Projectile {
                 this.damage = baseDamage + (owner.weapon?.normalAttackPowerBonus || 0);
                 break;
             case 'ice_diamond_projectile':
-                this.damage = baseDamage + 20; // 기존 하드코딩 값(28)을 베이스 데미지+보너스 형태로 변경
+                this.damage = baseDamage + 15; // 최종 데미지 20 목표 (5 + 15)
                 break;
             case 'fireball_projectile':
-                this.damage = baseDamage + 20; // 기존 하드코딩 값(28)을 베이스 데미지+보너스 형태로 변경
+                this.damage = baseDamage + 15; // 최종 데미지 20 목표 (5 + 15)
                 break;
             case 'mini_fireball_projectile':
-                this.damage = baseDamage + 7; // 기존 하드코딩 값(12)을 베이스 데미지+보너스 형태로 변경
+                this.damage = baseDamage + 10;  // 최종 데미지 15 목표 (5 + 10)
                 break;
             case 'boomerang_normal_projectile':
-                this.damage = baseDamage + 7; // 기존 하드코딩 값(12)을 베이스 데미지+보너스 형태로 변경
+                this.damage = baseDamage + 10;  // 최종 데미지 15 목표 (5 + 10)
                 break;
             case 'bouncing_sword':
-                this.damage = baseDamage + 10; // 기존 하드코딩 값(15)을 베이스 데미지+보너스 형태로 변경
+                this.damage = baseDamage + 10;  // 최종 데미지 15 목표 (5 + 10)
                 break;
             case 'black_sphere_projectile':
-                this.damage = baseDamage + 10; // 기존 하드코딩 값(15)을 베이스 데미지+보너스 형태로 변경
+                this.damage = baseDamage + 7;  // 최종 데미지 12 목표 (5 + 7)
                 break;
             case 'boomerang_projectile':
-                this.damage = 0; // 이 투사체는 데미지가 없음
+                this.damage = 0; 
                 break;
             default:
-                // For arrow, sword_wave, hadoken, shuriken etc.
                 this.damage = baseDamage + (owner.weapon?.attackPowerBonus || 0);
                 break;
         }
@@ -1020,7 +1019,6 @@ export class Projectile {
         this.knockback = (type === 'hadoken') ? gameManager.hadokenKnockback : 0;
         const inaccuracy = (type === 'shuriken' || type === 'lightning_bolt' || type === 'sword_wave') ? 0 : GRID_SIZE * 0.8;
         
-        // For returning_shuriken, target is just a direction vector, not an actual entity
         let targetX, targetY;
         if (type === 'returning_shuriken') {
             targetX = this.pixelX + Math.cos(options.angle);
@@ -1680,3 +1678,4 @@ export class AreaEffect {
         }
     }
 }
+
