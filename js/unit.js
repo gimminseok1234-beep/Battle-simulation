@@ -101,6 +101,10 @@ export class Unit {
         return Math.max(0.1, finalSpeed);
     }
 
+    /**
+     * [수정] get attackPower() 함수를 원래 로직으로 복원합니다.
+     * 레벨 보너스는 levelUp 함수에서 직접 관리하도록 하여 이중 적용 오류를 해결합니다.
+     */
     get attackPower() { 
         return this.baseAttackPower + (this.weapon ? this.weapon.attackPowerBonus || 0 : 0); 
     }
@@ -162,7 +166,7 @@ export class Unit {
             const weaponType = this.weapon ? this.weapon.type : null;
             const specialAttackUnits = ['fire_staff', 'ice_diamond', 'magic_spear', 'boomerang', 'shuriken', 'hadoken'];
 
-            // 무기 종류에 따라 다른 공격 능력치 강화
+            // [수정] 무기 종류에 따라 다른 공격 능력치를 올리는 로직을 복원합니다.
             if (specialAttackUnits.includes(weaponType)) {
                 this.specialAttackLevelBonus += 4 * levelGained;
             } else {
@@ -710,7 +714,7 @@ export class Unit {
                 });
                  gameManager.nexuses.forEach(nexus => {
                     if (nexus.team !== this.team && !nexus.isDestroying && Math.hypot(this.pixelX - nexus.pixelX, this.pixelY - nexus.pixelY) < damageRadius) {
-                        nexus.takeDamage(this.attackPower * 1.5, this);
+                        nexus.takeDamage(this.attackPower * 1.5, {}, this);
                     }
                 });
                 gameManager.audioManager.play('swordHit');
