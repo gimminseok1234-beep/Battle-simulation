@@ -1,6 +1,5 @@
 import { TILE, TEAM, COLORS, GRID_SIZE } from './constants.js';
-// [수정] LevelUpEffect를 import 목록에 추가합니다.
-import { Weapon, MagicDaggerDashEffect, createPhysicalHitEffect, LevelUpEffect } from './weaponary.js';
+import { Weapon, MagicDaggerDashEffect, createPhysicalHitEffect } from './weaponary.js';
 import { Nexus } from './entities.js';
 
 // Unit class
@@ -18,7 +17,7 @@ export class Unit {
         this.level = 1;
         this.maxLevel = 5;
         this.killedBy = null;
-        this.specialAttackLevelBonus = 0; // [신규] 특수 공격 레벨 보너스
+        this.specialAttackLevelBonus = 0;
 
         this.baseSpeed = 1.0; this.facingAngle = gameManager.random() * Math.PI * 2;
         this.baseAttackPower = 5; this.baseAttackRange = 1.5 * GRID_SIZE;
@@ -50,6 +49,7 @@ export class Unit {
         this.dashDirection = null;
         this.dashTrail = [];
         this.name = '';
+        // [MODIFIED] 이름표 색상 속성 추가
         this.nameColor = '#000000'; 
         this.awakeningEffect = { active: false, stacks: 0, timer: 0 };
         this.magicDaggerSkillCooldown = 0;
@@ -101,10 +101,6 @@ export class Unit {
         return Math.max(0.1, finalSpeed);
     }
 
-    /**
-     * [수정] get attackPower() 함수를 원래 로직으로 복원합니다.
-     * 레벨 보너스는 levelUp 함수에서 직접 관리하도록 하여 이중 적용 오류를 해결합니다.
-     */
     get attackPower() { 
         return this.baseAttackPower + (this.weapon ? this.weapon.attackPowerBonus || 0 : 0); 
     }
@@ -136,17 +132,10 @@ export class Unit {
         this.state = 'IDLE';
     }
 
-    /**
-     * [수정] 레벨업 로직 강화 및 시각 효과 직접 호출
-     * @param {number} killedUnitLevel - 처치한 유닛의 레벨
-     */
     levelUp(killedUnitLevel = 0) {
-        if (this.level >= this.maxLevel) return;
-
         const previousLevel = this.level;
         let newLevel = this.level;
 
-        // 레벨 흡수 메커니즘
         if (killedUnitLevel > this.level) {
             newLevel = killedUnitLevel;
         } else {
@@ -154,30 +143,21 @@ export class Unit {
         }
 
         this.level = Math.min(this.maxLevel, newLevel);
-
-        // 레벨이 실제로 올랐을 경우에만 효과 적용
+        
         if (this.level > previousLevel) {
             const levelGained = this.level - previousLevel;
-            
-            // 1. 능력치 상승
             this.maxHp += 20 * levelGained;
-            this.hp = Math.min(this.maxHp, this.hp + this.maxHp * 0.3); // 최대 체력의 30% 회복
-
+            this.hp = Math.min(this.maxHp, this.hp + this.maxHp * 0.3);
+            
             const weaponType = this.weapon ? this.weapon.type : null;
             const specialAttackUnits = ['fire_staff', 'ice_diamond', 'magic_spear', 'boomerang', 'shuriken', 'hadoken'];
 
-            // [수정] 무기 종류에 따라 다른 공격 능력치를 올리는 로직을 복원합니다.
             if (specialAttackUnits.includes(weaponType)) {
                 this.specialAttackLevelBonus += 4 * levelGained;
             } else {
                 this.baseAttackPower += 4 * levelGained;
             }
-
-            // 2. 시각 효과 생성 (새로 만든 LevelUpEffect를 직접 사용)
-            this.gameManager.effects.push(new LevelUpEffect(this.gameManager, this.pixelX, this.pixelY - GRID_SIZE));
-            
-            // 3. 음향 효과 (향후 audioManager에 'levelUp' 사운드 추가 시 활성화)
-            // this.gameManager.audioManager.play('levelUp');
+            this.gameManager.createEffect('level_up', this.pixelX, this.pixelY, this);
         }
     }
 
@@ -356,7 +336,6 @@ export class Unit {
         this.hp -= damage;
         this.hpBarVisibleTimer = 180;
         
-        // [수정] 공격자 정보를 killedBy에 확실하게 기록합니다.
         if (this.hp <= 0 && attacker) {
             this.killedBy = attacker;
         }
@@ -1053,6 +1032,7 @@ export class Unit {
         }
         
         if (this.name) {
+            // [MODIFIED] 설정된 색상으로 이름표를 그립니다.
             ctx.fillStyle = this.nameColor;
             ctx.font = `bold ${10 / totalScale}px Arial`;
             ctx.textAlign = 'center';
