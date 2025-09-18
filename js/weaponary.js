@@ -1005,7 +1005,6 @@ export class Projectile {
         this.knockback = (type === 'hadoken') ? gameManager.hadokenKnockback : 0;
         const inaccuracy = (type === 'shuriken' || type === 'lightning_bolt' || type === 'sword_wave') ? 0 : GRID_SIZE * 0.8;
         
-        // For returning_shuriken, target is just a direction vector, not an actual entity
         let targetX, targetY;
         if (type === 'returning_shuriken') {
             targetX = this.pixelX + Math.cos(options.angle);
@@ -1028,6 +1027,11 @@ export class Projectile {
         }
     }
 
+    /**
+     * [수정] Projectile의 update 함수
+     * 모든 takeDamage 호출에 공격자(this.owner) 정보를 전달하도록 수정합니다.
+     * 이를 통해 투사체 킬이 정상적으로 레벨업을 발동시킵니다.
+     */
     update() {
         const gameManager = this.gameManager;
         if (!gameManager) return;
@@ -1044,7 +1048,6 @@ export class Projectile {
                 
                 for (const unit of gameManager.units) {
                     if (unit.team !== this.owner.team && !this.hitTargets.has(unit) && Math.hypot(this.pixelX - unit.pixelX, this.pixelY - unit.pixelY) < GRID_SIZE / 2) {
-                        // [수정] 공격자(this.owner) 정보를 전달합니다.
                         unit.takeDamage(this.damage, {}, this.owner);
                         this.hitTargets.add(unit);
                     }
@@ -1060,8 +1063,7 @@ export class Projectile {
                 if (this.damageCooldown <= 0) {
                     for (const unit of gameManager.units) {
                         if (unit.team !== this.owner.team && Math.hypot(this.pixelX - unit.pixelX, this.pixelY - unit.pixelY) < GRID_SIZE * 2) {
-                            // [수정] 공격자(this.owner) 정보를 전달합니다.
-                            unit.takeDamage(this.damage * 0.15, {}, this.owner); // Reduced lingering damage
+                            unit.takeDamage(this.damage * 0.15, {}, this.owner);
                         }
                     }
                     this.damageCooldown = this.damageInterval;
@@ -1090,7 +1092,6 @@ export class Projectile {
 
                 for (const unit of gameManager.units) {
                     if (unit.team !== this.owner.team && !this.alreadyDamagedOnReturn.has(unit) && Math.hypot(this.pixelX - unit.pixelX, this.pixelY - unit.pixelY) < GRID_SIZE / 2) {
-                        // [수정] 공격자(this.owner) 정보를 전달합니다.
                         unit.takeDamage(this.damage, {}, this.owner);
                         this.alreadyDamagedOnReturn.add(unit);
                     }
@@ -1099,17 +1100,13 @@ export class Projectile {
             return;
         }
 
-        // [MODIFIED] 얼음 다이아와 부메랑 특수 공격 투사체에 유도 기능 추가
         if (this.type === 'ice_diamond_projectile' || this.type === 'boomerang_projectile') {
             if (this.target && this.target.hp > 0) {
                 const targetAngle = Math.atan2(this.target.pixelY - this.pixelY, this.target.pixelX - this.pixelX);
                 let angleDiff = targetAngle - this.angle;
-
-                // 각도 차이를 -PI ~ PI 범위로 정규화
                 while (angleDiff > Math.PI) angleDiff -= 2 * Math.PI;
                 while (angleDiff < -Math.PI) angleDiff += 2 * Math.PI;
-
-                const turnSpeed = 0.03; // 프레임당 회전 속도 (라디안)
+                const turnSpeed = 0.03;
                 if (Math.abs(angleDiff) > turnSpeed) {
                     this.angle += Math.sign(angleDiff) * turnSpeed * gameManager.gameSpeed;
                 } else {
@@ -1143,9 +1140,7 @@ export class Projectile {
             const tile = gameManager.map[gridY][gridX];
             const isCollidableWall = tile.type === 'WALL' || tile.type === 'CRACKED_WALL';
             if (this.type !== 'magic_spear_special' && this.type !== 'sword_wave' && isCollidableWall) {
-                if (tile.type === 'CRACKED_WALL') {
-                    gameManager.damageTile(gridX, gridY, 999);
-                }
+                if (tile.type === 'CRACKED_WALL') gameManager.damageTile(gridX, gridY, 999);
                 this.destroyed = true;
                 return;
             }
@@ -1196,7 +1191,6 @@ export class Projectile {
             ctx.strokeStyle = '#000000';
             ctx.lineWidth = 1;
 
-            // 화살 몸통
             ctx.beginPath();
             ctx.moveTo(-GRID_SIZE * 0.7, 0);
             ctx.lineTo(GRID_SIZE * 0.4, 0);
@@ -1209,7 +1203,6 @@ export class Projectile {
             ctx.fill();
             ctx.stroke();
 
-            // 화살촉
             ctx.beginPath();
             ctx.moveTo(GRID_SIZE * 0.6, -2.5);
             ctx.lineTo(GRID_SIZE * 0.9, 0);
@@ -1218,7 +1211,6 @@ export class Projectile {
             ctx.fill();
             ctx.stroke();
 
-            // 깃털
             ctx.beginPath();
             ctx.moveTo(-GRID_SIZE * 0.7, 0);
             ctx.lineTo(-GRID_SIZE * 0.8, -3);
