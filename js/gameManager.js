@@ -96,11 +96,12 @@ export class GameManager {
         this.isUnitOutlineEnabled = true;
         this.unitOutlineWidth = 1.5;
 
-        // [MODIFIED] 레벨업 시스템 활성화 상태를 저장할 변수
         this.isLevelUpEnabled = false;
         
         this.isNametagEnabled = false;
         this.nametagList = [];
+        // [MODIFIED] 이름표 색상 속성 추가
+        this.nametagColor = '#000000'; 
         this.usedNametagsInSim = new Set();
         this.editingUnit = null;
         
@@ -109,7 +110,6 @@ export class GameManager {
         this.isReplayMode = false;
         this.lastSimulationResult = null;
         
-        // [NEW] 타이머 기능 추가
         this.simulationTime = 0;
         this.timerElement = document.getElementById('timerText');
 
@@ -152,7 +152,6 @@ export class GameManager {
         this.updateUIToEditorMode(); 
         this.resetActionCam(true);
         this.renderMapCards();
-        // [NEW] 타이머 숨기기
         if (this.timerElement) this.timerElement.style.display = 'none';
     }
 
@@ -200,7 +199,6 @@ export class GameManager {
 
         this.resetActionCam(true);
         
-        // [NEW] 타이머 숨기기
         if (this.timerElement) this.timerElement.style.display = 'none';
 
         if (mapId !== 'replay') {
@@ -383,7 +381,6 @@ export class GameManager {
             growingFields: plainGrowingFields,
             autoMagneticField: this.autoMagneticField,
             hadokenKnockback: this.hadokenKnockback,
-            // [MODIFIED] 맵 데이터에 레벨업 설정 저장
             isLevelUpEnabled: this.isLevelUpEnabled,
             floorColor: this.currentFloorColor,
             wallColor: this.currentWallColor,
@@ -668,7 +665,7 @@ export class GameManager {
                 height: height,
                 map: JSON.stringify(Array(Math.floor(height / GRID_SIZE)).fill().map(() => Array(Math.floor(width / GRID_SIZE)).fill({ type: TILE.FLOOR, color: COLORS.FLOOR }))),
                 units: [], weapons: [], nexuses: [], growingFields: [],
-                isLevelUpEnabled: false, // 기본적으로 비활성화
+                isLevelUpEnabled: false,
                 floorColor: COLORS.FLOOR, wallColor: COLORS.WALL,
                 recentFloorColors: [], recentWallColors: []
             };
@@ -689,12 +686,10 @@ export class GameManager {
         document.getElementById('mapSettingsBtn').addEventListener('click', () => {
             document.getElementById('widthInput').value = this.canvas.width;
             document.getElementById('heightInput').value = this.canvas.height;
-            // [MODIFIED] 모달을 열 때, 현재 맵의 레벨업 설정을 토글에 반영
             document.getElementById('levelUpToggle').checked = this.isLevelUpEnabled;
             document.getElementById('mapSettingsModal').classList.add('show-modal');
         });
 
-        // [MODIFIED] 레벨업 토글 스위치 이벤트 리스너 추가
         document.getElementById('levelUpToggle').addEventListener('change', (e) => {
             this.isLevelUpEnabled = e.target.checked;
         });
@@ -895,6 +890,20 @@ export class GameManager {
                 this.deleteNametag(e.target.parentElement.textContent.slice(0, -1).trim());
             }
         });
+        
+        // [MODIFIED] 이름표 색상 설정 이벤트 리스너 추가
+        document.getElementById('nametagColorPicker').addEventListener('input', (e) => {
+            this.nametagColor = e.target.value;
+        });
+        document.getElementById('nametagColorBlack').addEventListener('click', () => {
+            this.nametagColor = '#000000';
+            document.getElementById('nametagColorPicker').value = '#000000';
+        });
+        document.getElementById('nametagColorWhite').addEventListener('click', () => {
+            this.nametagColor = '#FFFFFF';
+            document.getElementById('nametagColorPicker').value = '#FFFFFF';
+        });
+
 
         document.getElementById('cancelUnitNameBtn').addEventListener('click', () => {
              document.getElementById('unitNameModal').classList.remove('show-modal');
@@ -965,7 +974,6 @@ export class GameManager {
         this.resetActionCam(true);
         this.prng = new SeededRandom(Date.now());
         this.isReplayMode = false;
-        // [NEW] 타이머 숨기기
         if (this.timerElement) this.timerElement.style.display = 'none';
         this.draw();
     }
@@ -973,7 +981,6 @@ export class GameManager {
     startSimulation() {
         if (this.state !== 'EDIT') return;
 
-        // Reset levels before simulation
         this.units.forEach(unit => unit.level = 1);
 
         if (!this.isReplayMode) {
@@ -983,8 +990,12 @@ export class GameManager {
         
         this.usedNametagsInSim.clear();
 
+        // [MODIFIED] 이름과 함께 색상도 유닛에 할당
         if (this.isNametagEnabled && this.nametagList.length > 0) {
-            this.units.forEach(unit => unit.name = '');
+            this.units.forEach(unit => {
+                unit.name = '';
+                unit.nameColor = this.nametagColor; // 설정된 색상 적용
+            });
 
             const shuffledNames = [...this.nametagList].sort(() => 0.5 - this.random());
             
@@ -1033,7 +1044,6 @@ export class GameManager {
         document.getElementById('simPauseBtn').classList.remove('hidden');
         document.getElementById('simPlayBtn').classList.add('hidden');
         
-        // [NEW] 타이머 시작
         this.simulationTime = 0;
         if (this.timerElement) {
             this.timerElement.style.display = 'block';
@@ -1095,7 +1105,6 @@ export class GameManager {
         document.getElementById('simPlayBtn').classList.add('hidden');
         document.getElementById('simStartBtn').disabled = false;
         
-        // [NEW] 타이머 숨기기
         if (this.timerElement) this.timerElement.style.display = 'none';
         
         if (!this.isReplayMode) {
@@ -1239,7 +1248,6 @@ export class GameManager {
             this.update();
         }
         
-        // [NEW] 타이머 업데이트
         if (this.timerElement && (this.state === 'SIMULATE' || this.state === 'PAUSED' || this.state === 'ENDING' || this.state === 'DONE')) {
             const minutes = Math.floor(this.simulationTime / 60).toString().padStart(2, '0');
             const seconds = Math.floor(this.simulationTime % 60).toString().padStart(2, '0');
@@ -1299,7 +1307,7 @@ export class GameManager {
                     floorColor: this.currentFloorColor,
                     wallColor: this.currentWallColor,
                     isLevelUpEnabled: this.isLevelUpEnabled,
-                    hadokenKnockback: this.hadokenKnockback // [MODIFIED] 리플레이에 넉백 값 저장
+                    hadokenKnockback: this.hadokenKnockback
                 };
 
                 if (!this.isReplayMode) {
@@ -1335,9 +1343,8 @@ export class GameManager {
     update() {
         if (this.state === 'PAUSED' || this.state === 'DONE') return;
 
-        // [NEW] 타이머 시간 증가
         if (this.state === 'SIMULATE') {
-            this.simulationTime += 1 / 60; // 60 FPS 기준
+            this.simulationTime += 1 / 60;
         }
 
         if (this.state === 'ENDING') {
@@ -1400,11 +1407,10 @@ export class GameManager {
         
         const deadUnits = this.units.filter(u => u.hp <= 0);
 
-        // [MODIFIED] 레벨업 시스템이 활성화된 경우에만 경험치 부여 로직 실행
         if (this.isLevelUpEnabled) {
             deadUnits.forEach(deadUnit => {
                 if (deadUnit.killedBy && deadUnit.killedBy.hp > 0) {
-                    deadUnit.killedBy.levelUp(deadUnit.level); // [MODIFIED]
+                    deadUnit.killedBy.levelUp(deadUnit.level);
                 }
             });
         }
@@ -1468,7 +1474,6 @@ export class GameManager {
                              });
                         }
                     } else if (p.type === 'lightning_bolt') {
-                        // [MODIFIED] 데미지 중복 적용 버그 수정
                         unit.takeDamage(p.damage, {}, p.owner);
                         p.destroyed = true;
         
@@ -1575,7 +1580,6 @@ export class GameManager {
             for (let i = this.magicCircles.length - 1; i >= 0; i--) {
                 const circle = this.magicCircles[i];
                 if (circle.gridX === gridX && circle.gridY === gridY && circle.team !== unit.team) {
-                    // [MODIFIED] 마법진을 밟으면 15의 데미지와 함께 기절하도록 수정
                     unit.takeDamage(15, { stun: 120, stunSource: 'magic_circle' });
                     this.magicCircles.splice(i, 1);
                 }
@@ -1883,7 +1887,9 @@ export class GameManager {
                     if (!isOccupied) {
                         const newUnit = new Unit(this, newX, newY, spawner.team);
                         
+                        // [MODIFIED] 새로 스폰된 유닛에게도 이름표 색상 적용
                         if (this.isNametagEnabled && this.nametagList.length > 0) {
+                            newUnit.nameColor = this.nametagColor;
                             const availableNames = this.nametagList.filter(name => !this.usedNametagsInSim.has(name));
                             if (availableNames.length > 0) {
                                 const randomName = availableNames[Math.floor(this.random() * availableNames.length)];
@@ -2135,8 +2141,7 @@ export class GameManager {
         };
         this.hadokenKnockback = mapData.hadokenKnockback || 15;
         
-        // [MODIFIED] 맵 로드 시 레벨업 설정 불러오기
-        this.isLevelUpEnabled = mapData.isLevelUpEnabled || false; // 설정이 없으면 기본값 false
+        this.isLevelUpEnabled = mapData.isLevelUpEnabled || false;
 
         this.resetSimulationState();
         this.renderRecentColors('floor');
@@ -2182,7 +2187,6 @@ export class GameManager {
         this.autoMagneticField = mapData.autoMagneticField;
         this.hadokenKnockback = mapData.hadokenKnockback;
         
-        // [MODIFIED] 로컬 맵 로드 시 레벨업 설정 불러오기
         this.isLevelUpEnabled = mapData.isLevelUpEnabled || false;
         
         this.resetSimulationState();
@@ -2216,7 +2220,6 @@ export class GameManager {
         document.getElementById('simStartBtn').disabled = false;
         document.getElementById('toolbox').style.pointerEvents = 'auto';
         
-        // [NEW] 타이머 숨기기
         if (this.timerElement) this.timerElement.style.display = 'none';
         
         this.resetActionCam(true);
@@ -2303,6 +2306,7 @@ export class GameManager {
         this.setCurrentColor(wallColor, 'wall', false);
     }
     
+    // [MODIFIED] 이름표 색상 불러오기
     async loadNametagSettings() {
         if (!this.currentUser) return;
         const nametagDocRef = doc(this.db, "users", this.currentUser.uid, "settings", "nametags");
@@ -2312,29 +2316,36 @@ export class GameManager {
                 const settings = docSnap.data();
                 this.isNametagEnabled = settings.enabled || false;
                 this.nametagList = settings.list || [];
+                this.nametagColor = settings.color || '#000000'; // 색상 정보 불러오기
             } else {
                 this.isNametagEnabled = false;
                 this.nametagList = [];
+                this.nametagColor = '#000000';
             }
         } catch (error) {
             console.error("Error loading nametag settings:", error);
             this.isNametagEnabled = false;
             this.nametagList = [];
+            this.nametagColor = '#000000';
         }
         
         document.getElementById('nametagToggle').checked = this.isNametagEnabled;
+        document.getElementById('nametagColorPicker').value = this.nametagColor;
         this.renderNametagList();
     }
     
+    // [MODIFIED] 이름표 색상 저장하기
     async saveNametagSettings() {
         if (!this.currentUser) {
             alert("이름표 설정을 저장하려면 로그인이 필요합니다.");
             return;
         }
         this.isNametagEnabled = document.getElementById('nametagToggle').checked;
+        this.nametagColor = document.getElementById('nametagColorPicker').value; // UI에서 색상 값 가져오기
         const settingsData = {
             enabled: this.isNametagEnabled,
-            list: this.nametagList
+            list: this.nametagList,
+            color: this.nametagColor // 색상 정보 추가
         };
 
         const nametagDocRef = doc(this.db, "users", this.currentUser.uid, "settings", "nametags");
@@ -2540,9 +2551,7 @@ export class GameManager {
         this.currentMapId = replayId; 
         this.currentMapName = replayData.name;
 
-        // [MODIFIED] 리플레이 로드 시 레벨업 설정 불러오기
         this.isLevelUpEnabled = replayData.isLevelUpEnabled || false;
-        // [MODIFIED] 리플레이 로드 시 넉백 값 불러오기
         this.hadokenKnockback = replayData.hadokenKnockback || 15;
 
 
@@ -2576,12 +2585,10 @@ export class GameManager {
     }
 
     updateUIToReplayMode() {
-        // [MODIFIED] 리플레이 모드에서 이름표 기능을 사용할 수 있도록 UI 로직 수정
         const toolbox = document.getElementById('toolbox');
         toolbox.style.display = 'flex';
         toolbox.classList.add('replay-mode');
 
-        // '기타' 카테고리가 기본적으로 열려 있도록 설정
         const utilsHeader = toolbox.querySelector('[data-target="category-utils"]');
         const utilsContent = document.getElementById('category-utils');
         if (utilsHeader && utilsContent) {
@@ -2597,7 +2604,6 @@ export class GameManager {
     }
 
     updateUIToEditorMode() {
-        // [MODIFIED] 에디터 모드로 돌아갈 때, 리플레이 모드에서 숨겨진 UI를 다시 표시
         const toolbox = document.getElementById('toolbox');
         toolbox.style.display = 'flex';
         toolbox.classList.remove('replay-mode');
