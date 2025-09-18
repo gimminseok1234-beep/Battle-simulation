@@ -100,12 +100,13 @@ export class GameManager {
         
         this.isNametagEnabled = false;
         this.nametagList = [];
-        // [MODIFIED] 이름표 색상 속성 추가
         this.nametagColor = '#000000'; 
         this.usedNametagsInSim = new Set();
         this.editingUnit = null;
         
         this.prng = new SeededRandom(Date.now());
+        // [MODIFIED] 시뮬레이션 결과에 영향을 주지 않는 별도의 난수 생성기 추가
+        this.uiPrng = new SeededRandom(Date.now());
         this.simulationSeed = null;
         this.isReplayMode = false;
         this.lastSimulationResult = null;
@@ -891,7 +892,6 @@ export class GameManager {
             }
         });
         
-        // [MODIFIED] 이름표 색상 설정 이벤트 리스너 추가
         document.getElementById('nametagColorPicker').addEventListener('input', (e) => {
             this.nametagColor = e.target.value;
         });
@@ -990,14 +990,14 @@ export class GameManager {
         
         this.usedNametagsInSim.clear();
 
-        // [MODIFIED] 이름과 함께 색상도 유닛에 할당
         if (this.isNametagEnabled && this.nametagList.length > 0) {
             this.units.forEach(unit => {
                 unit.name = '';
-                unit.nameColor = this.nametagColor; // 설정된 색상 적용
+                unit.nameColor = this.nametagColor;
             });
 
-            const shuffledNames = [...this.nametagList].sort(() => 0.5 - this.random());
+            // [MODIFIED] 시뮬레이션 결과에 영향을 주지 않는 uiPrng로 이름 섞기
+            const shuffledNames = [...this.nametagList].sort(() => 0.5 - this.uiPrng.next());
             
             const assignmentCount = Math.min(this.units.length, shuffledNames.length);
 
@@ -1887,7 +1887,6 @@ export class GameManager {
                     if (!isOccupied) {
                         const newUnit = new Unit(this, newX, newY, spawner.team);
                         
-                        // [MODIFIED] 새로 스폰된 유닛에게도 이름표 색상 적용
                         if (this.isNametagEnabled && this.nametagList.length > 0) {
                             newUnit.nameColor = this.nametagColor;
                             const availableNames = this.nametagList.filter(name => !this.usedNametagsInSim.has(name));
@@ -2306,7 +2305,6 @@ export class GameManager {
         this.setCurrentColor(wallColor, 'wall', false);
     }
     
-    // [MODIFIED] 이름표 색상 불러오기
     async loadNametagSettings() {
         if (!this.currentUser) return;
         const nametagDocRef = doc(this.db, "users", this.currentUser.uid, "settings", "nametags");
@@ -2316,7 +2314,7 @@ export class GameManager {
                 const settings = docSnap.data();
                 this.isNametagEnabled = settings.enabled || false;
                 this.nametagList = settings.list || [];
-                this.nametagColor = settings.color || '#000000'; // 색상 정보 불러오기
+                this.nametagColor = settings.color || '#000000';
             } else {
                 this.isNametagEnabled = false;
                 this.nametagList = [];
@@ -2334,18 +2332,17 @@ export class GameManager {
         this.renderNametagList();
     }
     
-    // [MODIFIED] 이름표 색상 저장하기
     async saveNametagSettings() {
         if (!this.currentUser) {
             alert("이름표 설정을 저장하려면 로그인이 필요합니다.");
             return;
         }
         this.isNametagEnabled = document.getElementById('nametagToggle').checked;
-        this.nametagColor = document.getElementById('nametagColorPicker').value; // UI에서 색상 값 가져오기
+        this.nametagColor = document.getElementById('nametagColorPicker').value;
         const settingsData = {
             enabled: this.isNametagEnabled,
             list: this.nametagList,
-            color: this.nametagColor // 색상 정보 추가
+            color: this.nametagColor
         };
 
         const nametagDocRef = doc(this.db, "users", this.currentUser.uid, "settings", "nametags");
