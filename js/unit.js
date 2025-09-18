@@ -102,7 +102,7 @@ export class Unit {
     }
 
     get attackPower() { 
-        return this.baseAttackPower + (this.weapon ? this.weapon.attackPowerBonus || 0 : 0); 
+        return this.baseAttackPower + (this.weapon ? this.weapon.attackPowerBonus || 0 : 0) + this.specialAttackLevelBonus; 
     }
     get attackRange() { return this.baseAttackRange + (this.weapon ? this.weapon.attackRangeBonus || 0 : 0); }
     get detectionRange() { return this.baseDetectionRange + (this.weapon ? this.weapon.detectionRangeBonus || 0 : 0); }
@@ -135,13 +135,14 @@ export class Unit {
     levelUp(killedUnitLevel = 0) {
         const previousLevel = this.level;
         let newLevel = this.level;
-
+    
+        // [MODIFIED] 보너스 레벨업 로직 수정: 자신보다 레벨이 높은 적을 죽였을 때, 적의 레벨로 바로 점프하도록 수정합니다.
         if (killedUnitLevel > this.level) {
             newLevel = killedUnitLevel;
         } else {
             newLevel++;
         }
-
+    
         this.level = Math.min(this.maxLevel, newLevel);
         
         if (this.level > previousLevel) {
@@ -151,12 +152,14 @@ export class Unit {
             
             const weaponType = this.weapon ? this.weapon.type : null;
             const specialAttackUnits = ['fire_staff', 'ice_diamond', 'magic_spear', 'boomerang', 'shuriken', 'hadoken'];
-
+    
+            // [MODIFIED] 공격력 증가 로직 수정: 무기 타입에 따라 specialAttackLevelBonus 또는 baseAttackPower를 증가시킵니다.
             if (specialAttackUnits.includes(weaponType)) {
                 this.specialAttackLevelBonus += 4 * levelGained;
             } else {
                 this.baseAttackPower += 4 * levelGained;
             }
+            // [MODIFIED] GameManager의 createEffect를 직접 호출하여 레벨업 이펙트를 생성합니다.
             this.gameManager.createEffect('level_up', this.pixelX, this.pixelY, this);
         }
     }
@@ -336,7 +339,13 @@ export class Unit {
         this.hp -= damage;
         this.hpBarVisibleTimer = 180;
         
-        if (this.hp <= 0 && attacker) {
+        // [MODIFIED] 공격자 정보 기록 로직 강화: attacker가 유효할 경우, killedBy를 항상 업데이트하여 투사체 킬도 정확히 기록합니다.
+        if (attacker && attacker instanceof Unit) {
+            this.killedBy = attacker;
+        }
+    
+        if (this.hp <= 0 && !this.killedBy && attacker) {
+            // 만약 killedBy가 아직 설정되지 않았다면(예: 타일 데미지), 마지막 공격자를 기록합니다.
             this.killedBy = attacker;
         }
 
