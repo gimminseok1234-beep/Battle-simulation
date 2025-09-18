@@ -49,7 +49,6 @@ export class Unit {
         this.dashDirection = null;
         this.dashTrail = [];
         this.name = '';
-        // [MODIFIED] 이름표 색상 속성 추가
         this.nameColor = '#000000'; 
         this.awakeningEffect = { active: false, stacks: 0, timer: 0 };
         this.magicDaggerSkillCooldown = 0;
@@ -94,14 +93,15 @@ export class Unit {
         if (this.weapon && this.weapon.type === 'dual_swords' && (this.state === 'AGGRESSIVE' || this.state === 'ATTACKING_NEXUS')) {
             combatSpeedBoost = 0.5;
         }
+        // [MODIFIED] 레벨업에 따른 속도 증가 효과를 12%에서 6%로 하향 조정했습니다.
         let finalSpeed = (this.baseSpeed + (this.weapon ? this.weapon.speedBonus || 0 : 0) + combatSpeedBoost) + speedModifier;
-        
-        finalSpeed *= (1 + (this.level - 1) * 0.12);
+        finalSpeed *= (1 + (this.level - 1) * 0.06);
 
         return Math.max(0.1, finalSpeed);
     }
 
     get attackPower() { 
+        // [MODIFIED] specialAttackLevelBonus가 최종 공격력에 합산되도록 수정했습니다.
         return this.baseAttackPower + (this.weapon ? this.weapon.attackPowerBonus || 0 : 0) + this.specialAttackLevelBonus; 
     }
     get attackRange() { return this.baseAttackRange + (this.weapon ? this.weapon.attackRangeBonus || 0 : 0); }
@@ -110,7 +110,8 @@ export class Unit {
     get cooldownTime() { 
         let finalCooldown = this.baseCooldownTime + (this.weapon ? this.weapon.attackCooldownBonus || 0 : 0);
 
-        finalCooldown *= (1 - (this.level - 1) * 0.08);
+        // [MODIFIED] 레벨업에 따른 쿨다운 감소 효과를 8%에서 4%로 하향 조정했습니다.
+        finalCooldown *= (1 - (this.level - 1) * 0.04);
 
         if (this.weapon && this.weapon.type === 'fire_staff') return Math.max(20, Math.min(finalCooldown, 120));
         if (this.weapon && this.weapon.type === 'hadoken') return Math.max(20, Math.min(finalCooldown, 120));
@@ -136,7 +137,7 @@ export class Unit {
         const previousLevel = this.level;
         let newLevel = this.level;
     
-        // [MODIFIED] 보너스 레벨업 로직 수정: 자신보다 레벨이 높은 적을 죽였을 때, 적의 레벨로 바로 점프하도록 수정합니다.
+        // [MODIFIED] 자신보다 높은 레벨의 유닛을 잡으면, 그 유닛의 레벨이 되도록 수정
         if (killedUnitLevel > this.level) {
             newLevel = killedUnitLevel;
         } else {
@@ -147,19 +148,19 @@ export class Unit {
         
         if (this.level > previousLevel) {
             const levelGained = this.level - previousLevel;
-            this.maxHp += 20 * levelGained;
+            
+            // [MODIFIED] 레벨업 시 능력치 상승폭을 하향 조정했습니다.
+            this.maxHp += 10 * levelGained; // 체력 증가량: 20 -> 10
             this.hp = Math.min(this.maxHp, this.hp + this.maxHp * 0.3);
             
             const weaponType = this.weapon ? this.weapon.type : null;
             const specialAttackUnits = ['fire_staff', 'ice_diamond', 'magic_spear', 'boomerang', 'shuriken', 'hadoken'];
-    
-            // [MODIFIED] 공격력 증가 로직 수정: 무기 타입에 따라 specialAttackLevelBonus 또는 baseAttackPower를 증가시킵니다.
+
             if (specialAttackUnits.includes(weaponType)) {
-                this.specialAttackLevelBonus += 4 * levelGained;
+                this.specialAttackLevelBonus += 2 * levelGained; // 특수 공격력 증가량: 4 -> 2
             } else {
-                this.baseAttackPower += 4 * levelGained;
+                this.baseAttackPower += 2 * levelGained; // 기본 공격력 증가량: 4 -> 2
             }
-            // [MODIFIED] GameManager의 createEffect를 직접 호출하여 레벨업 이펙트를 생성합니다.
             this.gameManager.createEffect('level_up', this.pixelX, this.pixelY, this);
         }
     }
@@ -1247,7 +1248,8 @@ export class Unit {
             const damageRadius = GRID_SIZE * 2;
             enemies.forEach(enemy => {
                 if (Math.hypot(this.pixelX - enemy.pixelX, this.pixelY - enemy.pixelY) < damageRadius) {
-                    enemy.takeDamage(this.attackPower, {}, this);
+                    // [MODIFIED] 쌍검 순간이동 베기 공격에 1.5배의 데미지 배율을 적용합니다.
+                    enemy.takeDamage(this.attackPower * 1.5, {}, this);
                 }
             });
             this.gameManager.audioManager.play('rotaryknife');
@@ -1256,3 +1258,4 @@ export class Unit {
         this.state = 'IDLE';
     }
 }
+
