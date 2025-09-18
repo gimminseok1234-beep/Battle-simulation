@@ -105,7 +105,6 @@ export class GameManager {
         this.editingUnit = null;
         
         this.prng = new SeededRandom(Date.now());
-        // [MODIFIED] 시뮬레이션 결과에 영향을 주지 않는 별도의 난수 생성기 추가
         this.uiPrng = new SeededRandom(Date.now());
         this.simulationSeed = null;
         this.isReplayMode = false;
@@ -996,7 +995,6 @@ export class GameManager {
                 unit.nameColor = this.nametagColor;
             });
 
-            // [MODIFIED] 시뮬레이션 결과에 영향을 주지 않는 uiPrng로 이름 섞기
             const shuffledNames = [...this.nametagList].sort(() => 0.5 - this.uiPrng.next());
             
             const assignmentCount = Math.min(this.units.length, shuffledNames.length);
@@ -1192,10 +1190,20 @@ export class GameManager {
             
             const tileType = TILE[this.currentTool.type];
             if (tileType === TILE.TELEPORTER && this.getTilesOfType(TILE.TELEPORTER).length >= 2) { return; }
+
+            let tileColor;
+            if (tileType === TILE.WALL) {
+                tileColor = this.currentWallColor;
+                this.addRecentColor(tileColor, 'wall'); // [MODIFIED]
+            } else if (tileType === TILE.FLOOR) {
+                tileColor = this.currentFloorColor;
+                this.addRecentColor(tileColor, 'floor'); // [MODIFIED]
+            }
+
             this.map[y][x] = {
                 type: tileType,
                 hp: tileType === TILE.CRACKED_WALL ? 50 : undefined,
-                color: tileType === TILE.WALL ? this.currentWallColor : (tileType === TILE.FLOOR ? this.currentFloorColor : undefined),
+                color: tileColor,
                 replicationValue: tileType === TILE.REPLICATION_TILE ? this.replicationValue : undefined,
                 direction: tileType === TILE.DASH_TILE ? this.dashTileSettings.direction : undefined
             };
@@ -2270,36 +2278,36 @@ export class GameManager {
         this.draw();
     }
 
+    // [MODIFIED] 맵 로드 시 최근 색상 목록을 더 정확하게 복원하도록 수정
     handleMapColors(mapData) {
+        // 저장된 최근 색상 목록을 우선적으로 불러옵니다.
         this.recentFloorColors = mapData.recentFloorColors || [];
         this.recentWallColors = mapData.recentWallColors || [];
         
-        let floorColor = mapData.floorColor;
-        let wallColor = mapData.wallColor;
-
-        if (!floorColor || !wallColor) {
-            const mapGridData = (typeof mapData.map === 'string') ? JSON.parse(mapData.map) : mapData.map;
-            const floorColors = {};
-            const wallColors = {};
-            
-            if (mapGridData) {
-                mapGridData.forEach(row => {
-                    row.forEach(tile => {
-                        if (tile.type === TILE.FLOOR && tile.color) {
-                            floorColors[tile.color] = (floorColors[tile.color] || 0) + 1;
-                        } else if (tile.type === TILE.WALL && tile.color) {
-                            wallColors[tile.color] = (wallColors[tile.color] || 0) + 1;
-                        }
-                    });
+        const mapGridData = (typeof mapData.map === 'string') ? JSON.parse(mapData.map) : mapData.map;
+        const floorColors = new Set(this.recentFloorColors);
+        const wallColors = new Set(this.recentWallColors);
+        
+        // 맵 데이터에 있는 모든 색상을 수집합니다.
+        if (mapGridData) {
+            mapGridData.forEach(row => {
+                row.forEach(tile => {
+                    if (tile.type === TILE.FLOOR && tile.color) {
+                        floorColors.add(tile.color);
+                    } else if (tile.type === TILE.WALL && tile.color) {
+                        wallColors.add(tile.color);
+                    }
                 });
-            }
-
-            const mostCommonFloor = Object.keys(floorColors).reduce((a, b) => floorColors[a] > floorColors[b] ? a : b, null);
-            const mostCommonWall = Object.keys(wallColors).reduce((a, b) => wallColors[a] > wallColors[b] ? a : b, null);
-
-            floorColor = mostCommonFloor || COLORS.FLOOR;
-            wallColor = mostCommonWall || COLORS.WALL;
+            });
         }
+    
+        // Set을 다시 배열로 변환하여 최근 색상 목록을 업데이트합니다.
+        this.recentFloorColors = [...floorColors].slice(0, MAX_RECENT_COLORS);
+        this.recentWallColors = [...wallColors].slice(0, MAX_RECENT_COLORS);
+    
+        // 현재 선택된 색상을 설정합니다.
+        const floorColor = mapData.floorColor || (this.recentFloorColors.length > 0 ? this.recentFloorColors[0] : COLORS.FLOOR);
+        const wallColor = mapData.wallColor || (this.recentWallColors.length > 0 ? this.recentWallColors[0] : COLORS.WALL);
         
         this.setCurrentColor(floorColor, 'floor', false);
         this.setCurrentColor(wallColor, 'wall', false);
