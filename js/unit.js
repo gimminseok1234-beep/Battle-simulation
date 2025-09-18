@@ -49,6 +49,8 @@ export class Unit {
         this.dashDirection = null;
         this.dashTrail = [];
         this.name = '';
+        // [MODIFIED] 이름표 색상 속성 추가
+        this.nameColor = '#000000'; 
         this.awakeningEffect = { active: false, stacks: 0, timer: 0 };
         this.magicDaggerSkillCooldown = 0;
         this.isAimingMagicDagger = false;
@@ -1030,7 +1032,8 @@ export class Unit {
         }
         
         if (this.name) {
-            ctx.fillStyle = 'black';
+            // [MODIFIED] 설정된 색상으로 이름표를 그립니다.
+            ctx.fillStyle = this.nameColor;
             ctx.font = `bold ${10 / totalScale}px Arial`;
             ctx.textAlign = 'center';
             ctx.fillText(this.name, this.pixelX, this.pixelY + GRID_SIZE);
