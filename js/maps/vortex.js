@@ -1,9 +1,9 @@
 // js/maps/vortex.js
 
 /**
- * 맵 제목: 소용돌이 (vortex) - 고품질 버전
- * 컨셉: 중앙 제단을 향해 나선형으로 좁아지는 길을 따라 전투를 벌이는 맵.
- * 시인성을 개선하고 소용돌이 구조를 완벽하게 재설계하여 전략적인 재미를 극대화했습니다.
+ * 맵 제목: 삼중 나선 (vortex) - 리뉴얼 버전
+ * 컨셉: 중앙 제단을 향해 뻗어있는 세 개의 독립된 라인에서 전투가 벌어지는 대칭형 맵입니다.
+ * 각 라인의 특성을 파악하고 활용하는 것이 승리의 열쇠가 됩니다.
  */
 
 export const vortexmap = {
@@ -12,55 +12,57 @@ export const vortexmap = {
     height: 800,
     hadokenKnockback: 15,
     autoMagneticField: { isActive: false },
-    nexuses: [],
+    nexuses: [], // 사용자가 직접 배치
     map: JSON.stringify((() => {
         const ROWS = 40;
         const COLS = 23;
-        // [수정] 벽 색상을 검은색, 바닥 색상을 짙은 남색으로 변경하여 시인성 확보
-        const wall = { type: 'WALL', color: '#1A202C' }; 
-        const floor = { type: 'FLOOR', color: '#2C3E50' };
+
+        // --- 원칙 2: 데이터 무결성 - 색상 정의 ---
+        const wall = { type: 'WALL', color: '#1A202C' };       // 공허 벽
+        const floor = { type: 'FLOOR', color: '#2D3748' };     // 기본 바닥
+        const midLane = { type: 'FLOOR', color: '#4A5568' };   // 중앙 라인 바닥
+
+        // 1. 기본 맵 생성 (모든 공간을 벽으로 초기화)
         const map = [...Array(ROWS)].map(() => [...Array(COLS)].map(() => ({ ...wall })));
 
-        // [수정] 완벽한 나선형 구조를 생성하는 알고리즘으로 전면 교체
-        let top = 1, bottom = ROWS - 2, left = 1, right = COLS - 2;
-
-        while (top <= bottom && left <= right) {
-            // -> 방향 길 생성
-            for (let x = left; x <= right; x++) map[top][x] = { ...floor };
-            top++;
-            if (top > bottom) break;
-            
-            // v 방향 길 생성
-            for (let y = top; y <= bottom; y++) map[y][right] = { ...floor };
-            right--;
-            if (left > right) break;
-
-            // <- 방향 길 생성
-            for (let x = right; x >= left; x--) map[bottom][x] = { ...floor };
-            bottom--;
-            if (top > bottom) break;
-
-            // ^ 방향 길 생성
-            for (let y = bottom; y >= top; y--) map[y][left] = { ...floor };
-            left++;
+        // 2. 세 개의 라인 생성 (프로그래밍 방식)
+        // 중앙 라인 (넓고 직선적)
+        for (let y = 1; y < ROWS - 1; y++) {
+            for (let x = 9; x <= 13; x++) {
+                map[y][x] = { ...midLane };
+            }
         }
 
-        // 2. 전략적 타일 배치
-        // 중앙 제단 (안전지대 및 보상)
-        map[19][11] = { type: 'HEAL_PACK', color: '#22c55e' };
-        map[20][11] = { type: 'HEAL_PACK', color: '#22c55e' };
-        map[19][10] = { ...floor }; map[19][12] = { ...floor };
-        map[20][10] = { ...floor }; map[20][12] = { ...floor };
+        // 왼쪽 라인 (좁고 구불구불함)
+        for (let y = 1; y < 15; y++) { map[y][4] = { ...floor }; map[y][5] = { ...floor };}
+        for (let x = 5; x < 9; x++) { map[14][x] = { ...floor }; map[15][x] = { ...floor };}
+        for (let y = 15; y < 25; y++) { map[y][8] = { ...floor }; }
+        for (let x = 5; x < 9; x++) { map[24][x] = { ...floor }; map[25][x] = { ...floor };}
+        for (let y = 25; y < ROWS - 1; y++) { map[y][4] = { ...floor }; map[y][5] = { ...floor };}
 
-        // 용암 함정 배치
-        map[2][11] = { type: 'LAVA', color: '#f97316' };
-        map[37][11] = { type: 'LAVA', color: '#f97316' };
-        map[19][2] = { type: 'LAVA', color: '#f97316' };
-        map[20][20] = { type: 'LAVA', color: '#f97316' };
-        
-        // 돌진 타일 (지름길 및 함정 유도)
-        map[10][2] = { type: 'DASH_TILE', direction: 'DOWN', color: '#ffffff' };
-        map[29][20] = { type: 'DASH_TILE', direction: 'UP', color: '#ffffff' };
+        // 오른쪽 라인 (왼쪽과 대칭)
+        for (let y = 1; y < 15; y++) { map[y][COLS - 5] = { ...floor }; map[y][COLS - 6] = { ...floor };}
+        for (let x = COLS - 9; x < COLS - 5; x++) { map[14][x] = { ...floor }; map[15][x] = { ...floor };}
+        for (let y = 15; y < 25; y++) { map[y][COLS - 9] = { ...floor }; }
+        for (let x = COLS - 9; x < COLS - 5; x++) { map[24][x] = { ...floor }; map[25][x] = { ...floor };}
+        for (let y = 25; y < ROWS - 1; y++) { map[y][COLS - 5] = { ...floor }; map[y][COLS - 6] = { ...floor };}
+
+
+        // 3. 전략적 타일 배치
+        // 중앙 라인의 장애물
+        map[12][11] = { type: 'CRACKED_WALL', hp: 200, color: '#718096' };
+        map[ROWS - 13][11] = { type: 'CRACKED_WALL', hp: 200, color: '#718096' };
+
+        // 중앙 제단 (핵심 쟁탈 지역)
+        map[19][11] = { type: 'HEAL_PACK', color: '#16a34a' };
+        map[20][11] = { type: 'HEAL_PACK', color: '#16a34a' };
+
+        // 사이드 라인의 돌진 타일 (빠른 합류 및 기습 유도)
+        map[10][4] = { type: 'DASH_TILE', direction: 'DOWN', color: '#e2e8f0' };
+        map[10][COLS - 5] = { type: 'DASH_TILE', direction: 'DOWN', color: '#e2e8f0' };
+        map[ROWS - 11][4] = { type: 'DASH_TILE', direction: 'UP', color: '#e2e8f0' };
+        map[ROWS - 11][COLS - 5] = { type: 'DASH_TILE', direction: 'UP', color: '#e2e8f0' };
+
 
         return map;
     })()),
