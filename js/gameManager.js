@@ -108,6 +108,11 @@ export class GameManager {
         this.simulationSeed = null;
         this.isReplayMode = false;
         this.lastSimulationResult = null;
+        
+        // [NEW] 타이머 기능 추가
+        this.simulationTime = 0;
+        this.timerElement = document.getElementById('timerText');
+
 
         instance = this;
     }
@@ -147,6 +152,8 @@ export class GameManager {
         this.updateUIToEditorMode(); 
         this.resetActionCam(true);
         this.renderMapCards();
+        // [NEW] 타이머 숨기기
+        if (this.timerElement) this.timerElement.style.display = 'none';
     }
 
     showDefaultMapsScreen() {
@@ -192,6 +199,9 @@ export class GameManager {
         document.getElementById('unitOutlineWidthValue').textContent = this.unitOutlineWidth.toFixed(1);
 
         this.resetActionCam(true);
+        
+        // [NEW] 타이머 숨기기
+        if (this.timerElement) this.timerElement.style.display = 'none';
 
         if (mapId !== 'replay') {
              this.updateUIToEditorMode(); 
@@ -955,6 +965,8 @@ export class GameManager {
         this.resetActionCam(true);
         this.prng = new SeededRandom(Date.now());
         this.isReplayMode = false;
+        // [NEW] 타이머 숨기기
+        if (this.timerElement) this.timerElement.style.display = 'none';
         this.draw();
     }
     
@@ -1021,6 +1033,13 @@ export class GameManager {
         document.getElementById('simPauseBtn').classList.remove('hidden');
         document.getElementById('simPlayBtn').classList.add('hidden');
         
+        // [NEW] 타이머 시작
+        this.simulationTime = 0;
+        if (this.timerElement) {
+            this.timerElement.style.display = 'block';
+            this.timerElement.textContent = '00:00';
+        }
+        
         if (!this.isReplayMode) {
             document.getElementById('toolbox').style.pointerEvents = 'none';
         }
@@ -1075,6 +1094,9 @@ export class GameManager {
         document.getElementById('simPauseBtn').classList.add('hidden');
         document.getElementById('simPlayBtn').classList.add('hidden');
         document.getElementById('simStartBtn').disabled = false;
+        
+        // [NEW] 타이머 숨기기
+        if (this.timerElement) this.timerElement.style.display = 'none';
         
         if (!this.isReplayMode) {
             document.getElementById('toolbox').style.pointerEvents = 'auto';
@@ -1217,6 +1239,13 @@ export class GameManager {
             this.update();
         }
         
+        // [NEW] 타이머 업데이트
+        if (this.timerElement && (this.state === 'SIMULATE' || this.state === 'PAUSED' || this.state === 'ENDING' || this.state === 'DONE')) {
+            const minutes = Math.floor(this.simulationTime / 60).toString().padStart(2, '0');
+            const seconds = Math.floor(this.simulationTime % 60).toString().padStart(2, '0');
+            this.timerElement.textContent = `${minutes}:${seconds}`;
+        }
+        
         this.draw();
         
         if (this.state === 'SIMULATE') {
@@ -1304,6 +1333,11 @@ export class GameManager {
 
     update() {
         if (this.state === 'PAUSED' || this.state === 'DONE') return;
+
+        // [NEW] 타이머 시간 증가
+        if (this.state === 'SIMULATE') {
+            this.simulationTime += 1 / 60; // 60 FPS 기준
+        }
 
         if (this.state === 'ENDING') {
             this.nexuses.forEach(n => n.update());
@@ -2180,6 +2214,10 @@ export class GameManager {
         document.getElementById('simPlayBtn').classList.add('hidden');
         document.getElementById('simStartBtn').disabled = false;
         document.getElementById('toolbox').style.pointerEvents = 'auto';
+        
+        // [NEW] 타이머 숨기기
+        if (this.timerElement) this.timerElement.style.display = 'none';
+        
         this.resetActionCam(true);
     }
 
@@ -2567,5 +2605,3 @@ export class GameManager {
         placementResetBtn.style.display = 'inline-block';
     }
 }
-
-
