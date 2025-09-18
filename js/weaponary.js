@@ -186,7 +186,7 @@ export class Weapon {
     }
 
     /**
-     * [MODIFIED] Handles the weapon's attack logic.
+     * [NEW] Handles the weapon's attack logic.
      * @param {Unit} unit - The unit using this weapon.
      * @param {Unit | Nexus} target - The attack target.
      */
@@ -200,7 +200,7 @@ export class Weapon {
 
         if (this.type === 'sword') {
             unit.attackCount++;
-            target.takeDamage(unit.attackPower, {}, unit);
+            target.takeDamage(unit.attackPower);
             gameManager.createEffect('slash', unit.pixelX, unit.pixelY, target);
             gameManager.audioManager.play('swordHit');
             unit.attackCooldown = unit.cooldownTime;
@@ -256,17 +256,17 @@ export class Weapon {
                 gameManager.createProjectile(unit, target, 'arrow');
             }
         } else if (this.type === 'magic_dagger') {
-            target.takeDamage(unit.attackPower, {}, unit);
+            target.takeDamage(unit.attackPower);
             gameManager.createEffect('slash', unit.pixelX, unit.pixelY, target);
             gameManager.audioManager.play('dualSwordHit');
             unit.attackCooldown = 120;
         } else if (this.type === 'dual_swords') {
-            target.takeDamage(unit.attackPower, {}, unit);
+            target.takeDamage(unit.attackPower);
             gameManager.createEffect('dual_sword_slash', unit.pixelX, unit.pixelY, target);
             gameManager.audioManager.play('dualSwordHit');
             unit.attackCooldown = unit.cooldownTime;
         } else if (this.type === 'axe') {
-            target.takeDamage(unit.attackPower, {}, unit);
+            target.takeDamage(unit.attackPower);
             gameManager.createEffect('slash', unit.pixelX, unit.pixelY, target);
             gameManager.audioManager.play('swordHit');
             unit.attackCooldown = unit.cooldownTime;
@@ -329,7 +329,7 @@ export class Weapon {
             gameManager.audioManager.play('punch');
             unit.attackCooldown = unit.cooldownTime;
         } else if (this.type === 'poison_potion') {
-            target.takeDamage(15, {}, unit);
+            target.takeDamage(15);
             unit.attackCooldown = unit.cooldownTime;
         }
     }
@@ -669,11 +669,10 @@ export class Weapon {
         if (!gameManager) return;
         
         const scale = 1 + (unit.awakeningEffect?.stacks || 0) * 0.2;
-        const totalScale = scale * (1 + (unit.level - 1) * 0.08);
 
         ctx.save(); 
         ctx.translate(unit.pixelX, unit.pixelY);
-        ctx.scale(totalScale, totalScale);
+        ctx.scale(scale, scale);
         
         let rotation = unit.facingAngle;
         if (unit.attackAnimationTimer > 0) {
@@ -952,6 +951,7 @@ export class Projectile {
     constructor(gameManager, owner, target, type = 'arrow', options = {}) {
         this.gameManager = gameManager;
         this.owner = owner;
+        this.target = target;
         this.pixelX = options.startX !== undefined ? options.startX : owner.pixelX;
         this.pixelY = options.startY !== undefined ? options.startY : owner.pixelY;
         this.type = type;
@@ -982,7 +982,7 @@ export class Projectile {
 
         this.damage = owner.attackPower;
         if (type === 'magic_spear_special') {
-            this.damage = (owner.weapon?.specialAttackPowerBonus || 0) + owner.baseAttackPower + owner.specialAttackLevelBonus;
+            this.damage = (owner.weapon?.specialAttackPowerBonus || 0) + owner.baseAttackPower;
         } else if (type === 'magic_spear_normal') {
             this.damage = (owner.weapon?.normalAttackPowerBonus || 0) + owner.baseAttackPower;
         } else if (type === 'boomerang_projectile') {
@@ -990,15 +990,13 @@ export class Projectile {
         } else if (type === 'boomerang_normal_projectile') {
             this.damage = 12;
         } else if (type === 'ice_diamond_projectile') {
-            this.damage = (owner.attackPower * 1.5) + owner.specialAttackLevelBonus;
+            this.damage = 28;
         } else if (type === 'fireball_projectile') {
-            // [MODIFIED] 불 지팡이 특수 공격(화염구)의 기본 데미지를 20으로 수정
-            this.damage = 20 + owner.specialAttackLevelBonus;
+            this.damage = 28;
         } else if (type === 'mini_fireball_projectile') {
             this.damage = 12;
         } else if (type === 'black_sphere_projectile') { 
-            // [MODIFIED] 불 지팡이 일반 공격(검은 구체)의 데미지를 13으로 수정
-            this.damage = 13;
+            this.damage = 15;
         } else if (type === 'bouncing_sword') {
             this.damage = 15;
         }
@@ -1045,7 +1043,7 @@ export class Projectile {
                 
                 for (const unit of gameManager.units) {
                     if (unit.team !== this.owner.team && !this.hitTargets.has(unit) && Math.hypot(this.pixelX - unit.pixelX, this.pixelY - unit.pixelY) < GRID_SIZE / 2) {
-                        unit.takeDamage(this.damage, {}, this.owner);
+                        unit.takeDamage(this.damage);
                         this.hitTargets.add(unit);
                     }
                 }
@@ -1060,7 +1058,7 @@ export class Projectile {
                 if (this.damageCooldown <= 0) {
                     for (const unit of gameManager.units) {
                         if (unit.team !== this.owner.team && Math.hypot(this.pixelX - unit.pixelX, this.pixelY - unit.pixelY) < GRID_SIZE * 2) {
-                            unit.takeDamage(this.damage * 0.15, {}, this.owner); // Reduced lingering damage
+                            unit.takeDamage(this.damage * 0.15); // Reduced lingering damage
                         }
                     }
                     this.damageCooldown = this.damageInterval;
@@ -1089,7 +1087,7 @@ export class Projectile {
 
                 for (const unit of gameManager.units) {
                     if (unit.team !== this.owner.team && !this.alreadyDamagedOnReturn.has(unit) && Math.hypot(this.pixelX - unit.pixelX, this.pixelY - unit.pixelY) < GRID_SIZE / 2) {
-                        unit.takeDamage(this.damage, {}, this.owner);
+                        unit.takeDamage(this.damage);
                         this.alreadyDamagedOnReturn.add(unit);
                     }
                 }
@@ -1097,8 +1095,8 @@ export class Projectile {
             return;
         }
 
-        // [수정] 얼음 다이아 투사체 유도 기능 추가
-        if (this.type === 'ice_diamond_projectile') {
+        // [MODIFIED] 얼음 다이아와 부메랑 특수 공격 투사체에 유도 기능 추가
+        if (this.type === 'ice_diamond_projectile' || this.type === 'boomerang_projectile') {
             if (this.target && this.target.hp > 0) {
                 const targetAngle = Math.atan2(this.target.pixelY - this.pixelY, this.target.pixelX - this.pixelX);
                 let angleDiff = targetAngle - this.angle;
@@ -1446,9 +1444,6 @@ export class Effect {
                 });
             }
         }
-        if (this.type === 'level_up') {
-            this.duration = 60;
-        }
     }
     update() {
         const gameManager = this.gameManager;
@@ -1504,12 +1499,6 @@ export class Effect {
             ctx.arc(0, 0, radius, 0, Math.PI * 2);
             ctx.stroke();
             ctx.restore();
-        } else if (this.type === 'level_up') {
-            const textOpacity = Math.sin((1 - this.duration / 60) * Math.PI);
-            ctx.fillStyle = `rgba(253, 224, 71, ${textOpacity})`;
-            ctx.font = 'bold 14px Arial';
-            ctx.textAlign = 'center';
-            ctx.fillText('LEVEL UP!', this.x, this.y - 20 - (60 - this.duration) * 0.5);
         }
     }
 }
@@ -1573,7 +1562,6 @@ export class AreaEffect {
         this.duration = 30; this.maxRadius = GRID_SIZE * 2.5; this.currentRadius = 0;
         this.damage = options.damage || 0;
         this.ownerTeam = options.ownerTeam || null;
-        this.owner = options.owner || null;
         this.particles = [];
         this.damagedUnits = new Set();
         this.damagedNexuses = new Set();
@@ -1609,7 +1597,7 @@ export class AreaEffect {
                 if (unit.team !== this.ownerTeam && !this.damagedUnits.has(unit)) {
                     const dist = Math.hypot(unit.pixelX - this.pixelX, unit.pixelY - this.pixelY);
                     if (dist < this.currentRadius) {
-                        unit.takeDamage(this.damage, {}, this.owner);
+                        unit.takeDamage(this.damage);
                         this.damagedUnits.add(unit);
                     }
                 }
@@ -1619,7 +1607,7 @@ export class AreaEffect {
                 if (nexus.team !== this.ownerTeam && !this.damagedNexuses.has(nexus)) {
                     const dist = Math.hypot(nexus.pixelX - this.pixelX, nexus.pixelY - this.pixelY);
                     if (dist < this.currentRadius) {
-                        nexus.takeDamage(this.damage, {}, this.owner);
+                        nexus.takeDamage(this.damage);
                         this.damagedNexuses.add(nexus);
                     }
                 }
@@ -1657,5 +1645,3 @@ export class AreaEffect {
         }
     }
 }
-
-
