@@ -9,7 +9,8 @@ import { factorymap } from './factory.js';
 import { vortexmap } from './vortex.js';
 import { chessboardmap } from './chessboard.js';
 import { rivermap } from './river.js';
-import { siegemap } from './siege.js'; // 새로 추가된 공성전 맵 import
+import { siegemap } from './siege.js';
+import { arenaMap } from './arena.js'; // 새로 추가된 결투장 맵 import
 
 export const localMaps = [
     grasslandMap,
@@ -21,5 +22,6 @@ export const localMaps = [
     vortexmap,
     chessboardmap,
     rivermap,
-    siegemap, // 배열에 공성전 맵 추가
+    siegemap,
+    arenaMap, // 배열에 결투장 맵 추가
 ];
