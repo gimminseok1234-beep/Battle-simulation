@@ -200,7 +200,7 @@ export class Weapon {
 
         if (this.type === 'sword') {
             unit.attackCount++;
-            target.takeDamage(unit.attackPower);
+            target.takeDamage(unit.attackPower, {}, unit);
             gameManager.createEffect('slash', unit.pixelX, unit.pixelY, target);
             gameManager.audioManager.play('swordHit');
             unit.attackCooldown = unit.cooldownTime;
@@ -256,17 +256,17 @@ export class Weapon {
                 gameManager.createProjectile(unit, target, 'arrow');
             }
         } else if (this.type === 'magic_dagger') {
-            target.takeDamage(unit.attackPower);
+            target.takeDamage(unit.attackPower, {}, unit);
             gameManager.createEffect('slash', unit.pixelX, unit.pixelY, target);
             gameManager.audioManager.play('dualSwordHit');
             unit.attackCooldown = 120;
         } else if (this.type === 'dual_swords') {
-            target.takeDamage(unit.attackPower);
+            target.takeDamage(unit.attackPower, {}, unit);
             gameManager.createEffect('dual_sword_slash', unit.pixelX, unit.pixelY, target);
             gameManager.audioManager.play('dualSwordHit');
             unit.attackCooldown = unit.cooldownTime;
         } else if (this.type === 'axe') {
-            target.takeDamage(unit.attackPower);
+            target.takeDamage(unit.attackPower, {}, unit);
             gameManager.createEffect('slash', unit.pixelX, unit.pixelY, target);
             gameManager.audioManager.play('swordHit');
             unit.attackCooldown = unit.cooldownTime;
@@ -329,7 +329,7 @@ export class Weapon {
             gameManager.audioManager.play('punch');
             unit.attackCooldown = unit.cooldownTime;
         } else if (this.type === 'poison_potion') {
-            target.takeDamage(15);
+            target.takeDamage(15, {}, unit);
             unit.attackCooldown = unit.cooldownTime;
         }
     }
@@ -980,25 +980,41 @@ export class Projectile {
         else if (type === 'bouncing_sword') this.speed = 7;
         else this.speed = 6;
 
-        this.damage = owner.attackPower;
-        if (type === 'magic_spear_special') {
-            this.damage = (owner.weapon?.specialAttackPowerBonus || 0) + owner.baseAttackPower;
-        } else if (type === 'magic_spear_normal') {
-            this.damage = (owner.weapon?.normalAttackPowerBonus || 0) + owner.baseAttackPower;
-        } else if (type === 'boomerang_projectile') {
-            this.damage = 0;
-        } else if (type === 'boomerang_normal_projectile') {
-            this.damage = 12;
-        } else if (type === 'ice_diamond_projectile') {
-            this.damage = 28;
-        } else if (type === 'fireball_projectile') {
-            this.damage = 28;
-        } else if (type === 'mini_fireball_projectile') {
-            this.damage = 12;
-        } else if (type === 'black_sphere_projectile') { 
-            this.damage = 15;
-        } else if (type === 'bouncing_sword') {
-            this.damage = 15;
+        // [MODIFIED] 데미지 계산 로직 전면 수정: 모든 투사체 데미지가 유닛의 기본 공격력, 레벨업 보너스, 무기 보너스를 일관되게 따르도록 변경하여 비정상적인 데미지 오류를 해결합니다.
+        let baseDamage = owner.baseAttackPower + (owner.specialAttackLevelBonus || 0);
+    
+        switch (type) {
+            case 'magic_spear_special':
+                this.damage = baseDamage + (owner.weapon?.specialAttackPowerBonus || 0);
+                break;
+            case 'magic_spear_normal':
+                this.damage = baseDamage + (owner.weapon?.normalAttackPowerBonus || 0);
+                break;
+            case 'ice_diamond_projectile':
+                this.damage = baseDamage + 20; // 기존 하드코딩 값(28)을 베이스 데미지+보너스 형태로 변경
+                break;
+            case 'fireball_projectile':
+                this.damage = baseDamage + 20; // 기존 하드코딩 값(28)을 베이스 데미지+보너스 형태로 변경
+                break;
+            case 'mini_fireball_projectile':
+                this.damage = baseDamage + 7; // 기존 하드코딩 값(12)을 베이스 데미지+보너스 형태로 변경
+                break;
+            case 'boomerang_normal_projectile':
+                this.damage = baseDamage + 7; // 기존 하드코딩 값(12)을 베이스 데미지+보너스 형태로 변경
+                break;
+            case 'bouncing_sword':
+                this.damage = baseDamage + 10; // 기존 하드코딩 값(15)을 베이스 데미지+보너스 형태로 변경
+                break;
+            case 'black_sphere_projectile':
+                this.damage = baseDamage + 10; // 기존 하드코딩 값(15)을 베이스 데미지+보너스 형태로 변경
+                break;
+            case 'boomerang_projectile':
+                this.damage = 0; // 이 투사체는 데미지가 없음
+                break;
+            default:
+                // For arrow, sword_wave, hadoken, shuriken etc.
+                this.damage = baseDamage + (owner.weapon?.attackPowerBonus || 0);
+                break;
         }
 
         this.knockback = (type === 'hadoken') ? gameManager.hadokenKnockback : 0;
@@ -1043,7 +1059,7 @@ export class Projectile {
                 
                 for (const unit of gameManager.units) {
                     if (unit.team !== this.owner.team && !this.hitTargets.has(unit) && Math.hypot(this.pixelX - unit.pixelX, this.pixelY - unit.pixelY) < GRID_SIZE / 2) {
-                        unit.takeDamage(this.damage);
+                        unit.takeDamage(this.damage, {}, this.owner);
                         this.hitTargets.add(unit);
                     }
                 }
@@ -1058,7 +1074,7 @@ export class Projectile {
                 if (this.damageCooldown <= 0) {
                     for (const unit of gameManager.units) {
                         if (unit.team !== this.owner.team && Math.hypot(this.pixelX - unit.pixelX, this.pixelY - unit.pixelY) < GRID_SIZE * 2) {
-                            unit.takeDamage(this.damage * 0.15); // Reduced lingering damage
+                            unit.takeDamage(this.damage * 0.15, {}, this.owner); // Reduced lingering damage
                         }
                     }
                     this.damageCooldown = this.damageInterval;
@@ -1087,7 +1103,7 @@ export class Projectile {
 
                 for (const unit of gameManager.units) {
                     if (unit.team !== this.owner.team && !this.alreadyDamagedOnReturn.has(unit) && Math.hypot(this.pixelX - unit.pixelX, this.pixelY - unit.pixelY) < GRID_SIZE / 2) {
-                        unit.takeDamage(this.damage);
+                        unit.takeDamage(this.damage, {}, this.owner);
                         this.alreadyDamagedOnReturn.add(unit);
                     }
                 }
@@ -1443,6 +1459,9 @@ export class Effect {
                     lifespan: 40,
                 });
             }
+        } else if (this.type === 'level_up') {
+            // [NEW] 레벨업 이펙트 지속 시간 설정
+            this.duration = 40;
         }
     }
     update() {
@@ -1498,6 +1517,22 @@ export class Effect {
             ctx.beginPath();
             ctx.arc(0, 0, radius, 0, Math.PI * 2);
             ctx.stroke();
+            ctx.restore();
+        } else if (this.type === 'level_up') {
+            // [NEW] 레벨업 이펙트(텍스트)를 그리는 로직 추가
+            const initialDuration = 40;
+            const yOffset = -GRID_SIZE - (initialDuration - this.duration);
+            const opacity = Math.min(1, this.duration / (initialDuration / 2));
+            ctx.save();
+            ctx.translate(this.target.pixelX, this.target.pixelY + yOffset);
+            ctx.scale(1.5, 1.5);
+            ctx.fillStyle = `rgba(255, 215, 0, ${opacity})`;
+            ctx.strokeStyle = `rgba(0, 0, 0, ${opacity})`;
+            ctx.lineWidth = 1;
+            ctx.font = 'bold 12px Arial';
+            ctx.textAlign = 'center';
+            ctx.strokeText('LEVEL UP!', 0, 0);
+            ctx.fillText('LEVEL UP!', 0, 0);
             ctx.restore();
         }
     }
@@ -1597,7 +1632,7 @@ export class AreaEffect {
                 if (unit.team !== this.ownerTeam && !this.damagedUnits.has(unit)) {
                     const dist = Math.hypot(unit.pixelX - this.pixelX, unit.pixelY - this.pixelY);
                     if (dist < this.currentRadius) {
-                        unit.takeDamage(this.damage);
+                        unit.takeDamage(this.damage, {}, this.gameManager.units.find(u => u.team === this.ownerTeam));
                         this.damagedUnits.add(unit);
                     }
                 }
