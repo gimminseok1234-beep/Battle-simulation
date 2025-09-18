@@ -1517,19 +1517,17 @@ export class Effect {
             ctx.stroke();
             ctx.restore();
         } else if (this.type === 'level_up') {
-            // [NEW] 레벨업 이펙트(텍스트)를 그리는 로직 추가
             const initialDuration = 40;
             const yOffset = -GRID_SIZE - (initialDuration - this.duration);
             const opacity = Math.min(1, this.duration / (initialDuration / 2));
             ctx.save();
             ctx.translate(this.target.pixelX, this.target.pixelY + yOffset);
-            ctx.scale(1.5, 1.5);
+            // [MODIFIED] 레벨업 글자 크기를 기존보다 30% 작게 조정했습니다.
+            ctx.scale(1.05, 1.05);
             ctx.fillStyle = `rgba(255, 215, 0, ${opacity})`;
-            ctx.strokeStyle = `rgba(0, 0, 0, ${opacity})`;
-            ctx.lineWidth = 1;
             ctx.font = 'bold 12px Arial';
             ctx.textAlign = 'center';
-            ctx.strokeText('LEVEL UP!', 0, 0);
+            // [MODIFIED] 가독성을 위해 검은색 테두리를 제거했습니다.
             ctx.fillText('LEVEL UP!', 0, 0);
             ctx.restore();
         }
@@ -1678,4 +1676,5 @@ export class AreaEffect {
         }
     }
 }
+
 
