@@ -1298,7 +1298,8 @@ export class GameManager {
                     mapHeight: this.canvas.height,
                     floorColor: this.currentFloorColor,
                     wallColor: this.currentWallColor,
-                    isLevelUpEnabled: this.isLevelUpEnabled
+                    isLevelUpEnabled: this.isLevelUpEnabled,
+                    hadokenKnockback: this.hadokenKnockback // [MODIFIED] 리플레이에 넉백 값 저장
                 };
 
                 if (!this.isReplayMode) {
@@ -2541,6 +2542,9 @@ export class GameManager {
 
         // [MODIFIED] 리플레이 로드 시 레벨업 설정 불러오기
         this.isLevelUpEnabled = replayData.isLevelUpEnabled || false;
+        // [MODIFIED] 리플레이 로드 시 넉백 값 불러오기
+        this.hadokenKnockback = replayData.hadokenKnockback || 15;
+
 
         this.canvas.width = replayData.mapWidth;
         this.canvas.height = replayData.mapHeight;
