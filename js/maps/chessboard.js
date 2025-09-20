@@ -58,4 +58,32 @@ export const chessboardmap = {
         // 가로 연결 (왼쪽-오른쪽 방)
         for (let row = 0; row < 3; row++) {
             const y = row * 13 + 6;
-            for (let x = 11; x <= 12;
+            for (let x = 11; x <= 12; x++) {
+                 map[y][x] = { ...floor };
+            }
+        }
+
+        // 4. 각 방의 테마에 맞는 특수 타일 재배치
+        // 우상단 방: 용암 함정
+        map[5][15] = { ...lava };
+        map[5][18] = { ...lava };
+        map[9][16] = { ...lava };
+
+        // 좌중단 방: 파괴 가능한 기둥
+        map[18][4] = { type: 'CRACKED_WALL', hp: 150, color: '#718096' };
+        map[18][8] = { type: 'CRACKED_WALL', hp: 150, color: '#718096' };
+
+        // 우중단 방: 중앙 회복 팩
+        map[19][16] = { type: 'HEAL_PACK', color: '#16a34a' };
+
+        // 우하단 방 <-> 좌상단 방 텔레포터
+        map[32][16] = { type: 'TELEPORTER', color: '#8b5cf6' };
+        map[6][6] = { type: 'TELEPORTER', color: '#8b5cf6' };
+
+        return map;
+    })()),
+    // --- 당신이 관여하지 않는 영역 ---
+    units: [],
+    weapons: [],
+    growingFields: [],
+};
