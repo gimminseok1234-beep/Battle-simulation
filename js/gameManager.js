@@ -113,6 +113,9 @@ export class GameManager {
         this.simulationTime = 0;
         this.timerElement = document.getElementById('timerText');
 
+        // [NEW] 용암 회피 기능 활성화 여부
+        this.isLavaAvoidanceEnabled = true;
+
 
         instance = this;
     }
@@ -232,7 +235,10 @@ export class GameManager {
             <div class="category-header collapsed" data-target="category-special-tiles">특수 타일</div>
             <div id="category-special-tiles" class="category-content collapsed">
                 <div class="overflow-y-auto max-h-60 pr-2">
-                    <button class="tool-btn" data-tool="tile" data-type="LAVA">용암</button>
+                    <div class="flex items-center gap-1">
+                        <button class="tool-btn flex-grow" data-tool="tile" data-type="LAVA">용암</button>
+                        <button id="lavaSettingsBtn" class="p-2 rounded hover:bg-gray-600">⚙️</button>
+                    </div>
                     <button class="tool-btn" data-tool="tile" data-type="GLASS_WALL">유리벽</button>
                     <button class="tool-btn" data-tool="tile" data-type="CRACKED_WALL">부서지는 벽</button>
                     <button class="tool-btn" data-tool="tile" data-type="HEAL_PACK">회복 팩</button>
@@ -386,6 +392,7 @@ export class GameManager {
             wallColor: this.currentWallColor,
             recentFloorColors: this.recentFloorColors,
             recentWallColors: this.recentWallColors,
+            isLavaAvoidanceEnabled: this.isLavaAvoidanceEnabled, // [NEW] 용암 회피 설정 저장
         };
 
         const mapDocRef = doc(this.db, "maps", this.currentUser.uid, "userMaps", this.currentMapId);
@@ -635,6 +642,11 @@ export class GameManager {
             this.dashTileSettings.direction = document.getElementById('dashTileDirection').value;
             document.getElementById('dashTileModal').classList.remove('show-modal');
         });
+        // [NEW] 용암 설정 모달 이벤트 리스너 추가
+        document.getElementById('closeLavaSettingsModal').addEventListener('click', () => {
+            this.isLavaAvoidanceEnabled = document.getElementById('lavaAvoidanceToggle').checked;
+            document.getElementById('lavaSettingsModal').classList.remove('show-modal');
+        });
         document.getElementById('cancelSaveReplayBtn').addEventListener('click', () => document.getElementById('saveReplayModal').classList.remove('show-modal'));
         document.getElementById('confirmSaveReplayBtn').addEventListener('click', () => this.saveLastReplay());
 
@@ -815,6 +827,9 @@ export class GameManager {
                 document.getElementById('hadokenKnockback').value = this.hadokenKnockback;
                 document.getElementById('hadokenKnockbackValue').textContent = this.hadokenKnockback;
                 document.getElementById('hadokenModal').classList.add('show-modal');
+            } else if (target.id === 'lavaSettingsBtn' || target.parentElement.id === 'lavaSettingsBtn') {
+                document.getElementById('lavaAvoidanceToggle').checked = this.isLavaAvoidanceEnabled;
+                document.getElementById('lavaSettingsModal').classList.add('show-modal');
             } else if (categoryHeader) {
                 const content = categoryHeader.nextElementSibling;
                 categoryHeader.classList.toggle('collapsed');
@@ -2010,6 +2025,36 @@ export class GameManager {
         return closestSpot || { x: this.canvas.width / 2, y: this.canvas.height / 2 };
     }
     
+    // [NEW] 유닛이 용암을 피해야 하는지 판단하는 함수
+    isPosInLavaForUnit(gridX, gridY) {
+        if (!this.isLavaAvoidanceEnabled) return false;
+        if (gridY >= 0 && gridY < this.ROWS && gridX >= 0 && gridX < this.COLS) {
+            return this.map[gridY][gridX].type === TILE.LAVA;
+        }
+        return false;
+    }
+
+    // [NEW] 용암으로부터 가장 가까운 안전한 지점을 찾는 함수
+    findClosestSafeSpotFromLava(pixelX, pixelY) {
+        let closestSpot = null;
+        let minDistance = Infinity;
+
+        for (let y = 0; y < this.ROWS; y++) {
+            for (let x = 0; x < this.COLS; x++) {
+                if (!this.isPosInLavaForUnit(x, y)) {
+                    const targetPixelX = x * GRID_SIZE + GRID_SIZE / 2;
+                    const targetPixelY = y * GRID_SIZE + GRID_SIZE / 2;
+                    const distance = Math.hypot(pixelX - targetPixelX, pixelY - targetPixelY);
+                    if (distance < minDistance) {
+                        minDistance = distance;
+                        closestSpot = { x: targetPixelX, y: targetPixelY };
+                    }
+                }
+            }
+        }
+        return closestSpot || { x: this.canvas.width / 2, y: this.canvas.height / 2 };
+    }
+    
     findClosestEnemy(x, y, ownerTeam, excludeSet) {
         let closest = null;
         let minDistance = Infinity;
@@ -2149,7 +2194,10 @@ export class GameManager {
         this.hadokenKnockback = mapData.hadokenKnockback || 15;
         
         this.isLevelUpEnabled = mapData.isLevelUpEnabled || false;
-
+        
+        // [NEW] 용암 회피 설정 불러오기
+        this.isLavaAvoidanceEnabled = mapData.isLavaAvoidanceEnabled !== undefined ? mapData.isLavaAvoidanceEnabled : true;
+        
         this.resetSimulationState();
         this.renderRecentColors('floor');
         this.renderRecentColors('wall');
@@ -2195,6 +2243,9 @@ export class GameManager {
         this.hadokenKnockback = mapData.hadokenKnockback;
         
         this.isLevelUpEnabled = mapData.isLevelUpEnabled || false;
+        
+        // [NEW] 용암 회피 설정 불러오기 (기본 맵)
+        this.isLavaAvoidanceEnabled = mapData.isLavaAvoidanceEnabled !== undefined ? mapData.isLavaAvoidanceEnabled : true;
         
         this.resetSimulationState();
         this.renderRecentColors('floor');
