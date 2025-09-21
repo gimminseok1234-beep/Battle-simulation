@@ -70,6 +70,10 @@ export class Unit {
         this.dualSwordTeleportDelayTimer = 0;
         this.dualSwordSpinAttackTimer = 0;
         this.isMarkedByDualSword = { active: false, timer: 0 };
+
+        // [NEW] 유닛이 길을 찾지 못하고 막혔는지 판단하기 위한 속성
+        this.stuckTimer = 0;
+        this.lastPosition = { x: this.pixelX, y: this.pixelY };
     }
     
     get speed() {
@@ -910,6 +914,39 @@ export class Unit {
         
         this.applyPhysics();
 
+        // [NEW] 유닛이 막혔는지 감지하고 새로운 경로를 설정하는 로직
+        if (this.moveTarget) {
+            const distMoved = Math.hypot(this.pixelX - this.lastPosition.x, this.pixelY - this.lastPosition.y);
+            if (distMoved < 0.2 * gameManager.gameSpeed) {
+                this.stuckTimer += 1;
+            } else {
+                this.stuckTimer = 0;
+            }
+
+            if (this.stuckTimer > 30) { // 0.5초 동안 막혀있으면
+                const angle = gameManager.random() * Math.PI * 2;
+                const radius = GRID_SIZE * 3;
+                // 현재 위치 주변의 안전한 랜덤 위치로 이동 목표를 재설정하여 교착 상태 탈출
+                const newTargetX = this.pixelX + Math.cos(angle) * radius;
+                const newTargetY = this.pixelY + Math.sin(angle) * radius;
+                
+                const gridX = Math.floor(newTargetX / GRID_SIZE);
+                const gridY = Math.floor(newTargetY / GRID_SIZE);
+
+                if (gridY >= 0 && gridY < gameManager.ROWS && gridX >= 0 && gridX < gameManager.COLS &&
+                    gameManager.map[gridY][gridX].type !== TILE.WALL &&
+                    gameManager.map[gridY][gridX].type !== TILE.CRACKED_WALL) {
+                    this.moveTarget = { x: newTargetX, y: newTargetY };
+                }
+                
+                this.stuckTimer = 0;
+            }
+        } else {
+            this.stuckTimer = 0;
+        }
+        this.lastPosition = { x: this.pixelX, y: this.pixelY };
+
+
         const finalGridX = Math.floor(this.pixelX / GRID_SIZE);
         const finalGridY = Math.floor(this.pixelY / GRID_SIZE);
 
@@ -1303,4 +1340,5 @@ export class Unit {
         this.state = 'IDLE';
     }
 }
+
 
