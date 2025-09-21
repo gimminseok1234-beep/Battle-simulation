@@ -31,7 +31,6 @@ export class Unit {
         this.isKing = false; this.spawnCooldown = 0; this.spawnInterval = 720;
         this.knockbackX = 0; this.knockbackY = 0;
         this.isInMagneticField = false;
-        this.isInLava = false; // [NEW] 유닛이 용암 위에 있는지 여부
         this.evasionCooldown = 0;
         this.attackAnimationTimer = 0;
         this.magicCircleCooldown = 0;
@@ -70,8 +69,11 @@ export class Unit {
         this.dualSwordTeleportDelayTimer = 0;
         this.dualSwordSpinAttackTimer = 0;
         this.isMarkedByDualSword = { active: false, timer: 0 };
+        
+        this.isInLava = false; 
+        this.fleeingCooldown = 0;
 
-        // [NEW] 유닛이 길을 찾지 못하고 막혔는지 판단하기 위한 속성
+        // [ADDED BACK] 유닛이 길을 찾지 못하고 막혔는지 판단하기 위한 속성
         this.stuckTimer = 0;
         this.lastPosition = { x: this.pixelX, y: this.pixelY };
     }
@@ -98,7 +100,6 @@ export class Unit {
         if (this.weapon && this.weapon.type === 'dual_swords' && (this.state === 'AGGRESSIVE' || this.state === 'ATTACKING_NEXUS')) {
             combatSpeedBoost = 0.5;
         }
-        // [MODIFIED] 레벨업에 따른 속도 증가 효과를 12%에서 6%로 하향 조정했습니다.
         let finalSpeed = (this.baseSpeed + (this.weapon ? this.weapon.speedBonus || 0 : 0) + combatSpeedBoost) + speedModifier;
         finalSpeed *= (1 + (this.level - 1) * 0.06);
 
@@ -106,7 +107,6 @@ export class Unit {
     }
 
     get attackPower() { 
-        // [MODIFIED] specialAttackLevelBonus가 최종 공격력에 합산되도록 수정했습니다.
         return this.baseAttackPower + (this.weapon ? this.weapon.attackPowerBonus || 0 : 0) + this.specialAttackLevelBonus; 
     }
     get attackRange() { return this.baseAttackRange + (this.weapon ? this.weapon.attackRangeBonus || 0 : 0); }
@@ -114,8 +114,6 @@ export class Unit {
     
     get cooldownTime() { 
         let finalCooldown = this.baseCooldownTime + (this.weapon ? this.weapon.attackCooldownBonus || 0 : 0);
-
-        // [MODIFIED] 레벨업에 따른 쿨다운 감소 효과를 8%에서 4%로 하향 조정했습니다.
         finalCooldown *= (1 - (this.level - 1) * 0.04);
 
         if (this.weapon && this.weapon.type === 'fire_staff') return Math.max(20, Math.min(finalCooldown, 120));
@@ -142,7 +140,6 @@ export class Unit {
         const previousLevel = this.level;
         let newLevel = this.level;
     
-        // [MODIFIED] 자신보다 높은 레벨의 유닛을 잡으면, 그 유닛의 레벨이 되도록 수정
         if (killedUnitLevel > this.level) {
             newLevel = killedUnitLevel;
         } else {
@@ -154,17 +151,16 @@ export class Unit {
         if (this.level > previousLevel) {
             const levelGained = this.level - previousLevel;
             
-            // [MODIFIED] 레벨업 시 능력치 상승폭을 하향 조정했습니다.
-            this.maxHp += 10 * levelGained; // 체력 증가량: 20 -> 10
+            this.maxHp += 10 * levelGained;
             this.hp = Math.min(this.maxHp, this.hp + this.maxHp * 0.3);
             
             const weaponType = this.weapon ? this.weapon.type : null;
             const specialAttackUnits = ['fire_staff', 'ice_diamond', 'magic_spear', 'boomerang', 'shuriken', 'hadoken'];
 
             if (specialAttackUnits.includes(weaponType)) {
-                this.specialAttackLevelBonus += 2 * levelGained; // 특수 공격력 증가량: 4 -> 2
+                this.specialAttackLevelBonus += 2 * levelGained;
             } else {
-                this.baseAttackPower += 2 * levelGained; // 기본 공격력 증가량: 4 -> 2
+                this.baseAttackPower += 2 * levelGained;
             }
             this.gameManager.createEffect('level_up', this.pixelX, this.pixelY, this);
         }
@@ -290,8 +286,8 @@ export class Unit {
         
         let angle = Math.atan2(dy, dx);
 
-        // [MODIFIED] 용암 회피를 위한 유연한 경로 탐색 로직 추가
-        if (gameManager.isLavaAvoidanceEnabled && this.state !== 'FLEEING_FIELD') {
+        // [ADDED BACK] 용암 회피를 위한 유연한 경로 탐색 로직
+        if (gameManager.isLavaAvoidanceEnabled && this.state !== 'FLEEING_FIELD' && this.state !== 'FLEEING_LAVA') {
             const lookAheadDist = GRID_SIZE * 1.2;
             const lookAheadX = this.pixelX + Math.cos(angle) * lookAheadDist;
             const lookAheadY = this.pixelY + Math.sin(angle) * lookAheadDist;
@@ -303,7 +299,6 @@ export class Unit {
                 const detourAngle = Math.PI / 3; // 60도
                 let bestAngle = -1;
                 
-                // 좌/우 두 방향으로 안전한 경로 탐색
                 const leftAngle = angle - detourAngle;
                 const rightAngle = angle + detourAngle;
 
@@ -316,7 +311,6 @@ export class Unit {
                 const isRightSafe = !gameManager.isPosInLavaForUnit(Math.floor(rightLookAheadX / GRID_SIZE), Math.floor(rightLookAheadY / GRID_SIZE));
 
                 if (isLeftSafe && isRightSafe) {
-                    // 두 경로 모두 안전하면, 원래 목표와 각도 차이가 적은 쪽을 선택
                     bestAngle = Math.abs(leftAngle - angle) < Math.abs(rightAngle - angle) ? leftAngle : rightAngle;
                 } else if (isLeftSafe) {
                     bestAngle = leftAngle;
@@ -388,13 +382,11 @@ export class Unit {
         this.hp -= damage;
         this.hpBarVisibleTimer = 180;
         
-        // [MODIFIED] 공격자 정보 기록 로직 강화: attacker가 유효할 경우, killedBy를 항상 업데이트하여 투사체 킬도 정확히 기록합니다.
         if (attacker && attacker instanceof Unit) {
             this.killedBy = attacker;
         }
     
         if (this.hp <= 0 && !this.killedBy && attacker) {
-            // 만약 killedBy가 아직 설정되지 않았다면(예: 타일 데미지), 마지막 공격자를 기록합니다.
             this.killedBy = attacker;
         }
 
@@ -577,6 +569,7 @@ export class Unit {
         if (this.boomerangCooldown > 0) this.boomerangCooldown -= gameManager.gameSpeed;
         if (this.shurikenSkillCooldown > 0) this.shurikenSkillCooldown -= gameManager.gameSpeed;
         if (this.fireStaffSpecialCooldown > 0) this.fireStaffSpecialCooldown -= gameManager.gameSpeed;
+        if (this.fleeingCooldown > 0) this.fleeingCooldown -= gameManager.gameSpeed;
         
         if (this.weapon && (this.weapon.type === 'shuriken' || this.weapon.type === 'lightning') && this.evasionCooldown <= 0) {
             for (const p of projectiles) {
@@ -775,8 +768,9 @@ export class Unit {
         // 2순위: 용암 회피 (기능 활성화 시)
         } else if (gameManager.isLavaAvoidanceEnabled && this.isInLava) {
             newState = 'FLEEING_LAVA';
-        // 3순위 이하: 생존에 위협이 없을 때만 다른 행동 고려
-        } else {
+            this.fleeingCooldown = 60; // 용암에서 탈출할 때 1초의 쿨다운 설정
+        // 3순위 이하: 생존에 위협이 없고, 회피 쿨다운이 아닐 때만 다른 행동 고려
+        } else if (this.fleeingCooldown <= 0) {
             const enemyNexus = gameManager.nexuses.find(n => n.team !== this.team && !n.isDestroying);
             const { item: closestEnemy, distance: enemyDist } = this.findClosest(enemies);
             
@@ -834,7 +828,15 @@ export class Unit {
                     newTarget = enemyNexus;
                 }
             }
+        } else {
+            // 회피 쿨다운 중일 때는, 현재 이동 목표를 유지하거나 IDLE 상태로 전환하여 재공격을 방지합니다.
+            if (this.moveTarget) {
+                newState = this.state; // 현재 상태(아마도 FLEEING_LAVA)를 유지하여 이동을 마칩니다.
+            } else {
+                newState = 'IDLE';
+            }
         }
+
 
         if (this.state !== newState && newState !== 'IDLE' && newState !== 'FLEEING_FIELD' && newState !== 'FLEEING_LAVA') {
             if (!(this.weapon && this.weapon.type === 'magic_spear' && this.target instanceof Unit && this.target.stunnedByMagicCircle)) {
@@ -848,7 +850,6 @@ export class Unit {
             case 'FLEEING_FIELD':
                 this.moveTarget = gameManager.findClosestSafeSpot(this.pixelX, this.pixelY);
                 break;
-            // [NEW] 용암 회피 상태 추가
             case 'FLEEING_LAVA':
                 this.moveTarget = gameManager.findClosestSafeSpotFromLava(this.pixelX, this.pixelY);
                 break;
@@ -924,7 +925,7 @@ export class Unit {
         
         this.applyPhysics();
 
-        // [NEW] 유닛이 막혔는지 감지하고 새로운 경로를 설정하는 로직
+        // [ADDED BACK] 유닛이 막혔는지 감지하고 새로운 경로를 설정하는 로직
         if (this.moveTarget) {
             const distMoved = Math.hypot(this.pixelX - this.lastPosition.x, this.pixelY - this.lastPosition.y);
             if (distMoved < 0.2 * gameManager.gameSpeed) {
@@ -936,7 +937,6 @@ export class Unit {
             if (this.stuckTimer > 30) { // 0.5초 동안 막혀있으면
                 const angle = gameManager.random() * Math.PI * 2;
                 const radius = GRID_SIZE * 3;
-                // 현재 위치 주변의 안전한 랜덤 위치로 이동 목표를 재설정하여 교착 상태 탈출
                 const newTargetX = this.pixelX + Math.cos(angle) * radius;
                 const newTargetY = this.pixelY + Math.sin(angle) * radius;
                 
@@ -1134,7 +1134,6 @@ export class Unit {
         }
         
         if (this.name) {
-            // [MODIFIED] 설정된 색상으로 이름표를 그립니다.
             ctx.fillStyle = this.nameColor;
             ctx.font = `bold ${10 / totalScale}px Arial`;
             ctx.textAlign = 'center';
@@ -1340,7 +1339,6 @@ export class Unit {
             const damageRadius = GRID_SIZE * 2;
             enemies.forEach(enemy => {
                 if (Math.hypot(this.pixelX - enemy.pixelX, this.pixelY - enemy.pixelY) < damageRadius) {
-                    // [MODIFIED] 쌍검 순간이동 베기 공격에 1.5배의 데미지 배율을 적용합니다.
                     enemy.takeDamage(this.attackPower * 1.5, {}, this);
                 }
             });
@@ -1350,6 +1348,4 @@ export class Unit {
         this.state = 'IDLE';
     }
 }
-
-
 
