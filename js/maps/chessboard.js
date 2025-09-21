@@ -19,7 +19,7 @@ export const chessboardmap = {
 
         // --- 원칙 2: 데이터 무결성 - 색상 정의 ---
         const wall = { type: 'WALL', color: '#1A202C' };
-        // 요청에 따라 너무 밝지 않은 회색으로 바닥색 수정
+        // 요청하신 대로, 너무 밝지 않은 회색으로 바닥색을 최종 수정했습니다.
         const floor = { type: 'FLOOR', color: '#374151' };
         const lava = { type: 'LAVA', color: '#f97316' };
 
