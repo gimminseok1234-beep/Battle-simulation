@@ -31,6 +31,7 @@ export class Unit {
         this.isKing = false; this.spawnCooldown = 0; this.spawnInterval = 720;
         this.knockbackX = 0; this.knockbackY = 0;
         this.isInMagneticField = false;
+        this.isInLava = false; // [NEW] 유닛이 용암 위에 있는지 여부
         this.evasionCooldown = 0;
         this.attackAnimationTimer = 0;
         this.magicCircleCooldown = 0;
@@ -718,9 +719,12 @@ export class Unit {
         const currentGridXBeforeMove = Math.floor(this.pixelX / GRID_SIZE);
         const currentGridYBeforeMove = Math.floor(this.pixelY / GRID_SIZE);
         this.isInMagneticField = gameManager.isPosInAnyField(currentGridXBeforeMove, currentGridYBeforeMove);
+        this.isInLava = gameManager.isPosInLavaForUnit(currentGridXBeforeMove, currentGridYBeforeMove);
         
         if(this.isInMagneticField) {
             newState = 'FLEEING_FIELD';
+        } else if (this.isInLava) {
+            newState = 'FLEEING_LAVA';
         } else {
             const enemyNexus = gameManager.nexuses.find(n => n.team !== this.team && !n.isDestroying);
             const { item: closestEnemy, distance: enemyDist } = this.findClosest(enemies);
@@ -781,7 +785,7 @@ export class Unit {
             }
         }
 
-        if (this.state !== newState && newState !== 'IDLE' && newState !== 'FLEEING_FIELD') {
+        if (this.state !== newState && newState !== 'IDLE' && newState !== 'FLEEING_FIELD' && newState !== 'FLEEING_LAVA') {
             if (!(this.weapon && this.weapon.type === 'magic_spear' && this.target instanceof Unit && this.target.stunnedByMagicCircle)) {
                  this.alertedCounter = 60;
             }
@@ -792,6 +796,9 @@ export class Unit {
         switch(this.state) {
             case 'FLEEING_FIELD':
                 this.moveTarget = gameManager.findClosestSafeSpot(this.pixelX, this.pixelY);
+                break;
+            case 'FLEEING_LAVA':
+                this.moveTarget = gameManager.findClosestSafeSpotFromLava(this.pixelX, this.pixelY);
                 break;
             case 'FLEEING':
                 if (this.target) {
@@ -1228,7 +1235,7 @@ export class Unit {
         }
         
         const showAlert = this.alertedCounter > 0 || (this.weapon?.type === 'magic_spear' && this.target instanceof Unit && this.target.stunnedByMagicCircle);
-        if (showAlert && this.state !== 'FLEEING_FIELD') {
+        if (showAlert && this.state !== 'FLEEING_FIELD' && this.state !== 'FLEEING_LAVA') {
             const yOffset = -GRID_SIZE * totalScale;
             ctx.fillStyle = 'yellow'; 
             ctx.font = `bold ${20}px Arial`; 
@@ -1258,4 +1265,3 @@ export class Unit {
         this.state = 'IDLE';
     }
 }
-
