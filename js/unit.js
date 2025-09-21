@@ -768,8 +768,14 @@ export class Unit {
         this.isInMagneticField = gameManager.isPosInAnyField(currentGridXBeforeMove, currentGridYBeforeMove);
         this.isInLava = gameManager.isPosInLavaForUnit(currentGridXBeforeMove, currentGridYBeforeMove);
         
+        // [MODIFIED] AI 의사결정 로직 수정: 생존을 최우선으로!
+        // 1순위: 자기장 회피
         if(this.isInMagneticField) {
             newState = 'FLEEING_FIELD';
+        // 2순위: 용암 회피 (기능 활성화 시)
+        } else if (gameManager.isLavaAvoidanceEnabled && this.isInLava) {
+            newState = 'FLEEING_LAVA';
+        // 3순위 이하: 생존에 위협이 없을 때만 다른 행동 고려
         } else {
             const enemyNexus = gameManager.nexuses.find(n => n.team !== this.team && !n.isDestroying);
             const { item: closestEnemy, distance: enemyDist } = this.findClosest(enemies);
@@ -841,6 +847,10 @@ export class Unit {
         switch(this.state) {
             case 'FLEEING_FIELD':
                 this.moveTarget = gameManager.findClosestSafeSpot(this.pixelX, this.pixelY);
+                break;
+            // [NEW] 용암 회피 상태 추가
+            case 'FLEEING_LAVA':
+                this.moveTarget = gameManager.findClosestSafeSpotFromLava(this.pixelX, this.pixelY);
                 break;
             case 'FLEEING':
                 if (this.target) {
@@ -1310,7 +1320,7 @@ export class Unit {
         }
         
         const showAlert = this.alertedCounter > 0 || (this.weapon?.type === 'magic_spear' && this.target instanceof Unit && this.target.stunnedByMagicCircle);
-        if (showAlert && this.state !== 'FLEEING_FIELD') {
+        if (showAlert && this.state !== 'FLEEING_FIELD' && this.state !== 'FLEEING_LAVA') {
             const yOffset = -GRID_SIZE * totalScale;
             ctx.fillStyle = 'yellow'; 
             ctx.font = `bold ${20}px Arial`; 
@@ -1340,5 +1350,6 @@ export class Unit {
         this.state = 'IDLE';
     }
 }
+
 
 
