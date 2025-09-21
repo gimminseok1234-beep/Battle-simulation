@@ -113,9 +113,7 @@ export class GameManager {
         this.simulationTime = 0;
         this.timerElement = document.getElementById('timerText');
 
-        // [NEW] 용암 회피 기능 활성화 여부
         this.isLavaAvoidanceEnabled = true;
-
 
         instance = this;
     }
@@ -235,7 +233,7 @@ export class GameManager {
             <div class="category-header collapsed" data-target="category-special-tiles">특수 타일</div>
             <div id="category-special-tiles" class="category-content collapsed">
                 <div class="overflow-y-auto max-h-60 pr-2">
-                    <div class="flex items-center gap-1">
+                    <div class="flex items-center gap-1 mt-1">
                         <button class="tool-btn flex-grow" data-tool="tile" data-type="LAVA">용암</button>
                         <button id="lavaSettingsBtn" class="p-2 rounded hover:bg-gray-600">⚙️</button>
                     </div>
@@ -392,7 +390,7 @@ export class GameManager {
             wallColor: this.currentWallColor,
             recentFloorColors: this.recentFloorColors,
             recentWallColors: this.recentWallColors,
-            isLavaAvoidanceEnabled: this.isLavaAvoidanceEnabled, // [NEW] 용암 회피 설정 저장
+            isLavaAvoidanceEnabled: this.isLavaAvoidanceEnabled,
         };
 
         const mapDocRef = doc(this.db, "maps", this.currentUser.uid, "userMaps", this.currentMapId);
@@ -642,13 +640,13 @@ export class GameManager {
             this.dashTileSettings.direction = document.getElementById('dashTileDirection').value;
             document.getElementById('dashTileModal').classList.remove('show-modal');
         });
-        // [NEW] 용암 설정 모달 이벤트 리스너 추가
+        document.getElementById('cancelSaveReplayBtn').addEventListener('click', () => document.getElementById('saveReplayModal').classList.remove('show-modal'));
+        document.getElementById('confirmSaveReplayBtn').addEventListener('click', () => this.saveLastReplay());
+
         document.getElementById('closeLavaSettingsModal').addEventListener('click', () => {
             this.isLavaAvoidanceEnabled = document.getElementById('lavaAvoidanceToggle').checked;
             document.getElementById('lavaSettingsModal').classList.remove('show-modal');
         });
-        document.getElementById('cancelSaveReplayBtn').addEventListener('click', () => document.getElementById('saveReplayModal').classList.remove('show-modal'));
-        document.getElementById('confirmSaveReplayBtn').addEventListener('click', () => this.saveLastReplay());
 
         document.getElementById('addNewMapCard').addEventListener('click', () => {
             document.getElementById('newMapName').value = '';
@@ -679,7 +677,8 @@ export class GameManager {
                 units: [], weapons: [], nexuses: [], growingFields: [],
                 isLevelUpEnabled: false,
                 floorColor: COLORS.FLOOR, wallColor: COLORS.WALL,
-                recentFloorColors: [], recentWallColors: []
+                recentFloorColors: [], recentWallColors: [],
+                isLavaAvoidanceEnabled: true,
             };
             
             const newMapDocRef = doc(this.db, "maps", this.currentUser.uid, "userMaps", newMapId);
@@ -814,6 +813,9 @@ export class GameManager {
                 document.getElementById('fieldSpeed').value = this.growingFieldSettings.speed;
                 document.getElementById('fieldDelay').value = this.growingFieldSettings.delay;
                 document.getElementById('growingFieldModal').classList.add('show-modal');
+            } else if (target.id === 'lavaSettingsBtn' || target.parentElement.id === 'lavaSettingsBtn') {
+                document.getElementById('lavaAvoidanceToggle').checked = this.isLavaAvoidanceEnabled;
+                document.getElementById('lavaSettingsModal').classList.add('show-modal');
             } else if (target.id === 'dashTileSettingsBtn' || target.parentElement.id === 'dashTileSettingsBtn') {
                 document.getElementById('dashTileDirection').value = this.dashTileSettings.direction;
                 document.getElementById('dashTileModal').classList.add('show-modal');
@@ -827,9 +829,6 @@ export class GameManager {
                 document.getElementById('hadokenKnockback').value = this.hadokenKnockback;
                 document.getElementById('hadokenKnockbackValue').textContent = this.hadokenKnockback;
                 document.getElementById('hadokenModal').classList.add('show-modal');
-            } else if (target.id === 'lavaSettingsBtn' || target.parentElement.id === 'lavaSettingsBtn') {
-                document.getElementById('lavaAvoidanceToggle').checked = this.isLavaAvoidanceEnabled;
-                document.getElementById('lavaSettingsModal').classList.add('show-modal');
             } else if (categoryHeader) {
                 const content = categoryHeader.nextElementSibling;
                 categoryHeader.classList.toggle('collapsed');
@@ -1209,10 +1208,10 @@ export class GameManager {
             let tileColor;
             if (tileType === TILE.WALL) {
                 tileColor = this.currentWallColor;
-                this.addRecentColor(tileColor, 'wall'); // [MODIFIED]
+                this.addRecentColor(tileColor, 'wall');
             } else if (tileType === TILE.FLOOR) {
                 tileColor = this.currentFloorColor;
-                this.addRecentColor(tileColor, 'floor'); // [MODIFIED]
+                this.addRecentColor(tileColor, 'floor');
             }
 
             this.map[y][x] = {
@@ -1330,7 +1329,8 @@ export class GameManager {
                     floorColor: this.currentFloorColor,
                     wallColor: this.currentWallColor,
                     isLevelUpEnabled: this.isLevelUpEnabled,
-                    hadokenKnockback: this.hadokenKnockback
+                    hadokenKnockback: this.hadokenKnockback,
+                    isLavaAvoidanceEnabled: this.isLavaAvoidanceEnabled,
                 };
 
                 if (!this.isReplayMode) {
@@ -2024,20 +2024,19 @@ export class GameManager {
         }
         return closestSpot || { x: this.canvas.width / 2, y: this.canvas.height / 2 };
     }
-    
-    // [NEW] 유닛이 용암을 피해야 하는지 판단하는 함수
+
     isPosInLavaForUnit(gridX, gridY) {
-        if (!this.isLavaAvoidanceEnabled) return false;
-        if (gridY >= 0 && gridY < this.ROWS && gridX >= 0 && gridX < this.COLS) {
-            return this.map[gridY][gridX].type === TILE.LAVA;
+        if (gridY < 0 || gridY >= this.ROWS || gridX < 0 || gridX >= this.COLS) {
+            return true;
         }
-        return false;
+        return this.map[gridY][gridX].type === TILE.LAVA;
     }
 
-    // [NEW] 용암으로부터 가장 가까운 안전한 지점을 찾는 함수
     findClosestSafeSpotFromLava(pixelX, pixelY) {
         let closestSpot = null;
         let minDistance = Infinity;
+        const startGridX = Math.floor(pixelX / GRID_SIZE);
+        const startGridY = Math.floor(pixelY / GRID_SIZE);
 
         for (let y = 0; y < this.ROWS; y++) {
             for (let x = 0; x < this.COLS; x++) {
@@ -2194,10 +2193,8 @@ export class GameManager {
         this.hadokenKnockback = mapData.hadokenKnockback || 15;
         
         this.isLevelUpEnabled = mapData.isLevelUpEnabled || false;
-        
-        // [NEW] 용암 회피 설정 불러오기
         this.isLavaAvoidanceEnabled = mapData.isLavaAvoidanceEnabled !== undefined ? mapData.isLavaAvoidanceEnabled : true;
-        
+
         this.resetSimulationState();
         this.renderRecentColors('floor');
         this.renderRecentColors('wall');
@@ -2243,8 +2240,6 @@ export class GameManager {
         this.hadokenKnockback = mapData.hadokenKnockback;
         
         this.isLevelUpEnabled = mapData.isLevelUpEnabled || false;
-        
-        // [NEW] 용암 회피 설정 불러오기 (기본 맵)
         this.isLavaAvoidanceEnabled = mapData.isLavaAvoidanceEnabled !== undefined ? mapData.isLavaAvoidanceEnabled : true;
         
         this.resetSimulationState();
@@ -2329,9 +2324,7 @@ export class GameManager {
         this.draw();
     }
 
-    // [MODIFIED] 맵 로드 시 최근 색상 목록을 더 정확하게 복원하도록 수정
     handleMapColors(mapData) {
-        // 저장된 최근 색상 목록을 우선적으로 불러옵니다.
         this.recentFloorColors = mapData.recentFloorColors || [];
         this.recentWallColors = mapData.recentWallColors || [];
         
@@ -2339,7 +2332,6 @@ export class GameManager {
         const floorColors = new Set(this.recentFloorColors);
         const wallColors = new Set(this.recentWallColors);
         
-        // 맵 데이터에 있는 모든 색상을 수집합니다.
         if (mapGridData) {
             mapGridData.forEach(row => {
                 row.forEach(tile => {
@@ -2352,11 +2344,9 @@ export class GameManager {
             });
         }
     
-        // Set을 다시 배열로 변환하여 최근 색상 목록을 업데이트합니다.
         this.recentFloorColors = [...floorColors].slice(0, MAX_RECENT_COLORS);
         this.recentWallColors = [...wallColors].slice(0, MAX_RECENT_COLORS);
     
-        // 현재 선택된 색상을 설정합니다.
         const floorColor = mapData.floorColor || (this.recentFloorColors.length > 0 ? this.recentFloorColors[0] : COLORS.FLOOR);
         const wallColor = mapData.wallColor || (this.recentWallColors.length > 0 ? this.recentWallColors[0] : COLORS.WALL);
         
@@ -2609,7 +2599,7 @@ export class GameManager {
 
         this.isLevelUpEnabled = replayData.isLevelUpEnabled || false;
         this.hadokenKnockback = replayData.hadokenKnockback || 15;
-
+        this.isLavaAvoidanceEnabled = replayData.isLavaAvoidanceEnabled !== undefined ? replayData.isLavaAvoidanceEnabled : false;
 
         this.canvas.width = replayData.mapWidth;
         this.canvas.height = replayData.mapHeight;
@@ -2671,3 +2661,4 @@ export class GameManager {
         placementResetBtn.style.display = 'inline-block';
     }
 }
+
