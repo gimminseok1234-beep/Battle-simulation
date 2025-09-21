@@ -283,7 +283,50 @@ export class Unit {
             this.pixelX = this.moveTarget.x; this.pixelY = this.moveTarget.y;
             this.moveTarget = null; return;
         }
-        const angle = Math.atan2(dy, dx);
+        
+        let angle = Math.atan2(dy, dx);
+
+        // [MODIFIED] 용암 회피를 위한 유연한 경로 탐색 로직 추가
+        if (gameManager.isLavaAvoidanceEnabled && this.state !== 'FLEEING_FIELD') {
+            const lookAheadDist = GRID_SIZE * 1.2;
+            const lookAheadX = this.pixelX + Math.cos(angle) * lookAheadDist;
+            const lookAheadY = this.pixelY + Math.sin(angle) * lookAheadDist;
+
+            const lookAheadGridX = Math.floor(lookAheadX / GRID_SIZE);
+            const lookAheadGridY = Math.floor(lookAheadY / GRID_SIZE);
+
+            if (gameManager.isPosInLavaForUnit(lookAheadGridX, lookAheadGridY)) {
+                const detourAngle = Math.PI / 3; // 60도
+                let bestAngle = -1;
+                
+                // 좌/우 두 방향으로 안전한 경로 탐색
+                const leftAngle = angle - detourAngle;
+                const rightAngle = angle + detourAngle;
+
+                const leftLookAheadX = this.pixelX + Math.cos(leftAngle) * lookAheadDist;
+                const leftLookAheadY = this.pixelY + Math.sin(leftAngle) * lookAheadDist;
+                const isLeftSafe = !gameManager.isPosInLavaForUnit(Math.floor(leftLookAheadX / GRID_SIZE), Math.floor(leftLookAheadY / GRID_SIZE));
+
+                const rightLookAheadX = this.pixelX + Math.cos(rightAngle) * lookAheadDist;
+                const rightLookAheadY = this.pixelY + Math.sin(rightAngle) * lookAheadDist;
+                const isRightSafe = !gameManager.isPosInLavaForUnit(Math.floor(rightLookAheadX / GRID_SIZE), Math.floor(rightLookAheadY / GRID_SIZE));
+
+                if (isLeftSafe && isRightSafe) {
+                    // 두 경로 모두 안전하면, 원래 목표와 각도 차이가 적은 쪽을 선택
+                    bestAngle = Math.abs(leftAngle - angle) < Math.abs(rightAngle - angle) ? leftAngle : rightAngle;
+                } else if (isLeftSafe) {
+                    bestAngle = leftAngle;
+                } else if (isRightSafe) {
+                    bestAngle = rightAngle;
+                }
+                
+                if (bestAngle !== -1) {
+                    angle = bestAngle;
+                }
+            }
+        }
+
+
         const nextPixelX = this.pixelX + Math.cos(angle) * currentSpeed;
         const nextPixelY = this.pixelY + Math.sin(angle) * currentSpeed;
         const nextGridX = Math.floor(nextPixelX / GRID_SIZE);
@@ -723,8 +766,6 @@ export class Unit {
         
         if(this.isInMagneticField) {
             newState = 'FLEEING_FIELD';
-        } else if (this.isInLava) {
-            newState = 'FLEEING_LAVA';
         } else {
             const enemyNexus = gameManager.nexuses.find(n => n.team !== this.team && !n.isDestroying);
             const { item: closestEnemy, distance: enemyDist } = this.findClosest(enemies);
@@ -796,9 +837,6 @@ export class Unit {
         switch(this.state) {
             case 'FLEEING_FIELD':
                 this.moveTarget = gameManager.findClosestSafeSpot(this.pixelX, this.pixelY);
-                break;
-            case 'FLEEING_LAVA':
-                this.moveTarget = gameManager.findClosestSafeSpotFromLava(this.pixelX, this.pixelY);
                 break;
             case 'FLEEING':
                 if (this.target) {
@@ -1235,7 +1273,7 @@ export class Unit {
         }
         
         const showAlert = this.alertedCounter > 0 || (this.weapon?.type === 'magic_spear' && this.target instanceof Unit && this.target.stunnedByMagicCircle);
-        if (showAlert && this.state !== 'FLEEING_FIELD' && this.state !== 'FLEEING_LAVA') {
+        if (showAlert && this.state !== 'FLEEING_FIELD') {
             const yOffset = -GRID_SIZE * totalScale;
             ctx.fillStyle = 'yellow'; 
             ctx.font = `bold ${20}px Arial`; 
@@ -1265,3 +1303,4 @@ export class Unit {
         this.state = 'IDLE';
     }
 }
+
