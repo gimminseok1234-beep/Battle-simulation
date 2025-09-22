@@ -2,6 +2,100 @@ import { TILE, TEAM, COLORS, GRID_SIZE } from './constants.js';
 import { Weapon, MagicDaggerDashEffect, createPhysicalHitEffect } from './weaponary.js';
 import { Nexus } from './entities.js';
 
+// [NEW] 유닛의 눈 모양을 그리는 헬퍼 함수
+/**
+ * Draws different eye shapes based on the unit's state.
+ * @param {CanvasRenderingContext2D} ctx - The rendering context.
+ * @param {string} eyeState - The current state of the eyes ('neutral', 'angry', etc.).
+ */
+function drawEyes(ctx, eyeState) {
+    ctx.fillStyle = 'black';
+    ctx.strokeStyle = 'black';
+    ctx.lineWidth = 1.5;
+    ctx.lineCap = 'round';
+
+    const eyeOffsetX = GRID_SIZE * 0.15;
+    const eyeOffsetY = -GRID_SIZE * 0.05;
+    const eyeRadius = GRID_SIZE * 0.08;
+
+    const drawEyePair = (drawLeft, drawRight) => {
+        ctx.save();
+        ctx.translate(-eyeOffsetX, eyeOffsetY);
+        drawLeft(ctx);
+        ctx.restore();
+
+        ctx.save();
+        ctx.translate(eyeOffsetX, eyeOffsetY);
+        drawRight(ctx);
+        ctx.restore();
+    };
+
+    switch (eyeState) {
+        case 'angry': // 화난 눈
+            drawEyePair(
+                (ctx) => { ctx.beginPath(); ctx.moveTo(-eyeRadius * 2, -eyeRadius * 2); ctx.lineTo(eyeRadius, eyeRadius); ctx.stroke(); },
+                (ctx) => { ctx.beginPath(); ctx.moveTo(eyeRadius * 2, -eyeRadius * 2); ctx.lineTo(-eyeRadius, eyeRadius); ctx.stroke(); }
+            );
+            break;
+        case 'happy': // 행복한 눈
+             drawEyePair(
+                (ctx) => { ctx.beginPath(); ctx.arc(0, 0, eyeRadius * 2.5, Math.PI, 2 * Math.PI); ctx.stroke(); },
+                (ctx) => { ctx.beginPath(); ctx.arc(0, 0, eyeRadius * 2.5, Math.PI, 2 * Math.PI); ctx.stroke(); }
+            );
+            break;
+        case 'sad': // 슬픈 눈
+             drawEyePair(
+                (ctx) => { ctx.beginPath(); ctx.arc(0, eyeRadius * 2, eyeRadius * 2.5, 0, Math.PI); ctx.stroke(); },
+                (ctx) => { ctx.beginPath(); ctx.arc(0, eyeRadius * 2, eyeRadius * 2.5, 0, Math.PI); ctx.stroke(); }
+            );
+            break;
+        case 'scared': // 겁먹은 눈
+            drawEyePair(
+                (ctx) => { ctx.beginPath(); ctx.arc(0, 0, eyeRadius * 2, 0, 2 * Math.PI); ctx.fill(); },
+                (ctx) => { ctx.beginPath(); ctx.arc(0, 0, eyeRadius * 2, 0, 2 * Math.PI); ctx.fill(); }
+            );
+            break;
+        case 'hurt': // 다친 눈
+            drawEyePair(
+                (ctx) => { ctx.beginPath(); ctx.moveTo(-eyeRadius * 1.5, -eyeRadius * 1.5); ctx.lineTo(eyeRadius * 1.5, eyeRadius * 1.5); ctx.moveTo(eyeRadius * 1.5, -eyeRadius * 1.5); ctx.lineTo(-eyeRadius * 1.5, eyeRadius * 1.5); ctx.stroke(); },
+                (ctx) => { ctx.beginPath(); ctx.moveTo(-eyeRadius * 1.5, -eyeRadius * 1.5); ctx.lineTo(eyeRadius * 1.5, eyeRadius * 1.5); ctx.moveTo(eyeRadius * 1.5, -eyeRadius * 1.5); ctx.lineTo(-eyeRadius * 1.5, eyeRadius * 1.5); ctx.stroke(); }
+            );
+            break;
+        case 'sleepy': // 졸린 눈
+            drawEyePair(
+                (ctx) => { ctx.beginPath(); ctx.moveTo(-eyeRadius * 2, 0); ctx.lineTo(eyeRadius * 2, 0); ctx.stroke(); },
+                (ctx) => { ctx.beginPath(); ctx.moveTo(-eyeRadius * 2, 0); ctx.lineTo(eyeRadius * 2, 0); ctx.stroke(); }
+            );
+            break;
+        case 'dizzy': // 어지러운 눈
+            drawEyePair(
+                (ctx) => { ctx.beginPath(); ctx.arc(0, 0, eyeRadius * 1.5, 0, Math.PI * 1.5); ctx.stroke(); },
+                (ctx) => { ctx.beginPath(); ctx.arc(0, 0, eyeRadius * 1.5, Math.PI, Math.PI * 2.5); ctx.stroke(); }
+            );
+            break;
+        case 'focused': // 집중하는 눈
+            drawEyePair(
+                (ctx) => { ctx.beginPath(); ctx.moveTo(-eyeRadius * 2, 0); ctx.lineTo(eyeRadius * 2, 0); ctx.moveTo(0, -eyeRadius * 2); ctx.lineTo(0, eyeRadius * 2); ctx.stroke(); },
+                (ctx) => { ctx.beginPath(); ctx.moveTo(-eyeRadius * 2, 0); ctx.lineTo(eyeRadius * 2, 0); ctx.moveTo(0, -eyeRadius * 2); ctx.lineTo(0, eyeRadius * 2); ctx.stroke(); }
+            );
+            break;
+        case 'winking': // 윙크하는 눈
+            drawEyePair(
+                (ctx) => { ctx.beginPath(); ctx.arc(0, 0, eyeRadius, 0, 2 * Math.PI); ctx.fill(); },
+                (ctx) => { ctx.beginPath(); ctx.moveTo(-eyeRadius * 2, -eyeRadius); ctx.lineTo(eyeRadius * 2, eyeRadius); ctx.stroke(); }
+            );
+            break;
+        case 'neutral': // 무표정 (기본)
+        default:
+            drawEyePair(
+                (ctx) => { ctx.beginPath(); ctx.arc(0, 0, eyeRadius, 0, 2 * Math.PI); ctx.fill(); },
+                (ctx) => { ctx.beginPath(); ctx.arc(0, 0, eyeRadius, 0, 2 * Math.PI); ctx.fill(); }
+            );
+            break;
+    }
+}
+
+
 // Unit class
 export class Unit {
     constructor(gameManager, x, y, team) {
@@ -73,9 +167,13 @@ export class Unit {
         this.isInLava = false; 
         this.fleeingCooldown = 0;
 
-        // [ADDED BACK] 유닛이 길을 찾지 못하고 막혔는지 판단하기 위한 속성
         this.stuckTimer = 0;
         this.lastPosition = { x: this.pixelX, y: this.pixelY };
+
+        // [NEW] 유닛 눈 상태 관련 속성
+        this.eyeState = 'neutral';
+        this.eyeStateTimer = 0;
+        this.idleEyeCycle = 0;
     }
     
     get speed() {
@@ -134,6 +232,8 @@ export class Unit {
             this.isKing = true;
         }
         this.state = 'IDLE';
+        this.eyeState = 'happy'; // 무기 획득 시 행복한 눈
+        this.eyeStateTimer = 60;
     }
 
     levelUp(killedUnitLevel = 0) {
@@ -286,7 +386,6 @@ export class Unit {
         
         let angle = Math.atan2(dy, dx);
 
-        // [ADDED BACK] 용암 회피를 위한 유연한 경로 탐색 로직
         if (gameManager.isLavaAvoidanceEnabled && this.state !== 'FLEEING_FIELD' && this.state !== 'FLEEING_LAVA') {
             const lookAheadDist = GRID_SIZE * 1.2;
             const lookAheadX = this.pixelX + Math.cos(angle) * lookAheadDist;
@@ -296,7 +395,7 @@ export class Unit {
             const lookAheadGridY = Math.floor(lookAheadY / GRID_SIZE);
 
             if (gameManager.isPosInLavaForUnit(lookAheadGridX, lookAheadGridY)) {
-                const detourAngle = Math.PI / 3; // 60도
+                const detourAngle = Math.PI / 3;
                 let bestAngle = -1;
                 
                 const leftAngle = angle - detourAngle;
@@ -417,6 +516,9 @@ export class Unit {
         if (effectInfo.slow) {
             this.isSlowed = Math.max(this.isSlowed, effectInfo.slow);
         }
+        // [NEW] 데미지를 받으면 눈 상태 변경
+        this.eyeState = 'hurt';
+        this.eyeStateTimer = 30; // 0.5초 동안 '다친 눈'
     }
 
     handleDeath() {
@@ -570,6 +672,7 @@ export class Unit {
         if (this.shurikenSkillCooldown > 0) this.shurikenSkillCooldown -= gameManager.gameSpeed;
         if (this.fireStaffSpecialCooldown > 0) this.fireStaffSpecialCooldown -= gameManager.gameSpeed;
         if (this.fleeingCooldown > 0) this.fleeingCooldown -= gameManager.gameSpeed;
+        if (this.eyeStateTimer > 0) this.eyeStateTimer -= gameManager.gameSpeed;
         
         if (this.weapon && (this.weapon.type === 'shuriken' || this.weapon.type === 'lightning') && this.evasionCooldown <= 0) {
             for (const p of projectiles) {
@@ -761,15 +864,11 @@ export class Unit {
         this.isInMagneticField = gameManager.isPosInAnyField(currentGridXBeforeMove, currentGridYBeforeMove);
         this.isInLava = gameManager.isPosInLavaForUnit(currentGridXBeforeMove, currentGridYBeforeMove);
         
-        // [MODIFIED] AI 의사결정 로직 수정: 생존을 최우선으로!
-        // 1순위: 자기장 회피
         if(this.isInMagneticField) {
             newState = 'FLEEING_FIELD';
-        // 2순위: 용암 회피 (기능 활성화 시)
         } else if (gameManager.isLavaAvoidanceEnabled && this.isInLava) {
             newState = 'FLEEING_LAVA';
-            this.fleeingCooldown = 60; // 용암에서 탈출할 때 1초의 쿨다운 설정
-        // 3순위 이하: 생존에 위협이 없고, 회피 쿨다운이 아닐 때만 다른 행동 고려
+            this.fleeingCooldown = 60;
         } else if (this.fleeingCooldown <= 0) {
             const enemyNexus = gameManager.nexuses.find(n => n.team !== this.team && !n.isDestroying);
             const { item: closestEnemy, distance: enemyDist } = this.findClosest(enemies);
@@ -829,9 +928,8 @@ export class Unit {
                 }
             }
         } else {
-            // 회피 쿨다운 중일 때는, 현재 이동 목표를 유지하거나 IDLE 상태로 전환하여 재공격을 방지합니다.
             if (this.moveTarget) {
-                newState = this.state; // 현재 상태(아마도 FLEEING_LAVA)를 유지하여 이동을 마칩니다.
+                newState = this.state;
             } else {
                 newState = 'IDLE';
             }
@@ -921,11 +1019,43 @@ export class Unit {
                 break;
         }
 
+        // [NEW] 눈 상태 업데이트 로직
+        if (this.eyeStateTimer <= 0) {
+            if (this.isStunned > 0) {
+                this.eyeState = 'dizzy';
+            } else {
+                switch (this.state) {
+                    case 'AGGRESSIVE':
+                    case 'ATTACKING_NEXUS':
+                        this.eyeState = this.gameManager.random() > 0.5 ? 'angry' : 'focused';
+                        break;
+                    case 'FLEEING':
+                    case 'FLEEING_FIELD':
+                    case 'FLEEING_LAVA':
+                        this.eyeState = this.gameManager.random() > 0.5 ? 'sad' : 'scared';
+                        break;
+                    case 'IDLE':
+                    case 'SEEKING_WEAPON':
+                    case 'SEEKING_HEAL_PACK':
+                    default:
+                        this.idleEyeCycle++;
+                        if (this.idleEyeCycle > 300) { // 5초마다 눈 상태 변경
+                            const rand = this.gameManager.random();
+                            if (rand < 0.6) this.eyeState = 'neutral';
+                            else if (rand < 0.9) this.eyeState = 'sleepy';
+                            else this.eyeState = 'winking';
+                            this.idleEyeCycle = 0;
+                        }
+                        break;
+                }
+            }
+        }
+
+
         this.move();
         
         this.applyPhysics();
 
-        // [ADDED BACK] 유닛이 막혔는지 감지하고 새로운 경로를 설정하는 로직
         if (this.moveTarget) {
             const distMoved = Math.hypot(this.pixelX - this.lastPosition.x, this.pixelY - this.lastPosition.y);
             if (distMoved < 0.2 * gameManager.gameSpeed) {
@@ -934,7 +1064,7 @@ export class Unit {
                 this.stuckTimer = 0;
             }
 
-            if (this.stuckTimer > 30) { // 0.5초 동안 막혀있으면
+            if (this.stuckTimer > 30) {
                 const angle = gameManager.random() * Math.PI * 2;
                 const radius = GRID_SIZE * 3;
                 const newTargetX = this.pixelX + Math.cos(angle) * radius;
@@ -971,6 +1101,8 @@ export class Unit {
                 this.hp = this.maxHp;
                 gameManager.map[finalGridY][finalGridX] = { type: TILE.FLOOR, color: gameManager.currentFloorColor };
                 gameManager.audioManager.play('heal');
+                 this.eyeState = 'happy';
+                this.eyeStateTimer = 120;
             }
             if (currentTile.type === TILE.TELEPORTER && this.teleportCooldown <= 0) {
                 const teleporters = gameManager.getTilesOfType(TILE.TELEPORTER);
@@ -1132,6 +1264,14 @@ export class Unit {
             ctx.lineWidth = outlineWidth / totalScale;
             ctx.stroke();
         }
+
+        // [NEW] 유닛 눈 그리기 호출
+        ctx.save();
+        ctx.translate(this.pixelX, this.pixelY);
+        ctx.rotate(this.facingAngle);
+        ctx.scale(totalScale, totalScale);
+        drawEyes(ctx, this.eyeState);
+        ctx.restore();
         
         if (this.name) {
             ctx.fillStyle = this.nameColor;
