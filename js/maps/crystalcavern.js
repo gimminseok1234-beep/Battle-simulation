@@ -1,7 +1,7 @@
 // js/maps/crystalcavern.js
 
 /**
- * 맵 제목: 수정 동굴 (crystalcavern)
+ * 맵 제목: 수정 동굴 (crystalcavern) - 리뉴얼 버전
  * 컨셉: 신비로운 빛을 내는 거대한 수정들이 가득한 지하 동굴 맵입니다.
  * 이동을 막지만 시야와 공격은 통과시키는 반투명 수정벽(GLASS_WALL)을 중심으로
  * 위치 선점과 원거리 심리전이 전투의 핵심이 됩니다.
@@ -20,11 +20,14 @@ export const crystalcavernMap = {
 
         // --- 원칙 2: 데이터 무결성 - type과 color 속성을 반드시 포함 ---
         const wall = { type: 'WALL', color: '#1e293b' };             // 동굴 암벽
-        const floor = { type: 'FLOOR', color: '#334155' };           // 동굴 바닥
-        const crystalWall = { type: 'GLASS_WALL', color: 'rgba(135, 206, 250, 0.5)' }; // 수정벽 (반투명)
+        // 요청에 따라 동굴에 어울리는 짙은 푸른색 바닥으로 변경
+        const floor = { type: 'FLOOR', color: '#3b0764' };
+        const purpleWall = { type: 'WALL', color: '#5b21b6' };       // 보라색 수정벽
+        const crystalWall = { type: 'GLASS_WALL', color: 'rgba(135, 206, 250, 0.5)' }; // 반투명 수정벽
         const crackedPath = { type: 'CRACKED_WALL', hp: 120, color: '#64748b' }; // 부서지는 바위 길
+        const lava = { type: 'LAVA', color: '#f97316' };             // 용암
 
-        // 1. 기본 동굴 구조 생성 (바닥과 외벽)
+        // 1. 기본 동굴 구조 생성
         const map = [...Array(ROWS)].map(() => [...Array(COLS)].map(() => ({ ...floor })));
         for (let y = 0; y < ROWS; y++) {
             for (let x = 0; x < COLS; x++) {
@@ -34,41 +37,46 @@ export const crystalcavernMap = {
             }
         }
 
-        // 2. 중앙 광장과 거대 수정(GLASS_WALL) 배치
+        // 2. 맵을 풍성하게 꾸미기 위한 다양한 타일 추가 배치
+        // 보라색 수정벽 기둥으로 동굴 분위기 강화
+        map[5][5] = { ...purpleWall }; map[5][COLS - 6] = { ...purpleWall };
+        map[ROWS - 6][5] = { ...purpleWall }; map[ROWS - 6][COLS - 6] = { ...purpleWall };
+        map[20][3] = { ...purpleWall }; map[20][COLS - 4] = { ...purpleWall };
+
+
+        // 중앙 광장과 거대 수정(GLASS_WALL) 배치
         const centerCrystalPositions = [
-            // 중앙 상단 수정 덩어리
-            {y: 8, x: 10}, {y: 8, x: 11}, {y: 8, x: 12},
-            {y: 9, x: 11},
-            // 중앙 하단 수정 덩어리
-            {y: 31, x: 10}, {y: 31, x: 11}, {y: 31, x: 12},
-            {y: 30, x: 11},
+            {y: 8, x: 10}, {y: 8, x: 11}, {y: 8, x: 12}, {y: 9, x: 11},
+            {y: 31, x: 10}, {y: 31, x: 11}, {y: 31, x: 12}, {y: 30, x: 11},
         ];
         centerCrystalPositions.forEach(pos => map[pos.y][pos.x] = { ...crystalWall });
 
-        // 3. 좁은 수정길과 우회로 설계
         // 좌우 대칭 수정벽 기둥 배치
         for (let y = 12; y <= 27; y+=3) {
             map[y][5] = { ...crystalWall };
             map[y][COLS - 6] = { ...crystalWall };
         }
         
-        // 파괴하여 길을 만들 수 있는 우회로
+        // 파괴 가능한 우회로
         map[10][3] = { ...crackedPath }; map[10][4] = { ...crackedPath };
         map[10][COLS - 4] = { ...crackedPath }; map[10][COLS - 5] = { ...crackedPath };
         map[29][3] = { ...crackedPath }; map[29][4] = { ...crackedPath };
         map[29][COLS - 4] = { ...crackedPath }; map[29][COLS - 5] = { ...crackedPath };
 
-        // 4. 신비로운 특수 타일 배치
-        // 중앙 광장 쟁탈 요소 (각성 물약)
-        map[20][11] = { type: 'AWAKENING_POTION', color: '#FFFFFF' };
+        // 3. 위험과 기회가 공존하는 특수 타일 추가
+        // 중앙 광장 쟁탈 요소 (양쪽에 회복 팩)
+        map[20][10] = { type: 'HEAL_PACK', color: '#16a34a' };
+        map[20][12] = { type: 'HEAL_PACK', color: '#16a34a' };
 
-        // 숨겨진 텔레포터 (좌측 하단 <-> 우측 상단)
+        // 숨겨진 텔레포터
         map[ROWS - 2][1] = { type: 'TELEPORTER', color: '#8b5cf6' };
         map[1][COLS - 2] = { type: 'TELEPORTER', color: '#8b5cf6' };
 
-        // 빛나는 바닥 (돌진 타일)
+        // 돌진 타일 및 용암 함정
         map[15][1] = { type: 'DASH_TILE', direction: 'RIGHT', color: '#e2e8f0' };
+        map[15][2] = { ...lava }; // 돌진 경로 옆 함정
         map[24][COLS - 2] = { type: 'DASH_TILE', direction: 'LEFT', color: '#e2e8f0' };
+        map[24][COLS - 3] = { ...lava };
 
         return map;
     })()),
