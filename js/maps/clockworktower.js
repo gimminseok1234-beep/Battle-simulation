@@ -1,10 +1,10 @@
 // js/maps/clockworktower.js
 
 /**
- * 맵 제목: 태엽장치 탑 (clockworktower) - 리뉴얼 버전
+ * 맵 제목: 태엽장치 탑 (clockworktower) - 최종 수정 버전
  * 컨셉: 거대한 태엽장치로 이루어진 탑의 내부에서 전투를 벌이는 대칭형 맵입니다.
- * 톱니바퀴의 안쪽은 안전한 바닥으로, 바깥쪽 가장자리는 사각형의 돌진 타일이 흐르도록 하여
- * 안정성과 변칙적인 움직임을 모두 활용할 수 있습니다.
+ * 이제 톱니바퀴 사이를 돌진 타일로 빠르게 건널 수 있어,
+ * 두 전장을 넘나드는 기습적이고 역동적인 전투가 가능합니다.
  */
 export const clockworktowerMap = {
     name: "clockworktower",
@@ -33,45 +33,39 @@ export const clockworktowerMap = {
             map[y][COLS - 1] = { ...wall };
         }
 
-        // 2. 사각형 돌진 타일이 있는 톱니바퀴 생성 함수
-        const createGear = (topY, leftX, height, width, clockwise) => {
-            const bottomY = topY + height - 1;
-            const rightX = leftX + width - 1;
-
-            // 톱니바퀴의 내부를 일반 바닥으로 채우기
-            for (let y = topY; y <= bottomY; y++) {
-                for (let x = leftX; x <= rightX; x++) {
+        // 2. 톱니바퀴 생성 함수 (내부는 일반 바닥)
+        const createGear = (topY, leftX, height, width) => {
+            for (let y = topY; y < topY + height; y++) {
+                for (let x = leftX; x < leftX + width; x++) {
                     map[y][x] = { ...gearFloor };
                 }
             }
-
-            // 가장자리에 사각형 방향으로 돌진 타일 배치
-            for (let x = leftX; x <= rightX; x++) {
-                map[topY][x] = { type: 'DASH_TILE', direction: clockwise ? 'RIGHT' : 'LEFT', color: '#eab308' }; // 상단
-                map[bottomY][x] = { type: 'DASH_TILE', direction: clockwise ? 'LEFT' : 'RIGHT', color: '#eab308' }; // 하단
-            }
-            for (let y = topY + 1; y < bottomY; y++) {
-                map[y][leftX] = { type: 'DASH_TILE', direction: clockwise ? 'UP' : 'DOWN', color: '#eab308' }; // 좌측
-                map[y][rightX] = { type: 'DASH_TILE', direction: clockwise ? 'DOWN' : 'UP', color: '#eab308' }; // 우측
-            }
         };
 
-        // 3. 톱니바퀴와 연결 통로 배치
-        // 상단 톱니 (시계방향)
-        createGear(5, 6, 12, 11, true);
-        // 하단 톱니 (반시계방향으로 대칭미 부여)
-        createGear(ROWS - 17, 6, 12, 11, false);
+        const topGear = { y: 5, x: 6, h: 12, w: 11 };
+        const bottomGear = { y: ROWS - 17, x: 6, h: 12, w: 11 };
+
+        createGear(topGear.y, topGear.x, topGear.h, topGear.w);
+        createGear(bottomGear.y, bottomGear.x, bottomGear.h, bottomGear.w);
+
+        // 3. 돌진 타일 방향 수정: 서로 마주보는 톱니바퀴로 향하도록
+        // 상단 톱니바퀴의 하단 엣지 -> 아래를 향함
+        for (let x = topGear.x; x < topGear.x + topGear.w; x++) {
+            map[topGear.y + topGear.h - 1][x] = { type: 'DASH_TILE', direction: 'DOWN', color: '#eab308' };
+        }
+        // 하단 톱니바퀴의 상단 엣지 -> 위를 향함
+        for (let x = bottomGear.x; x < bottomGear.x + bottomGear.w; x++) {
+            map[bottomGear.y][x] = { type: 'DASH_TILE', direction: 'UP', color: '#eab308' };
+        }
         
-        // 중앙 연결 통로
+        // 4. 중앙 연결 통로 및 보상 배치 (통로는 이제 보조 경로)
         for(let y = 17; y < 23; y++) {
             map[y][11] = { ...walkway };
         }
         map[17][10] = { ...walkway }; map[17][12] = { ...walkway };
         map[22][10] = { ...walkway }; map[22][12] = { ...walkway };
         
-        // 중앙 보상 타일
         map[20][11] = { type: 'AWAKENING_POTION', color: '#FFFFFF' };
-
 
         return map;
     })()),
