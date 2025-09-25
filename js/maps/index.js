@@ -10,7 +10,8 @@ import { vortexmap } from './vortex.js';
 import { chessboardmap } from './chessboard.js';
 import { rivermap } from './river.js';
 import { siegemap } from './siege.js';
-import { arenaMap } from './arena.js'; // 새로 추가된 결투장 맵 import
+import { arenaMap } from './arena.js';
+import { crystalcavernMap } from './crystalcavern.js'; // 새로 추가된 수정 동굴 맵 import
 
 export const localMaps = [
     grasslandMap,
@@ -23,5 +24,6 @@ export const localMaps = [
     chessboardmap,
     rivermap,
     siegemap,
-    arenaMap, // 배열에 결투장 맵 추가
+    arenaMap,
+    crystalcavernMap, // 배열에 수정 동굴 맵 추가
 ];
