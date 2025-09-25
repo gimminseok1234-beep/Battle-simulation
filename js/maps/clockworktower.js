@@ -1,9 +1,10 @@
 // js/maps/clockworktower.js
 
 /**
- * 맵 제목: 태엽장치 탑 (clockworktower)
+ * 맵 제목: 태엽장치 탑 (clockworktower) - 리뉴얼 버전
  * 컨셉: 거대한 태엽장치로 이루어진 탑의 내부에서 전투를 벌이는 대칭형 맵입니다.
- * 회전하는 톱니바퀴(DASH_TILE) 위에서 위치를 선점하고 적을 밀어내는 컨트롤이 핵심입니다.
+ * 톱니바퀴의 안쪽은 안전한 바닥으로, 바깥쪽 가장자리는 사각형의 돌진 타일이 흐르도록 하여
+ * 안정성과 변칙적인 움직임을 모두 활용할 수 있습니다.
  */
 export const clockworktowerMap = {
     name: "clockworktower",
@@ -32,44 +33,46 @@ export const clockworktowerMap = {
             map[y][COLS - 1] = { ...wall };
         }
 
-        // 2. 회전하는 톱니바퀴(DASH_TILE) 생성 함수
-        const createGear = (centerY, centerX, radius, rotationDir) => {
-            for (let y = centerY - radius; y <= centerY + radius; y++) {
-                for (let x = centerX - radius; x <= centerX + radius; x++) {
-                    if (Math.hypot(x - centerX, y - centerY) <= radius) {
-                        map[y][x] = { ...gearFloor };
-                        
-                        // 원심력을 표현하는 돌진 타일 배치
-                        const angle = Math.atan2(y - centerY, x - centerX);
-                        let dir;
-                        if (rotationDir === 'CW') { // 시계방향
-                            if (angle >= -Math.PI/4 && angle < Math.PI/4) dir = 'DOWN';
-                            else if (angle >= Math.PI/4 && angle < 3*Math.PI/4) dir = 'LEFT';
-                            else if (angle >= 3*Math.PI/4 || angle < -3*Math.PI/4) dir = 'UP';
-                            else dir = 'RIGHT';
-                        } else { // 반시계방향
-                            if (angle >= -Math.PI/4 && angle < Math.PI/4) dir = 'UP';
-                            else if (angle >= Math.PI/4 && angle < 3*Math.PI/4) dir = 'RIGHT';
-                            else if (angle >= 3*Math.PI/4 || angle < -3*Math.PI/4) dir = 'DOWN';
-                            else dir = 'LEFT';
-                        }
-                        map[y][x] = { type: 'DASH_TILE', direction: dir, color: '#eab308' };
-                    }
+        // 2. 사각형 돌진 타일이 있는 톱니바퀴 생성 함수
+        const createGear = (topY, leftX, height, width, clockwise) => {
+            const bottomY = topY + height - 1;
+            const rightX = leftX + width - 1;
+
+            // 톱니바퀴의 내부를 일반 바닥으로 채우기
+            for (let y = topY; y <= bottomY; y++) {
+                for (let x = leftX; x <= rightX; x++) {
+                    map[y][x] = { ...gearFloor };
                 }
             }
-            map[centerY][centerX] = { type: 'HEAL_PACK', color: '#16a34a' }; // 톱니 중앙은 안전 지대
+
+            // 가장자리에 사각형 방향으로 돌진 타일 배치
+            for (let x = leftX; x <= rightX; x++) {
+                map[topY][x] = { type: 'DASH_TILE', direction: clockwise ? 'RIGHT' : 'LEFT', color: '#eab308' }; // 상단
+                map[bottomY][x] = { type: 'DASH_TILE', direction: clockwise ? 'LEFT' : 'RIGHT', color: '#eab308' }; // 하단
+            }
+            for (let y = topY + 1; y < bottomY; y++) {
+                map[y][leftX] = { type: 'DASH_TILE', direction: clockwise ? 'UP' : 'DOWN', color: '#eab308' }; // 좌측
+                map[y][rightX] = { type: 'DASH_TILE', direction: clockwise ? 'DOWN' : 'UP', color: '#eab308' }; // 우측
+            }
         };
 
         // 3. 톱니바퀴와 연결 통로 배치
-        createGear(10, 11, 6, 'CW');  // 상단 톱니 (시계방향)
-        createGear(30, 11, 6, 'CCW'); // 하단 톱니 (반시계방향)
-
-        for(let y = 16; y < 24; y++) {
-            map[y][11] = { ...walkway }; // 중앙 연결 통로
-        }
-        map[16][10] = { ...walkway }; map[16][12] = { ...walkway };
-        map[23][10] = { ...walkway }; map[23][12] = { ...walkway };
+        // 상단 톱니 (시계방향)
+        createGear(5, 6, 12, 11, true);
+        // 하단 톱니 (반시계방향으로 대칭미 부여)
+        createGear(ROWS - 17, 6, 12, 11, false);
         
+        // 중앙 연결 통로
+        for(let y = 17; y < 23; y++) {
+            map[y][11] = { ...walkway };
+        }
+        map[17][10] = { ...walkway }; map[17][12] = { ...walkway };
+        map[22][10] = { ...walkway }; map[22][12] = { ...walkway };
+        
+        // 중앙 보상 타일
+        map[20][11] = { type: 'AWAKENING_POTION', color: '#FFFFFF' };
+
+
         return map;
     })()),
     // --- 당신이 관여하지 않는 영역 ---
