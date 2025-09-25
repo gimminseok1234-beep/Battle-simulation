@@ -13,7 +13,9 @@ import { siegemap } from './siege.js';
 import { arenaMap } from './arena.js';
 import { crystalcavernMap } from './crystalcavern.js';
 import { ninjavillageMap } from './ninjavillage.js';
-import { conduitcanyonMap } from './conduitcanyon.js'; // 새로 추가된 전도체 협곡 맵 import
+import { conduitcanyonMap } from './conduitcanyon.js';
+import { sunkenruinshipMap } from './sunkenruinship.js'; // 새로 추가된 유적선 맵 import
+import { clockworktowerMap } from './clockworktower.js'; // 새로 추가된 태엽장치 맵 import
 
 export const localMaps = [
     grasslandMap,
@@ -29,5 +31,7 @@ export const localMaps = [
     arenaMap,
     crystalcavernMap,
     ninjavillageMap,
-    conduitcanyonMap, // 배열에 전도체 협곡 맵 추가
+    conduitcanyonMap,
+    sunkenruinshipMap, // 배열에 유적선 맵 추가
+    clockworktowerMap, // 배열에 태엽장치 맵 추가
 ];
