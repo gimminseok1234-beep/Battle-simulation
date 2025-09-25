@@ -11,7 +11,8 @@ import { chessboardmap } from './chessboard.js';
 import { rivermap } from './river.js';
 import { siegemap } from './siege.js';
 import { arenaMap } from './arena.js';
-import { crystalcavernMap } from './crystalcavern.js'; // 새로 추가된 수정 동굴 맵 import
+import { crystalcavernMap } from './crystalcavern.js';
+import { ninjavillageMap } from './ninjavillage.js'; // 새로 추가된 닌자 맵 import
 
 export const localMaps = [
     grasslandMap,
@@ -25,5 +26,6 @@ export const localMaps = [
     rivermap,
     siegemap,
     arenaMap,
-    crystalcavernMap, // 배열에 수정 동굴 맵 추가
+    crystalcavernMap,
+    ninjavillageMap, // 배열에 닌자 맵 추가
 ];
