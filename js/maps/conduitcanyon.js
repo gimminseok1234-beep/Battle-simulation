@@ -1,70 +1,70 @@
 // js/maps/conduitcanyon.js
 
 /**
- * 맵 제목: 전도체 협곡 (conduitcanyon)
- * 컨셉: 얼어붙은 협곡 사이로 강력한 마력이 흐르는 '전도성 강물'이 흐르는 맵입니다.
- * 전기 유닛은 좁은 다리에서, 얼음 유닛은 넓은 빙판에서 지형적 우위를 점할 수 있어,
- * 지형을 선점하고 활용하는 능력이 승패를 좌우합니다.
+ * 맵 제목: 고립된 빙원 (Isolated Glacier) - 리뉴얼 버전
+ * 컨셉: 끓어오르는 용암의 바다 한가운데에 떠 있는 둥글고 긴 빙판 위에서 전투가 벌어집니다.
+ * 제한된 공간과 치명적인 용암 지대가 어우러져, 정교한 컨트롤과 거리 조절 능력이 승패를 가르는 극한의 결투장입니다.
  */
 
 export const conduitcanyonMap = {
     name: "conduitcanyon",
     width: 460,
     height: 800,
-    hadokenKnockback: 15,
+    hadokenKnockback: 20, // 넉백 효과를 더 중요하게 설정
     autoMagneticField: { isActive: false },
     nexuses: [], // 사용자가 직접 배치
     map: JSON.stringify((() => {
         const ROWS = 40;
         const COLS = 23;
+        const CENTER_X = COLS / 2;
+        const CENTER_Y = ROWS / 2;
 
-        // --- 원칙 2: 데이터 무결성 - 컨셉에 맞는 다채로운 색상 정의 ---
-        const wall = { type: 'WALL', color: '#2d3748' };             // 협곡 암벽
-        const iceFloor1 = { type: 'FLOOR', color: '#e2e8f0' };       // 밝은 빙판 바닥
-        const iceFloor2 = { type: 'FLOOR', color: '#cbd5e0' };       // 어두운 빙판 바닥
-        const conduitRiver = { type: 'LAVA', color: '#60a5fa' };     // 전도성 강물 (푸른색 용암)
-        const breakableBridge = { type: 'CRACKED_WALL', hp: 250, color: '#718096' }; // 파괴 가능한 다리
-        const crystal = { type: 'GLASS_WALL', color: 'rgba(135, 206, 250, 0.6)' }; // 얼음 수정
+        // --- 원칙 2: 데이터 무결성 - 컨셉에 맞는 색상 정의 ---
+        const wall = { type: 'WALL', color: '#1A202C' };
+        // 요청에 따라 하늘색 빙판 바닥으로 변경
+        const iceFloor = { type: 'FLOOR', color: '#7dd3fc' };
+        const lava = { type: 'LAVA', color: '#f97316' };
+        const crystal = { type: 'GLASS_WALL', color: 'rgba(224, 242, 254, 0.7)' };
 
-        // 1. 기본 빙판 지형 생성 (두 가지 회색을 섞어 자연스러움 연출)
-        const map = [...Array(ROWS)].map((_, y) => 
-            [...Array(COLS)].map((_, x) => {
-                if (y === 0 || y === ROWS - 1 || x === 0 || x === COLS - 1) return { ...wall };
-                return (x + y) % 2 === 0 ? { ...iceFloor1 } : { ...iceFloor2 };
-            })
-        );
+        // 1. 기본 맵을 용암으로 초기화
+        const map = [...Array(ROWS)].map(() => [...Array(COLS)].map(() => ({ ...lava })));
 
-        // 2. 중앙을 가로지르는 '전도성 강' 생성
-        for (let y = 16; y < 24; y++) {
-            for (let x = 1; x < COLS - 1; x++) {
-                map[y][x] = { ...conduitRiver };
+        // 맵 가장자리는 벽으로 설정
+        for (let y = 0; y < ROWS; y++) {
+            for (let x = 0; x < COLS; x++) {
+                if (y === 0 || y === ROWS - 1 || x === 0 || x === COLS - 1) {
+                    map[y][x] = { ...wall };
+                }
             }
         }
 
-        // 3. 강을 건너는 '파괴 가능한 다리' 2개 배치
-        const createBridge = (y, startX, length) => {
-            for (let x = startX; x < startX + length; x++) {
-                map[y][x] = { ...breakableBridge };
-            }
-        };
-        createBridge(19, 3, 5);  // 좌측 다리
-        createBridge(20, 15, 5); // 우측 다리
+        // 2. 중앙에 둥글고 긴 하늘색 빙판 생성 (타원 공식 활용)
+        const xRadius = 8;  // 가로 반지름
+        const yRadius = 18; // 세로 반지름
 
-        // 4. 넓은 빙판 광장에 '얼음 수정(GLASS_WALL)' 배치
-        const crystalPositions = [
-            // 상단 빙판
-            {y: 8, x: 5}, {y: 9, x: 5}, {y: 8, x: 6},
-            {y: 8, x: 17}, {y: 9, x: 17}, {y: 8, x: 16},
-            // 하단 빙판
-            {y: 31, x: 5}, {y: 30, x: 5}, {y: 31, x: 6},
-            {y: 31, x: 17}, {y: 30, x: 17}, {y: 31, x: 16},
-        ];
-        crystalPositions.forEach(pos => map[pos.y][pos.x] = { ...crystal });
+        for (let y = 1; y < ROWS - 1; y++) {
+            for (let x = 1; x < COLS - 1; x++) {
+                // 타원 방정식: (x^2 / a^2) + (y^2 / b^2) <= 1
+                if (Math.pow((x - CENTER_X) / xRadius, 2) + Math.pow((y - CENTER_Y) / yRadius, 2) <= 1) {
+                    map[y][x] = { ...iceFloor };
+                }
+            }
+        }
         
-        // 5. 전략적 거점에 특수 타일 배치
-        // 강 중앙의 작은 섬과 보상
-        map[20][11] = { type: 'FLOOR', color: '#a0aec0' };
-        map[20][10] = { type: 'AWAKENING_POTION', color: '#FFFFFF' };
+        // 3. 빙판 위에 전략적 엄폐물 (얼음 수정) 배치
+        const crystalPositions = [
+            {y: 12, x: 11},
+            {y: ROWS - 13, x: 11},
+            {y: 20, x: 7},
+            {y: 20, x: COLS - 8},
+        ];
+        crystalPositions.forEach(pos => {
+            map[pos.y][pos.x] = { ...crystal };
+        });
+
+        // 4. 중앙 쟁탈 요소 배치
+        map[20][11] = { type: 'AWAKENING_POTION', color: '#FFFFFF' };
+
 
         return map;
     })()),
