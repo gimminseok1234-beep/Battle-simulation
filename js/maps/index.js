@@ -12,7 +12,8 @@ import { rivermap } from './river.js';
 import { siegemap } from './siege.js';
 import { arenaMap } from './arena.js';
 import { crystalcavernMap } from './crystalcavern.js';
-import { ninjavillageMap } from './ninjavillage.js'; // 새로 추가된 닌자 맵 import
+import { ninjavillageMap } from './ninjavillage.js';
+import { conduitcanyonMap } from './conduitcanyon.js'; // 새로 추가된 전도체 협곡 맵 import
 
 export const localMaps = [
     grasslandMap,
@@ -27,5 +28,6 @@ export const localMaps = [
     siegemap,
     arenaMap,
     crystalcavernMap,
-    ninjavillageMap, // 배열에 닌자 맵 추가
+    ninjavillageMap,
+    conduitcanyonMap, // 배열에 전도체 협곡 맵 추가
 ];
