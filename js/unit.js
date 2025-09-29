@@ -1119,13 +1119,129 @@ export class Unit {
             ctx.restore();
         }
 
-        switch(this.team) {
-            case TEAM.A: ctx.fillStyle = COLORS.TEAM_A; break;
-            case TEAM.B: ctx.fillStyle = COLORS.TEAM_B; break;
-            case TEAM.C: ctx.fillStyle = COLORS.TEAM_C; break;
-            case TEAM.D: ctx.fillStyle = COLORS.TEAM_D; break;
+        // Humanoid character rendering (quarter-view friendly)
+        const bodyColor = (() => {
+            switch(this.team) {
+                case TEAM.A: return COLORS.TEAM_A;
+                case TEAM.B: return COLORS.TEAM_B;
+                case TEAM.C: return COLORS.TEAM_C;
+                case TEAM.D: return COLORS.TEAM_D;
+                default: return COLORS.TEAM_A;
+            }
+        })();
+
+        const px = this.pixelX;
+        const py = this.pixelY;
+
+        // shadow
+        ctx.save();
+        ctx.globalAlpha = 0.25;
+        ctx.fillStyle = '#000000';
+        ctx.beginPath();
+        ctx.ellipse(px, py + GRID_SIZE * 0.35, GRID_SIZE * 0.38, GRID_SIZE * 0.22, 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+
+        // body
+        ctx.save();
+        ctx.fillStyle = bodyColor;
+        ctx.strokeStyle = '#000000';
+        ctx.lineWidth = 2;
+
+        // torso
+        const torsoW = GRID_SIZE * 0.7;
+        const torsoH = GRID_SIZE * 0.9;
+        const torsoX = px - torsoW / 2;
+        const torsoY = py - torsoH * 0.15;
+        ctx.beginPath();
+        const r = GRID_SIZE * 0.25;
+        ctx.moveTo(torsoX + r, torsoY);
+        ctx.lineTo(torsoX + torsoW - r, torsoY);
+        ctx.quadraticCurveTo(torsoX + torsoW, torsoY, torsoX + torsoW, torsoY + r);
+        ctx.lineTo(torsoX + torsoW, torsoY + torsoH - r);
+        ctx.quadraticCurveTo(torsoX + torsoW, torsoY + torsoH, torsoX + torsoW - r, torsoY + torsoH);
+        ctx.lineTo(torsoX + r, torsoY + torsoH);
+        ctx.quadraticCurveTo(torsoX, torsoY + torsoH, torsoX, torsoY + torsoH - r);
+        ctx.lineTo(torsoX, torsoY + r);
+        ctx.quadraticCurveTo(torsoX, torsoY, torsoX + r, torsoY);
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+
+        // head (mask + hood)
+        const headY = py - GRID_SIZE * 0.6;
+        const headR = GRID_SIZE * 0.36;
+        // hood
+        ctx.fillStyle = bodyColor;
+        ctx.beginPath();
+        ctx.arc(px, headY, headR + 2, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+        // face
+        ctx.fillStyle = '#fafafa';
+        ctx.beginPath();
+        ctx.ellipse(px, headY, headR * 0.78, headR * 0.72, 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+        // eyes
+        ctx.fillStyle = '#0b0f1a';
+        const eyeOffsetX = GRID_SIZE * 0.16;
+        const eyeR = GRID_SIZE * 0.10;
+        ctx.beginPath(); ctx.arc(px - eyeOffsetX, headY, eyeR, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.arc(px + eyeOffsetX, headY, eyeR, 0, Math.PI * 2); ctx.fill();
+
+        // arms (with simple forward arm used for weapon anchoring)
+        const armLen = GRID_SIZE * 0.46;
+        const armW = GRID_SIZE * 0.16;
+        const shoulderY = py - GRID_SIZE * 0.1;
+        const facing = this.facingAngle;
+        const attackSwing = (this.attackAnimationTimer > 0) ? Math.sin((15 - this.attackAnimationTimer) / 15 * Math.PI) * (Math.PI / 6) : 0;
+        const leadAngle = facing + attackSwing;
+        const rearAngle = facing + Math.PI; // simple back arm for depth
+
+        function drawArm(cx, cy, angle) {
+            ctx.save();
+            ctx.translate(cx, cy);
+            ctx.rotate(angle);
+            ctx.fillStyle = bodyColor;
+            ctx.beginPath();
+            ctx.roundRect?.(-armLen * 0.05, -armW / 2, armLen, armW, armW / 2);
+            if (!ctx.roundRect) {
+                // fallback rounded capsule
+                ctx.moveTo(-armLen * 0.05, -armW / 2);
+                ctx.lineTo(armLen * 0.95, -armW / 2);
+                ctx.arc(armLen * 0.95, 0, armW / 2, -Math.PI / 2, Math.PI / 2);
+                ctx.lineTo(-armLen * 0.05, armW / 2);
+                ctx.arc(-armLen * 0.05, 0, armW / 2, Math.PI / 2, -Math.PI / 2);
+                ctx.closePath();
+            }
+            ctx.fill();
+            ctx.restore();
         }
-        ctx.beginPath(); ctx.arc(this.pixelX, this.pixelY, GRID_SIZE / 2.5, 0, Math.PI * 2); ctx.fill();
+
+        // rear arm first (behind body)
+        ctx.save();
+        ctx.globalAlpha = 0.8;
+        drawArm(px, shoulderY, rearAngle);
+        ctx.restore();
+
+        // legs (simple stubs)
+        ctx.fillStyle = bodyColor;
+        const legW = GRID_SIZE * 0.18;
+        const legH = GRID_SIZE * 0.28;
+        ctx.beginPath();
+        ctx.roundRect?.(px - GRID_SIZE * 0.22 - legW / 2, py + GRID_SIZE * 0.25, legW, legH, legW / 2);
+        ctx.roundRect?.(px + GRID_SIZE * 0.22 - legW / 2, py + GRID_SIZE * 0.25, legW, legH, legW / 2);
+        if (!ctx.roundRect) {
+            ctx.rect(px - GRID_SIZE * 0.22 - legW / 2, py + GRID_SIZE * 0.25, legW, legH);
+            ctx.rect(px + GRID_SIZE * 0.22 - legW / 2, py + GRID_SIZE * 0.25, legW, legH);
+        }
+        ctx.fill();
+
+        // lead arm on top of body
+        drawArm(px, shoulderY, leadAngle);
+
+        ctx.restore();
         
         if (isOutlineEnabled) {
             ctx.strokeStyle = 'black'; 
