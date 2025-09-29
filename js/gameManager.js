@@ -72,7 +72,8 @@ export class GameManager {
         this.actionCam = {
             current: { x: 0, y: 0, scale: 1 },
             target: { x: 0, y: 0, scale: 1 },
-            isAnimating: false
+            isAnimating: false,
+            maxZoom: parseFloat(localStorage.getItem('actionCamMaxZoom') || '1.8')
         };
         this.growingFieldSettings = {
             direction: 'DOWN', speed: 4, delay: 0
@@ -775,7 +776,8 @@ export class GameManager {
                 if (this.actionCam.target.scale === 1) {
                     this.actionCam.target.x = pos.pixelX;
                     this.actionCam.target.y = pos.pixelY;
-                    this.actionCam.target.scale = 1.8;
+                    const maxZ = this.actionCam.maxZoom || 1.8;
+                    this.actionCam.target.scale = Math.min(maxZ, 3.0);
                 } else {
                     this.actionCam.target.x = this.canvas.width / 2;
                     this.actionCam.target.y = this.canvas.height / 2;
@@ -833,8 +835,90 @@ export class GameManager {
         });
         document.getElementById('actionCamToggle').addEventListener('change', (e) => {
             this.isActionCam = e.target.checked;
-            if (!this.isActionCam) this.resetActionCam(false);
+            if (!this.isActionCam) this.resetActionCam(true);
         });
+
+        const homeSettingsBtn = document.getElementById('homeSettingsBtn');
+        const homeSettingsModal = document.getElementById('homeSettingsModal');
+        if (homeSettingsBtn && homeSettingsModal) {
+            homeSettingsBtn.addEventListener('click', () => {
+                const lvl = document.getElementById('homeLevelUpToggle');
+                const out = document.getElementById('homeUnitOutlineToggle');
+                const outW = document.getElementById('homeUnitOutlineWidthControl');
+                const outWV = document.getElementById('homeUnitOutlineWidthValue');
+                const eye = document.getElementById('homeUnitEyeSizeControl');
+                const eyeV = document.getElementById('homeUnitEyeSizeValue');
+                const camMax = document.getElementById('homeActionCamZoomMax');
+                const camMaxV = document.getElementById('homeActionCamZoomMaxValue');
+
+                if (lvl) lvl.checked = !!this.isLevelUpEnabled;
+                if (out) out.checked = !!this.isUnitOutlineEnabled;
+                if (outW && outWV) { outW.value = this.unitOutlineWidth; outWV.textContent = this.unitOutlineWidth.toFixed(1); }
+                if (eye && eyeV) { eye.value = (this.unitEyeScale ?? 1.0).toFixed(2); eyeV.textContent = (this.unitEyeScale ?? 1.0).toFixed(2); }
+                if (camMax && camMaxV) { camMax.value = (this.actionCam.maxZoom ?? 1.8); camMaxV.textContent = (this.actionCam.maxZoom ?? 1.8).toFixed(2); }
+
+                homeSettingsModal.classList.add('show-modal');
+            });
+
+            const closeHomeSettingsModal = document.getElementById('closeHomeSettingsModal');
+            if (closeHomeSettingsModal) {
+                closeHomeSettingsModal.addEventListener('click', () => homeSettingsModal.classList.remove('show-modal'));
+            }
+
+            const homeUnitOutlineWidthControl = document.getElementById('homeUnitOutlineWidthControl');
+            if (homeUnitOutlineWidthControl) {
+                homeUnitOutlineWidthControl.addEventListener('input', (e) => {
+                    const val = parseFloat(e.target.value);
+                    const v = document.getElementById('homeUnitOutlineWidthValue');
+                    if (v) v.textContent = val.toFixed(1);
+                });
+            }
+
+            const homeUnitEyeSizeControl = document.getElementById('homeUnitEyeSizeControl');
+            if (homeUnitEyeSizeControl) {
+                homeUnitEyeSizeControl.addEventListener('input', (e) => {
+                    const val = parseFloat(e.target.value);
+                    const v = document.getElementById('homeUnitEyeSizeValue');
+                    if (v) v.textContent = val.toFixed(2);
+                });
+            }
+
+            const homeActionCamZoomMax = document.getElementById('homeActionCamZoomMax');
+            if (homeActionCamZoomMax) {
+                homeActionCamZoomMax.addEventListener('input', (e) => {
+                    const val = parseFloat(e.target.value);
+                    const v = document.getElementById('homeActionCamZoomMaxValue');
+                    if (v) v.textContent = val.toFixed(2);
+                });
+            }
+
+            const saveHomeSettingsBtn = document.getElementById('saveHomeSettingsBtn');
+            if (saveHomeSettingsBtn) {
+                saveHomeSettingsBtn.addEventListener('click', () => {
+                    const lvl = document.getElementById('homeLevelUpToggle');
+                    const out = document.getElementById('homeUnitOutlineToggle');
+                    const outW = document.getElementById('homeUnitOutlineWidthControl');
+                    const eye = document.getElementById('homeUnitEyeSizeControl');
+                    const camMax = document.getElementById('homeActionCamZoomMax');
+
+                    if (lvl) this.isLevelUpEnabled = lvl.checked;
+                    if (out) this.isUnitOutlineEnabled = out.checked;
+                    if (outW) this.unitOutlineWidth = parseFloat(outW.value);
+                    if (eye) this.unitEyeScale = parseFloat(eye.value);
+                    if (camMax) {
+                        this.actionCam.maxZoom = parseFloat(camMax.value);
+                        localStorage.setItem('actionCamMaxZoom', String(this.actionCam.maxZoom));
+                    }
+
+                    localStorage.setItem('unitOutlineEnabled', String(this.isUnitOutlineEnabled));
+                    localStorage.setItem('unitOutlineWidth', String(this.unitOutlineWidth));
+                    localStorage.setItem('unitEyeScale', String(this.unitEyeScale));
+
+                    this.draw();
+                    homeSettingsModal.classList.remove('show-modal');
+                });
+            }
+        }
         
         document.getElementById('toolbox').addEventListener('click', (e) => {
             const target = e.target;
@@ -1304,6 +1388,10 @@ export class GameManager {
             cam.current.x += (cam.target.x - cam.current.x) * ease;
             cam.current.y += (cam.target.y - cam.current.y) * ease;
             cam.current.scale += (cam.target.scale - cam.current.scale) * ease;
+            if (cam.maxZoom) {
+                cam.current.scale = Math.min(cam.current.scale, cam.maxZoom);
+                cam.target.scale = Math.min(cam.target.scale, cam.maxZoom);
+            }
 
             if (Math.abs(cam.current.scale - cam.target.scale) < 0.001 && Math.abs(cam.current.x - cam.target.x) < 0.1) {
                 cam.current = { ...cam.target };
