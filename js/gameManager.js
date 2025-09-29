@@ -67,6 +67,7 @@ export class GameManager {
         this.recentWallColors = [];
         this.recentFloorColors = [];
         this.replicationValue = 2;
+        this.viewMode = 'isometric';
         this.isActionCam = false;
         this.actionCam = {
             current: { x: 0, y: 0, scale: 1 },
@@ -1630,6 +1631,12 @@ export class GameManager {
         this.ctx.scale(cam.current.scale, cam.current.scale);
         this.ctx.translate(-cam.current.x, -cam.current.y);
 
+        // Apply quarter-view (isometric) transform if enabled
+        if (this.viewMode === 'isometric') {
+            const isoScaleY = 0.5; // squish Y to fake depth
+            this.ctx.transform(1, 0, -1, isoScaleY, 0, 0);
+        }
+
         this.drawMap();
         this.magicCircles.forEach(c => c.draw(this.ctx));
         this.poisonClouds.forEach(c => c.draw(this.ctx));
@@ -1710,7 +1717,22 @@ export class GameManager {
                     default: this.ctx.fillStyle = this.currentFloorColor;
                 }
                 
-                this.ctx.fillRect(x * GRID_SIZE, y * GRID_SIZE, GRID_SIZE, GRID_SIZE);
+                if (this.viewMode === 'isometric') {
+                    // draw tile as a diamond in isometric projection
+                    const cx = x * GRID_SIZE + GRID_SIZE / 2;
+                    const cy = y * GRID_SIZE + GRID_SIZE / 2;
+                    const hw = GRID_SIZE / 2;
+                    const hh = GRID_SIZE / 2;
+                    this.ctx.beginPath();
+                    this.ctx.moveTo(cx, cy - hh);
+                    this.ctx.lineTo(cx + hw, cy);
+                    this.ctx.lineTo(cx, cy + hh);
+                    this.ctx.lineTo(cx - hw, cy);
+                    this.ctx.closePath();
+                    this.ctx.fill();
+                } else {
+                    this.ctx.fillRect(x * GRID_SIZE, y * GRID_SIZE, GRID_SIZE, GRID_SIZE);
+                }
 
                 if(tile.type === TILE.LAVA) {
                     const flicker = Math.sin(this.animationFrameCounter * 0.1 + x + y) * 10 + 10;
