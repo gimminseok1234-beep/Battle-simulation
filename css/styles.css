@@ -2,6 +2,18 @@ body {
     font-family: 'Arial', sans-serif;
 }
 
+#canvas-container {
+    perspective: 1000px; /* 3D 효과를 위한 원근감 설정 */
+    padding-top: 50px; /* 상단 여백 추가 */
+}
+
+#gameCanvas {
+    /* 캔버스를 기울여 아이소메트릭 뷰 생성 */
+    transform: rotateX(55deg) rotateZ(-45deg);
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.4);
+    image-rendering: pixelated; /* 픽셀 스타일 유지 */
+}
+
 /* 모달 기본 스타일 */
 .modal-container {
     position: fixed;
