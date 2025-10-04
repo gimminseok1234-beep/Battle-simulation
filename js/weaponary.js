@@ -1037,7 +1037,7 @@ export class Projectile {
                 const alpha = (i / this.trail.length) * 0.5;
                 ctx.fillStyle = `rgba(165, 243, 252, ${alpha})`;
                 ctx.beginPath();
-                ctx.arc(pos.x, pos.y, (GRID_SIZE / 2.5) * (i / this.trail.length), 0, Math.PI * 2);
+                ctx.arc(pos.x, pos.y, (GRID_SIZE / 1.67) * (i / this.trail.length), 0, Math.PI * 2);
                 ctx.fill();
             }
             ctx.save();
@@ -1078,7 +1078,7 @@ export class Projectile {
             ctx.stroke();
             ctx.restore();
         } else if (this.type === 'fireball_projectile' || this.type === 'mini_fireball_projectile') {
-            const size = this.type === 'fireball_projectile' ? GRID_SIZE / 2.5 : GRID_SIZE / 4;
+            const size = this.type === 'fireball_projectile' ? GRID_SIZE / 1.67 : GRID_SIZE / 4;
             for (let i = 0; i < this.trail.length; i++) {
                 const pos = this.trail[i];
                 const alpha = (i / this.trail.length) * 0.4;
