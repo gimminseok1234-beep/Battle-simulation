@@ -208,7 +208,7 @@ export class Unit {
                 const dx = otherUnit.pixelX - this.pixelX;
                 const dy = otherUnit.pixelY - this.pixelY;
                 const distance = Math.hypot(dx, dy);
-                const minDistance = (GRID_SIZE / 2.5) * 2;
+                const minDistance = (GRID_SIZE / 1.67) * 2;
     
                 if (distance < minDistance && distance > 0) {
                     const angle = Math.atan2(dy, dx);
@@ -244,7 +244,7 @@ export class Unit {
             }
         });
     
-        const radius = GRID_SIZE / 2.5;
+        const radius = GRID_SIZE / 1.67;
         let bounced = false;
         if (this.pixelX < radius) {
             this.pixelX = radius;
@@ -1085,7 +1085,7 @@ export class Unit {
                     case TEAM.C: ctx.fillStyle = COLORS.TEAM_C; break;
                     case TEAM.D: ctx.fillStyle = COLORS.TEAM_D; break;
                 }
-                ctx.beginPath(); ctx.arc(pos.x, pos.y, (GRID_SIZE / 2.5) * totalScale, 0, Math.PI * 2); ctx.fill();
+                ctx.beginPath(); ctx.arc(pos.x, pos.y, (GRID_SIZE / 1.67) * totalScale, 0, Math.PI * 2); ctx.fill();
                 ctx.restore();
             });
         }
@@ -1125,7 +1125,7 @@ export class Unit {
             case TEAM.C: ctx.fillStyle = COLORS.TEAM_C; break;
             case TEAM.D: ctx.fillStyle = COLORS.TEAM_D; break;
         }
-        ctx.beginPath(); ctx.arc(this.pixelX, this.pixelY, GRID_SIZE / 2.5, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.arc(this.pixelX, this.pixelY, GRID_SIZE / 1.67, 0, Math.PI * 2); ctx.fill();
         
         if (isOutlineEnabled) {
             ctx.strokeStyle = 'black'; 
@@ -1135,7 +1135,7 @@ export class Unit {
 
         // Eyes: mid-size; angry style during combat
         {
-            const headRadius = GRID_SIZE / 2.5;
+            const headRadius = GRID_SIZE / 1.67;
             const eyeScale = this.gameManager?.unitEyeScale ?? 1.0;
             const faceWidth = headRadius * 1.1 * eyeScale;
             const faceHeight = headRadius * 0.9 * eyeScale;
@@ -1422,7 +1422,7 @@ export class Unit {
                 ctx.save();
                 ctx.lineWidth = 3;
                 ctx.strokeStyle = 'rgba(0, 0, 0, 0.3)';
-                const radius = (GRID_SIZE / 2.5 + 3) * totalScale;
+                const radius = (GRID_SIZE / 1.67 + 3) * totalScale;
                 ctx.beginPath();
                 ctx.arc(this.pixelX, this.pixelY, radius, 0, Math.PI * 2);
                 ctx.stroke();
