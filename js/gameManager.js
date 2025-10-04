@@ -210,24 +210,19 @@ export class GameManager {
             this.audioManager.toggleKillSound(isEnabled);
         }
         
+        // Level up system preference
+        const levelUpPref = localStorage.getItem('levelUpEnabled');
+        this.isLevelUpEnabled = levelUpPref !== null ? (levelUpPref === 'true') : false;
+
         const outlineEnabledPref = localStorage.getItem('unitOutlineEnabled');
         this.isUnitOutlineEnabled = outlineEnabledPref !== null ? (outlineEnabledPref === 'true') : true;
-        document.getElementById('unitOutlineToggle').checked = this.isUnitOutlineEnabled;
 
         const outlineWidthPref = localStorage.getItem('unitOutlineWidth');
         this.unitOutlineWidth = outlineWidthPref !== null ? parseFloat(outlineWidthPref) : 1.5;
-        document.getElementById('unitOutlineWidthControl').value = this.unitOutlineWidth;
-        document.getElementById('unitOutlineWidthValue').textContent = this.unitOutlineWidth.toFixed(1);
 
         // Eye size preference
         const eyeSizePref = localStorage.getItem('unitEyeScale');
         this.unitEyeScale = eyeSizePref !== null ? parseFloat(eyeSizePref) : 1.0;
-        const eyeSliderInit = document.getElementById('unitEyeSizeControl');
-        const eyeValueInit = document.getElementById('unitEyeSizeValue');
-        if (eyeSliderInit && eyeValueInit) {
-            eyeSliderInit.value = this.unitEyeScale.toFixed(2);
-            eyeValueInit.textContent = this.unitEyeScale.toFixed(2);
-        }
 
         this.resetActionCam(true);
         
@@ -728,12 +723,7 @@ export class GameManager {
         document.getElementById('mapSettingsBtn').addEventListener('click', () => {
             document.getElementById('widthInput').value = this.canvas.width;
             document.getElementById('heightInput').value = this.canvas.height;
-            document.getElementById('levelUpToggle').checked = this.isLevelUpEnabled;
             document.getElementById('mapSettingsModal').classList.add('show-modal');
-        });
-
-        document.getElementById('levelUpToggle').addEventListener('change', (e) => {
-            this.isLevelUpEnabled = e.target.checked;
         });
 
         document.getElementById('killSoundToggle').addEventListener('change', (e) => {
@@ -742,30 +732,6 @@ export class GameManager {
         document.getElementById('volumeControl').addEventListener('input', (e) => {
             this.audioManager.setVolume(parseFloat(e.target.value));
         });
-        document.getElementById('unitOutlineToggle').addEventListener('change', (e) => {
-            this.isUnitOutlineEnabled = e.target.checked;
-            localStorage.setItem('unitOutlineEnabled', this.isUnitOutlineEnabled);
-            this.draw();
-        });
-        document.getElementById('unitOutlineWidthControl').addEventListener('input', (e) => {
-            this.unitOutlineWidth = parseFloat(e.target.value);
-            document.getElementById('unitOutlineWidthValue').textContent = this.unitOutlineWidth.toFixed(1);
-            localStorage.setItem('unitOutlineWidth', this.unitOutlineWidth);
-            if (this.isUnitOutlineEnabled) {
-                this.draw();
-            }
-        });
-        // Eye size slider events
-        const eyeSliderEv = document.getElementById('unitEyeSizeControl');
-        if (eyeSliderEv) {
-            eyeSliderEv.addEventListener('input', (e) => {
-                this.unitEyeScale = parseFloat(e.target.value);
-                localStorage.setItem('unitEyeScale', this.unitEyeScale);
-                const label = document.getElementById('unitEyeSizeValue');
-                if (label) label.textContent = this.unitEyeScale.toFixed(2);
-                this.draw();
-            });
-        }
 
         document.getElementById('muteBtn').addEventListener('click', () => this.audioManager.toggleMute());
 
@@ -865,30 +831,50 @@ export class GameManager {
                 closeHomeSettingsModal.addEventListener('click', () => homeSettingsModal.classList.remove('show-modal'));
             }
 
+            // 홈 설정 실시간 업데이트 이벤트 리스너들
+            const homeLevelUpToggle = document.getElementById('homeLevelUpToggle');
+            if (homeLevelUpToggle) {
+                homeLevelUpToggle.addEventListener('change', (e) => {
+                    this.isLevelUpEnabled = e.target.checked;
+                });
+            }
+
+            const homeUnitOutlineToggle = document.getElementById('homeUnitOutlineToggle');
+            if (homeUnitOutlineToggle) {
+                homeUnitOutlineToggle.addEventListener('change', (e) => {
+                    this.isUnitOutlineEnabled = e.target.checked;
+                    this.draw();
+                });
+            }
+
             const homeUnitOutlineWidthControl = document.getElementById('homeUnitOutlineWidthControl');
             if (homeUnitOutlineWidthControl) {
                 homeUnitOutlineWidthControl.addEventListener('input', (e) => {
-                    const val = parseFloat(e.target.value);
-                    const v = document.getElementById('homeUnitOutlineWidthValue');
-                    if (v) v.textContent = val.toFixed(1);
+                    this.unitOutlineWidth = parseFloat(e.target.value);
+                    const label = document.getElementById('homeUnitOutlineWidthValue');
+                    if (label) label.textContent = this.unitOutlineWidth.toFixed(1);
+                    if (this.isUnitOutlineEnabled) {
+                        this.draw();
+                    }
                 });
             }
 
             const homeUnitEyeSizeControl = document.getElementById('homeUnitEyeSizeControl');
             if (homeUnitEyeSizeControl) {
                 homeUnitEyeSizeControl.addEventListener('input', (e) => {
-                    const val = parseFloat(e.target.value);
-                    const v = document.getElementById('homeUnitEyeSizeValue');
-                    if (v) v.textContent = val.toFixed(2);
+                    this.unitEyeScale = parseFloat(e.target.value);
+                    const label = document.getElementById('homeUnitEyeSizeValue');
+                    if (label) label.textContent = this.unitEyeScale.toFixed(2);
+                    this.draw();
                 });
             }
 
             const homeActionCamZoomMax = document.getElementById('homeActionCamZoomMax');
             if (homeActionCamZoomMax) {
                 homeActionCamZoomMax.addEventListener('input', (e) => {
-                    const val = parseFloat(e.target.value);
-                    const v = document.getElementById('homeActionCamZoomMaxValue');
-                    if (v) v.textContent = val.toFixed(2);
+                    this.actionCam.maxZoom = parseFloat(e.target.value);
+                    const label = document.getElementById('homeActionCamZoomMaxValue');
+                    if (label) label.textContent = this.actionCam.maxZoom.toFixed(2);
                 });
             }
 
@@ -910,6 +896,7 @@ export class GameManager {
                         localStorage.setItem('actionCamMaxZoom', String(this.actionCam.maxZoom));
                     }
 
+                    localStorage.setItem('levelUpEnabled', String(this.isLevelUpEnabled));
                     localStorage.setItem('unitOutlineEnabled', String(this.isUnitOutlineEnabled));
                     localStorage.setItem('unitOutlineWidth', String(this.unitOutlineWidth));
                     localStorage.setItem('unitEyeScale', String(this.unitEyeScale));
