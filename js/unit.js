@@ -286,7 +286,7 @@ export class Unit {
         
         let angle = Math.atan2(dy, dx);
 
-        // [ADDED BACK] 용암 회피를 위한 유연한 경로 탐색 로직
+        // [IMPROVED] 용암 회피를 위한 유연한 경로 탐색 로직
         if (gameManager.isLavaAvoidanceEnabled && this.state !== 'FLEEING_FIELD' && this.state !== 'FLEEING_LAVA') {
             const lookAheadDist = GRID_SIZE * 1.2;
             const lookAheadX = this.pixelX + Math.cos(angle) * lookAheadDist;
@@ -295,31 +295,55 @@ export class Unit {
             const lookAheadGridX = Math.floor(lookAheadX / GRID_SIZE);
             const lookAheadGridY = Math.floor(lookAheadY / GRID_SIZE);
 
-            if (gameManager.isPosInLavaForUnit(lookAheadGridX, lookAheadGridY)) {
+            // 맵 경계를 벗어나는 경우도 고려
+            const isOutOfBounds = lookAheadGridX < 0 || lookAheadGridX >= gameManager.COLS || 
+                                 lookAheadGridY < 0 || lookAheadGridY >= gameManager.ROWS;
+            const isInLava = !isOutOfBounds && gameManager.isPosInLavaForUnit(lookAheadGridX, lookAheadGridY);
+
+            if (isInLava || isOutOfBounds) {
                 const detourAngle = Math.PI / 3; // 60도
                 let bestAngle = -1;
+                let bestScore = -1;
                 
-                const leftAngle = angle - detourAngle;
-                const rightAngle = angle + detourAngle;
+                // 여러 각도를 시도해보기
+                const anglesToTry = [
+                    angle - detourAngle,      // 왼쪽
+                    angle + detourAngle,      // 오른쪽
+                    angle - Math.PI / 2,      // 뒤로
+                    angle + Math.PI / 2,      // 앞으로 (원래 방향)
+                    angle - Math.PI / 4,      // 왼쪽 대각선
+                    angle + Math.PI / 4,      // 오른쪽 대각선
+                ];
 
-                const leftLookAheadX = this.pixelX + Math.cos(leftAngle) * lookAheadDist;
-                const leftLookAheadY = this.pixelY + Math.sin(leftAngle) * lookAheadDist;
-                const isLeftSafe = !gameManager.isPosInLavaForUnit(Math.floor(leftLookAheadX / GRID_SIZE), Math.floor(leftLookAheadY / GRID_SIZE));
+                for (const testAngle of anglesToTry) {
+                    const testLookAheadX = this.pixelX + Math.cos(testAngle) * lookAheadDist;
+                    const testLookAheadY = this.pixelY + Math.sin(testAngle) * lookAheadDist;
+                    const testGridX = Math.floor(testLookAheadX / GRID_SIZE);
+                    const testGridY = Math.floor(testLookAheadY / GRID_SIZE);
 
-                const rightLookAheadX = this.pixelX + Math.cos(rightAngle) * lookAheadDist;
-                const rightLookAheadY = this.pixelY + Math.sin(rightAngle) * lookAheadDist;
-                const isRightSafe = !gameManager.isPosInLavaForUnit(Math.floor(rightLookAheadX / GRID_SIZE), Math.floor(rightLookAheadY / GRID_SIZE));
-
-                if (isLeftSafe && isRightSafe) {
-                    bestAngle = Math.abs(leftAngle - angle) < Math.abs(rightAngle - angle) ? leftAngle : rightAngle;
-                } else if (isLeftSafe) {
-                    bestAngle = leftAngle;
-                } else if (isRightSafe) {
-                    bestAngle = rightAngle;
+                    // 맵 경계 내부인지 확인
+                    if (testGridX >= 0 && testGridX < gameManager.COLS && 
+                        testGridY >= 0 && testGridY < gameManager.ROWS) {
+                        
+                        const isSafe = !gameManager.isPosInLavaForUnit(testGridX, testGridY);
+                        if (isSafe) {
+                            // 원래 각도와의 차이를 점수로 계산 (작을수록 좋음)
+                            const angleDiff = Math.abs(testAngle - angle);
+                            const score = 1 / (1 + angleDiff);
+                            
+                            if (score > bestScore) {
+                                bestScore = score;
+                                bestAngle = testAngle;
+                            }
+                        }
+                    }
                 }
                 
                 if (bestAngle !== -1) {
                     angle = bestAngle;
+                } else {
+                    // 모든 방향이 막혀있다면 랜덤한 방향으로 이동
+                    angle = gameManager.random() * Math.PI * 2;
                 }
             }
         }
