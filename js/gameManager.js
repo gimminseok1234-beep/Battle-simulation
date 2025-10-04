@@ -218,11 +218,11 @@ export class GameManager {
         this.isUnitOutlineEnabled = outlineEnabledPref !== null ? (outlineEnabledPref === 'true') : true;
 
         const outlineWidthPref = localStorage.getItem('unitOutlineWidth');
-        this.unitOutlineWidth = outlineWidthPref !== null ? parseFloat(outlineWidthPref) : 1.5;
+        this.unitOutlineWidth = outlineWidthPref !== null ? parseFloat(outlineWidthPref) : 2.5;
 
         // Eye size preference
         const eyeSizePref = localStorage.getItem('unitEyeScale');
-        this.unitEyeScale = eyeSizePref !== null ? parseFloat(eyeSizePref) : 1.0;
+        this.unitEyeScale = eyeSizePref !== null ? parseFloat(eyeSizePref) : 1.04;
 
         this.resetActionCam(true);
         
@@ -2245,7 +2245,8 @@ export class GameManager {
         };
         this.hadokenKnockback = mapData.hadokenKnockback || 15;
         
-        this.isLevelUpEnabled = mapData.isLevelUpEnabled || false;
+        // 레벨업 시스템은 홈 설정에서 관리하므로 맵 데이터로 덮어씌우지 않음
+        // this.isLevelUpEnabled = mapData.isLevelUpEnabled || false;
         this.isLavaAvoidanceEnabled = mapData.isLavaAvoidanceEnabled !== undefined ? mapData.isLavaAvoidanceEnabled : true;
 
         this.resetSimulationState();
@@ -2292,7 +2293,8 @@ export class GameManager {
         this.autoMagneticField = mapData.autoMagneticField;
         this.hadokenKnockback = mapData.hadokenKnockback;
         
-        this.isLevelUpEnabled = mapData.isLevelUpEnabled || false;
+        // 레벨업 시스템은 홈 설정에서 관리하므로 맵 데이터로 덮어씌우지 않음
+        // this.isLevelUpEnabled = mapData.isLevelUpEnabled || false;
         this.isLavaAvoidanceEnabled = mapData.isLavaAvoidanceEnabled !== undefined ? mapData.isLavaAvoidanceEnabled : true;
         
         this.resetSimulationState();
