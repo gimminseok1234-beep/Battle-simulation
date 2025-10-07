@@ -439,8 +439,7 @@ export class Unit {
             if (this.levelUpParticleCooldown > 0) {
                 this.levelUpParticleCooldown -= gameManager.gameSpeed;
             } else {
-                // 레벨에 따라 파티클 생성 빈도 조절 (레벨이 높을수록 더 자주 생성)
-                this.levelUpParticleCooldown = 15 - (this.level * 2);
+                this.levelUpParticleCooldown = 20 - (this.level * 3); // 레벨이 높을수록 더 자주 생성
 
                 let teamColor;
                 switch(this.team) {
@@ -452,19 +451,18 @@ export class Unit {
                 }
 
                 const angle = gameManager.random() * Math.PI * 2;
-                const speed = gameManager.random() * 0.5 + 0.2;
-                // 레벨에 따라 파티클 크기 증가
-                const size = (gameManager.random() * 1.5 + 1) * (1 + (this.level - 3) * 0.25);
+                const speed = gameManager.random() * 0.8 + 0.3;
+                const size = (gameManager.random() * 2 + 1.5) * (1 + (this.level - 3) * 0.3);
 
                 gameManager.addParticle({
                     x: this.pixelX,
                     y: this.pixelY,
                     vx: Math.cos(angle) * speed,
                     vy: Math.sin(angle) * speed,
-                    life: 1.5,
+                    life: 1.8,
                     color: teamColor,
                     size: size,
-                    gravity: -0.02 // 살짝 떠오르는 효과
+                    gravity: -0.02
                 });
             }
         }
@@ -1070,7 +1068,6 @@ export class Unit {
         const levelScale = 1 + (this.level - 1) * 0.08;
         const totalScale = scale * levelScale;
     
-        // [수정] 렌더링 최적화를 위해 유닛의 모든 요소를 (0,0) 기준으로 그리고, 전체를 한 번만 이동합니다.
         const renderX = Math.round(this.pixelX);
         const renderY = Math.round(this.pixelY);
         ctx.translate(renderX, renderY);
@@ -1283,10 +1280,8 @@ export class Unit {
             ctx.restore();
         }
         
-        // [수정] 모든 그리기가 끝난 후 restore 호출
         ctx.restore(); 
     
-        // UI 요소(이름, 체력바 등)는 원래 좌표계에서 다시 그림
         if (this.name) {
             ctx.fillStyle = this.nameColor;
             ctx.font = `bold 10px Arial`;
@@ -1321,7 +1316,6 @@ export class Unit {
             ctx.restore();
         }
     
-        // [수정] 무기/왕관 그리기 최적화
         ctx.save();
         ctx.translate(renderX, renderY);
         if (this.isKing) {
@@ -1336,20 +1330,16 @@ export class Unit {
             ctx.lineTo(-GRID_SIZE * 0.2, 0); ctx.closePath();
             ctx.fill(); ctx.stroke();
         } else if (this.weapon) {
-            // weapon.drawEquipped는 내부에서 unit.pixelX, pixelY 대신 (0,0)을 기준으로 그리도록 수정 필요
-            // 이 코드에서는 weapon.drawEquipped가 이미 그렇게 되어있다고 가정
             this.weapon.drawEquipped(ctx, { ...this, pixelX: 0, pixelY: 0 });
         }
         ctx.restore();
     
-        // 체력바 및 상태바
         const barWidth = GRID_SIZE * 0.8 * totalScale; 
         const barHeight = 4;
         const barGap = 1;
         const barX = renderX - barWidth / 2;
         
         const healthBarIsVisible = this.hp < this.maxHp || this.hpBarVisibleTimer > 0;
-        const levelIsVisible = gameManager.isLevelUpEnabled && this.level > 0;
         const normalAttackIsVisible = (this.isCasting && this.weapon?.type === 'poison_potion') || (this.attackCooldown > 0);
         const kingSpawnBarIsVisible = this.isKing && this.spawnCooldown > 0;
         let specialSkillIsVisible = 
@@ -1369,7 +1359,7 @@ export class Unit {
         
         const barsToShow = [];
         if (normalAttackIsVisible) barsToShow.push('attack');
-        if (healthBarIsVisible || levelIsVisible) barsToShow.push('health'); // [수정] 레벨 표시를 위해 조건 추가
+        if (healthBarIsVisible) barsToShow.push('health');
         
         if (barsToShow.length > 0) {
             const kingYOffset = this.isKing ? GRID_SIZE * 0.4 * totalScale : 0; 
@@ -1390,15 +1380,13 @@ export class Unit {
                 currentBarY += barHeight + barGap;
             }
 
-            if (healthBarIsVisible || levelIsVisible) { // [수정] 레벨 표시를 위해 조건 추가
-                if (healthBarIsVisible) {
-                    ctx.fillStyle = '#111827';
-                    ctx.fillRect(barX, currentBarY, barWidth, barHeight);
-                    ctx.fillStyle = '#10b981';
-                    ctx.fillRect(barX, currentBarY, barWidth * (this.hp / this.maxHp), barHeight);
-                }
+            if (healthBarIsVisible) {
+                ctx.fillStyle = '#111827';
+                ctx.fillRect(barX, currentBarY, barWidth, barHeight);
+                ctx.fillStyle = '#10b981';
+                ctx.fillRect(barX, currentBarY, barWidth * (this.hp / this.maxHp), barHeight);
 
-                if (levelIsVisible) {
+                if (gameManager.isLevelUpEnabled && this.level > 0) {
                     const levelCircleRadius = 8;
                     const levelX = barX + barWidth + levelCircleRadius + 4;
                     const levelY = currentBarY + barHeight / 2;
@@ -1415,7 +1403,6 @@ export class Unit {
                     ctx.textBaseline = 'middle';
                     ctx.fillText(this.level, levelX, levelY);
                 }
-                currentBarY += barHeight + barGap;
             }
         }
         
