@@ -1041,6 +1041,36 @@ export class Unit {
         const levelScale = 1 + (this.level - 1) * 0.08;
         const totalScale = scale * levelScale;
 
+        // [신규] 레벨업 오라 효과
+        if (gameManager.isLevelUpEnabled && this.level > 1) {
+            ctx.save();
+            ctx.translate(this.pixelX, this.pixelY);
+            
+            const auraRadius = (GRID_SIZE / 1.4) * totalScale * (1 + (this.level - 1) * 0.15);
+            let teamColor;
+            switch(this.team) {
+                case TEAM.A: teamColor = COLORS.TEAM_A; break;
+                case TEAM.B: teamColor = COLORS.TEAM_B; break;
+                case TEAM.C: teamColor = COLORS.TEAM_C; break;
+                case TEAM.D: teamColor = COLORS.TEAM_D; break;
+                default: teamColor = '#FFFFFF'; break;
+            }
+            
+            // 그라데이션을 통해 부드러운 오라 효과 생성
+            const gradient = ctx.createRadialGradient(0, 0, auraRadius * 0.3, 0, 0, auraRadius);
+            const a = teamColor.replace(')', ', 0.3)').replace('rgb', 'rgba');
+            const b = teamColor.replace(')', ', 0)').replace('rgb', 'rgba');
+            gradient.addColorStop(0, a);
+            gradient.addColorStop(1, b);
+            
+            ctx.fillStyle = gradient;
+            ctx.beginPath();
+            ctx.arc(0, 0, auraRadius, 0, Math.PI * 2);
+            ctx.fill();
+            
+            ctx.restore();
+        }
+
         if (this.awakeningEffect.active) {
             ctx.save();
             ctx.translate(this.pixelX, this.pixelY);
@@ -1219,8 +1249,18 @@ export class Unit {
                 const offX = Math.cos(ang) * maxOffX;
                 const offY = Math.sin(ang) * maxOffY;
 
-                // pupils: circles; during fight they get smaller
-                ctx.fillStyle = '#0b1020';
+                // [신규] 전투 시 눈동자 색상 변경
+                if (isFighting) {
+                    switch(this.team) {
+                        case TEAM.A: ctx.fillStyle = COLORS.TEAM_A; break;
+                        case TEAM.B: ctx.fillStyle = COLORS.TEAM_B; break;
+                        case TEAM.C: ctx.fillStyle = COLORS.TEAM_C; break;
+                        case TEAM.D: ctx.fillStyle = COLORS.TEAM_D; break;
+                        default: ctx.fillStyle = '#0b1020'; break;
+                    }
+                } else {
+                    ctx.fillStyle = '#0b1020';
+                }
                 const basePR = Math.min(eyeWidth, eyeHeight) * (isFighting ? 0.34 : 0.42);
 
                 // left pupil
