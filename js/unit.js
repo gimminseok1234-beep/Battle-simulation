@@ -433,39 +433,7 @@ export class Unit {
         if (!gameManager) {
             return;
         }
-
-        if (gameManager.isLevelUpEnabled && this.level >= 3) {
-            if (this.levelUpParticleCooldown > 0) {
-                this.levelUpParticleCooldown -= gameManager.gameSpeed;
-            } else {
-                this.levelUpParticleCooldown = 20 - (this.level * 3);
-
-                let teamColor;
-                switch (this.team) {
-                    case TEAM.A: teamColor = DEEP_COLORS.TEAM_A; break;
-                    case TEAM.B: teamColor = DEEP_COLORS.TEAM_B; break;
-                    case TEAM.C: teamColor = DEEP_COLORS.TEAM_C; break;
-                    case TEAM.D: teamColor = DEEP_COLORS.TEAM_D; break;
-                    default: teamColor = '#FFFFFF'; break;
-                }
-
-                const angle = gameManager.random() * Math.PI * 2;
-                const speed = gameManager.random() * 0.8 + 0.3;
-                const size = (gameManager.random() * 2 + 1.5) * (1 + (this.level - 3) * 0.3);
-
-                gameManager.addParticle({
-                    x: this.pixelX,
-                    y: this.pixelY,
-                    vx: Math.cos(angle) * speed,
-                    vy: Math.sin(angle) * speed,
-                    life: 1.8,
-                    color: teamColor,
-                    size: size,
-                    gravity: -0.02
-                });
-            }
-        }
-
+        
         if (this.isDashing) {
             this.dashTrail.push({ x: this.pixelX, y: this.pixelY });
             if (this.dashTrail.length > 5) this.dashTrail.shift();
@@ -1057,33 +1025,21 @@ export class Unit {
         }
     }
 
-    /**
-     * 유닛과 그 구성요소(무기, 효과 등)를 캔버스에 그립니다.
-     * @param {CanvasRenderingContext2D} ctx - 캔버스 렌더링 컨텍스트
-     * @param {boolean} isOutlineEnabled - 유닛 테두리 활성화 여부
-     * @param {number} outlineWidth - 유닛 테두리 두께
-     */
     draw(ctx, isOutlineEnabled, outlineWidth) {
         const gameManager = this.gameManager;
         if (!gameManager) return;
 
         ctx.save();
-
+        
         const scale = 1 + this.awakeningEffect.stacks * 0.2;
         const levelScale = 1 + (this.level - 1) * 0.08;
         const totalScale = scale * levelScale;
 
-        // 떨림 현상 해결: 최종 렌더링 위치를 정수로 반올림합니다.
-        const renderX = Math.round(this.pixelX);
-        const renderY = Math.round(this.pixelY);
-
-        // 반올림된 위치로 캔버스의 기준점을 이동합니다.
-        // 이제부터 모든 드로잉은 이 새로운 기준점(0,0)을 중심으로 이루어집니다.
-        ctx.translate(renderX, renderY);
-
         if (this.awakeningEffect.active) {
             ctx.save();
+            ctx.translate(this.pixelX, this.pixelY);
             ctx.scale(totalScale, totalScale);
+
             const auraRadius = (GRID_SIZE / 1.4);
             const gradient = ctx.createRadialGradient(0, 0, auraRadius * 0.5, 0, 0, auraRadius);
             gradient.addColorStop(0, 'rgba(255, 255, 255, 0.6)');
@@ -1092,27 +1048,24 @@ export class Unit {
             ctx.beginPath();
             ctx.arc(0, 0, auraRadius, 0, Math.PI * 2);
             ctx.fill();
+
             ctx.restore();
         }
 
         if (this.isAimingMagicDagger) {
             const aimProgress = 1 - (this.magicDaggerAimTimer / 60);
-            // 기준점이 이동했으므로, 시작점(0,0)에서 목표까지의 상대적인 위치를 계산합니다.
-            const targetX = this.magicDaggerTargetPos.x - this.pixelX;
-            const targetY = this.magicDaggerTargetPos.y - this.pixelY;
-            const currentEndX = targetX * aimProgress;
-            const currentEndY = targetY * aimProgress;
+            const currentEndX = this.pixelX + (this.magicDaggerTargetPos.x - this.pixelX) * aimProgress;
+            const currentEndY = this.pixelY + (this.magicDaggerTargetPos.y - this.pixelY) * aimProgress;
 
-            ctx.save();
             ctx.globalAlpha = 0.7;
             ctx.strokeStyle = '#FFFFFF';
             ctx.lineWidth = 3;
             ctx.setLineDash([10, 5]);
             ctx.beginPath();
-            ctx.moveTo(0, 0); // 시작점은 이제 (0,0)
+            ctx.moveTo(this.pixelX, this.pixelY);
             ctx.lineTo(currentEndX, currentEndY);
             ctx.stroke();
-            ctx.restore();
+            ctx.setLineDash([]);
         }
 
         if (this.isDashing) {
@@ -1120,22 +1073,21 @@ export class Unit {
                 const opacity = (index / this.dashTrail.length) * 0.5;
                 ctx.save();
                 ctx.globalAlpha = opacity;
-                switch (this.team) {
+                switch(this.team) {
                     case TEAM.A: ctx.fillStyle = COLORS.TEAM_A; break;
                     case TEAM.B: ctx.fillStyle = COLORS.TEAM_B; break;
                     case TEAM.C: ctx.fillStyle = COLORS.TEAM_C; break;
                     case TEAM.D: ctx.fillStyle = COLORS.TEAM_D; break;
                 }
-                ctx.beginPath();
-                // 잔상도 현재 유닛의 위치(renderX, renderY)를 기준으로 상대적인 위치에 그립니다.
-                ctx.arc(pos.x - renderX, pos.y - renderY, (GRID_SIZE / 1.67) * totalScale, 0, Math.PI * 2);
-                ctx.fill();
+                ctx.beginPath(); ctx.arc(pos.x, pos.y, (GRID_SIZE / 1.67) * totalScale, 0, Math.PI * 2); ctx.fill();
                 ctx.restore();
             });
         }
-
-        // 유닛 크기 및 레벨에 따른 스케일을 적용합니다.
+        
+        ctx.translate(this.pixelX, this.pixelY);
         ctx.scale(totalScale, totalScale);
+        ctx.translate(-this.pixelX, -this.pixelY);
+
 
         if (this.isStunned > 0) {
             ctx.globalAlpha = 0.7;
@@ -1143,11 +1095,13 @@ export class Unit {
 
         if (this.isMarkedByDualSword.active) {
             ctx.save();
-            ctx.translate(0, -GRID_SIZE * 1.2);
+            ctx.translate(this.pixelX, this.pixelY - GRID_SIZE * 1.2 * totalScale);
             const markScale = 0.4 + Math.sin(this.gameManager.animationFrameCounter * 0.1) * 0.05;
             ctx.scale(markScale, markScale);
+
             ctx.strokeStyle = '#9ca3af';
             ctx.lineWidth = 2.5;
+            
             const L = GRID_SIZE * 0.5;
             ctx.beginPath();
             ctx.moveTo(-L, -L);
@@ -1155,27 +1109,25 @@ export class Unit {
             ctx.moveTo(L, -L);
             ctx.lineTo(-L, L);
             ctx.stroke();
+
             ctx.restore();
         }
 
-        // 유닛 몸통을 (0,0)에 그립니다.
-        switch (this.team) {
+        switch(this.team) {
             case TEAM.A: ctx.fillStyle = COLORS.TEAM_A; break;
             case TEAM.B: ctx.fillStyle = COLORS.TEAM_B; break;
             case TEAM.C: ctx.fillStyle = COLORS.TEAM_C; break;
             case TEAM.D: ctx.fillStyle = COLORS.TEAM_D; break;
         }
-        ctx.beginPath();
-        ctx.arc(0, 0, GRID_SIZE / 1.67, 0, Math.PI * 2);
-        ctx.fill();
-
+        ctx.beginPath(); ctx.arc(this.pixelX, this.pixelY, GRID_SIZE / 1.67, 0, Math.PI * 2); ctx.fill();
+        
         if (isOutlineEnabled) {
-            ctx.strokeStyle = 'black';
+            ctx.strokeStyle = 'black'; 
             ctx.lineWidth = outlineWidth / totalScale;
             ctx.stroke();
         }
 
-        // 유닛 눈을 (0,0) 기준으로 그립니다.
+        // Eyes
         {
             const headRadius = GRID_SIZE / 1.67;
             const eyeScale = this.gameManager?.unitEyeScale ?? 1.0;
@@ -1184,14 +1136,14 @@ export class Unit {
             const gap = headRadius * 0.3;
             const eyeWidth = (faceWidth - gap) / 2;
             const eyeHeight = faceHeight;
-
+    
             const isDead = this.hp <= 0;
             const isFighting = this.attackAnimationTimer > 0 || this.isCasting || (this.target && this.weapon);
             const isMoving = !!this.moveTarget && !isFighting && !this.isDashing;
-
+    
             ctx.save();
-
-            // pixelX, pixelY 대신 (0,0)을 기준으로 그리므로 translate 코드는 필요 없습니다.
+            ctx.translate(this.pixelX, this.pixelY);
+    
             if (isDead) {
                 ctx.strokeStyle = '#0f172a';
                 ctx.lineWidth = headRadius * 0.5;
@@ -1210,7 +1162,7 @@ export class Unit {
                 ctx.fillStyle = '#ffffff';
                 ctx.strokeStyle = '#0f172a';
                 ctx.lineWidth = headRadius * 0.12;
-
+    
                 const rx = Math.min(eyeWidth, eyeHeight) * 0.35;
                 ctx.beginPath();
                 ctx.moveTo(leftX + rx, topY);
@@ -1224,7 +1176,7 @@ export class Unit {
                 ctx.quadraticCurveTo(leftX, topY, leftX + rx, topY);
                 ctx.closePath();
                 ctx.fill(); ctx.stroke();
-
+    
                 ctx.beginPath();
                 ctx.moveTo(rightX + rx, topY);
                 ctx.lineTo(rightX + eyeWidth - rx, topY);
@@ -1237,7 +1189,7 @@ export class Unit {
                 ctx.quadraticCurveTo(rightX, topY, rightX + rx, topY);
                 ctx.closePath();
                 ctx.fill(); ctx.stroke();
-
+    
                 let targetX = 0, targetY = 0;
                 if (isFighting && this.target) {
                     targetX = this.target.pixelX - this.pixelX;
@@ -1250,15 +1202,15 @@ export class Unit {
                     targetX = Math.cos(t);
                     targetY = Math.sin(t * 1.4);
                 }
-
+    
                 const ang = Math.atan2(targetY, targetX);
                 const maxOffX = eyeWidth * 0.18;
                 const maxOffY = eyeHeight * 0.18;
                 const offX = Math.cos(ang) * maxOffX;
                 const offY = Math.sin(ang) * maxOffY;
-
+    
                 if (isFighting) {
-                    switch (this.team) {
+                    switch(this.team) {
                         case TEAM.A: ctx.fillStyle = DEEP_COLORS.TEAM_A; break;
                         case TEAM.B: ctx.fillStyle = DEEP_COLORS.TEAM_B; break;
                         case TEAM.C: ctx.fillStyle = DEEP_COLORS.TEAM_C; break;
@@ -1269,14 +1221,14 @@ export class Unit {
                     ctx.fillStyle = '#0b1020';
                 }
                 const basePR = Math.min(eyeWidth, eyeHeight) * (isFighting ? 0.34 : 0.42);
-
+    
                 ctx.beginPath();
                 ctx.arc(leftX + eyeWidth / 2 + offX * 0.6, topY + eyeHeight / 2 + offY * 0.6, basePR, 0, Math.PI * 2);
                 ctx.fill();
                 ctx.beginPath();
                 ctx.arc(rightX + eyeWidth / 2 + offX * 0.6, topY + eyeHeight / 2 + offY * 0.6, basePR, 0, Math.PI * 2);
                 ctx.fill();
-
+    
                 if (isFighting) {
                     ctx.strokeStyle = '#0b1020';
                     ctx.lineWidth = headRadius * 0.25;
@@ -1293,18 +1245,14 @@ export class Unit {
             }
             ctx.restore();
         }
-
-        // 캔버스 변환 상태를 원래대로 복원합니다.
-        // 스케일과 translate(renderX, renderY)가 모두 원래 상태로 돌아갑니다.
+        
         ctx.restore();
 
-
-        // 이름표, 체력 바 등 UI 요소는 원래의 글로벌 좌표계를 기준으로 그립니다.
         if (this.name) {
             ctx.fillStyle = this.nameColor;
             ctx.font = `bold 10px Arial`;
             ctx.textAlign = 'center';
-            ctx.fillText(this.name, renderX, renderY + GRID_SIZE);
+            ctx.fillText(this.name, this.pixelX, this.pixelY + GRID_SIZE);
         }
 
         if (this.isBeingPulled && this.puller) {
@@ -1313,14 +1261,14 @@ export class Unit {
             ctx.lineWidth = 3;
             ctx.beginPath();
             ctx.moveTo(this.puller.pixelX, this.puller.pixelY);
-            ctx.lineTo(renderX, renderY);
+            ctx.lineTo(this.pixelX, this.pixelY);
             ctx.stroke();
             ctx.restore();
         }
-
+        
         if (this.isStunned > 0) {
             ctx.save();
-            ctx.translate(renderX, renderY - GRID_SIZE);
+            ctx.translate(this.pixelX, this.pixelY - GRID_SIZE);
             const rotation = gameManager.animationFrameCounter * 0.1;
             ctx.rotate(rotation);
             ctx.strokeStyle = '#c084fc';
@@ -1334,9 +1282,8 @@ export class Unit {
             ctx.restore();
         }
 
-        // 무기와 왕관은 다시 유닛의 위치로 이동한 후 그립니다.
         ctx.save();
-        ctx.translate(renderX, renderY);
+        ctx.translate(this.pixelX, this.pixelY);
 
         if (this.isKing) {
             const kingTotalScale = 1.2;
@@ -1350,20 +1297,15 @@ export class Unit {
             ctx.lineTo(-GRID_SIZE * 0.2, 0); ctx.closePath();
             ctx.fill(); ctx.stroke();
         } else if (this.weapon) {
-            // drawEquipped 함수는 unit의 pixelX, pixelY를 기준으로 그리므로,
-            // 이미 유닛 위치로 translate된 상태에서는 (0,0)으로 임시 수정하여 전달합니다.
-            // 이렇게 하면 무기가 유닛의 몸통에 정확히 붙어서 그려집니다.
             this.weapon.drawEquipped(ctx, { ...this, pixelX: 0, pixelY: 0 });
         }
         ctx.restore();
 
-
-        // --- 체력 바, 스킬 쿨다운 등 나머지 UI 요소 그리기 (기존 코드와 동일) ---
         const barWidth = GRID_SIZE * 0.8 * totalScale;
         const barHeight = 4;
         const barGap = 1;
-        const barX = renderX - barWidth / 2;
-
+        const barX = this.pixelX - barWidth / 2;
+        
         const healthBarIsVisible = this.hp < this.maxHp || this.hpBarVisibleTimer > 0;
         const normalAttackIsVisible = (this.isCasting && this.weapon?.type === 'poison_potion') || (this.attackCooldown > 0);
         const kingSpawnBarIsVisible = this.isKing && this.spawnCooldown > 0;
@@ -1381,15 +1323,15 @@ export class Unit {
         if (this.attackCooldown > 0 && !this.isCasting) {
             specialSkillIsVisible = false;
         }
-
+        
         const barsToShow = [];
         if (normalAttackIsVisible) barsToShow.push('attack');
         if (healthBarIsVisible) barsToShow.push('health');
-
+        
         if (barsToShow.length > 0) {
             const kingYOffset = this.isKing ? GRID_SIZE * 0.4 * totalScale : 0;
             const totalBarsHeight = (barsToShow.length * barHeight) + ((barsToShow.length - 1) * barGap);
-            let currentBarY = renderY - (GRID_SIZE * 0.6 * totalScale) - totalBarsHeight - kingYOffset;
+            let currentBarY = this.pixelY - (GRID_SIZE * 0.6 * totalScale) - totalBarsHeight - kingYOffset;
 
             if (normalAttackIsVisible) {
                 ctx.fillStyle = '#0c4a6e';
@@ -1430,16 +1372,16 @@ export class Unit {
                 }
             }
         }
-
+        
         if (kingSpawnBarIsVisible) {
-            const spawnBarY = renderY + GRID_SIZE + (this.name ? 5 : 0);
+            const spawnBarY = this.pixelY + GRID_SIZE + (this.name ? 5 : 0);
             ctx.fillStyle = '#450a0a';
             ctx.fillRect(barX, spawnBarY, barWidth, barHeight);
             const progress = 1 - (this.spawnCooldown / this.spawnInterval);
             ctx.fillStyle = '#ef4444';
             ctx.fillRect(barX, spawnBarY, barWidth * progress, barHeight);
         }
-
+        
         if (specialSkillIsVisible) {
             let fgColor, progress = 0, max = 1;
 
@@ -1451,15 +1393,15 @@ export class Unit {
                 progress = 300 - this.magicCircleCooldown; max = 300;
             } else if (['boomerang', 'shuriken', 'poison_potion', 'magic_dagger', 'axe', 'dual_swords'].includes(this.weapon?.type)) {
                 fgColor = '#94a3b8';
-                if (this.weapon.type === 'boomerang') {
+                if(this.weapon.type === 'boomerang') {
                     progress = 480 - this.boomerangCooldown; max = 480;
-                } else if (this.weapon.type === 'shuriken') {
+                } else if(this.weapon.type === 'shuriken') {
                     progress = 300 - this.shurikenSkillCooldown; max = 300;
-                } else if (this.weapon.type === 'magic_dagger') {
+                } else if(this.weapon.type === 'magic_dagger') {
                     progress = 420 - this.magicDaggerSkillCooldown; max = 420;
-                } else if (this.weapon.type === 'axe') {
+                } else if(this.weapon.type === 'axe') {
                     progress = 240 - this.axeSkillCooldown; max = 240;
-                } else if (this.weapon.type === 'dual_swords') {
+                } else if(this.weapon.type === 'dual_swords') {
                     progress = 300 - this.dualSwordSkillCooldown; max = 300;
                 } else {
                     progress = this.castingProgress; max = this.castDuration;
@@ -1468,36 +1410,36 @@ export class Unit {
                 fgColor = '#38bdf8';
                 progress = this.iceDiamondChargeTimer; max = 240;
             }
-
+            
             if (fgColor) {
                 ctx.save();
                 ctx.lineWidth = 3;
                 ctx.strokeStyle = 'rgba(0, 0, 0, 0.3)';
                 const radius = (GRID_SIZE / 1.67 + 3) * totalScale;
                 ctx.beginPath();
-                ctx.arc(renderX, renderY, radius, 0, Math.PI * 2);
+                ctx.arc(this.pixelX, this.pixelY, radius, 0, Math.PI * 2);
                 ctx.stroke();
 
                 ctx.strokeStyle = fgColor;
                 ctx.beginPath();
                 const startAngle = -Math.PI / 2;
                 const endAngle = startAngle + (progress / max) * Math.PI * 2;
-                ctx.arc(renderX, renderY, radius, startAngle, endAngle);
+                ctx.arc(this.pixelX, this.pixelY, radius, startAngle, endAngle);
                 ctx.stroke();
                 ctx.restore();
             }
         }
-
+        
         const showAlert = this.alertedCounter > 0 || (this.weapon?.type === 'magic_spear' && this.target instanceof Unit && this.target.stunnedByMagicCircle);
         if (showAlert && this.state !== 'FLEEING_FIELD' && this.state !== 'FLEEING_LAVA') {
             const yOffset = -GRID_SIZE * totalScale;
             ctx.fillStyle = 'yellow';
             ctx.font = `bold 20px Arial`;
             ctx.textAlign = 'center';
-            ctx.fillText(this.state === 'SEEKING_HEAL_PACK' ? '+' : '!', renderX, renderY + yOffset);
+            ctx.fillText(this.state === 'SEEKING_HEAL_PACK' ? '+' : '!', this.pixelX, this.pixelY + yOffset);
         }
     }
-
+    
     performDualSwordTeleportAttack(enemies) {
         const target = this.dualSwordTeleportTarget;
         if (target && target.hp > 0) {
@@ -1505,7 +1447,7 @@ export class Unit {
             this.pixelX = teleportPos.x;
             this.pixelY = teleportPos.y;
             this.dualSwordSpinAttackTimer = 20;
-
+            
             const damageRadius = GRID_SIZE * 2;
             enemies.forEach(enemy => {
                 if (Math.hypot(this.pixelX - enemy.pixelX, this.pixelY - enemy.pixelY) < damageRadius) {
