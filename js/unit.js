@@ -162,9 +162,15 @@ export class Unit {
             ];
 
             if (skillAttackWeapons.includes(weaponType)) {
-                this.specialAttackLevelBonus += 10 * levelGained;
+                // [MODIFIED] 표창, 부메랑, 그 외 스킬 무기별로 공격력 증가량 차등 적용
+                if (weaponType === 'shuriken') {
+                    this.specialAttackLevelBonus += 5 * levelGained;
+                } else {
+                    this.specialAttackLevelBonus += 10 * levelGained;
+                }
             } else {
-                this.baseAttackPower += 10 * levelGained;
+                // [MODIFIED] 일반 공격 무기는 공격력 5 증가
+                this.baseAttackPower += 5 * levelGained;
             }
 
             this.gameManager.createEffect('level_up', this.pixelX, this.pixelY, this);
@@ -428,7 +434,7 @@ export class Unit {
         if (!gameManager) return;
 
         if (this.weapon && this.weapon.type === 'poison_potion') {
-            gameManager.castAreaSpell({ x: this.pixelX, y: this.pixelY }, 'poison_cloud', this.team);
+            gameManager.castAreaSpell({ x: this.pixelX, y: this.pixelY }, 'poison_cloud', this.team, this.specialAttackLevelBonus);
         }
     }
 
@@ -438,11 +444,10 @@ export class Unit {
             return;
         }
 
-        // [MODIFIED] 레벨 2 이상일 때 지속적인 파티클 오라 생성
         if (this.level >= 2 && gameManager.isLevelUpEnabled) {
             this.levelUpParticleCooldown -= gameManager.gameSpeed;
             if (this.levelUpParticleCooldown <= 0) {
-                this.levelUpParticleCooldown = 15 - this.level; // 레벨이 높을수록 더 자주 생성
+                this.levelUpParticleCooldown = 15 - this.level; 
 
                 let teamColor;
                 switch(this.team) {
@@ -465,7 +470,7 @@ export class Unit {
                         life: 0.6,
                         color: teamColor,
                         size: this.level * 0.5 + gameManager.random() * this.level,
-                        gravity: -0.02 // 살짝 위로 떠오르는 효과
+                        gravity: -0.02 
                     });
                 }
             }
@@ -529,8 +534,12 @@ export class Unit {
                 this.pixelX = this.pullTargetPos.x;
                 this.pixelY = this.pullTargetPos.y;
                 this.isBeingPulled = false;
+                
+                // [MODIFIED] 부메랑 그랩 후 레벨에 비례한 데미지 및 스턴 적용
+                const damage = 20 + (this.puller.specialAttackLevelBonus || 0);
+                this.takeDamage(damage, { stun: 120 }, this.puller);
+                
                 this.puller = null;
-                this.takeDamage(20, { stun: 120 }, this.puller);
             } else {
                 const angle = Math.atan2(dy, dx);
                 this.pixelX += Math.cos(angle) * pullSpeed * gameManager.gameSpeed;
