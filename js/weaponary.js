@@ -658,42 +658,54 @@ export class Projectile {
         else if (type === 'bouncing_sword') this.speed = 7;
         else this.speed = 6;
 
-        // [MODIFIED] 일반 공격과 스킬 공격의 데미지 계산을 분리합니다.
-        let baseNormalDamage = owner.baseAttackPower + (owner.weapon?.attackPowerBonus || 0);
-        let baseSpecialDamage = owner.baseAttackPower + owner.specialAttackLevelBonus;
+        // [MODIFIED] 일반 공격과 스킬 공격의 데미지 계산을 완벽히 분리
+        let baseNormalDamage = owner.baseAttackPower;
+        let baseSpecialDamage = owner.specialAttackLevelBonus;
+
+        const weaponType = owner.weapon ? owner.weapon.type : null;
+        const skillAttackWeapons = [
+            'magic_dagger', 'poison_potion', 'ice_diamond', 'fire_staff', 
+            'magic_spear', 'boomerang', 'hadoken', 'shuriken'
+        ];
+
+        if (skillAttackWeapons.includes(weaponType)) {
+            baseSpecialDamage += owner.weapon.attackPowerBonus || 0;
+        } else {
+            baseNormalDamage += owner.weapon.attackPowerBonus || 0;
+        }
     
         switch (type) {
             // --- 스킬 공격력 기반 ---
             case 'magic_spear_special':
-                this.damage = baseSpecialDamage + (owner.weapon?.specialAttackPowerBonus || 0);
+                this.damage = baseSpecialDamage + 15;
                 break;
             case 'ice_diamond_projectile':
                 this.damage = baseSpecialDamage + 15;
                 break;
             case 'fireball_projectile':
-                this.damage = baseSpecialDamage + 15;
+                this.damage = baseSpecialDamage;
                 break;
             case 'mini_fireball_projectile':
-                this.damage = baseSpecialDamage + 10;
+                this.damage = baseSpecialDamage - 10;
                 break;
             case 'bouncing_sword':
                 this.damage = baseSpecialDamage + 10;
                 break;
-            case 'boomerang_projectile': // 끌어당기는 부메랑은 데미지 0
-                this.damage = 0;
+            case 'boomerang_projectile': 
+                this.damage = 0; 
                 break;
 
             // --- 일반 공격력 기반 ---
             case 'magic_spear_normal':
-                this.damage = baseNormalDamage + (owner.weapon?.normalAttackPowerBonus || 0);
+                this.damage = baseNormalDamage + 5;
                 break;
             case 'boomerang_normal_projectile':
                 this.damage = baseNormalDamage + 10;
                 break;
-            case 'black_sphere_projectile': // 불 지팡이 일반 공격
+            case 'black_sphere_projectile': 
                 this.damage = baseNormalDamage + 7;
                 break;
-            default: // 나머지 모든 일반 투사체 (화살, 표창, 장풍 등)
+            default:
                 this.damage = baseNormalDamage;
                 break;
         }
