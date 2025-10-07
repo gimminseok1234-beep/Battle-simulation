@@ -42,3 +42,10 @@ export const COLORS = {
     TEAM_D: '#facc15'
 };
 
+// [신규] 전투 시 눈동자 및 레벨업 파티클에 사용할 진한 색상
+export const DEEP_COLORS = {
+    TEAM_A: '#991b1b', // 진한 적색
+    TEAM_B: '#1e3a8a', // 진한 파란색
+    TEAM_C: '#065f46', // 진한 초록색
+    TEAM_D: '#b45309'  // 진한 노란색(주황색 계열)
+};
