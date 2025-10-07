@@ -230,13 +230,14 @@ export class MagicCircle {
 
 // PoisonCloud class
 export class PoisonCloud {
-    constructor(gameManager, x, y, ownerTeam) {
+    constructor(gameManager, x, y, ownerTeam, levelBonus = 0) {
         this.gameManager = gameManager;
         this.pixelX = x;
         this.pixelY = y;
         this.ownerTeam = ownerTeam;
         this.duration = 300; // 5 seconds
-        this.damage = 0.2;
+        // [MODIFIED] 레벨 보너스를 받아 독 안개 피해량 계산
+        this.damage = 0.2 + (levelBonus * 0.02);
         this.animationTimer = 0;
     }
 
@@ -246,8 +247,6 @@ export class PoisonCloud {
         const gameManager = this.gameManager;
         if (!gameManager) return;
         
-        // [수정] 순환 참조를 피하기 위해, 직접 Unit, Nexus 클래스를 참조하는 대신,
-        // gameManager에 있는 유닛과 넥서스 배열을 순회합니다.
         const targets = [...gameManager.units, ...gameManager.nexuses];
 
         targets.forEach(target => {
@@ -255,9 +254,9 @@ export class PoisonCloud {
                const dx = Math.abs(target.pixelX - this.pixelX);
                const dy = Math.abs(target.pixelY - this.pixelY);
                if (dx < GRID_SIZE * 2.5 && dy < GRID_SIZE * 2.5) {
-                   if(target.constructor.name === 'Unit') { // target이 Unit인지 확인
+                   if(target.constructor.name === 'Unit') { 
                        target.takeDamage(0, { poison: { damage: this.damage * gameManager.gameSpeed }, isTileDamage: true });
-                   } else if (target.constructor.name === 'Nexus') { // target이 Nexus인지 확인
+                   } else if (target.constructor.name === 'Nexus') { 
                        target.takeDamage(this.damage * gameManager.gameSpeed);
                    }
                }
@@ -278,4 +277,3 @@ export class PoisonCloud {
         ctx.fill();
     }
 }
-
