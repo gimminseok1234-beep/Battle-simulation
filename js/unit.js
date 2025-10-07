@@ -155,7 +155,6 @@ export class Unit {
             this.maxHp += 10 * levelGained;
             this.hp = Math.min(this.maxHp, this.hp + this.maxHp * 0.3);
 
-            // [MODIFIED] 무기 분류에 따라 적절한 공격력을 10씩 증가
             const weaponType = this.weapon ? this.weapon.type : null;
             const skillAttackWeapons = [
                 'magic_dagger', 'poison_potion', 'ice_diamond', 'fire_staff', 
