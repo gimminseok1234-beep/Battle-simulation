@@ -1139,7 +1139,7 @@ export class Unit {
             const eyeScale = this.gameManager?.unitEyeScale ?? 1.0;
             const faceWidth = headRadius * 1.1 * eyeScale;
             const faceHeight = headRadius * 0.9 * eyeScale;
-            const gap = headRadius * 0.1;
+            const gap = headRadius * 0.3;
             const eyeWidth = (faceWidth - gap) / 2;
             const eyeHeight = faceHeight;
 
