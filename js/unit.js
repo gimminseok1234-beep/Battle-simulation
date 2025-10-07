@@ -162,14 +162,12 @@ export class Unit {
             ];
 
             if (skillAttackWeapons.includes(weaponType)) {
-                // [MODIFIED] 표창, 부메랑, 그 외 스킬 무기별로 공격력 증가량 차등 적용
                 if (weaponType === 'shuriken') {
                     this.specialAttackLevelBonus += 5 * levelGained;
                 } else {
                     this.specialAttackLevelBonus += 10 * levelGained;
                 }
             } else {
-                // [MODIFIED] 일반 공격 무기는 공격력 5 증가
                 this.baseAttackPower += 5 * levelGained;
             }
 
@@ -444,6 +442,7 @@ export class Unit {
             return;
         }
 
+        // [MODIFIED] 레벨 2 이상일 때 유닛 주변에서 파티클이 생성되도록 수정
         if (this.level >= 2 && gameManager.isLevelUpEnabled) {
             this.levelUpParticleCooldown -= gameManager.gameSpeed;
             if (this.levelUpParticleCooldown <= 0) {
@@ -461,10 +460,14 @@ export class Unit {
                 const particleCount = (this.level - 1) * 2;
                 for (let i = 0; i < particleCount; i++) {
                     const angle = gameManager.random() * Math.PI * 2;
+                    const radius = GRID_SIZE / 1.67; // 유닛 반지름
+                    const spawnX = this.pixelX + Math.cos(angle) * radius;
+                    const spawnY = this.pixelY + Math.sin(angle) * radius;
                     const speed = 0.5 + gameManager.random() * 0.5;
+                    
                     gameManager.addParticle({
-                        x: this.pixelX,
-                        y: this.pixelY,
+                        x: spawnX,
+                        y: spawnY,
                         vx: Math.cos(angle) * speed,
                         vy: Math.sin(angle) * speed,
                         life: 0.6,
@@ -535,7 +538,6 @@ export class Unit {
                 this.pixelY = this.pullTargetPos.y;
                 this.isBeingPulled = false;
                 
-                // [MODIFIED] 부메랑 그랩 후 레벨에 비례한 데미지 및 스턴 적용
                 const damage = 20 + (this.puller.specialAttackLevelBonus || 0);
                 this.takeDamage(damage, { stun: 120 }, this.puller);
                 
