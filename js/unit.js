@@ -1138,7 +1138,7 @@ export class Unit {
             const headRadius = GRID_SIZE / 1.67;
             const eyeScale = this.gameManager?.unitEyeScale ?? 1.0;
             const faceWidth = headRadius * 1.1 * eyeScale;
-            const faceHeight = headRadius * 0.9 * eyeScale;
+            const faceHeight = headRadius * 0.7 * eyeScale;
             const gap = headRadius * 0.3;
             const eyeWidth = (faceWidth - gap) / 2;
             const eyeHeight = faceHeight;
@@ -1169,7 +1169,7 @@ export class Unit {
                 const topY = -eyeHeight / 2;
                 ctx.fillStyle = '#ffffff';
                 ctx.strokeStyle = '#0f172a';
-                ctx.lineWidth = headRadius * 0.18;
+                ctx.lineWidth = headRadius * 0.12;
 
                 const rx = Math.min(eyeWidth, eyeHeight) * 0.35; // corner radius
                 // left eye white (rounded rect)
