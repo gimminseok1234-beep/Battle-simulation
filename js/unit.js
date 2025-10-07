@@ -1221,7 +1221,7 @@ export class Unit {
 
                 // pupils: circles; during fight they get smaller
                 ctx.fillStyle = '#0b1020';
-                const basePR = Math.min(eyeWidth, eyeHeight) * (isFighting ? 0.24 : 0.32);
+                const basePR = Math.min(eyeWidth, eyeHeight) * (isFighting ? 0.34 : 0.42);
 
                 // left pupil
                 ctx.beginPath();
