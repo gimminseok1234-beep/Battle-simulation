@@ -164,33 +164,6 @@ export class Unit {
                 this.baseAttackPower += 2 * levelGained;
             }
             this.gameManager.createEffect('level_up', this.pixelX, this.pixelY, this);
-            
-            // [NEW] 레벨업 시 화려한 파티클 효과 추가
-            if (this.gameManager.isLevelUpEnabled) {
-                let teamColor;
-                switch(this.team) {
-                    case TEAM.A: teamColor = DEEP_COLORS.TEAM_A; break;
-                    case TEAM.B: teamColor = DEEP_COLORS.TEAM_B; break;
-                    case TEAM.C: teamColor = DEEP_COLORS.TEAM_C; break;
-                    case TEAM.D: teamColor = DEEP_COLORS.TEAM_D; break;
-                    default: teamColor = '#FFFFFF'; break;
-                }
-
-                for (let i = 0; i < 15 * this.level; i++) {
-                    const angle = this.gameManager.random() * Math.PI * 2;
-                    const speed = 2 + this.gameManager.random() * this.level;
-                    this.gameManager.addParticle({
-                        x: this.pixelX,
-                        y: this.pixelY,
-                        vx: Math.cos(angle) * speed,
-                        vy: Math.sin(angle) * speed,
-                        life: 0.8 + this.level * 0.1,
-                        color: this.gameManager.random() > 0.3 ? teamColor : '#FFFFFF',
-                        size: this.level * 0.8 + this.gameManager.random() * this.level,
-                        gravity: 0.05
-                    });
-                }
-            }
         }
     }
 
