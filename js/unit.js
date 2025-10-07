@@ -155,14 +155,19 @@ export class Unit {
             this.maxHp += 10 * levelGained;
             this.hp = Math.min(this.maxHp, this.hp + this.maxHp * 0.3);
 
+            // [MODIFIED] 무기 분류에 따라 적절한 공격력을 10씩 증가
             const weaponType = this.weapon ? this.weapon.type : null;
-            const specialAttackUnits = ['fire_staff', 'ice_diamond', 'magic_spear', 'boomerang', 'shuriken', 'hadoken'];
+            const skillAttackWeapons = [
+                'magic_dagger', 'poison_potion', 'ice_diamond', 'fire_staff', 
+                'magic_spear', 'boomerang', 'hadoken', 'shuriken'
+            ];
 
-            if (specialAttackUnits.includes(weaponType)) {
-                this.specialAttackLevelBonus += 2 * levelGained;
+            if (skillAttackWeapons.includes(weaponType)) {
+                this.specialAttackLevelBonus += 10 * levelGained;
             } else {
-                this.baseAttackPower += 2 * levelGained;
+                this.baseAttackPower += 10 * levelGained;
             }
+
             this.gameManager.createEffect('level_up', this.pixelX, this.pixelY, this);
         }
     }
@@ -434,7 +439,7 @@ export class Unit {
             return;
         }
 
-        // [NEW] 레벨 2 이상일 때 지속적인 파티클 오라 생성
+        // [MODIFIED] 레벨 2 이상일 때 지속적인 파티클 오라 생성
         if (this.level >= 2 && gameManager.isLevelUpEnabled) {
             this.levelUpParticleCooldown -= gameManager.gameSpeed;
             if (this.levelUpParticleCooldown <= 0) {
