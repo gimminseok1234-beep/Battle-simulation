@@ -7,7 +7,7 @@ import {
     drawLightning as designDrawLightning,
     drawMagicSpear as designDrawMagicSpear,
     drawBoomerang as designDrawBoomerang,
-    drawPoisonPotion as designDrawPotionPotion,
+    drawPoisonPotion as designDrawPoisonPotion,
 } from './weaponDesigns.js';
 
 // Drawing implementations moved to js/weaponDesigns.js
@@ -32,19 +32,14 @@ export class Weapon {
         const gameManager = this.gameManager;
         if (!gameManager) return;
 
-        // [수정] 근접 공격 무기에만 애니메이션 타이머를 설정합니다.
-        if (['sword', 'dual_swords', 'magic_dagger', 'axe'].includes(this.type)) {
-            unit.attackAnimationTimer = 20; // 애니메이션 시간을 20프레임으로 늘려 더 큰 동작을 표현
-        }
-        if (this.type === 'bow') {
+        if (['sword', 'dual_swords', 'boomerang', 'poison_potion', 'magic_dagger', 'axe', 'bow'].includes(this.type)) {
             unit.attackAnimationTimer = 15;
         }
 
         if (this.type === 'sword') {
             unit.attackCount++;
             target.takeDamage(unit.attackPower, {}, unit);
-            // [수정] 새로운 베기 궤적 효과를 생성합니다.
-            gameManager.createEffect('swing_trail', unit.pixelX, unit.pixelY, unit, { weaponType: this.type });
+            gameManager.createEffect('slash', unit.pixelX, unit.pixelY, target);
             gameManager.audioManager.play('swordHit');
             unit.attackCooldown = unit.cooldownTime;
             
@@ -105,14 +100,12 @@ export class Weapon {
             unit.attackCooldown = 120;
         } else if (this.type === 'dual_swords') {
             target.takeDamage(unit.attackPower, {}, unit);
-            // [수정] 새로운 베기 궤적 효과를 생성합니다.
-            gameManager.createEffect('swing_trail', unit.pixelX, unit.pixelY, unit, { weaponType: this.type });
+            gameManager.createEffect('dual_sword_slash', unit.pixelX, unit.pixelY, target);
             gameManager.audioManager.play('dualSwordHit');
             unit.attackCooldown = unit.cooldownTime;
         } else if (this.type === 'axe') {
             target.takeDamage(unit.attackPower, {}, unit);
-            // [수정] 새로운 베기 궤적 효과를 생성합니다.
-            gameManager.createEffect('swing_trail', unit.pixelX, unit.pixelY, unit, { weaponType: this.type });
+            gameManager.createEffect('slash', unit.pixelX, unit.pixelY, target);
             gameManager.audioManager.play('swordHit');
             unit.attackCooldown = unit.cooldownTime;
         } else if (this.type === 'ice_diamond') {
@@ -196,7 +189,7 @@ export class Weapon {
     }
 
     drawPoisonPotion(ctx, scale = 1.0) {
-        designDrawPotionPotion(ctx, scale);
+        designDrawPoisonPotion(ctx, scale);
     }
 
 
@@ -360,27 +353,10 @@ export class Weapon {
         ctx.scale(scale, scale);
         
         let rotation = unit.facingAngle;
-
-        // [수정] 무기별로 다른 동적인 공격 애니메이션 적용
-        if (unit.attackAnimationTimer > 0) {
-            const animProgress = (20 - unit.attackAnimationTimer) / 20; // 0 -> 1
-
-            if (this.type === 'sword') {
-                const swingArc = Math.PI * 1.5; // 270도 회전
-                const swingProgress = Math.sin(animProgress * Math.PI); // 부드러운 시작과 끝
-                rotation += swingArc * swingProgress - (swingArc / 2);
-            } else if (this.type === 'axe') {
-                const swingArc = Math.PI * 1.8; // 320도 회전
-                const swingProgress = 1 - Math.pow(1 - animProgress, 3); // EaseOutCubic
-                rotation += swingArc * swingProgress - (swingArc / 1.5);
-            } else if (this.type === 'dual_swords') {
-                // 쌍검은 별도의 로직으로 아래에서 처리
-            } else if (this.type !== 'bow') {
-                const swingProgress = Math.sin(animProgress * Math.PI);
-                rotation += swingProgress * Math.PI / 2; // 기본 휘두르기
-            }
+        if (this.type !== 'bow' && unit.attackAnimationTimer > 0) {
+            const swingProgress = Math.sin((15 - unit.attackAnimationTimer) / 15 * Math.PI);
+            rotation += swingProgress * Math.PI / 4;
         }
-
 
         if (this.type === 'axe' && unit.spinAnimationTimer > 0) {
             rotation += ((30 - unit.spinAnimationTimer) / 30) * Math.PI * 2;
@@ -438,8 +414,8 @@ export class Weapon {
             ctx.rotate(-Math.PI / 8);
             drawMagicDaggerIcon(ctx);
         } else if (this.type === 'axe') {
-            ctx.translate(GRID_SIZE * 0.8, -GRID_SIZE * 0.2); // 위치 조정
-            ctx.rotate(Math.PI / 2.5);
+            ctx.translate(GRID_SIZE * 0.8, -GRID_SIZE * 0.7);
+            ctx.rotate(Math.PI / 4);
             ctx.scale(0.8, 0.8);
             drawAxeIcon(ctx);
         } else if (this.type === 'bow') {
@@ -481,24 +457,8 @@ export class Weapon {
         } else if (this.type === 'dual_swords') {
             const drawEquippedCurvedSword = (isRightHand) => {
                 ctx.save();
-                let yOffset = isRightHand ? GRID_SIZE * 0.6 : -GRID_SIZE * 0.6;
-                let swordRotation = isRightHand ? Math.PI / 8 : -Math.PI / 8;
-
-                if (unit.attackAnimationTimer > 0) {
-                    const animProgress = (20 - unit.attackAnimationTimer) / 20;
-                    const swingArc = Math.PI * 1.2;
-                    let swingProgress = 0;
-
-                    if (isRightHand) {
-                        // 오른손 검: 애니메이션의 전반부에 움직임
-                        swingProgress = Math.sin(Math.min(1, animProgress * 2) * Math.PI * 0.5);
-                    } else {
-                        // 왼손 검: 애니메이션의 후반부에 움직임
-                        swingProgress = Math.sin(Math.max(0, (animProgress - 0.5) * 2) * Math.PI * 0.5);
-                    }
-                    swordRotation += swingArc * swingProgress;
-                }
-
+                const yOffset = isRightHand ? GRID_SIZE * 0.6 : -GRID_SIZE * 0.6;
+                const swordRotation = isRightHand ? Math.PI / 8 : -Math.PI / 8;
                 ctx.translate(GRID_SIZE * 0.1, yOffset);
                 ctx.rotate(swordRotation);
                 ctx.fillStyle = '#374151';
@@ -1194,7 +1154,6 @@ export class Effect {
         this.gameManager = gameManager;
         this.x = x; this.y = y; this.type = type; this.target = target;
         this.duration = 20; this.angle = this.gameManager.random() * Math.PI * 2;
-        this.options = options;
         
         if (this.type === 'question_mark_effect') {
             this.duration = 60;
@@ -1211,8 +1170,6 @@ export class Effect {
         } else if (this.type === 'level_up') {
             // [NEW] 레벨업 이펙트 지속 시간 설정
             this.duration = 40;
-        } else if (this.type === 'swing_trail') {
-            this.duration = 15;
         }
     }
     update() {
@@ -1242,73 +1199,6 @@ export class Effect {
             ctx.arc(0, 0, arcSize, -0.5, 0.5);
             ctx.stroke();
             ctx.restore();
-        } else if (this.type === 'swing_trail') {
-            const unit = this.target;
-            if (!unit || unit.attackAnimationTimer <= 0) return;
-
-            const animProgress = (20 - unit.attackAnimationTimer) / 20;
-            const trailOpacity = Math.sin(animProgress * Math.PI) * 0.8;
-            
-            ctx.save();
-            ctx.translate(unit.pixelX, unit.pixelY);
-            ctx.rotate(unit.facingAngle);
-
-            let startAngle, endAngle, radius, color, lineWidth;
-
-            if (this.options.weaponType === 'sword') {
-                radius = GRID_SIZE * 1.3;
-                lineWidth = GRID_SIZE * 0.8;
-                color = 'rgba(255, 255, 255, 0.7)';
-                const totalArc = Math.PI * 1.5;
-                startAngle = -totalArc / 2;
-                endAngle = startAngle + totalArc * Math.sin(animProgress * Math.PI);
-            } else if (this.options.weaponType === 'axe') {
-                radius = GRID_SIZE * 1.2;
-                lineWidth = GRID_SIZE * 1.2;
-                color = 'rgba(255, 100, 100, 0.6)';
-                const totalArc = Math.PI * 1.8;
-                startAngle = -totalArc / 1.5;
-                endAngle = startAngle + totalArc * (1 - Math.pow(1 - animProgress, 3));
-            } else if (this.options.weaponType === 'dual_swords') {
-                radius = GRID_SIZE * 1.1;
-                lineWidth = GRID_SIZE * 0.6;
-                color = 'rgba(200, 200, 255, 0.7)';
-                const totalArc = Math.PI;
-
-                // 오른손 베기
-                let progress1 = Math.min(1, animProgress * 2);
-                startAngle = -Math.PI / 4;
-                endAngle = startAngle + totalArc * Math.sin(progress1 * Math.PI * 0.5);
-                
-                ctx.beginPath();
-                ctx.arc(0, 0, radius, startAngle, endAngle, false);
-                ctx.strokeStyle = `rgba(220, 38, 38, ${trailOpacity})`;
-                ctx.lineWidth = lineWidth;
-                ctx.stroke();
-
-                // 왼손 베기
-                let progress2 = Math.max(0, (animProgress - 0.5) * 2);
-                startAngle = -Math.PI / 4 + Math.PI;
-                endAngle = startAngle - totalArc * Math.sin(progress2 * Math.PI * 0.5);
-
-                ctx.beginPath();
-                ctx.arc(0, 0, radius, startAngle, endAngle, true);
-                ctx.stroke();
-                
-                ctx.restore();
-                return;
-            }
-
-            if (startAngle !== undefined) {
-                ctx.beginPath();
-                ctx.arc(0, 0, radius, startAngle, endAngle, false);
-                ctx.strokeStyle = `rgba(220, 38, 38, ${trailOpacity})`;
-                ctx.lineWidth = lineWidth;
-                ctx.stroke();
-            }
-            
-            ctx.restore();
-
         } else if (this.type === 'chain_lightning') {
             ctx.strokeStyle = `rgba(254, 240, 138, ${opacity})`;
             ctx.lineWidth = 2;
