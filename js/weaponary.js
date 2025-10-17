@@ -338,11 +338,12 @@ export class Weapon {
     }
     
     /**
-     * [NEW] Draws the weapon when it's equipped by a unit.
+     * [MODIFIED] Draws the weapon when it's equipped by a unit, with a charging effect.
      * @param {CanvasRenderingContext2D} ctx 
      * @param {Unit} unit 
+     * @param {boolean} isCharging - Flag to indicate if the special attack is charging.
      */
-    drawEquipped(ctx, unit) {
+    drawEquipped(ctx, unit, isCharging) {
         const gameManager = this.gameManager;
         if (!gameManager) return;
         
@@ -352,6 +353,20 @@ export class Weapon {
         ctx.translate(unit.pixelX, unit.pixelY);
         ctx.scale(scale, scale);
         
+        // Add glow effect if charging
+        if (isCharging) {
+            let chargeColor;
+            switch(unit.team) {
+                case TEAM.A: chargeColor = COLORS.TEAM_A; break;
+                case TEAM.B: chargeColor = COLORS.TEAM_B; break;
+                case TEAM.C: chargeColor = COLORS.TEAM_C; break;
+                case TEAM.D: chargeColor = COLORS.TEAM_D; break;
+                default: chargeColor = '#FFFFFF'; break;
+            }
+            ctx.shadowColor = chargeColor;
+            ctx.shadowBlur = 15;
+        }
+
         let rotation = unit.facingAngle;
         if (this.type !== 'bow' && unit.attackAnimationTimer > 0) {
             const swingProgress = Math.sin((15 - unit.attackAnimationTimer) / 15 * Math.PI);
