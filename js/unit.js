@@ -12,6 +12,8 @@ export class Unit {
         this.team = team;
         this.hp = 100;
         this.maxHp = 100;
+        this.displayHp = 100; // [추가] 화면에 표시될 체력
+        this.damageFlash = 0; // [추가] 피격 시 깜빡임 효과
 
         // 레벨업 시스템 속성
         this.level = 1;
@@ -157,7 +159,7 @@ export class Unit {
 
             const weaponType = this.weapon ? this.weapon.type : null;
             const skillAttackWeapons = [
-                'magic_dagger', 'poison_potion', 'ice_diamond', 'fire_staff', 
+                'magic_dagger', 'poison_potion', 'ice_diamond', 'fire_staff',
                 'magic_spear', 'boomerang', 'hadoken', 'shuriken'
             ];
 
@@ -389,6 +391,7 @@ export class Unit {
         }
         this.hp -= damage;
         this.hpBarVisibleTimer = 180;
+        this.damageFlash = 1.0; // [추가] 피격 효과 활성화
 
         if (attacker && attacker instanceof Unit) {
             this.killedBy = attacker;
@@ -442,11 +445,23 @@ export class Unit {
             return;
         }
 
+        // [추가] 부드러운 체력바 감소 및 피격 효과 처리
+        if (this.displayHp > this.hp) {
+            // 현재 체력과 표시 체력의 차이에 비례하여 빠르게 감소 (0.1은 속도 조절 계수)
+            this.displayHp -= (this.displayHp - this.hp) * 0.1 * this.gameManager.gameSpeed;
+        } else {
+            this.displayHp = this.hp;
+        }
+        if (this.damageFlash > 0) {
+            this.damageFlash -= 0.05 * this.gameManager.gameSpeed;
+        }
+
+
         // [MODIFIED] 레벨 2 이상일 때 유닛 주변에서 파티클이 생성되도록 수정
         if (this.level >= 2 && gameManager.isLevelUpEnabled) {
             this.levelUpParticleCooldown -= gameManager.gameSpeed;
             if (this.levelUpParticleCooldown <= 0) {
-                this.levelUpParticleCooldown = 15 - this.level; 
+                this.levelUpParticleCooldown = 15 - this.level;
 
                 let teamColor;
                 switch(this.team) {
@@ -464,7 +479,7 @@ export class Unit {
                     const spawnX = this.pixelX + Math.cos(angle) * radius;
                     const spawnY = this.pixelY + Math.sin(angle) * radius;
                     const speed = 0.5 + gameManager.random() * 0.5;
-                    
+
                     gameManager.addParticle({
                         x: spawnX,
                         y: spawnY,
@@ -473,12 +488,12 @@ export class Unit {
                         life: 0.6,
                         color: teamColor,
                         size: this.level * 0.5 + gameManager.random() * this.level,
-                        gravity: -0.02 
+                        gravity: -0.02
                     });
                 }
             }
         }
-        
+
         if (this.isDashing) {
             this.dashTrail.push({ x: this.pixelX, y: this.pixelY });
             if (this.dashTrail.length > 5) this.dashTrail.shift();
@@ -537,10 +552,10 @@ export class Unit {
                 this.pixelX = this.pullTargetPos.x;
                 this.pixelY = this.pullTargetPos.y;
                 this.isBeingPulled = false;
-                
+
                 const damage = 20 + (this.puller.specialAttackLevelBonus || 0);
                 this.takeDamage(damage, { stun: 120 }, this.puller);
-                
+
                 this.puller = null;
             } else {
                 const angle = Math.atan2(dy, dx);
@@ -1078,7 +1093,7 @@ export class Unit {
         if (!gameManager) return;
 
         ctx.save();
-        
+
         const scale = 1 + this.awakeningEffect.stacks * 0.2;
         const levelScale = 1 + (this.level - 1) * 0.08;
         const totalScale = scale * levelScale;
@@ -1131,7 +1146,7 @@ export class Unit {
                 ctx.restore();
             });
         }
-        
+
         ctx.translate(this.pixelX, this.pixelY);
         ctx.scale(totalScale, totalScale);
         ctx.translate(-this.pixelX, -this.pixelY);
@@ -1149,7 +1164,7 @@ export class Unit {
 
             ctx.strokeStyle = '#9ca3af';
             ctx.lineWidth = 2.5;
-            
+
             const L = GRID_SIZE * 0.5;
             ctx.beginPath();
             ctx.moveTo(-L, -L);
@@ -1168,9 +1183,9 @@ export class Unit {
             case TEAM.D: ctx.fillStyle = COLORS.TEAM_D; break;
         }
         ctx.beginPath(); ctx.arc(this.pixelX, this.pixelY, GRID_SIZE / 1.67, 0, Math.PI * 2); ctx.fill();
-        
+
         if (isOutlineEnabled) {
-            ctx.strokeStyle = 'black'; 
+            ctx.strokeStyle = 'black';
             ctx.lineWidth = outlineWidth / totalScale;
             ctx.stroke();
         }
@@ -1184,14 +1199,14 @@ export class Unit {
             const gap = headRadius * 0.3;
             const eyeWidth = (faceWidth - gap) / 2;
             const eyeHeight = faceHeight;
-    
+
             const isDead = this.hp <= 0;
             const isFighting = this.attackAnimationTimer > 0 || this.isCasting || (this.target && this.weapon);
             const isMoving = !!this.moveTarget && !isFighting && !this.isDashing;
-    
+
             ctx.save();
             ctx.translate(this.pixelX, this.pixelY);
-    
+
             if (isDead) {
                 ctx.strokeStyle = '#0f172a';
                 ctx.lineWidth = headRadius * 0.5;
@@ -1210,7 +1225,7 @@ export class Unit {
                 ctx.fillStyle = '#ffffff';
                 ctx.strokeStyle = '#0f172a';
                 ctx.lineWidth = headRadius * 0.12;
-    
+
                 const rx = Math.min(eyeWidth, eyeHeight) * 0.35;
                 ctx.beginPath();
                 ctx.moveTo(leftX + rx, topY);
@@ -1224,7 +1239,7 @@ export class Unit {
                 ctx.quadraticCurveTo(leftX, topY, leftX + rx, topY);
                 ctx.closePath();
                 ctx.fill(); ctx.stroke();
-    
+
                 ctx.beginPath();
                 ctx.moveTo(rightX + rx, topY);
                 ctx.lineTo(rightX + eyeWidth - rx, topY);
@@ -1237,7 +1252,7 @@ export class Unit {
                 ctx.quadraticCurveTo(rightX, topY, rightX + rx, topY);
                 ctx.closePath();
                 ctx.fill(); ctx.stroke();
-    
+
                 let targetX = 0, targetY = 0;
                 if (isFighting && this.target) {
                     targetX = this.target.pixelX - this.pixelX;
@@ -1250,13 +1265,13 @@ export class Unit {
                     targetX = Math.cos(t);
                     targetY = Math.sin(t * 1.4);
                 }
-    
+
                 const ang = Math.atan2(targetY, targetX);
                 const maxOffX = eyeWidth * 0.18;
                 const maxOffY = eyeHeight * 0.18;
                 const offX = Math.cos(ang) * maxOffX;
                 const offY = Math.sin(ang) * maxOffY;
-    
+
                 if (isFighting) {
                     switch(this.team) {
                         case TEAM.A: ctx.fillStyle = DEEP_COLORS.TEAM_A; break;
@@ -1269,14 +1284,14 @@ export class Unit {
                     ctx.fillStyle = '#0b1020';
                 }
                 const basePR = Math.min(eyeWidth, eyeHeight) * (isFighting ? 0.34 : 0.42);
-    
+
                 ctx.beginPath();
                 ctx.arc(leftX + eyeWidth / 2 + offX * 0.6, topY + eyeHeight / 2 + offY * 0.6, basePR, 0, Math.PI * 2);
                 ctx.fill();
                 ctx.beginPath();
                 ctx.arc(rightX + eyeWidth / 2 + offX * 0.6, topY + eyeHeight / 2 + offY * 0.6, basePR, 0, Math.PI * 2);
                 ctx.fill();
-    
+
                 if (isFighting) {
                     ctx.strokeStyle = '#0b1020';
                     ctx.lineWidth = headRadius * 0.25;
@@ -1293,7 +1308,7 @@ export class Unit {
             }
             ctx.restore();
         }
-        
+
         ctx.restore();
 
         if (this.name) {
@@ -1313,7 +1328,7 @@ export class Unit {
             ctx.stroke();
             ctx.restore();
         }
-        
+
         if (this.isStunned > 0) {
             ctx.save();
             ctx.translate(this.pixelX, this.pixelY - GRID_SIZE);
@@ -1353,7 +1368,7 @@ export class Unit {
         const barHeight = 4;
         const barGap = 1;
         const barX = this.pixelX - barWidth / 2;
-        
+
         const healthBarIsVisible = this.hp < this.maxHp || this.hpBarVisibleTimer > 0;
         const normalAttackIsVisible = (this.isCasting && this.weapon?.type === 'poison_potion') || (this.attackCooldown > 0);
         const kingSpawnBarIsVisible = this.isKing && this.spawnCooldown > 0;
@@ -1371,15 +1386,18 @@ export class Unit {
         if (this.attackCooldown > 0 && !this.isCasting) {
             specialSkillIsVisible = false;
         }
-        
+
         const barsToShow = [];
         if (normalAttackIsVisible) barsToShow.push('attack');
         if (healthBarIsVisible) barsToShow.push('health');
-        
+
         if (barsToShow.length > 0) {
             const kingYOffset = this.isKing ? GRID_SIZE * 0.4 * totalScale : 0;
             const totalBarsHeight = (barsToShow.length * barHeight) + ((barsToShow.length - 1) * barGap);
-            let currentBarY = this.pixelY - (GRID_SIZE * 0.6 * totalScale) - totalBarsHeight - kingYOffset;
+            
+            // [수정] 체력바 위치를 더 위로 조정 (기존 0.6 -> 0.9)
+            let currentBarY = this.pixelY - (GRID_SIZE * 0.9 * totalScale) - totalBarsHeight - kingYOffset;
+
 
             if (normalAttackIsVisible) {
                 ctx.fillStyle = '#0c4a6e';
@@ -1396,10 +1414,25 @@ export class Unit {
             }
 
             if (healthBarIsVisible) {
-                ctx.fillStyle = '#111827';
+                // [수정] 부드러운 체력 감소 효과 렌더링 로직
+                ctx.fillStyle = '#111827'; // 배경
                 ctx.fillRect(barX, currentBarY, barWidth, barHeight);
+
+                // 부드럽게 감소하는 흰색 체력 부분
+                if (this.displayHp > this.hp) {
+                    ctx.fillStyle = 'rgba(255, 255, 255, 0.7)';
+                    ctx.fillRect(barX, currentBarY, barWidth * (this.displayHp / this.maxHp), barHeight);
+                }
+
+                // 실제 체력 (녹색) 부분
                 ctx.fillStyle = '#10b981';
                 ctx.fillRect(barX, currentBarY, barWidth * (this.hp / this.maxHp), barHeight);
+                
+                // 피격 시 흰색 점멸 효과
+                if (this.damageFlash > 0) {
+                    ctx.fillStyle = `rgba(255, 255, 255, ${this.damageFlash * 0.6})`;
+                    ctx.fillRect(barX, currentBarY, barWidth * (this.hp / this.maxHp), barHeight);
+                }
 
                 if (gameManager.isLevelUpEnabled && this.level > 0) {
                     const levelCircleRadius = 8;
@@ -1420,7 +1453,7 @@ export class Unit {
                 }
             }
         }
-        
+
         if (kingSpawnBarIsVisible) {
             const spawnBarY = this.pixelY + GRID_SIZE + (this.name ? 5 : 0);
             ctx.fillStyle = '#450a0a';
@@ -1429,7 +1462,7 @@ export class Unit {
             ctx.fillStyle = '#ef4444';
             ctx.fillRect(barX, spawnBarY, barWidth * progress, barHeight);
         }
-        
+
         if (specialSkillIsVisible) {
             let fgColor, progress = 0, max = 1;
 
@@ -1458,7 +1491,7 @@ export class Unit {
                 fgColor = '#38bdf8';
                 progress = this.iceDiamondChargeTimer; max = 240;
             }
-            
+
             if (fgColor) {
                 ctx.save();
                 ctx.lineWidth = 3;
@@ -1477,7 +1510,7 @@ export class Unit {
                 ctx.restore();
             }
         }
-        
+
         const showAlert = this.alertedCounter > 0 || (this.weapon?.type === 'magic_spear' && this.target instanceof Unit && this.target.stunnedByMagicCircle);
         if (showAlert && this.state !== 'FLEEING_FIELD' && this.state !== 'FLEEING_LAVA') {
             const yOffset = -GRID_SIZE * totalScale;
@@ -1487,7 +1520,7 @@ export class Unit {
             ctx.fillText(this.state === 'SEEKING_HEAL_PACK' ? '+' : '!', this.pixelX, this.pixelY + yOffset);
         }
     }
-    
+
     performDualSwordTeleportAttack(enemies) {
         const target = this.dualSwordTeleportTarget;
         if (target && target.hp > 0) {
@@ -1495,7 +1528,7 @@ export class Unit {
             this.pixelX = teleportPos.x;
             this.pixelY = teleportPos.y;
             this.dualSwordSpinAttackTimer = 20;
-            
+
             const damageRadius = GRID_SIZE * 2;
             enemies.forEach(enemy => {
                 if (Math.hypot(this.pixelX - enemy.pixelX, this.pixelY - enemy.pixelY) < damageRadius) {
