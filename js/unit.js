@@ -1265,9 +1265,19 @@ export class Unit {
             const chargeProgress = 1 - (this.attackCooldown / 15);
             const radius = (GRID_SIZE / 1.67) + chargeProgress * 5;
             const alpha = chargeProgress * 0.8;
+            
+            let chargeColor;
+            switch(this.team) {
+                case TEAM.A: chargeColor = '239, 68, 68'; break; // red
+                case TEAM.B: chargeColor = '59, 130, 246'; break; // blue
+                case TEAM.C: chargeColor = '16, 185, 129'; break; // green
+                case TEAM.D: chargeColor = '250, 204, 21'; break; // yellow
+                default: chargeColor = '255, 255, 255'; break; // white
+            }
+
             const grad = ctx.createRadialGradient(this.pixelX, this.pixelY, radius * 0.5, this.pixelX, this.pixelY, radius);
-            grad.addColorStop(0, `rgba(255, 255, 255, ${alpha})`);
-            grad.addColorStop(1, `rgba(255, 255, 255, 0)`);
+            grad.addColorStop(0, `rgba(${chargeColor}, ${alpha})`);
+            grad.addColorStop(1, `rgba(${chargeColor}, 0)`);
             ctx.fillStyle = grad;
             ctx.beginPath();
             ctx.arc(this.pixelX, this.pixelY, radius, 0, Math.PI * 2);
