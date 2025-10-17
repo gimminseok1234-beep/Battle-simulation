@@ -12,6 +12,8 @@ export class Unit {
         this.team = team;
         this.hp = 100;
         this.maxHp = 100;
+        this.displayHp = 100; // 체력바 애니메이션을 위한 변수
+        this.damageTakenHp = 100; // 피해를 입은 부분을 표시하기 위한 변수
 
         // 레벨업 시스템 속성
         this.level = 1;
@@ -64,6 +66,8 @@ export class Unit {
         this.isSlowed = 0;
         this.attackCount = 0;
         this.swordSpecialAttackAnimationTimer = 0;
+
+        this.isChargingSpecial = false; // 강력한 공격 사전 시각 효과 플래그
 
         this.dualSwordSkillCooldown = 0;
         this.dualSwordTeleportTarget = null;
@@ -154,6 +158,8 @@ export class Unit {
 
             this.maxHp += 10 * levelGained;
             this.hp = Math.min(this.maxHp, this.hp + this.maxHp * 0.3);
+            this.displayHp = this.hp;
+            this.damageTakenHp = this.hp;
 
             const weaponType = this.weapon ? this.weapon.type : null;
             const skillAttackWeapons = [
@@ -362,6 +368,12 @@ export class Unit {
         const gameManager = this.gameManager;
         if (!gameManager) return;
 
+        if (this.weapon && (this.weapon.type === 'sword' || this.weapon.type === 'bow')) {
+            if (this.attackCount === 2) {
+                this.isChargingSpecial = false;
+            }
+        }
+
         const targetGridX = Math.floor(target.pixelX / GRID_SIZE);
         const targetGridY = Math.floor(target.pixelY / GRID_SIZE);
         if (targetGridY < 0 || targetGridY >= gameManager.ROWS || targetGridX < 0 || targetGridX >= gameManager.COLS) return;
@@ -388,6 +400,7 @@ export class Unit {
             createPhysicalHitEffect(gameManager, this);
         }
         this.hp -= damage;
+        this.damageTakenHp = this.displayHp; // 애니메이션 시작점 설정
         this.hpBarVisibleTimer = 180;
 
         if (attacker && attacker instanceof Unit) {
@@ -430,9 +443,60 @@ export class Unit {
     handleDeath() {
         const gameManager = this.gameManager;
         if (!gameManager) return;
-
-        if (this.weapon && this.weapon.type === 'poison_potion') {
+    
+        const killerWeapon = this.killedBy?.weapon?.type;
+    
+        if (killerWeapon === 'fire_staff') {
+            // 불타며 사라지는 효과
+            for (let i = 0; i < 40; i++) {
+                const angle = Math.random() * Math.PI * 2;
+                const speed = Math.random() * 3 + 1;
+                gameManager.addParticle({
+                    x: this.pixelX, y: this.pixelY,
+                    vx: Math.cos(angle) * speed * 0.5, vy: -speed, // 위로 솟구치도록
+                    life: Math.random() * 1.5 + 0.5,
+                    color: ['#ffcc00', '#ff9900', '#ff6600', '#4a5568'][Math.floor(Math.random() * 4)],
+                    size: Math.random() * 4 + 2,
+                    gravity: 0.1
+                });
+            }
+        } else if (killerWeapon === 'ice_diamond') {
+            // 얼어붙고 깨지는 효과
+            gameManager.createEffect('frozen_shatter', this.pixelX, this.pixelY, this);
+            for (let i = 0; i < 50; i++) {
+                const angle = Math.random() * Math.PI * 2;
+                const speed = Math.random() * 4 + 2;
+                gameManager.addParticle({
+                    x: this.pixelX, y: this.pixelY,
+                    vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed,
+                    life: Math.random() * 1.0 + 0.8,
+                    color: ['#e0f2fe', '#7dd3fc', '#0ea5e9'][Math.floor(Math.random() * 3)],
+                    size: Math.random() * 3 + 1,
+                    gravity: 0.1
+                });
+            }
+        } else if (killerWeapon === 'lightning') {
+            // 감전 효과
+            for (let i = 0; i < 30; i++) {
+                const angle = Math.random() * Math.PI * 2;
+                const speed = Math.random() * 5 + 3;
+                gameManager.addParticle({
+                    x: this.pixelX, y: this.pixelY,
+                    vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed,
+                    life: Math.random() * 0.5 + 0.2,
+                    color: ['#fef08a', '#facc15', '#ffffff'][Math.floor(Math.random() * 3)],
+                    size: Math.random() * 2 + 1,
+                    gravity: 0
+                });
+            }
+        } else if (this.weapon && this.weapon.type === 'poison_potion') {
+            // 사망 시 독 웅덩이 생성
             gameManager.castAreaSpell({ x: this.pixelX, y: this.pixelY }, 'poison_cloud', this.team, this.specialAttackLevelBonus);
+        } else {
+            // 기본 사망 효과 (기존 로직 유지)
+            if (this.weapon && this.weapon.type === 'poison_potion') {
+                 gameManager.castAreaSpell({ x: this.pixelX, y: this.pixelY }, 'poison_cloud', this.team, this.specialAttackLevelBonus);
+            }
         }
     }
 
@@ -440,6 +504,29 @@ export class Unit {
         const gameManager = this.gameManager;
         if (!gameManager) {
             return;
+        }
+
+        // 체력바 애니메이션 업데이트
+        if (this.displayHp !== this.hp) {
+            this.displayHp += (this.hp - this.displayHp) * 0.2;
+            if (Math.abs(this.hp - this.displayHp) < 0.5) {
+                this.displayHp = this.hp;
+            }
+        }
+        if (this.damageTakenHp !== this.displayHp) {
+            this.damageTakenHp += (this.displayHp - this.damageTakenHp) * 0.1;
+             if (Math.abs(this.displayHp - this.damageTakenHp) < 0.5) {
+                this.damageTakenHp = this.displayHp;
+            }
+        }
+
+        // 강력한 공격 사전 시각 효과 (Telegraphing)
+        if (this.weapon && (this.weapon.type === 'sword' || this.weapon.type === 'bow')) {
+            if (this.attackCount === 2 && this.attackCooldown <= 15) {
+                this.isChargingSpecial = true;
+            } else {
+                this.isChargingSpecial = false;
+            }
         }
 
         // [MODIFIED] 레벨 2 이상일 때 유닛 주변에서 파티클이 생성되도록 수정
@@ -580,6 +667,8 @@ export class Unit {
                 this.awakeningEffect.stacks++;
                 this.maxHp += 20;
                 this.hp = Math.min(this.maxHp, this.hp + 20);
+                this.displayHp = this.hp;
+                this.damageTakenHp = this.hp;
                 this.baseAttackPower += 3;
                 gameManager.audioManager.play('Arousal');
                 for (let i = 0; i < 30; i++) {
@@ -1011,6 +1100,8 @@ export class Unit {
             if (currentTile.type === TILE.LAVA) this.takeDamage(0.2 * gameManager.gameSpeed, { isTileDamage: true });
             if (currentTile.type === TILE.HEAL_PACK) {
                 this.hp = this.maxHp;
+                this.displayHp = this.hp;
+                this.damageTakenHp = this.hp;
                 gameManager.map[finalGridY][finalGridX] = { type: TILE.FLOOR, color: gameManager.currentFloorColor };
                 gameManager.audioManager.play('heal');
             }
@@ -1169,6 +1260,21 @@ export class Unit {
         }
         ctx.beginPath(); ctx.arc(this.pixelX, this.pixelY, GRID_SIZE / 1.67, 0, Math.PI * 2); ctx.fill();
         
+        if (this.isChargingSpecial) {
+            ctx.save();
+            const chargeProgress = 1 - (this.attackCooldown / 15);
+            const radius = (GRID_SIZE / 1.67) + chargeProgress * 5;
+            const alpha = chargeProgress * 0.8;
+            const grad = ctx.createRadialGradient(this.pixelX, this.pixelY, radius * 0.5, this.pixelX, this.pixelY, radius);
+            grad.addColorStop(0, `rgba(255, 255, 255, ${alpha})`);
+            grad.addColorStop(1, `rgba(255, 255, 255, 0)`);
+            ctx.fillStyle = grad;
+            ctx.beginPath();
+            ctx.arc(this.pixelX, this.pixelY, radius, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.restore();
+        }
+
         if (isOutlineEnabled) {
             ctx.strokeStyle = 'black'; 
             ctx.lineWidth = outlineWidth / totalScale;
@@ -1379,7 +1485,7 @@ export class Unit {
         if (barsToShow.length > 0) {
             const kingYOffset = this.isKing ? GRID_SIZE * 0.4 * totalScale : 0;
             const totalBarsHeight = (barsToShow.length * barHeight) + ((barsToShow.length - 1) * barGap);
-            let currentBarY = this.pixelY - (GRID_SIZE * 0.6 * totalScale) - totalBarsHeight - kingYOffset;
+            let currentBarY = this.pixelY - (GRID_SIZE * 0.8 * totalScale) - totalBarsHeight - kingYOffset;
 
             if (normalAttackIsVisible) {
                 ctx.fillStyle = '#0c4a6e';
@@ -1396,11 +1502,17 @@ export class Unit {
             }
 
             if (healthBarIsVisible) {
-                ctx.fillStyle = '#111827';
+                ctx.fillStyle = '#111827'; // 배경
                 ctx.fillRect(barX, currentBarY, barWidth, barHeight);
+            
+                // 피해를 입은 부분 (하얀색)
+                ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
+                ctx.fillRect(barX, currentBarY, barWidth * (this.damageTakenHp / this.maxHp), barHeight);
+            
+                // 현재 체력 (초록색)
                 ctx.fillStyle = '#10b981';
-                ctx.fillRect(barX, currentBarY, barWidth * (this.hp / this.maxHp), barHeight);
-
+                ctx.fillRect(barX, currentBarY, barWidth * (this.displayHp / this.maxHp), barHeight);
+            
                 if (gameManager.isLevelUpEnabled && this.level > 0) {
                     const levelCircleRadius = 8;
                     const levelX = barX + barWidth + levelCircleRadius + 4;
