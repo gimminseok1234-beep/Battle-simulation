@@ -706,10 +706,10 @@ export class Projectile {
                 this.damage = baseSpecialDamage;
                 break;
             case 'mini_fireball_projectile':
-                this.damage = baseSpecialDamage - 10;
+                this.damage = 15; // 고정 데미지로 변경
                 break;
             case 'bouncing_sword':
-                this.damage = baseSpecialDamage + 10;
+                this.damage = 20; // 고정 데미지로 변경
                 break;
             case 'boomerang_projectile': 
                 this.damage = 0; 
