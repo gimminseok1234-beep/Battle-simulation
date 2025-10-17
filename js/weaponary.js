@@ -32,7 +32,7 @@ export class Weapon {
         const gameManager = this.gameManager;
         if (!gameManager) return;
 
-        if (['sword', 'dual_swords', 'boomerang', 'poison_potion', 'magic_dagger', 'axe'].includes(this.type)) {
+        if (['sword', 'dual_swords', 'boomerang', 'poison_potion', 'magic_dagger', 'axe', 'bow'].includes(this.type)) {
             unit.attackAnimationTimer = 15;
         }
 
@@ -353,7 +353,7 @@ export class Weapon {
         ctx.scale(scale, scale);
         
         let rotation = unit.facingAngle;
-        if (unit.attackAnimationTimer > 0) {
+        if (this.type !== 'bow' && unit.attackAnimationTimer > 0) {
             const swingProgress = Math.sin((15 - unit.attackAnimationTimer) / 15 * Math.PI);
             rotation += swingProgress * Math.PI / 4;
         }
@@ -421,7 +421,7 @@ export class Weapon {
         } else if (this.type === 'bow') {
             ctx.translate(GRID_SIZE * 0.4, 0);
             ctx.rotate(-Math.PI / 4);
-            const bowScale = 0.8;
+            const bowScale = 0.56; // [수정] 활 크기 30% 감소 (0.8 * 0.7)
             ctx.scale(bowScale, bowScale);
             ctx.fillStyle = '#f3f4f6';
             ctx.fillRect(-GRID_SIZE * 0.7, -1, GRID_SIZE * 1.2, 2);
@@ -433,11 +433,27 @@ export class Weapon {
             ctx.beginPath(); ctx.moveTo(-GRID_SIZE * 0.6, 1); ctx.lineTo(-GRID_SIZE * 0.7, 4); ctx.lineTo(-GRID_SIZE * 0.5, 1); ctx.closePath(); ctx.fill()
             ctx.strokeStyle = 'black'; ctx.lineWidth = 6 / bowScale; ctx.beginPath(); ctx.arc(0, 0, GRID_SIZE * 0.8, -Math.PI / 2.2, Math.PI / 2.2); ctx.stroke();
             ctx.strokeStyle = '#854d0e'; ctx.lineWidth = 4 / bowScale; ctx.beginPath(); ctx.arc(0, 0, GRID_SIZE * 0.8, -Math.PI / 2.2, Math.PI / 2.2); ctx.stroke();
-            ctx.strokeStyle = '#e5e7eb'; ctx.lineWidth = 1.5 / bowScale; ctx.beginPath();
+            
+            // [수정] 활시위 당기는 애니메이션 추가
+            ctx.strokeStyle = '#e5e7eb';
+            ctx.lineWidth = 1.5 / bowScale;
+            ctx.beginPath();
             const arcRadius = GRID_SIZE * 0.8, arcAngle = Math.PI / 2.2;
-            ctx.moveTo(Math.cos(-arcAngle) * arcRadius, Math.sin(-arcAngle) * arcRadius);
-            ctx.lineTo(-GRID_SIZE * 0.4, 0);
-            ctx.lineTo(Math.cos(arcAngle) * arcRadius, Math.sin(arcAngle) * arcRadius); ctx.stroke();
+            const bowstringY1 = Math.sin(-arcAngle) * arcRadius;
+            const bowstringY2 = Math.sin(arcAngle) * arcRadius;
+            const bowstringX = Math.cos(arcAngle) * arcRadius;
+            
+            let pullBack = -GRID_SIZE * 0.4;
+            if (unit.attackAnimationTimer > 0) {
+                const pullProgress = Math.sin((15 - unit.attackAnimationTimer) / 15 * Math.PI);
+                pullBack -= pullProgress * GRID_SIZE * 0.5; // 시위를 더 당김
+            }
+
+            ctx.moveTo(bowstringX, bowstringY1);
+            ctx.lineTo(pullBack, 0);
+            ctx.lineTo(bowstringX, bowstringY2);
+            ctx.stroke();
+
         } else if (this.type === 'dual_swords') {
             const drawEquippedCurvedSword = (isRightHand) => {
                 ctx.save();
