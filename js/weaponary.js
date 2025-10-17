@@ -427,12 +427,28 @@ export class Weapon {
             ctx.translate(-GRID_SIZE * 0.4, 0);
             ctx.scale(0.7, 0.7);
             ctx.rotate(-Math.PI / 8);
-            drawMagicDaggerIcon(ctx);
+            if (isCharging) {
+                ctx.save();
+                ctx.strokeStyle = chargeColor;
+                ctx.lineWidth = 4;
+                drawMagicDaggerIcon(ctx);
+                ctx.restore();
+            } else {
+                drawMagicDaggerIcon(ctx);
+            }
         } else if (this.type === 'axe') {
             ctx.translate(GRID_SIZE * 0.8, -GRID_SIZE * 0.7);
             ctx.rotate(Math.PI / 4);
             ctx.scale(0.8, 0.8);
-            drawAxeIcon(ctx);
+            if (isCharging) {
+                ctx.save();
+                ctx.strokeStyle = chargeColor;
+                ctx.lineWidth = 4;
+                drawAxeIcon(ctx);
+                ctx.restore();
+            } else {
+                drawAxeIcon(ctx);
+            }
         } else if (this.type === 'bow') {
             ctx.translate(GRID_SIZE * 0.4, 0);
             ctx.rotate(-Math.PI / 4);
@@ -483,6 +499,8 @@ export class Weapon {
                 ctx.translate(GRID_SIZE * 0.1, yOffset);
                 ctx.rotate(swordRotation);
                 ctx.fillStyle = '#374151';
+                ctx.strokeStyle = isCharging ? chargeColor : 'black';
+                ctx.lineWidth = isCharging ? 2.5 : 1.5;
                 ctx.fillRect(-GRID_SIZE * 0.05, 0, GRID_SIZE * 0.1, GRID_SIZE * 0.2);
                 ctx.strokeRect(-GRID_SIZE * 0.05, 0, GRID_SIZE * 0.1, GRID_SIZE * 0.2);
                 ctx.beginPath();
@@ -502,7 +520,15 @@ export class Weapon {
             drawEquippedCurvedSword(true);
             drawEquippedCurvedSword(false);
         } else if (this.type === 'fire_staff') {
-            this.drawStaff(ctx, 0.8);
+             if (isCharging) {
+                ctx.save();
+                ctx.strokeStyle = chargeColor;
+                ctx.lineWidth = 4;
+                this.drawStaff(ctx, 0.8);
+                ctx.restore();
+            } else {
+                this.drawStaff(ctx, 0.8);
+            }
         } else if (this.type === 'lightning') {
             const revolutionAngle = gameManager.animationFrameCounter * 0.05;
             const orbitRadius = GRID_SIZE * 0.8;
@@ -530,8 +556,16 @@ export class Weapon {
             ctx.translate(GRID_SIZE * 0.2, GRID_SIZE * 0.4);
             this.drawMagicSpear(ctx, 0.5, -Math.PI / 8 + Math.PI);
         } else if (this.type === 'boomerang') {
-            ctx.translate(0, -GRID_SIZE * 0.5); 
-            this.drawBoomerang(ctx, 0.5);
+            ctx.translate(0, -GRID_SIZE * 0.5);
+            if (isCharging) {
+                ctx.save();
+                ctx.strokeStyle = chargeColor;
+                ctx.lineWidth = 4;
+                this.drawBoomerang(ctx, 0.5);
+                ctx.restore();
+            } else {
+                this.drawBoomerang(ctx, 0.5);
+            }
         } else if (this.type === 'poison_potion') {
             ctx.translate(0, -GRID_SIZE * 0.5); 
             this.drawPoisonPotion(ctx, 0.3);
@@ -558,8 +592,8 @@ export class Weapon {
             ctx.scale(shurikenScale, shurikenScale);
             ctx.rotate(gameManager.animationFrameCounter * 0.1);
             ctx.fillStyle = '#4a5568';
-            ctx.strokeStyle = 'black';
-            ctx.lineWidth = 2 / shurikenScale;
+            ctx.strokeStyle = isCharging ? chargeColor : 'black';
+            ctx.lineWidth = isCharging ? 4 / shurikenScale : 2 / shurikenScale;
             ctx.beginPath();
             ctx.moveTo(0, -GRID_SIZE * 0.8);
             ctx.lineTo(GRID_SIZE * 0.2, -GRID_SIZE * 0.2);
