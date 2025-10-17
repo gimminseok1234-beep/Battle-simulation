@@ -353,9 +353,8 @@ export class Weapon {
         ctx.translate(unit.pixelX, unit.pixelY);
         ctx.scale(scale, scale);
         
-        // Add glow effect if charging
+        let chargeColor;
         if (isCharging) {
-            let chargeColor;
             switch(unit.team) {
                 case TEAM.A: chargeColor = COLORS.TEAM_A; break;
                 case TEAM.B: chargeColor = COLORS.TEAM_B; break;
@@ -398,21 +397,8 @@ export class Weapon {
             bladeGradient.addColorStop(0, '#f3f4f6');
             bladeGradient.addColorStop(1, '#9ca3af');
             ctx.fillStyle = bladeGradient;
-
-            if (isCharging) {
-                let chargeColor;
-                switch(unit.team) {
-                    case TEAM.A: chargeColor = COLORS.TEAM_A; break;
-                    case TEAM.B: chargeColor = COLORS.TEAM_B; break;
-                    case TEAM.C: chargeColor = COLORS.TEAM_C; break;
-                    case TEAM.D: chargeColor = COLORS.TEAM_D; break;
-                    default: chargeColor = '#FFFFFF'; break;
-                }
-                ctx.strokeStyle = chargeColor;
-                ctx.lineWidth = 3;
-            } else {
-                ctx.strokeStyle = 'black';
-            }
+            ctx.strokeStyle = isCharging ? chargeColor : 'black';
+            ctx.lineWidth = isCharging ? 3 : 2;
             
             ctx.beginPath();
             ctx.moveTo(-2, GRID_SIZE * 0.3);
@@ -452,17 +438,6 @@ export class Weapon {
             ctx.rotate(-Math.PI / 4);
             const bowScale = 0.56;
             ctx.scale(bowScale, bowScale);
-            
-            let chargeColor;
-            if (isCharging) {
-                switch(unit.team) {
-                    case TEAM.A: chargeColor = COLORS.TEAM_A; break;
-                    case TEAM.B: chargeColor = COLORS.TEAM_B; break;
-                    case TEAM.C: chargeColor = COLORS.TEAM_C; break;
-                    case TEAM.D: chargeColor = COLORS.TEAM_D; break;
-                    default: chargeColor = '#FFFFFF'; break;
-                }
-            }
 
             ctx.fillStyle = '#f3f4f6';
             ctx.fillRect(-GRID_SIZE * 0.7, -1, GRID_SIZE * 1.2, 2);
