@@ -521,13 +521,26 @@ export class Unit {
         }
 
         // 강력한 공격 사전 시각 효과 (Telegraphing)
-        if (this.weapon && (this.weapon.type === 'sword' || this.weapon.type === 'bow')) {
-            if (this.attackCount === 2 && this.attackCooldown <= 15) {
+        if (this.weapon) {
+            const weaponType = this.weapon.type;
+            if (weaponType === 'sword' || weaponType === 'bow') {
+                this.isChargingSpecial = this.attackCount === 2 && this.attackCooldown <= 15;
+            } else if (
+                (weaponType === 'boomerang' && this.boomerangCooldown <= 0) ||
+                (weaponType === 'shuriken' && this.shurikenSkillCooldown <= 0) ||
+                (weaponType === 'axe' && this.axeSkillCooldown <= 0) ||
+                (weaponType === 'magic_dagger' && this.magicDaggerSkillCooldown <= 0) ||
+                (weaponType === 'dual_swords' && this.dualSwordSkillCooldown <= 0) ||
+                (weaponType === 'fire_staff' && this.fireStaffSpecialCooldown <= 0)
+            ) {
                 this.isChargingSpecial = true;
             } else {
                 this.isChargingSpecial = false;
             }
+        } else {
+            this.isChargingSpecial = false;
         }
+
 
         // [MODIFIED] 레벨 2 이상일 때 유닛 주변에서 파티클이 생성되도록 수정
         if (this.level >= 2 && gameManager.isLevelUpEnabled) {
@@ -1260,31 +1273,6 @@ export class Unit {
         }
         ctx.beginPath(); ctx.arc(this.pixelX, this.pixelY, GRID_SIZE / 1.67, 0, Math.PI * 2); ctx.fill();
         
-        if (this.isChargingSpecial) {
-            ctx.save();
-            const chargeProgress = 1 - (this.attackCooldown / 15);
-            const radius = (GRID_SIZE / 1.67) + chargeProgress * 5;
-            const alpha = chargeProgress * 0.8;
-            
-            let chargeColor;
-            switch(this.team) {
-                case TEAM.A: chargeColor = '239, 68, 68'; break; // red
-                case TEAM.B: chargeColor = '59, 130, 246'; break; // blue
-                case TEAM.C: chargeColor = '16, 185, 129'; break; // green
-                case TEAM.D: chargeColor = '250, 204, 21'; break; // yellow
-                default: chargeColor = '255, 255, 255'; break; // white
-            }
-
-            const grad = ctx.createRadialGradient(this.pixelX, this.pixelY, radius * 0.5, this.pixelX, this.pixelY, radius);
-            grad.addColorStop(0, `rgba(${chargeColor}, ${alpha})`);
-            grad.addColorStop(1, `rgba(${chargeColor}, 0)`);
-            ctx.fillStyle = grad;
-            ctx.beginPath();
-            ctx.arc(this.pixelX, this.pixelY, radius, 0, Math.PI * 2);
-            ctx.fill();
-            ctx.restore();
-        }
-
         if (isOutlineEnabled) {
             ctx.strokeStyle = 'black'; 
             ctx.lineWidth = outlineWidth / totalScale;
@@ -1461,7 +1449,7 @@ export class Unit {
             ctx.lineTo(-GRID_SIZE * 0.2, 0); ctx.closePath();
             ctx.fill(); ctx.stroke();
         } else if (this.weapon) {
-            this.weapon.drawEquipped(ctx, { ...this, pixelX: 0, pixelY: 0 });
+            this.weapon.drawEquipped(ctx, { ...this, pixelX: 0, pixelY: 0 }, this.isChargingSpecial);
         }
         ctx.restore();
 
