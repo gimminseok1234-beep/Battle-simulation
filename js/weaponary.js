@@ -353,6 +353,20 @@ export class Weapon {
         ctx.translate(unit.pixelX, unit.pixelY);
         ctx.scale(scale, scale);
         
+        // Add glow effect if charging
+        if (isCharging) {
+            let chargeColor;
+            switch(unit.team) {
+                case TEAM.A: chargeColor = COLORS.TEAM_A; break;
+                case TEAM.B: chargeColor = COLORS.TEAM_B; break;
+                case TEAM.C: chargeColor = COLORS.TEAM_C; break;
+                case TEAM.D: chargeColor = COLORS.TEAM_D; break;
+                default: chargeColor = '#FFFFFF'; break;
+            }
+            ctx.shadowColor = chargeColor;
+            ctx.shadowBlur = 20;
+        }
+
         let rotation = unit.facingAngle;
         if (this.type !== 'bow' && unit.attackAnimationTimer > 0) {
             const swingProgress = Math.sin((15 - unit.attackAnimationTimer) / 15 * Math.PI);
@@ -396,8 +410,6 @@ export class Weapon {
                 }
                 ctx.strokeStyle = chargeColor;
                 ctx.lineWidth = 3;
-                ctx.shadowBlur = 15;
-                ctx.shadowColor = chargeColor;
             } else {
                 ctx.strokeStyle = 'black';
             }
@@ -450,8 +462,6 @@ export class Weapon {
                     case TEAM.D: chargeColor = COLORS.TEAM_D; break;
                     default: chargeColor = '#FFFFFF'; break;
                 }
-                ctx.shadowBlur = 20;
-                ctx.shadowColor = chargeColor;
             }
 
             ctx.fillStyle = '#f3f4f6';
@@ -818,7 +828,7 @@ export class Projectile {
                 if (this.damageCooldown <= 0) {
                     for (const unit of gameManager.units) {
                         if (unit.team !== this.owner.team && Math.hypot(this.pixelX - unit.pixelX, this.pixelY - unit.pixelY) < GRID_SIZE * 2) {
-                            unit.takeDamage(this.damage * 0.15, {}, this.owner); // Reduced lingering damage
+                            unit.takeDamage(this.damage * 0.25, {}, this.owner);
                         }
                     }
                     this.damageCooldown = this.damageInterval;
