@@ -692,6 +692,10 @@ export class Projectile {
     
         switch (type) {
             // --- 스킬 공격력 기반 ---
+            case 'shuriken':
+            case 'returning_shuriken':
+                this.damage = baseSpecialDamage;
+                break;
             case 'magic_spear_special':
                 this.damage = baseSpecialDamage + 15;
                 break;
