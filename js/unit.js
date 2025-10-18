@@ -58,7 +58,7 @@ export class Unit {
         this.isAimingMagicDagger = false;
         this.magicDaggerAimTimer = 0;
         this.magicDaggerTargetPos = null;
-        this.axeSkillCooldown = 0;
+        this.axeSkillCooldown = 0; // 도끼는 충전식이 아니므로 이펙트 대상에서 제외
         this.spinAnimationTimer = 0;
         this.iceDiamondCharges = 0;
         this.iceDiamondChargeTimer = 0;
@@ -79,8 +79,12 @@ export class Unit {
         // 유닛이 길을 찾지 못하고 막혔는지 판단하기 위한 속성
         this.stuckTimer = 0;
         this.lastPosition = { x: this.pixelX, y: this.pixelY };
+
+        // [🌟 NEW] 특수 공격 활성화 상태 플래그
+        this.isSpecialAttackReady = false;
     }
 
+    // ... (기존 getter들은 그대로 유지) ...
     get speed() {
         const gameManager = this.gameManager;
         if (!gameManager || this.isStunned > 0) {
@@ -119,14 +123,17 @@ export class Unit {
         let finalCooldown = this.baseCooldownTime + (this.weapon ? this.weapon.attackCooldownBonus || 0 : 0);
         finalCooldown *= (1 - (this.level - 1) * 0.04);
 
+        // 도끼 쿨타임 조정 제거 (충전식 아님)
         if (this.weapon && this.weapon.type === 'fire_staff') return Math.max(20, Math.min(finalCooldown, 120));
         if (this.weapon && this.weapon.type === 'hadoken') return Math.max(20, Math.min(finalCooldown, 120));
-        if (this.weapon && this.weapon.type === 'axe') return Math.max(20, Math.min(finalCooldown, 120));
+        // if (this.weapon && this.weapon.type === 'axe') return Math.max(20, Math.min(finalCooldown, 120)); // 제거
         if (this.weapon && this.weapon.type === 'ice_diamond') return Math.max(20, Math.min(finalCooldown, 180));
 
         return Math.max(20, finalCooldown);
     }
 
+
+    // ... (equipWeapon, levelUp, findClosest, applyPhysics, move, attack, takeDamage, handleDeath 함수는 그대로 유지) ...
     equipWeapon(weaponType, isClone = false) {
         const gameManager = this.gameManager;
         if (!gameManager) return;
@@ -447,7 +454,6 @@ export class Unit {
 
         // [추가] 부드러운 체력바 감소 및 피격 효과 처리
         if (this.displayHp > this.hp) {
-            // 현재 체력과 표시 체력의 차이에 비례하여 빠르게 감소 (0.1은 속도 조절 계수)
             this.displayHp -= (this.displayHp - this.hp) * 0.1 * this.gameManager.gameSpeed;
         } else {
             this.displayHp = this.hp;
@@ -615,8 +621,10 @@ export class Unit {
             }
         }
 
+        // [🌟 MODIFIED] 스킬 쿨타임 감소 로직에 이펙트 상태 업데이트 추가
         if (this.magicDaggerSkillCooldown > 0) this.magicDaggerSkillCooldown -= gameManager.gameSpeed;
-        if (this.axeSkillCooldown > 0) this.axeSkillCooldown -= gameManager.gameSpeed;
+        // 도끼는 충전식이 아니므로 이펙트 대상에서 제외
+        // if (this.axeSkillCooldown > 0) this.axeSkillCooldown -= gameManager.gameSpeed;
         if (this.spinAnimationTimer > 0) this.spinAnimationTimer -= gameManager.gameSpeed;
         if (this.swordSpecialAttackAnimationTimer > 0) this.swordSpecialAttackAnimationTimer -= gameManager.gameSpeed;
         if (this.dualSwordSkillCooldown > 0) this.dualSwordSkillCooldown -= gameManager.gameSpeed;
@@ -633,6 +641,10 @@ export class Unit {
         if (this.shurikenSkillCooldown > 0) this.shurikenSkillCooldown -= gameManager.gameSpeed;
         if (this.fireStaffSpecialCooldown > 0) this.fireStaffSpecialCooldown -= gameManager.gameSpeed;
         if (this.fleeingCooldown > 0) this.fleeingCooldown -= gameManager.gameSpeed;
+
+        // [🌟 NEW] 특수 공격 준비 상태 업데이트
+        this.updateSpecialAttackReadyStatus();
+
 
         if (this.weapon && (this.weapon.type === 'shuriken' || this.weapon.type === 'lightning') && this.evasionCooldown <= 0) {
             for (const p of projectiles) {
@@ -702,15 +714,16 @@ export class Unit {
             return;
         }
 
+        // 마법 단검 스킬 사용 로직 (aiming 상태 관리)
         if (this.weapon && this.weapon.type === 'magic_dagger' && !this.isAimingMagicDagger && this.magicDaggerSkillCooldown <= 0 && this.attackCooldown <= 0) {
             const { item: closestEnemy } = this.findClosest(enemies);
             if (closestEnemy && gameManager.hasLineOfSight(this, closestEnemy)) {
                 const dist = Math.hypot(this.pixelX - closestEnemy.pixelX, this.pixelY - closestEnemy.pixelY);
                 if (dist < this.detectionRange) {
                     this.isAimingMagicDagger = true;
-                    this.magicDaggerAimTimer = 60;
+                    this.magicDaggerAimTimer = 60; // 1초 조준 시간
                     const angle = Math.atan2(closestEnemy.pixelY - this.pixelY, closestEnemy.pixelX - this.pixelX);
-                    const dashDistance = GRID_SIZE * 4;
+                    const dashDistance = GRID_SIZE * 4; // 대시 거리
                     this.magicDaggerTargetPos = {
                         x: this.pixelX + Math.cos(angle) * dashDistance,
                         y: this.pixelY + Math.sin(angle) * dashDistance
@@ -719,29 +732,39 @@ export class Unit {
             }
         }
 
+        // 마법 단검 조준 및 스킬 발동
         if (this.isAimingMagicDagger) {
             this.magicDaggerAimTimer -= gameManager.gameSpeed;
             if (this.magicDaggerAimTimer <= 0) {
                 this.isAimingMagicDagger = false;
-                this.magicDaggerSkillCooldown = 420;
-                this.attackCooldown = 30;
+                this.magicDaggerSkillCooldown = 420; // 스킬 쿨타임 (7초)
+                this.attackCooldown = 30; // 공격 후 잠시 딜레이
 
                 const startPos = { x: this.pixelX, y: this.pixelY };
                 const endPos = this.magicDaggerTargetPos;
 
+                // 경로상의 모든 적에게 데미지 및 스턴
                 enemies.forEach(enemy => {
                     const distToLine = Math.abs((endPos.y - startPos.y) * enemy.pixelX - (endPos.x - startPos.x) * enemy.pixelY + endPos.x * startPos.y - endPos.y * startPos.x) / Math.hypot(endPos.y - startPos.y, endPos.x - startPos.x);
-                    if (distToLine < GRID_SIZE) {
-                        enemy.takeDamage(this.attackPower * 1.2, { stun: 60 }, this);
+                    if (distToLine < GRID_SIZE) { // 선분과 점 사이 거리 체크
+                        // 이동 경로 내에 있는지 추가 확인 (선분 위에 있는지)
+                        const dotProduct = (enemy.pixelX - startPos.x) * (endPos.x - startPos.x) + (enemy.pixelY - startPos.y) * (endPos.y - startPos.y);
+                        const squaredLength = Math.pow(endPos.x - startPos.x, 2) + Math.pow(endPos.y - startPos.y, 2);
+                        if (dotProduct >= 0 && dotProduct <= squaredLength) {
+                           enemy.takeDamage(this.attackPower * 1.2 + this.specialAttackLevelBonus, { stun: 60 }, this);
+                        }
                     }
                 });
 
+                // 목표 위치로 순간이동
                 this.pixelX = endPos.x;
                 this.pixelY = endPos.y;
 
+                // 이펙트 생성 및 효과음 재생
                 gameManager.effects.push(new MagicDaggerDashEffect(gameManager, startPos, endPos));
-                gameManager.audioManager.play('rush');
+                gameManager.audioManager.play('magicdagger'); // magicdagger 효과음 추가 필요
 
+                // 파티클 효과
                 for (let i = 0; i < 15; i++) {
                     const angle = gameManager.random() * Math.PI * 2;
                     const speed = 1 + gameManager.random() * 2;
@@ -756,65 +779,93 @@ export class Unit {
                         gravity: 0.05
                     });
                 }
-                return;
+                return; // 스킬 사용 후에는 다른 행동 X
             }
         }
 
+
+        // 마법창 스킬 로직 (마법진 생성 및 스턴된 적 공격)
         if (this.weapon && this.weapon.type === 'magic_spear') {
             if (this.magicCircleCooldown <= 0) {
                 gameManager.spawnMagicCircle(this.team);
-                this.magicCircleCooldown = 300;
+                this.magicCircleCooldown = 300; // 5초 쿨타임
             }
+            // 마법진에 스턴된 적 찾기
             const stunnedEnemy = gameManager.findStunnedByMagicCircleEnemy(this.team);
             if (stunnedEnemy && this.attackCooldown <= 0) {
                 this.alertedCounter = 60;
                 this.target = stunnedEnemy;
                 gameManager.createProjectile(this, stunnedEnemy, 'magic_spear_special');
-                gameManager.audioManager.play('spear');
+                gameManager.audioManager.play('spear'); // spear 효과음
                 this.attackCooldown = this.cooldownTime;
-                return;
+                return; // 스킬 공격 후 다른 행동 X
             }
-        } else if (this.weapon && this.weapon.type === 'boomerang' && this.boomerangCooldown <= 0) {
+        }
+        // 부메랑 스킬 로직
+        else if (this.weapon && this.weapon.type === 'boomerang' && this.boomerangCooldown <= 0) {
             const { item: closestEnemy } = this.findClosest(enemies);
             if (closestEnemy && gameManager.hasLineOfSight(this, closestEnemy)) {
                 const dist = Math.hypot(this.pixelX - closestEnemy.pixelX, this.pixelY - closestEnemy.pixelY);
                 if (dist <= this.attackRange) {
-                    this.boomerangCooldown = 480;
-                    gameManager.createProjectile(this, closestEnemy, 'boomerang_projectile');
-                    gameManager.audioManager.play('boomerang');
-                    this.state = 'IDLE';
+                    this.boomerangCooldown = 480; // 8초 쿨타임
+                    gameManager.createProjectile(this, closestEnemy, 'boomerang_projectile'); // 특수 부메랑 투사체
+                    gameManager.audioManager.play('boomerang'); // boomerang 효과음
+                    this.state = 'IDLE'; // 스킬 사용 후 잠시 멈춤
                     this.moveTarget = null;
-                    this.attackCooldown = 60;
+                    this.attackCooldown = 60; // 스킬 사용 후 짧은 쿨타임
                     this.applyPhysics();
-                    return;
+                    return; // 스킬 사용 후 다른 행동 X
                 }
             }
         }
-
-        if (this.weapon && this.weapon.type === 'axe' && this.axeSkillCooldown <= 0) {
+        // 표창 스킬 로직
+        else if (this.weapon && this.weapon.type === 'shuriken' && this.shurikenSkillCooldown <= 0) {
+             const { item: closestEnemy } = this.findClosest(enemies);
+             if (closestEnemy && gameManager.hasLineOfSight(this, closestEnemy)) {
+                 const dist = Math.hypot(this.pixelX - closestEnemy.pixelX, this.pixelY - closestEnemy.pixelY);
+                 if (dist <= this.attackRange) {
+                     this.weapon.use(this, closestEnemy); // use 메서드에서 스킬 사용 로직 처리
+                     return; // 스킬 사용 후 다른 행동 X
+                 }
+             }
+        }
+        // 불 지팡이 스킬 로직
+        else if (this.weapon && this.weapon.type === 'fire_staff' && this.fireStaffSpecialCooldown <= 0) {
             const { item: closestEnemy } = this.findClosest(enemies);
-            if (closestEnemy && Math.hypot(this.pixelX - closestEnemy.pixelX, this.pixelY - closestEnemy.pixelY) < GRID_SIZE * 3) {
-                this.axeSkillCooldown = 240;
-                this.spinAnimationTimer = 30;
-                gameManager.audioManager.play('axe');
-                gameManager.createEffect('axe_spin_effect', this.pixelX, this.pixelY, this);
-
-                const damageRadius = GRID_SIZE * 3.5;
-                enemies.forEach(enemy => {
-                    if (Math.hypot(this.pixelX - enemy.pixelX, this.pixelY - enemy.pixelY) < damageRadius) {
-                        enemy.takeDamage(this.attackPower * 1.5, {}, this);
-                    }
-                });
-                gameManager.nexuses.forEach(nexus => {
-                    if (nexus.team !== this.team && !nexus.isDestroying && Math.hypot(this.pixelX - nexus.pixelX, this.pixelY - nexus.pixelY) < damageRadius) {
-                        nexus.takeDamage(this.attackPower * 1.5, {}, this);
-                    }
-                });
-                gameManager.audioManager.play('swordHit');
-            }
+             if (closestEnemy && gameManager.hasLineOfSight(this, closestEnemy)) {
+                 const dist = Math.hypot(this.pixelX - closestEnemy.pixelX, this.pixelY - closestEnemy.pixelY);
+                 if (dist <= this.attackRange) {
+                    gameManager.createProjectile(this, closestEnemy, 'fireball_projectile');
+                    gameManager.audioManager.play('fireball');
+                    this.fireStaffSpecialCooldown = 240; // 4초 쿨타임
+                    this.attackCooldown = 60;
+                    return; // 스킬 사용 후 다른 행동 X
+                 }
+             }
+        }
+        // 쌍검 스킬 로직
+        else if (this.weapon && this.weapon.type === 'dual_swords' && this.dualSwordSkillCooldown <= 0) {
+             const { item: closestEnemy } = this.findClosest(enemies);
+             if (closestEnemy && gameManager.hasLineOfSight(this, closestEnemy)) {
+                 const distanceToTarget = Math.hypot(this.pixelX - closestEnemy.pixelX, this.pixelY - closestEnemy.pixelY);
+                 if (distanceToTarget <= this.detectionRange * 1.2) { // 탐지 범위보다 조금 더 넓게
+                     gameManager.audioManager.play('shurikenShoot'); // 표창 소리 재활용
+                     gameManager.createProjectile(this, closestEnemy, 'bouncing_sword');
+                     this.dualSwordSkillCooldown = 300; // 5초 쿨타임
+                     this.attackCooldown = 60;
+                     this.moveTarget = null; // 이동 멈춤
+                     this.facingAngle = Math.atan2(closestEnemy.pixelY - this.pixelY, closestEnemy.pixelX - this.pixelX);
+                     return; // 스킬 사용 후 다른 행동 X
+                 }
+             }
         }
 
 
+        // 도끼 스킬 로직 제거 (충전식이 아님)
+        // if (this.weapon && this.weapon.type === 'axe' && this.axeSkillCooldown <= 0) { ... } // 제거
+
+
+        // --- 상태 결정 로직 (기존과 유사하게 유지) ---
         let newState = 'IDLE';
         let newTarget = null;
         let targetEnemyForAlert = null;
@@ -824,18 +875,22 @@ export class Unit {
         this.isInMagneticField = gameManager.isPosInAnyField(currentGridXBeforeMove, currentGridYBeforeMove);
         this.isInLava = gameManager.isPosInLavaForUnit(currentGridXBeforeMove, currentGridYBeforeMove);
 
+        // 자기장/용암 회피 우선
         if (this.isInMagneticField) {
             newState = 'FLEEING_FIELD';
         } else if (gameManager.isLavaAvoidanceEnabled && this.isInLava) {
             newState = 'FLEEING_LAVA';
-            this.fleeingCooldown = 60;
-        } else if (this.fleeingCooldown <= 0) {
+            this.fleeingCooldown = 60; // 일정 시간 동안 회피 상태 유지
+        }
+        // 회피 쿨타임 중이 아니거나 회피할 필요 없을 때 다음 로직 실행
+        else if (this.fleeingCooldown <= 0) {
             const enemyNexus = gameManager.nexuses.find(n => n.team !== this.team && !n.isDestroying);
             const { item: closestEnemy, distance: enemyDist } = this.findClosest(enemies);
 
             const visibleWeapons = weapons.filter(w => !w.isEquipped && gameManager.hasLineOfSightForWeapon(this, w));
             const { item: targetWeapon, distance: weaponDist } = this.findClosest(visibleWeapons);
 
+            // 무기가 없을 때만 물음표 타일 찾기
             let closestQuestionMark = null;
             let questionMarkDist = Infinity;
             if (!this.weapon) {
@@ -848,15 +903,17 @@ export class Unit {
                 ({ item: closestQuestionMark, distance: questionMarkDist } = this.findClosest(questionMarkPositions));
             }
 
+            // 시야 내 적 탐지
             let targetEnemy = null;
             if (closestEnemy && enemyDist <= this.detectionRange && gameManager.hasLineOfSight(this, closestEnemy)) {
                 targetEnemy = closestEnemy;
-                targetEnemyForAlert = closestEnemy;
+                targetEnemyForAlert = closestEnemy; // 경계 상태 트리거용
             }
 
-            if (this.isKing && targetEnemy) {
+            // 상태 결정 우선순위
+            if (this.isKing && targetEnemy) { // 왕은 적 발견 시 도망
                 newState = 'FLEEING'; newTarget = targetEnemy;
-            } else if (this.hp < this.maxHp / 2) {
+            } else if (this.hp < this.maxHp / 2) { // 체력이 절반 이하일 때
                 const healPacks = gameManager.getTilesOfType(TILE.HEAL_PACK);
                 if (healPacks.length > 0) {
                     const healPackPositions = healPacks.map(pos => ({
@@ -865,132 +922,129 @@ export class Unit {
                         pixelY: pos.y * GRID_SIZE + GRID_SIZE / 2
                     }));
                     const { item: closestPack, distance: packDist } = this.findClosest(healPackPositions);
-                    if (closestPack && packDist < this.detectionRange * 1.5) {
+                    if (closestPack && packDist < this.detectionRange * 1.5) { // 탐지 범위 1.5배 내
                         newState = 'SEEKING_HEAL_PACK';
                         newTarget = closestPack;
                     }
                 }
             }
 
+            // 위 조건에 해당하지 않을 경우
             if (newState === 'IDLE') {
-                if (closestQuestionMark && questionMarkDist <= this.detectionRange) {
+                 if (closestQuestionMark && questionMarkDist <= this.detectionRange) { // 물음표 타일 우선 (무기 없을 때)
                     newState = 'SEEKING_QUESTION_MARK';
                     newTarget = closestQuestionMark;
-                } else if (!this.weapon && targetWeapon && weaponDist <= this.detectionRange) {
+                } else if (!this.weapon && targetWeapon && weaponDist <= this.detectionRange) { // 무기 줍기
                     newState = 'SEEKING_WEAPON';
                     newTarget = targetWeapon;
-                } else if (targetEnemy) {
+                } else if (targetEnemy) { // 적 공격
                     newState = 'AGGRESSIVE';
                     newTarget = targetEnemy;
-                } else if (enemyNexus && gameManager.hasLineOfSight(this, enemyNexus) && Math.hypot(this.pixelX - enemyNexus.pixelX, this.pixelY - enemyNexus.pixelY) <= this.detectionRange) {
+                } else if (enemyNexus && gameManager.hasLineOfSight(this, enemyNexus) && Math.hypot(this.pixelX - enemyNexus.pixelX, this.pixelY - enemyNexus.pixelY) <= this.detectionRange) { // 넥서스 공격
                     newState = 'ATTACKING_NEXUS';
                     newTarget = enemyNexus;
                 }
+                // 아무 대상도 없으면 IDLE 유지 (아래 switch문에서 처리)
             }
-        } else {
-            if (this.moveTarget) {
+        }
+        // 회피 쿨타임 중일 때는 현재 상태 유지 (IDLE 또는 이동 중)
+        else {
+            if (this.moveTarget) { // 이동 목표가 있으면 현재 상태 유지
                 newState = this.state;
-            } else {
+            } else { // 이동 목표 없으면 IDLE
                 newState = 'IDLE';
             }
         }
 
-
+        // 상태 변경 시 경계 상태 활성화 (IDLE, FLEEING_FIELD, FLEEING_LAVA 제외)
         if (this.state !== newState && newState !== 'IDLE' && newState !== 'FLEEING_FIELD' && newState !== 'FLEEING_LAVA') {
+             // 마법창 특수 공격 중에는 경계 상태 변경 X
             if (!(this.weapon && this.weapon.type === 'magic_spear' && this.target instanceof Unit && this.target.stunnedByMagicCircle)) {
                 this.alertedCounter = 60;
             }
         }
         this.state = newState;
-        this.target = newTarget;
+        this.target = newTarget; // 현재 목표 설정
 
+        // --- 상태별 행동 처리 ---
         switch (this.state) {
-            case 'FLEEING_FIELD':
+            case 'FLEEING_FIELD': // 자기장 회피
                 this.moveTarget = gameManager.findClosestSafeSpot(this.pixelX, this.pixelY);
                 break;
-            case 'FLEEING_LAVA':
-                this.moveTarget = gameManager.findClosestSafeSpotFromLava(this.pixelX, this.pixelY);
-                break;
-            case 'FLEEING':
+            case 'FLEEING_LAVA': // 용암 회피
+                 this.moveTarget = gameManager.findClosestSafeSpotFromLava(this.pixelX, this.pixelY);
+                 break;
+            case 'FLEEING': // 왕 도망
                 if (this.target) {
                     const fleeAngle = Math.atan2(this.pixelY - this.target.pixelY, this.pixelX - this.target.pixelX);
+                    // 목표 반대 방향으로 이동
                     this.moveTarget = { x: this.pixelX + Math.cos(fleeAngle) * GRID_SIZE * 5, y: this.pixelY + Math.sin(fleeAngle) * GRID_SIZE * 5 };
                 }
                 break;
-            case 'SEEKING_HEAL_PACK':
+            case 'SEEKING_HEAL_PACK': // 회복 팩 찾기
                 if (this.target) this.moveTarget = { x: this.target.pixelX, y: this.target.pixelY };
                 break;
-            case 'SEEKING_QUESTION_MARK':
+            case 'SEEKING_QUESTION_MARK': // 물음표 타일 찾기
                 if (this.target) this.moveTarget = { x: this.target.pixelX, y: this.target.pixelY };
                 break;
-            case 'SEEKING_WEAPON':
+            case 'SEEKING_WEAPON': // 무기 줍기
                 if (this.target) {
                     const distance = Math.hypot(this.pixelX - this.target.pixelX, this.pixelY - this.target.pixelY);
-                    if (distance < GRID_SIZE * 0.8 && !this.target.isEquipped) {
+                    if (distance < GRID_SIZE * 0.8 && !this.target.isEquipped) { // 가까이 있고 아직 안 주워졌으면
                         this.equipWeapon(this.target.type);
-                        this.target.isEquipped = true;
-                        this.target = null;
-                    } else {
+                        this.target.isEquipped = true; // 주웠음 표시
+                        this.target = null; // 목표 초기화
+                    } else { // 멀리 있으면 이동
                         this.moveTarget = { x: this.target.pixelX, y: this.target.pixelY };
                     }
                 }
                 break;
-            case 'ATTACKING_NEXUS':
-            case 'AGGRESSIVE':
+            case 'ATTACKING_NEXUS': // 넥서스 공격
+            case 'AGGRESSIVE': // 적 공격
                 if (this.target) {
-                    if (this.weapon && this.weapon.type === 'fire_staff' && this.fireStaffSpecialCooldown <= 0) {
-                        const distanceToTarget = Math.hypot(this.pixelX - this.target.pixelX, this.pixelY - this.target.pixelY);
-                        if (distanceToTarget <= this.attackRange && gameManager.hasLineOfSight(this, this.target)) {
-                            gameManager.createProjectile(this, this.target, 'fireball_projectile');
-                            gameManager.audioManager.play('fireball');
-                            this.fireStaffSpecialCooldown = 240;
-                            this.attackCooldown = 60;
-                            break;
-                        }
-                    } else if (this.weapon && this.weapon.type === 'dual_swords' && this.dualSwordSkillCooldown <= 0) {
-                        const distanceToTarget = Math.hypot(this.pixelX - this.target.pixelX, this.pixelY - this.target.pixelY);
-                        if (distanceToTarget <= this.detectionRange && gameManager.hasLineOfSight(this, this.target)) {
-                            gameManager.audioManager.play('shurikenShoot');
-                            gameManager.createProjectile(this, this.target, 'bouncing_sword');
-                            this.dualSwordSkillCooldown = 300;
-                            this.attackCooldown = 60;
-                            this.moveTarget = null;
-                            this.facingAngle = Math.atan2(this.target.pixelY - this.pixelY, this.target.pixelX - this.pixelX);
-                            break;
-                        }
-                    }
-
+                    // 공격 사거리 계산
                     let attackDistance = this.attackRange;
                     if (this.weapon && this.weapon.type === 'poison_potion') {
-                        attackDistance = this.baseAttackRange;
+                        attackDistance = this.baseAttackRange; // 독 포션은 기본 사거리
                     }
+
+                    // 사거리 내에 있고 공격 가능하면 공격
                     if (Math.hypot(this.pixelX - this.target.pixelX, this.pixelY - this.target.pixelY) <= attackDistance) {
-                        this.moveTarget = null;
-                        this.attack(this.target);
+                        this.moveTarget = null; // 이동 멈춤
+                        this.attack(this.target); // 공격 실행
+                        // 공격 방향으로 유닛 방향 전환
                         this.facingAngle = Math.atan2(this.target.pixelY - this.pixelY, this.target.pixelX - this.pixelX);
-                    } else { this.moveTarget = { x: this.target.pixelX, y: this.target.pixelY }; }
+                    } else { // 사거리 밖이면 이동
+                        this.moveTarget = { x: this.target.pixelX, y: this.target.pixelY };
+                    }
                 }
                 break;
-            case 'IDLE': default:
+            case 'IDLE': default: // 기본 상태 (배회)
+                // 이동 목표가 없거나 목표에 거의 도달했으면 새로운 배회 목표 설정
                 if (!this.moveTarget || Math.hypot(this.pixelX - this.moveTarget.x, this.pixelY - this.moveTarget.y) < GRID_SIZE) {
                     const angle = gameManager.random() * Math.PI * 2;
+                    // 현재 위치에서 랜덤 방향으로 일정 거리 이동 목표 설정
                     this.moveTarget = { x: this.pixelX + Math.cos(angle) * GRID_SIZE * 8, y: this.pixelY + Math.sin(angle) * GRID_SIZE * 8 };
                 }
                 break;
         }
 
+        // 이동 실행
         this.move();
 
+        // 물리 효과 적용 (충돌 처리, 넉백 등)
         this.applyPhysics();
 
+        // 유닛 막힘 감지 및 처리
         if (this.moveTarget) {
             const distMoved = Math.hypot(this.pixelX - this.lastPosition.x, this.pixelY - this.lastPosition.y);
-            if (distMoved < 0.2 * gameManager.gameSpeed) {
+            if (distMoved < 0.2 * gameManager.gameSpeed) { // 거의 움직이지 않았으면
                 this.stuckTimer += 1;
             } else {
-                this.stuckTimer = 0;
+                this.stuckTimer = 0; // 움직였으면 타이머 초기화
             }
 
+            // 0.5초(30프레임) 이상 막혀있으면 새로운 랜덤 목표 설정 시도
             if (this.stuckTimer > 30) {
                 const angle = gameManager.random() * Math.PI * 2;
                 const radius = GRID_SIZE * 3;
@@ -1000,75 +1054,96 @@ export class Unit {
                 const gridX = Math.floor(newTargetX / GRID_SIZE);
                 const gridY = Math.floor(newTargetY / GRID_SIZE);
 
+                // 새로운 목표 지점이 맵 안이고 벽이 아니면 목표 변경
                 if (gridY >= 0 && gridY < gameManager.ROWS && gridX >= 0 && gridX < gameManager.COLS &&
                     gameManager.map[gridY][gridX].type !== TILE.WALL &&
                     gameManager.map[gridY][gridX].type !== TILE.CRACKED_WALL) {
                     this.moveTarget = { x: newTargetX, y: newTargetY };
                 }
 
-                this.stuckTimer = 0;
+                this.stuckTimer = 0; // 막힘 타이머 초기화
             }
         } else {
-            this.stuckTimer = 0;
+            this.stuckTimer = 0; // 이동 목표 없으면 타이머 초기화
         }
-        this.lastPosition = { x: this.pixelX, y: this.pixelY };
+        this.lastPosition = { x: this.pixelX, y: this.pixelY }; // 현재 위치 기록
 
 
+        // 현재 위치의 타일 효과 처리
         const finalGridX = Math.floor(this.pixelX / GRID_SIZE);
         const finalGridY = Math.floor(this.pixelY / GRID_SIZE);
 
+        // 자기장 안에 있으면 데미지
         if (this.isInMagneticField) {
             this.takeDamage(0.3 * gameManager.gameSpeed, { isTileDamage: true });
         }
 
+        // 맵 범위 안에 있는지 확인
         if (finalGridY >= 0 && finalGridY < gameManager.ROWS && finalGridX >= 0 && finalGridX < gameManager.COLS) {
             const currentTile = gameManager.map[finalGridY][finalGridX];
+            // 용암 타일 데미지
             if (currentTile.type === TILE.LAVA) this.takeDamage(0.2 * gameManager.gameSpeed, { isTileDamage: true });
+            // 회복 팩 처리
             if (currentTile.type === TILE.HEAL_PACK) {
-                this.hp = this.maxHp;
+                this.hp = this.maxHp; // 체력 최대로 회복
+                // 회복 팩 타일을 일반 바닥으로 변경
                 gameManager.map[finalGridY][finalGridX] = { type: TILE.FLOOR, color: gameManager.currentFloorColor };
-                gameManager.audioManager.play('heal');
+                gameManager.audioManager.play('heal'); // heal 효과음
             }
+            // 텔레포터 처리
             if (currentTile.type === TILE.TELEPORTER && this.teleportCooldown <= 0) {
                 const teleporters = gameManager.getTilesOfType(TILE.TELEPORTER);
-                if (teleporters.length > 1) {
+                if (teleporters.length > 1) { // 텔레포터가 2개 이상 있을 때만 작동
+                    // 현재 위치가 아닌 다른 텔레포터 찾기
                     const otherTeleporter = teleporters.find(t => t.x !== finalGridX || t.y !== finalGridY);
                     if (otherTeleporter) {
+                        // 다른 텔레포터 위치로 이동
                         this.pixelX = otherTeleporter.x * GRID_SIZE + GRID_SIZE / 2;
                         this.pixelY = otherTeleporter.y * GRID_SIZE + GRID_SIZE / 2;
-                        this.teleportCooldown = 120;
-                        gameManager.audioManager.play('teleport');
+                        this.teleportCooldown = 120; // 2초 쿨타임
+                        gameManager.audioManager.play('teleport'); // teleport 효과음
                     }
                 }
             }
-            if (currentTile.type === TILE.REPLICATION_TILE && !this.isKing) {
+            // 복제 타일 처리
+            if (currentTile.type === TILE.REPLICATION_TILE && !this.isKing) { // 왕은 복제 X
                 for (let i = 0; i < currentTile.replicationValue; i++) {
-                    gameManager.spawnUnit(this, true);
+                    gameManager.spawnUnit(this, true); // 유닛 복제 (무기도 복제)
                 }
+                // 복제 타일을 일반 바닥으로 변경
                 gameManager.map[finalGridY][finalGridX] = { type: TILE.FLOOR, color: gameManager.currentFloorColor };
-                gameManager.audioManager.play('replication');
+                gameManager.audioManager.play('replication'); // replication 효과음
             }
+            // 물음표 타일 처리
             if (currentTile.type === TILE.QUESTION_MARK) {
+                // 물음표 타일을 일반 바닥으로 변경
                 gameManager.map[finalGridY][finalGridX] = { type: TILE.FLOOR, color: gameManager.currentFloorColor };
+                // 물음표 이펙트 생성
                 gameManager.createEffect('question_mark_effect', this.pixelX, this.pixelY);
-                gameManager.audioManager.play('questionmark');
+                gameManager.audioManager.play('questionmark'); // questionmark 효과음
+                // 주변에 랜덤 무기 생성
                 gameManager.spawnRandomWeaponNear({ x: this.pixelX, y: this.pixelY });
             }
+            // 돌진 타일 처리
             if (currentTile.type === TILE.DASH_TILE) {
-                this.isDashing = true;
-                this.dashDirection = currentTile.direction;
-                this.dashDistanceRemaining = 5 * GRID_SIZE;
-                this.state = 'IDLE';
-                this.moveTarget = null;
-                gameManager.audioManager.play('rush');
-                return;
+                this.isDashing = true; // 대시 상태 활성화
+                this.dashDirection = currentTile.direction; // 돌진 방향 설정
+                this.dashDistanceRemaining = 5 * GRID_SIZE; // 돌진 거리 설정 (5칸)
+                this.state = 'IDLE'; // 상태 IDLE로 변경
+                this.moveTarget = null; // 이동 목표 제거
+                gameManager.audioManager.play('rush'); // rush 효과음
+                return; // 대시 시작 후 다른 행동 X
             }
+             // 각성 물약 타일 처리
             if (currentTile.type === TILE.AWAKENING_POTION && !this.awakeningEffect.active) {
-                this.awakeningEffect.active = true;
-                this.awakeningEffect.stacks = 0;
-                this.awakeningEffect.timer = 0;
+                this.awakeningEffect.active = true; // 각성 효과 활성화
+                this.awakeningEffect.stacks = 0; // 스택 초기화
+                this.awakeningEffect.timer = 0; // 타이머 초기화
+                 // 물약 타일을 일반 바닥으로 변경
                 gameManager.map[finalGridY][finalGridX] = { type: TILE.FLOOR, color: gameManager.currentFloorColor };
-                gameManager.audioManager.play('Arousal');
+                gameManager.audioManager.play('Arousal'); // Arousal 효과음
+
+                // 각성 파티클 효과
                 for (let i = 0; i < 30; i++) {
                     const angle = gameManager.random() * Math.PI * 2;
                     const speed = 1 + gameManager.random() * 3;
@@ -1088,6 +1163,40 @@ export class Unit {
         }
     }
 
+    // [🌟 NEW] 특수 공격 준비 상태 업데이트 함수
+    updateSpecialAttackReadyStatus() {
+        if (!this.weapon) {
+            this.isSpecialAttackReady = false;
+            return;
+        }
+
+        switch (this.weapon.type) {
+            case 'sword':
+            case 'bow':
+                this.isSpecialAttackReady = this.attackCount >= 2; // 다음 공격(3타)이 특수 공격
+                break;
+            case 'boomerang':
+                this.isSpecialAttackReady = this.boomerangCooldown <= 0;
+                break;
+            case 'shuriken':
+                this.isSpecialAttackReady = this.shurikenSkillCooldown <= 0;
+                break;
+            case 'fire_staff':
+                this.isSpecialAttackReady = this.fireStaffSpecialCooldown <= 0;
+                break;
+            case 'magic_dagger':
+                this.isSpecialAttackReady = this.magicDaggerSkillCooldown <= 0;
+                break;
+            case 'dual_swords':
+                this.isSpecialAttackReady = this.dualSwordSkillCooldown <= 0;
+                break;
+            default:
+                this.isSpecialAttackReady = false; // 다른 무기는 해당 없음
+        }
+    }
+
+
+    // ... (draw 함수는 그대로 유지) ...
     draw(ctx, isOutlineEnabled, outlineWidth) {
         const gameManager = this.gameManager;
         if (!gameManager) return;
@@ -1309,15 +1418,18 @@ export class Unit {
             ctx.restore();
         }
 
-        ctx.restore();
+        ctx.restore(); // Restore scale and translation before drawing weapon/hp bar
 
+        // 이름표 그리기
         if (this.name) {
             ctx.fillStyle = this.nameColor;
             ctx.font = `bold 10px Arial`;
             ctx.textAlign = 'center';
-            ctx.fillText(this.name, this.pixelX, this.pixelY + GRID_SIZE);
+            // 이름표 위치 조정 (유닛 크기 변경 고려)
+            ctx.fillText(this.name, this.pixelX, this.pixelY + GRID_SIZE * 0.8 * totalScale);
         }
 
+        // 부메랑 당겨지는 선 그리기
         if (this.isBeingPulled && this.puller) {
             ctx.save();
             ctx.strokeStyle = '#94a3b8';
@@ -1329,9 +1441,10 @@ export class Unit {
             ctx.restore();
         }
 
+        // 스턴 효과 그리기
         if (this.isStunned > 0) {
             ctx.save();
-            ctx.translate(this.pixelX, this.pixelY - GRID_SIZE);
+            ctx.translate(this.pixelX, this.pixelY - GRID_SIZE * 0.8 * totalScale); // 위치 조정
             const rotation = gameManager.animationFrameCounter * 0.1;
             ctx.rotate(rotation);
             ctx.strokeStyle = '#c084fc';
@@ -1345,12 +1458,12 @@ export class Unit {
             ctx.restore();
         }
 
+        // 무기 그리기 (이펙트 포함)
         ctx.save();
-        ctx.translate(this.pixelX, this.pixelY);
-
-        if (this.isKing) {
-            const kingTotalScale = 1.2;
-            ctx.translate(0, -GRID_SIZE * 0.5);
+        ctx.translate(this.pixelX, this.pixelY); // 유닛 위치로 이동
+        if (this.isKing) { // 왕관 그리기
+            const kingTotalScale = 1.2 * totalScale; // 전체 스케일 적용
+            ctx.translate(0, -GRID_SIZE * 0.5 * totalScale); // 위치 조정
             ctx.scale(kingTotalScale, kingTotalScale);
             ctx.fillStyle = '#facc15'; ctx.strokeStyle = 'black'; ctx.lineWidth = 1 / kingTotalScale;
             ctx.beginPath();
@@ -1360,10 +1473,33 @@ export class Unit {
             ctx.lineTo(-GRID_SIZE * 0.2, 0); ctx.closePath();
             ctx.fill(); ctx.stroke();
         } else if (this.weapon) {
-            this.weapon.drawEquipped(ctx, { ...this, pixelX: 0, pixelY: 0 });
-        }
-        ctx.restore();
+             // [🌟 NEW] 특수 공격 준비 시 빛나는 이펙트 그리기
+            if (this.isSpecialAttackReady) {
+                let teamColor;
+                switch(this.team) {
+                    case TEAM.A: teamColor = COLORS.TEAM_A; break;
+                    case TEAM.B: teamColor = COLORS.TEAM_B; break;
+                    case TEAM.C: teamColor = COLORS.TEAM_C; break;
+                    case TEAM.D: teamColor = COLORS.TEAM_D; break;
+                    default: teamColor = 'white'; break;
+                }
+                const glowRadius = GRID_SIZE * 0.7; // 빛 크기
+                const gradient = ctx.createRadialGradient(0, 0, glowRadius * 0.2, 0, 0, glowRadius);
+                gradient.addColorStop(0, `${teamColor}B3`); // 70% 투명도
+                gradient.addColorStop(1, `${teamColor}00`); // 완전 투명
 
+                ctx.fillStyle = gradient;
+                ctx.beginPath();
+                ctx.arc(0, 0, glowRadius, 0, Math.PI * 2);
+                ctx.fill();
+            }
+            // 무기 그리기 (Unit 클래스의 draw 메서드가 아닌 Weapon 클래스의 drawEquipped 사용)
+            this.weapon.drawEquipped(ctx, { ...this, pixelX: 0, pixelY: 0 }); // 상대 좌표 (0,0) 전달
+        }
+        ctx.restore(); // 유닛 위치 이동 복원
+
+
+        // --- 상태 바 그리기 (기존 로직 유지, 위치 조정) ---
         const barWidth = GRID_SIZE * 0.8 * totalScale;
         const barHeight = 4;
         const barGap = 1;
@@ -1374,7 +1510,7 @@ export class Unit {
         const kingSpawnBarIsVisible = this.isKing && this.spawnCooldown > 0;
         let specialSkillIsVisible =
             (this.weapon?.type === 'magic_dagger' && this.magicDaggerSkillCooldown > 0) ||
-            (this.weapon?.type === 'axe' && this.axeSkillCooldown > 0) ||
+            (this.weapon?.type === 'axe' && this.axeSkillCooldown > 0) || // 도끼는 충전식이 아니므로 제외
             (this.weapon?.type === 'ice_diamond' && this.iceDiamondChargeTimer > 0 && this.iceDiamondCharges < 5) ||
             (this.weapon?.type === 'magic_spear' && this.magicCircleCooldown > 0) ||
             (this.weapon?.type === 'boomerang' && this.boomerangCooldown > 0) ||
@@ -1383,39 +1519,41 @@ export class Unit {
             (this.weapon?.type === 'dual_swords' && this.dualSwordSkillCooldown > 0) ||
             (this.isCasting);
 
+        // 공격 쿨타임 중에는 스킬 바 숨김 (단, 캐스팅 중 제외)
         if (this.attackCooldown > 0 && !this.isCasting) {
-            specialSkillIsVisible = false;
+             specialSkillIsVisible = false;
         }
 
         const barsToShow = [];
         if (normalAttackIsVisible) barsToShow.push('attack');
         if (healthBarIsVisible) barsToShow.push('health');
+        // 스킬바는 원형 테두리로 대체하므로 여기서 제거
 
         if (barsToShow.length > 0) {
             const kingYOffset = this.isKing ? GRID_SIZE * 0.4 * totalScale : 0;
             const totalBarsHeight = (barsToShow.length * barHeight) + ((barsToShow.length - 1) * barGap);
-            
-            // [수정] 체력바 위치를 더 위로 조정 (기존 0.6 -> 0.9)
+            // 체력바 위치를 더 위로 조정
             let currentBarY = this.pixelY - (GRID_SIZE * 0.9 * totalScale) - totalBarsHeight - kingYOffset;
 
-
+            // 일반 공격 쿨타임 바
             if (normalAttackIsVisible) {
-                ctx.fillStyle = '#0c4a6e';
+                ctx.fillStyle = '#0c4a6e'; // 배경색 (진한 파랑)
                 ctx.fillRect(barX, currentBarY, barWidth, barHeight);
                 let progress = 0;
+                // 독 포션 캐스팅 또는 일반 공격 쿨타임 진행률 계산
                 if (this.isCasting && this.weapon?.type === 'poison_potion') {
                     progress = this.castingProgress / this.castDuration;
                 } else {
                     progress = Math.max(0, 1 - (this.attackCooldown / this.cooldownTime));
                 }
-                ctx.fillStyle = '#38bdf8';
+                ctx.fillStyle = '#38bdf8'; // 진행률 색 (밝은 파랑)
                 ctx.fillRect(barX, currentBarY, barWidth * progress, barHeight);
-                currentBarY += barHeight + barGap;
+                currentBarY += barHeight + barGap; // 다음 바 위치로 이동
             }
 
+            // 체력 바
             if (healthBarIsVisible) {
-                // [수정] 부드러운 체력 감소 효과 렌더링 로직
-                ctx.fillStyle = '#111827'; // 배경
+                ctx.fillStyle = '#111827'; // 배경색 (검은색)
                 ctx.fillRect(barX, currentBarY, barWidth, barHeight);
 
                 // 부드럽게 감소하는 흰색 체력 부분
@@ -1427,117 +1565,135 @@ export class Unit {
                 // 실제 체력 (녹색) 부분
                 ctx.fillStyle = '#10b981';
                 ctx.fillRect(barX, currentBarY, barWidth * (this.hp / this.maxHp), barHeight);
-                
+
                 // 피격 시 흰색 점멸 효과
                 if (this.damageFlash > 0) {
                     ctx.fillStyle = `rgba(255, 255, 255, ${this.damageFlash * 0.6})`;
                     ctx.fillRect(barX, currentBarY, barWidth * (this.hp / this.maxHp), barHeight);
                 }
 
+                // 레벨 표시 (활성화 시)
                 if (gameManager.isLevelUpEnabled && this.level > 0) {
                     const levelCircleRadius = 8;
-                    const levelX = barX + barWidth + levelCircleRadius + 4;
-                    const levelY = currentBarY + barHeight / 2;
+                    const levelX = barX + barWidth + levelCircleRadius + 4; // 체력바 오른쪽에 위치
+                    const levelY = currentBarY + barHeight / 2; // 체력바 중앙 높이
 
-                    ctx.fillStyle = 'rgba(0, 0, 0, 0.8)';
+                    ctx.fillStyle = 'rgba(0, 0, 0, 0.8)'; // 검은색 배경
                     ctx.beginPath();
                     ctx.arc(levelX, levelY, levelCircleRadius, 0, Math.PI * 2);
                     ctx.fill();
 
                     const fontSize = 10;
                     ctx.font = `bold ${fontSize}px Arial`;
-                    ctx.fillStyle = 'white';
+                    ctx.fillStyle = 'white'; // 흰색 글자
                     ctx.textAlign = 'center';
                     ctx.textBaseline = 'middle';
-                    ctx.fillText(this.level, levelX, levelY);
+                    ctx.fillText(this.level, levelX, levelY); // 레벨 숫자 표시
                 }
+                // currentBarY += barHeight + barGap; // 다음 바 위치로 이동 (현재는 체력바가 마지막)
             }
         }
 
+        // 왕 유닛 스폰 쿨타임 바
         if (kingSpawnBarIsVisible) {
-            const spawnBarY = this.pixelY + GRID_SIZE + (this.name ? 5 : 0);
-            ctx.fillStyle = '#450a0a';
+            // 이름표 아래에 위치
+            const spawnBarY = this.pixelY + GRID_SIZE * 0.8 * totalScale + (this.name ? 12 : 2);
+            ctx.fillStyle = '#450a0a'; // 배경색 (진한 빨강)
             ctx.fillRect(barX, spawnBarY, barWidth, barHeight);
-            const progress = 1 - (this.spawnCooldown / this.spawnInterval);
-            ctx.fillStyle = '#ef4444';
+            const progress = 1 - (this.spawnCooldown / this.spawnInterval); // 진행률 계산
+            ctx.fillStyle = '#ef4444'; // 진행률 색 (빨강)
             ctx.fillRect(barX, spawnBarY, barWidth * progress, barHeight);
         }
 
+         // [🌟 MODIFIED] 스킬 쿨타임 원형 테두리 그리기
         if (specialSkillIsVisible) {
             let fgColor, progress = 0, max = 1;
 
+            // 무기 타입별 색상 및 진행률 계산
             if (this.weapon?.type === 'fire_staff') {
-                fgColor = '#ef4444';
-                progress = 240 - this.fireStaffSpecialCooldown; max = 240;
+                fgColor = '#ef4444'; // 빨강
+                progress = max - this.fireStaffSpecialCooldown; max = 240;
             } else if (this.weapon?.type === 'magic_spear') {
-                fgColor = '#a855f7';
-                progress = 300 - this.magicCircleCooldown; max = 300;
-            } else if (['boomerang', 'shuriken', 'poison_potion', 'magic_dagger', 'axe', 'dual_swords'].includes(this.weapon?.type)) {
-                fgColor = '#94a3b8';
+                fgColor = '#a855f7'; // 보라
+                progress = max - this.magicCircleCooldown; max = 300;
+            } else if (['boomerang', 'shuriken', 'poison_potion', 'magic_dagger', 'dual_swords'].includes(this.weapon?.type)) {
+                fgColor = '#94a3b8'; // 회색
                 if(this.weapon.type === 'boomerang') {
-                    progress = 480 - this.boomerangCooldown; max = 480;
+                    progress = max - this.boomerangCooldown; max = 480;
                 } else if(this.weapon.type === 'shuriken') {
-                    progress = 300 - this.shurikenSkillCooldown; max = 300;
+                    progress = max - this.shurikenSkillCooldown; max = 300; // 표창 스킬 쿨타임 반영
                 } else if(this.weapon.type === 'magic_dagger') {
-                    progress = 420 - this.magicDaggerSkillCooldown; max = 420;
-                } else if(this.weapon.type === 'axe') {
-                    progress = 240 - this.axeSkillCooldown; max = 240;
+                    progress = max - this.magicDaggerSkillCooldown; max = 420;
                 } else if(this.weapon.type === 'dual_swords') {
-                    progress = 300 - this.dualSwordSkillCooldown; max = 300;
-                } else {
+                     progress = max - this.dualSwordSkillCooldown; max = 300;
+                } else { // 독 포션 캐스팅
                     progress = this.castingProgress; max = this.castDuration;
                 }
             } else if (this.weapon?.type === 'ice_diamond') {
-                fgColor = '#38bdf8';
+                fgColor = '#38bdf8'; // 파랑
                 progress = this.iceDiamondChargeTimer; max = 240;
             }
 
             if (fgColor) {
                 ctx.save();
-                ctx.lineWidth = 3;
-                ctx.strokeStyle = 'rgba(0, 0, 0, 0.3)';
+                ctx.lineWidth = 3; // 테두리 두께
+                ctx.strokeStyle = 'rgba(0, 0, 0, 0.3)'; // 배경 테두리 색
+                // 유닛 크기에 맞춰 반지름 조정
                 const radius = (GRID_SIZE / 1.67 + 3) * totalScale;
+                // 배경 원 그리기
                 ctx.beginPath();
                 ctx.arc(this.pixelX, this.pixelY, radius, 0, Math.PI * 2);
                 ctx.stroke();
 
-                ctx.strokeStyle = fgColor;
+                // 진행률 테두리 그리기
+                ctx.strokeStyle = fgColor; // 스킬별 색상
                 ctx.beginPath();
-                const startAngle = -Math.PI / 2;
-                const endAngle = startAngle + (progress / max) * Math.PI * 2;
+                const startAngle = -Math.PI / 2; // 위쪽에서 시작
+                const endAngle = startAngle + (progress / max) * Math.PI * 2; // 진행률만큼 각도 계산
                 ctx.arc(this.pixelX, this.pixelY, radius, startAngle, endAngle);
                 ctx.stroke();
                 ctx.restore();
             }
         }
 
+
+        // 경계 상태 표시 (!)
         const showAlert = this.alertedCounter > 0 || (this.weapon?.type === 'magic_spear' && this.target instanceof Unit && this.target.stunnedByMagicCircle);
         if (showAlert && this.state !== 'FLEEING_FIELD' && this.state !== 'FLEEING_LAVA') {
-            const yOffset = -GRID_SIZE * totalScale;
+            const yOffset = -GRID_SIZE * totalScale; // 유닛 위쪽 위치 조정
             ctx.fillStyle = 'yellow';
-            ctx.font = `bold 20px Arial`;
+            ctx.font = `bold ${20 * totalScale}px Arial`; // 스케일 적용
             ctx.textAlign = 'center';
+            // 상태에 따라 다른 문자 표시
             ctx.fillText(this.state === 'SEEKING_HEAL_PACK' ? '+' : '!', this.pixelX, this.pixelY + yOffset);
         }
     }
 
+
+    // ... (performDualSwordTeleportAttack 함수는 그대로 유지) ...
     performDualSwordTeleportAttack(enemies) {
         const target = this.dualSwordTeleportTarget;
         if (target && target.hp > 0) {
             const teleportPos = this.gameManager.findEmptySpotNear(target);
             this.pixelX = teleportPos.x;
             this.pixelY = teleportPos.y;
-            this.dualSwordSpinAttackTimer = 20;
+            this.dualSwordSpinAttackTimer = 20; // 회전 애니메이션 타이머
 
             const damageRadius = GRID_SIZE * 2;
             enemies.forEach(enemy => {
                 if (Math.hypot(this.pixelX - enemy.pixelX, this.pixelY - enemy.pixelY) < damageRadius) {
-                    enemy.takeDamage(this.attackPower * 1.5, {}, this);
+                    enemy.takeDamage(this.attackPower * 1.5 + this.specialAttackLevelBonus, {}, this); // 레벨 보너스 추가
                 }
             });
-            this.gameManager.audioManager.play('rotaryknife');
+            this.gameManager.nexuses.forEach(nexus => { // 넥서스도 공격
+                 if (nexus.team !== this.team && !nexus.isDestroying && Math.hypot(this.pixelX - nexus.pixelX, this.pixelY - nexus.pixelY) < damageRadius) {
+                    nexus.takeDamage(this.attackPower * 1.5 + this.specialAttackLevelBonus); // 레벨 보너스 추가
+                 }
+            });
+            this.gameManager.audioManager.play('rotaryknife'); // 회전베기 효과음
         }
-        this.dualSwordTeleportTarget = null;
-        this.state = 'IDLE';
+        this.dualSwordTeleportTarget = null; // 타겟 초기화
+        this.state = 'IDLE'; // 상태 초기화
     }
+
 }
