@@ -1,4 +1,7 @@
-import { TEAM, COLORS, DEEP_COLORS, GRID_SIZE } from './constants.js'; // [수정] DEEP_COLORS 추가
+// js/weaponary.js
+
+// [수정] TILE 상수 import 추가
+import { TEAM, COLORS, DEEP_COLORS, GRID_SIZE, TILE } from './constants.js';
 import {
     drawMagicDaggerIcon,
     drawAxeIcon,
@@ -24,13 +27,6 @@ export class Weapon {
         this.pixelY = y * GRID_SIZE + GRID_SIZE / 2;
         this.type = type;
         this.isEquipped = false;
-
-        // [추가] 무기별 속성 초기화 (weaponary.js에서 createWeapon으로 이동됨)
-        // this.attackPowerBonus = 0;
-        // this.attackRangeBonus = 0;
-        // this.detectionRangeBonus = 0;
-        // this.speedBonus = 0;
-        // this.attackCooldownBonus = 0;
     }
 
     /**
@@ -117,21 +113,18 @@ export class Weapon {
             gameManager.createEffect('slash', unit.pixelX, unit.pixelY, target);
             gameManager.audioManager.play('magicdagger'); // 마법 단검 사운드
             unit.attackCooldown = unit.cooldownTime; // 기본 공격 쿨다운 적용
-            // 돌진 쿨다운은 unit.js에서 별도 관리 (magicDaggerSkillCooldown)
         } else if (this.type === 'dual_swords') {
             // 쌍검: 기본 공격은 베기, 특수 공격(표창 던지고 순간이동)은 unit.js에서 처리
             target.takeDamage(unit.attackPower, {}, unit);
             gameManager.createEffect('dual_sword_slash', unit.pixelX, unit.pixelY, target);
             gameManager.audioManager.play('dualSwordHit');
             unit.attackCooldown = unit.cooldownTime;
-            // 특수 공격 쿨다운은 unit.js에서 별도 관리 (dualSwordSkillCooldown)
         } else if (this.type === 'axe') {
             // 도끼: 기본 공격은 베기, 특수 공격(회전)은 unit.js에서 처리
             target.takeDamage(unit.attackPower, {}, unit);
             gameManager.createEffect('slash', unit.pixelX, unit.pixelY, target);
             gameManager.audioManager.play('axe'); // 도끼 사운드
             unit.attackCooldown = unit.cooldownTime;
-            // 특수 공격 쿨다운은 unit.js에서 별도 관리 (axeSkillCooldown)
         } else if (this.type === 'ice_diamond') {
             // 얼음 다이아: 충전된 다이아 있으면 여러 발 발사 (특수), 없으면 단일 볼트 (일반)
             if (unit.iceDiamondCharges > 0) { // 충전된 다이아 사용 (특수 공격)
@@ -155,9 +148,8 @@ export class Weapon {
             gameManager.createProjectile(unit, target, 'black_sphere_projectile');
             gameManager.audioManager.play('punch'); // 임시 사운드
             unit.attackCooldown = unit.cooldownTime;
-            // 특수 공격 쿨다운은 unit.js에서 별도 관리 (fireStaffSpecialCooldown)
         } else if (this.type === 'shuriken') {
-            // 표창: 기본 공격은 단일 표창, 특수 공격(3방향)은 unit.js에서 처리
+            // 표창: 기본 공격은 단일 표창, 특수 공격(3방향)은 weaponary.js use에서 직접 처리
             if (unit.shurikenSkillCooldown <= 0) { // 특수 공격 사용 가능 시
                 const angleToTarget = Math.atan2(target.pixelY - unit.pixelY, target.pixelX - unit.pixelX);
                 const spread = 0.3; // 3방향 각도 차이
@@ -194,23 +186,20 @@ export class Weapon {
             gameManager.createProjectile(unit, target, 'magic_spear_normal');
             gameManager.audioManager.play('punch'); // 임시 사운드
             unit.attackCooldown = unit.cooldownTime;
-            // 특수 공격 쿨다운은 unit.js에서 별도 관리 (magicCircleCooldown)
         } else if (this.type === 'boomerang') {
             // 부메랑: 기본 공격은 작은 부메랑, 특수 공격(끌어당기기)은 unit.js에서 처리
             gameManager.createProjectile(unit, target, 'boomerang_normal_projectile');
             gameManager.audioManager.play('boomerang'); // 부메랑 사운드
             unit.attackCooldown = unit.cooldownTime;
-            // 특수 공격 쿨다운은 unit.js에서 별도 관리 (boomerangCooldown)
         } else if (this.type === 'poison_potion') {
             // 독 포션: 기본 공격(지속 피해) 및 특수 공격(사망 시 독안개)은 unit.js에서 처리
             target.takeDamage(15, { poison: { damage: 0.2 + (unit.specialAttackLevelBonus * 0.02) } }, unit); // 즉시 피해 + 독 효과 부여
             gameManager.audioManager.play('poison'); // 독 사운드
             unit.attackCooldown = unit.cooldownTime;
-            // 특수 공격은 사망 시 발동
         }
     }
 
-    // --- 무기 디자인 그리는 함수들 (weaponDesigns.js로 이동됨) ---
+    // --- 무기 디자인 그리는 함수들 ---
     drawStaff(ctx, scale = 1.0) {
         designDrawStaff(ctx, scale);
     }
@@ -244,9 +233,9 @@ export class Weapon {
         if (this.type === 'crown') baseScale = 1.0;
         else if (['lightning', 'magic_spear', 'poison_potion'].includes(this.type)) baseScale = 0.6;
         else if (this.type === 'boomerang') baseScale = 0.49;
-        else if (this.type === 'magic_dagger') baseScale = 0.8; // 마법 단검 크기 조정
-        else if (this.type === 'axe') baseScale = 0.8; // 도끼 크기 조정
-        else if (this.type === 'ice_diamond') baseScale = 0.8; // 얼음 다이아 크기 조정
+        else if (this.type === 'magic_dagger') baseScale = 0.8;
+        else if (this.type === 'axe') baseScale = 0.8;
+        else if (this.type === 'ice_diamond') baseScale = 0.8;
 
         ctx.save();
         ctx.translate(centerX, centerY);
@@ -385,6 +374,7 @@ export class Weapon {
         }
         ctx.restore();
     }
+
 
     /**
      * [NEW] Draws the weapon when it's equipped by a unit.
@@ -986,7 +976,7 @@ export class Projectile {
         // 맵 범위 내에 있는지 확인
         if (gridY >= 0 && gridY < gameManager.ROWS && gridX >= 0 && gridX < gameManager.COLS) {
             const tile = gameManager.map[gridY][gridX];
-            // 충돌 가능한 벽인지 확인 (일반 벽, 부서지는 벽, 유리벽)
+            // [수정] 충돌 가능한 벽인지 확인 (TILE 상수 사용)
             const isCollidableWall = tile.type === TILE.WALL || tile.type === TILE.CRACKED_WALL || tile.type === TILE.GLASS_WALL;
 
             // 특정 투사체(마법창 특수, 검기) 제외하고 벽과 충돌 시 처리
@@ -1002,6 +992,7 @@ export class Projectile {
         // 충돌하지 않으면 이동
         this.pixelX = nextX; this.pixelY = nextY;
     }
+
 
     draw(ctx) {
         // --- 돌아오는 표창 그리기 ---
@@ -1288,7 +1279,7 @@ export class Projectile {
             ctx.stroke();
         }
     }
-}
+} // Projectile 클래스 끝
 
 // Effect class (단발성 시각 효과)
 export class Effect {
@@ -1333,7 +1324,9 @@ export class Effect {
         }
     }
     draw(ctx) {
-        const opacity = this.duration / 20; // 남은 시간에 따른 투명도
+        if(this.duration <= 0) return; // 이미 끝난 효과는 그리지 않음
+
+        const opacity = Math.max(0, this.duration / 20); // 남은 시간에 따른 투명도 (0~1)
 
         if (this.type === 'slash' || this.type === 'dual_sword_slash') { // 베기 효과
             ctx.save();
@@ -1347,15 +1340,17 @@ export class Effect {
             ctx.stroke();
             ctx.restore();
         } else if (this.type === 'chain_lightning') { // 연쇄 번개 효과
-            ctx.strokeStyle = `rgba(254, 240, 138, ${opacity})`; // 노란색, 투명도 적용
+            const effectOpacity = Math.max(0, this.duration / 15); // 번개는 더 짧게 지속
+            ctx.strokeStyle = `rgba(254, 240, 138, ${effectOpacity})`; // 노란색, 투명도 적용
             ctx.lineWidth = 2;
             ctx.beginPath();
             ctx.moveTo(this.x, this.y); // 시작점
             ctx.lineTo(this.target.pixelX, this.target.pixelY); // 끝점
             ctx.stroke();
         } else if (this.type === 'question_mark_effect') { // 물음표 효과
+            const effectOpacity = Math.max(0, this.duration / 60); // 물음표는 길게 지속
             this.particles.forEach(p => { // 파티클 그리기
-                ctx.globalAlpha = (p.lifespan / 40) * (this.duration / 60); // 파티클, 효과 수명 둘 다 고려한 투명도
+                ctx.globalAlpha = Math.max(0, (p.lifespan / 40) * effectOpacity); // 파티클, 효과 수명 둘 다 고려한 투명도
                 ctx.fillStyle = '#facc15'; // 노란색
                 ctx.beginPath();
                 ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
@@ -1363,7 +1358,7 @@ export class Effect {
             });
             ctx.globalAlpha = 1.0; // 투명도 복원
         } else if (this.type === 'axe_spin_effect') { // 도끼 회전 효과
-            const progress = 1 - (this.duration / 20); // 진행률 (0 -> 1)
+            const progress = 1 - opacity; // 진행률 (0 -> 1)
             const radius = GRID_SIZE * 3.5 * progress; // 점점 커지는 반지름
             ctx.save();
             ctx.translate(this.x, this.y); // 효과 중심으로 이동
@@ -1375,21 +1370,20 @@ export class Effect {
             ctx.restore();
         } else if (this.type === 'level_up') { // 레벨업 효과
             const initialDuration = 40;
-            const yOffset = -GRID_SIZE - (initialDuration - this.duration); // 위로 떠오르는 효과
-            const opacity = Math.min(1, this.duration / (initialDuration / 2)); // 나타났다가 사라지는 투명도
+            const yOffset = -GRID_SIZE - (initialDuration - this.duration) * 0.5; // 위로 떠오르는 효과 (속도 조절)
+            const effectOpacity = Math.max(0, Math.min(1, this.duration / (initialDuration / 2))); // 나타났다가 사라지는 투명도
             ctx.save();
             ctx.translate(this.target.pixelX, this.target.pixelY + yOffset); // 대상 유닛 위로 이동
             ctx.scale(1.05, 1.05); // 약간 크게
-            ctx.fillStyle = `rgba(255, 215, 0, ${opacity})`; // 금색, 투명도 적용
+            ctx.fillStyle = `rgba(255, 215, 0, ${effectOpacity})`; // 금색, 투명도 적용
             ctx.font = 'bold 12px Arial';
             ctx.textAlign = 'center';
-            // ctx.strokeStyle = 'black'; ctx.lineWidth = 2; // 테두리 제거
-            // ctx.strokeText('LEVEL UP!', 0, 0);
             ctx.fillText('LEVEL UP!', 0, 0); // 텍스트 그리기
             ctx.restore();
         }
     }
 }
+
 
 // 마법 단검 돌진 효과 클래스
 export class MagicDaggerDashEffect {
@@ -1428,7 +1422,8 @@ export class MagicDaggerDashEffect {
     }
 
     draw(ctx) {
-        const opacity = this.life / this.initialLife; // 남은 수명에 따른 투명도
+        if(this.life <= 0) return; // 이미 끝난 효과는 그리지 않음
+        const opacity = Math.max(0, this.life / this.initialLife); // 남은 수명에 따른 투명도
 
         ctx.save();
         ctx.globalAlpha = opacity;
@@ -1513,7 +1508,9 @@ export class AreaEffect {
         }
     }
     draw(ctx) {
-        const opacity = this.duration / 30; // 남은 시간에 따른 투명도
+        if(this.duration <= 0) return; // 이미 끝난 효과는 그리지 않음
+        const opacity = Math.max(0, this.duration / 30); // 남은 시간에 따른 투명도
+
         if (this.type === 'fire_pillar') { // 화염 기둥 그리기
             ctx.save();
             ctx.translate(this.pixelX, this.pixelY); // 효과 중심으로 이동
@@ -1530,7 +1527,7 @@ export class AreaEffect {
 
             // 파티클 그리기
             this.particles.forEach(p => {
-                ctx.globalAlpha = (p.lifespan / 20) * opacity; // 파티클 수명, 효과 수명 둘 다 고려
+                ctx.globalAlpha = Math.max(0, (p.lifespan / 20) * opacity); // 파티클 수명, 효과 수명 둘 다 고려
                 ctx.fillStyle = p.color;
                 ctx.beginPath();
                 ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
