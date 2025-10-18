@@ -2,6 +2,15 @@ import { TILE, TEAM, COLORS, GRID_SIZE, DEEP_COLORS } from './constants.js';
 import { Weapon, MagicDaggerDashEffect, createPhysicalHitEffect } from './weaponary.js';
 import { Nexus } from './entities.js';
 
+// --- 추가: 형광 색상 정의 ---
+const GLOW_COLORS = {
+    TEAM_A: '#ff4444', // 밝은 빨강
+    TEAM_B: '#3b82f6', // 밝은 파랑
+    TEAM_C: '#10b981', // 밝은 초록
+    TEAM_D: '#facc15'  // 밝은 노랑
+};
+// --------------------------
+
 // Unit class
 export class Unit {
     constructor(gameManager, x, y, team) {
@@ -12,15 +21,14 @@ export class Unit {
         this.team = team;
         this.hp = 100;
         this.maxHp = 100;
-        this.displayHp = 100; // [추가] 화면에 표시될 체력
-        this.damageFlash = 0; // [추가] 피격 시 깜빡임 효과
+        this.displayHp = 100;
+        this.damageFlash = 0;
 
-        // 레벨업 시스템 속성
         this.level = 1;
         this.maxLevel = 5;
         this.killedBy = null;
         this.specialAttackLevelBonus = 0;
-        this.levelUpParticleCooldown = 0; // 레벨업 파티클 생성 쿨다운
+        this.levelUpParticleCooldown = 0;
 
         this.baseSpeed = 1.0; this.facingAngle = gameManager.random() * Math.PI * 2;
         this.baseAttackPower = 5; this.baseAttackRange = 1.5 * GRID_SIZE;
@@ -76,11 +84,16 @@ export class Unit {
         this.isInLava = false;
         this.fleeingCooldown = 0;
 
-        // 유닛이 길을 찾지 못하고 막혔는지 판단하기 위한 속성
         this.stuckTimer = 0;
         this.lastPosition = { x: this.pixelX, y: this.pixelY };
+
+        // --- 추가: 특수 공격 상태 ---
+        this.isSpecialReady = false;
+        this.specialAttackTrail = []; // 특수 공격 잔상 배열
+        // --------------------------
     }
 
+    // ... (get speed, attackPower, attackRange, detectionRange, cooldownTime 메서드는 변경 없음) ...
     get speed() {
         const gameManager = this.gameManager;
         if (!gameManager || this.isStunned > 0) {
@@ -127,6 +140,7 @@ export class Unit {
         return Math.max(20, finalCooldown);
     }
 
+
     equipWeapon(weaponType, isClone = false) {
         const gameManager = this.gameManager;
         if (!gameManager) return;
@@ -137,6 +151,7 @@ export class Unit {
             this.isKing = true;
         }
         this.state = 'IDLE';
+        this.isSpecialReady = false; // 무기 장착 시 특수 공격 상태 초기화
     }
 
     levelUp(killedUnitLevel = 0) {
@@ -376,6 +391,9 @@ export class Unit {
         } else if (target instanceof Unit || target instanceof Nexus) {
             if (this.weapon) {
                 this.weapon.use(this, target);
+                // --- 추가: 특수 공격 사용 후 상태 초기화 ---
+                // weaponary.js에서 isSpecialReady를 false로 설정하도록 수정할 예정
+                // ------------------------------------
             } else {
                 target.takeDamage(this.attackPower, {}, this);
                 gameManager.audioManager.play('punch');
@@ -391,7 +409,7 @@ export class Unit {
         }
         this.hp -= damage;
         this.hpBarVisibleTimer = 180;
-        this.damageFlash = 1.0; // [추가] 피격 효과 활성화
+        this.damageFlash = 1.0;
 
         if (attacker && attacker instanceof Unit) {
             this.killedBy = attacker;
@@ -445,9 +463,7 @@ export class Unit {
             return;
         }
 
-        // [추가] 부드러운 체력바 감소 및 피격 효과 처리
         if (this.displayHp > this.hp) {
-            // 현재 체력과 표시 체력의 차이에 비례하여 빠르게 감소 (0.1은 속도 조절 계수)
             this.displayHp -= (this.displayHp - this.hp) * 0.1 * this.gameManager.gameSpeed;
         } else {
             this.displayHp = this.hp;
@@ -456,8 +472,18 @@ export class Unit {
             this.damageFlash -= 0.05 * this.gameManager.gameSpeed;
         }
 
+        // --- 추가: 특수 공격 잔상 업데이트 ---
+        if (this.isSpecialReady) {
+             this.specialAttackTrail.push({ x: this.pixelX, y: this.pixelY, alpha: 1.0 });
+             if (this.specialAttackTrail.length > 8) { // 잔상 개수 제한
+                 this.specialAttackTrail.shift();
+             }
+        }
+         // 잔상 투명도 감소 및 제거
+         this.specialAttackTrail.forEach(trail => trail.alpha -= 0.15 * gameManager.gameSpeed);
+         this.specialAttackTrail = this.specialAttackTrail.filter(trail => trail.alpha > 0);
+        // ------------------------------------
 
-        // [MODIFIED] 레벨 2 이상일 때 유닛 주변에서 파티클이 생성되도록 수정
         if (this.level >= 2 && gameManager.isLevelUpEnabled) {
             this.levelUpParticleCooldown -= gameManager.gameSpeed;
             if (this.levelUpParticleCooldown <= 0) {
@@ -475,7 +501,7 @@ export class Unit {
                 const particleCount = (this.level - 1) * 2;
                 for (let i = 0; i < particleCount; i++) {
                     const angle = gameManager.random() * Math.PI * 2;
-                    const radius = GRID_SIZE / 1.67; // 유닛 반지름
+                    const radius = GRID_SIZE / 1.67;
                     const spawnX = this.pixelX + Math.cos(angle) * radius;
                     const spawnY = this.pixelY + Math.sin(angle) * radius;
                     const speed = 0.5 + gameManager.random() * 0.5;
@@ -615,6 +641,39 @@ export class Unit {
             }
         }
 
+        // --- 수정: 특수 공격 상태 업데이트 로직 ---
+        if (this.weapon) {
+            switch (this.weapon.type) {
+                case 'sword':
+                case 'bow':
+                    this.isSpecialReady = this.attackCount >= 2; // 다음 공격이 3타째
+                    break;
+                case 'axe':
+                    this.isSpecialReady = this.axeSkillCooldown <= 0;
+                    break;
+                case 'fire_staff':
+                    this.isSpecialReady = this.fireStaffSpecialCooldown <= 0;
+                    break;
+                case 'boomerang':
+                    this.isSpecialReady = this.boomerangCooldown <= 0;
+                    break;
+                case 'shuriken':
+                    this.isSpecialReady = this.shurikenSkillCooldown <= 0;
+                    break;
+                case 'magic_dagger':
+                    this.isSpecialReady = this.magicDaggerSkillCooldown <= 0 && !this.isAimingMagicDagger;
+                    break;
+                case 'dual_swords':
+                    this.isSpecialReady = this.dualSwordSkillCooldown <= 0;
+                    break;
+                default:
+                    this.isSpecialReady = false;
+            }
+        } else {
+            this.isSpecialReady = false;
+        }
+        // ----------------------------------------
+
         if (this.magicDaggerSkillCooldown > 0) this.magicDaggerSkillCooldown -= gameManager.gameSpeed;
         if (this.axeSkillCooldown > 0) this.axeSkillCooldown -= gameManager.gameSpeed;
         if (this.spinAnimationTimer > 0) this.spinAnimationTimer -= gameManager.gameSpeed;
@@ -702,7 +761,8 @@ export class Unit {
             return;
         }
 
-        if (this.weapon && this.weapon.type === 'magic_dagger' && !this.isAimingMagicDagger && this.magicDaggerSkillCooldown <= 0 && this.attackCooldown <= 0) {
+        // --- 수정: 마법 단검 조준 로직 수정 (isSpecialReady 확인) ---
+        if (this.weapon && this.weapon.type === 'magic_dagger' && !this.isAimingMagicDagger && this.isSpecialReady && this.attackCooldown <= 0) {
             const { item: closestEnemy } = this.findClosest(enemies);
             if (closestEnemy && gameManager.hasLineOfSight(this, closestEnemy)) {
                 const dist = Math.hypot(this.pixelX - closestEnemy.pixelX, this.pixelY - closestEnemy.pixelY);
@@ -718,12 +778,14 @@ export class Unit {
                 }
             }
         }
+        // -----------------------------------------------------------
 
         if (this.isAimingMagicDagger) {
             this.magicDaggerAimTimer -= gameManager.gameSpeed;
             if (this.magicDaggerAimTimer <= 0) {
                 this.isAimingMagicDagger = false;
                 this.magicDaggerSkillCooldown = 420;
+                this.isSpecialReady = false; // 스킬 사용 후 상태 초기화
                 this.attackCooldown = 30;
 
                 const startPos = { x: this.pixelX, y: this.pixelY };
@@ -740,7 +802,7 @@ export class Unit {
                 this.pixelY = endPos.y;
 
                 gameManager.effects.push(new MagicDaggerDashEffect(gameManager, startPos, endPos));
-                gameManager.audioManager.play('rush');
+                gameManager.audioManager.play('rush'); // rush 효과음은 magicdagger로 변경해야 할 수도 있음
 
                 for (let i = 0; i < 15; i++) {
                     const angle = gameManager.random() * Math.PI * 2;
@@ -774,12 +836,13 @@ export class Unit {
                 this.attackCooldown = this.cooldownTime;
                 return;
             }
-        } else if (this.weapon && this.weapon.type === 'boomerang' && this.boomerangCooldown <= 0) {
+        } else if (this.weapon && this.weapon.type === 'boomerang' && this.isSpecialReady && this.attackCooldown <= 0) { // isSpecialReady 확인
             const { item: closestEnemy } = this.findClosest(enemies);
             if (closestEnemy && gameManager.hasLineOfSight(this, closestEnemy)) {
                 const dist = Math.hypot(this.pixelX - closestEnemy.pixelX, this.pixelY - closestEnemy.pixelY);
                 if (dist <= this.attackRange) {
                     this.boomerangCooldown = 480;
+                    this.isSpecialReady = false; // 스킬 사용 후 상태 초기화
                     gameManager.createProjectile(this, closestEnemy, 'boomerang_projectile');
                     gameManager.audioManager.play('boomerang');
                     this.state = 'IDLE';
@@ -791,10 +854,12 @@ export class Unit {
             }
         }
 
-        if (this.weapon && this.weapon.type === 'axe' && this.axeSkillCooldown <= 0) {
+        // --- 수정: 도끼 스킬 로직 수정 (isSpecialReady 확인) ---
+        if (this.weapon && this.weapon.type === 'axe' && this.isSpecialReady && this.attackCooldown <= 0) {
             const { item: closestEnemy } = this.findClosest(enemies);
             if (closestEnemy && Math.hypot(this.pixelX - closestEnemy.pixelX, this.pixelY - closestEnemy.pixelY) < GRID_SIZE * 3) {
                 this.axeSkillCooldown = 240;
+                this.isSpecialReady = false; // 스킬 사용 후 상태 초기화
                 this.spinAnimationTimer = 30;
                 gameManager.audioManager.play('axe');
                 gameManager.createEffect('axe_spin_effect', this.pixelX, this.pixelY, this);
@@ -811,11 +876,15 @@ export class Unit {
                     }
                 });
                 gameManager.audioManager.play('swordHit');
+                // 도끼 스킬 사용 후 짧은 공격 쿨타임 추가
+                 this.attackCooldown = 30;
+                 return; // 스킬 사용 후에는 일반 공격 로직을 건너뜁니다.
             }
         }
+        // ----------------------------------------------------
 
-
-        let newState = 'IDLE';
+        // ... (상태 결정 로직은 변경 없음) ...
+         let newState = 'IDLE';
         let newTarget = null;
         let targetEnemyForAlert = null;
 
@@ -938,27 +1007,31 @@ export class Unit {
             case 'ATTACKING_NEXUS':
             case 'AGGRESSIVE':
                 if (this.target) {
-                    if (this.weapon && this.weapon.type === 'fire_staff' && this.fireStaffSpecialCooldown <= 0) {
+                    // --- 수정: 불 지팡이, 쌍검 스킬 로직 수정 (isSpecialReady 확인) ---
+                    if (this.weapon && this.weapon.type === 'fire_staff' && this.isSpecialReady && this.attackCooldown <= 0) { // isSpecialReady 확인
                         const distanceToTarget = Math.hypot(this.pixelX - this.target.pixelX, this.pixelY - this.target.pixelY);
                         if (distanceToTarget <= this.attackRange && gameManager.hasLineOfSight(this, this.target)) {
                             gameManager.createProjectile(this, this.target, 'fireball_projectile');
                             gameManager.audioManager.play('fireball');
                             this.fireStaffSpecialCooldown = 240;
+                             this.isSpecialReady = false; // 스킬 사용 후 상태 초기화
                             this.attackCooldown = 60;
-                            break;
+                            break; // 스킬 사용 시 일반 공격 로직 중단
                         }
-                    } else if (this.weapon && this.weapon.type === 'dual_swords' && this.dualSwordSkillCooldown <= 0) {
+                    } else if (this.weapon && this.weapon.type === 'dual_swords' && this.isSpecialReady && this.attackCooldown <= 0) { // isSpecialReady 확인
                         const distanceToTarget = Math.hypot(this.pixelX - this.target.pixelX, this.pixelY - this.target.pixelY);
                         if (distanceToTarget <= this.detectionRange && gameManager.hasLineOfSight(this, this.target)) {
-                            gameManager.audioManager.play('shurikenShoot');
+                            gameManager.audioManager.play('shurikenShoot'); // shurikenShoot -> magicdagger
                             gameManager.createProjectile(this, this.target, 'bouncing_sword');
                             this.dualSwordSkillCooldown = 300;
+                            this.isSpecialReady = false; // 스킬 사용 후 상태 초기화
                             this.attackCooldown = 60;
                             this.moveTarget = null;
                             this.facingAngle = Math.atan2(this.target.pixelY - this.pixelY, this.target.pixelX - this.pixelX);
-                            break;
+                            break; // 스킬 사용 시 일반 공격 로직 중단
                         }
                     }
+                    // -----------------------------------------------------------------
 
                     let attackDistance = this.attackRange;
                     if (this.weapon && this.weapon.type === 'poison_potion') {
@@ -1098,6 +1171,28 @@ export class Unit {
         const levelScale = 1 + (this.level - 1) * 0.08;
         const totalScale = scale * levelScale;
 
+        // --- 추가: 특수 공격 준비 시 잔상 효과 그리기 ---
+        this.specialAttackTrail.forEach((trail, index) => {
+             const opacity = trail.alpha * 0.5 * (index / this.specialAttackTrail.length); // 점점 투명하게
+             ctx.save();
+             ctx.globalAlpha = opacity;
+             let trailColor;
+             switch (this.team) {
+                 case TEAM.A: trailColor = GLOW_COLORS.TEAM_A; break;
+                 case TEAM.B: trailColor = GLOW_COLORS.TEAM_B; break;
+                 case TEAM.C: trailColor = GLOW_COLORS.TEAM_C; break;
+                 case TEAM.D: trailColor = GLOW_COLORS.TEAM_D; break;
+                 default: trailColor = '#FFFFFF'; break;
+             }
+             ctx.fillStyle = trailColor;
+             ctx.beginPath();
+             ctx.arc(trail.x, trail.y, (GRID_SIZE / 1.67) * totalScale, 0, Math.PI * 2);
+             ctx.fill();
+             ctx.restore();
+        });
+        // ---------------------------------------------
+
+
         if (this.awakeningEffect.active) {
             ctx.save();
             ctx.translate(this.pixelX, this.pixelY);
@@ -1176,21 +1271,46 @@ export class Unit {
             ctx.restore();
         }
 
-        switch(this.team) {
-            case TEAM.A: ctx.fillStyle = COLORS.TEAM_A; break;
-            case TEAM.B: ctx.fillStyle = COLORS.TEAM_B; break;
-            case TEAM.C: ctx.fillStyle = COLORS.TEAM_C; break;
-            case TEAM.D: ctx.fillStyle = COLORS.TEAM_D; break;
+        // --- 수정: 특수 공격 준비 시 형광 효과 추가 ---
+        if (this.isSpecialReady) {
+            ctx.save();
+            ctx.globalCompositeOperation = 'lighter'; // 빛나는 효과
+            let glowColor;
+             switch (this.team) {
+                 case TEAM.A: glowColor = GLOW_COLORS.TEAM_A; break;
+                 case TEAM.B: glowColor = GLOW_COLORS.TEAM_B; break;
+                 case TEAM.C: glowColor = GLOW_COLORS.TEAM_C; break;
+                 case TEAM.D: glowColor = GLOW_COLORS.TEAM_D; break;
+                 default: glowColor = '#FFFFFF'; break;
+             }
+             ctx.fillStyle = glowColor;
+             ctx.shadowColor = glowColor;
+             ctx.shadowBlur = 15 / totalScale; // 크기에 따라 블러 조정
+             ctx.beginPath();
+             ctx.arc(this.pixelX, this.pixelY, GRID_SIZE / 1.67, 0, Math.PI * 2);
+             ctx.fill();
+             ctx.restore(); // globalCompositeOperation 복원
+        } else {
+             // 기본 유닛 색상
+             switch (this.team) {
+                 case TEAM.A: ctx.fillStyle = COLORS.TEAM_A; break;
+                 case TEAM.B: ctx.fillStyle = COLORS.TEAM_B; break;
+                 case TEAM.C: ctx.fillStyle = COLORS.TEAM_C; break;
+                 case TEAM.D: ctx.fillStyle = COLORS.TEAM_D; break;
+             }
+             ctx.beginPath();
+             ctx.arc(this.pixelX, this.pixelY, GRID_SIZE / 1.67, 0, Math.PI * 2);
+             ctx.fill();
         }
-        ctx.beginPath(); ctx.arc(this.pixelX, this.pixelY, GRID_SIZE / 1.67, 0, Math.PI * 2); ctx.fill();
+        // -------------------------------------------
 
         if (isOutlineEnabled) {
             ctx.strokeStyle = 'black';
             ctx.lineWidth = outlineWidth / totalScale;
-            ctx.stroke();
+            ctx.stroke(); // fill() 다음에 stroke() 호출하여 테두리가 위에 오도록 함
         }
 
-        // Eyes
+        // Eyes (코드는 변경 없음)
         {
             const headRadius = GRID_SIZE / 1.67;
             const eyeScale = this.gameManager?.unitEyeScale ?? 1.0;
@@ -1309,7 +1429,7 @@ export class Unit {
             ctx.restore();
         }
 
-        ctx.restore();
+        ctx.restore(); // scale 복원
 
         if (this.name) {
             ctx.fillStyle = this.nameColor;
@@ -1364,6 +1484,7 @@ export class Unit {
         }
         ctx.restore();
 
+        // ... (HP 바, 레벨 표시, 스킬 쿨타임 바 그리기 로직은 변경 없음) ...
         const barWidth = GRID_SIZE * 0.8 * totalScale;
         const barHeight = 4;
         const barGap = 1;
@@ -1394,8 +1515,6 @@ export class Unit {
         if (barsToShow.length > 0) {
             const kingYOffset = this.isKing ? GRID_SIZE * 0.4 * totalScale : 0;
             const totalBarsHeight = (barsToShow.length * barHeight) + ((barsToShow.length - 1) * barGap);
-            
-            // [수정] 체력바 위치를 더 위로 조정 (기존 0.6 -> 0.9)
             let currentBarY = this.pixelY - (GRID_SIZE * 0.9 * totalScale) - totalBarsHeight - kingYOffset;
 
 
@@ -1414,21 +1533,17 @@ export class Unit {
             }
 
             if (healthBarIsVisible) {
-                // [수정] 부드러운 체력 감소 효과 렌더링 로직
-                ctx.fillStyle = '#111827'; // 배경
+                ctx.fillStyle = '#111827';
                 ctx.fillRect(barX, currentBarY, barWidth, barHeight);
 
-                // 부드럽게 감소하는 흰색 체력 부분
                 if (this.displayHp > this.hp) {
                     ctx.fillStyle = 'rgba(255, 255, 255, 0.7)';
                     ctx.fillRect(barX, currentBarY, barWidth * (this.displayHp / this.maxHp), barHeight);
                 }
 
-                // 실제 체력 (녹색) 부분
                 ctx.fillStyle = '#10b981';
                 ctx.fillRect(barX, currentBarY, barWidth * (this.hp / this.maxHp), barHeight);
-                
-                // 피격 시 흰색 점멸 효과
+
                 if (this.damageFlash > 0) {
                     ctx.fillStyle = `rgba(255, 255, 255, ${this.damageFlash * 0.6})`;
                     ctx.fillRect(barX, currentBarY, barWidth * (this.hp / this.maxHp), barHeight);
@@ -1520,6 +1635,7 @@ export class Unit {
             ctx.fillText(this.state === 'SEEKING_HEAL_PACK' ? '+' : '!', this.pixelX, this.pixelY + yOffset);
         }
     }
+
 
     performDualSwordTeleportAttack(enemies) {
         const target = this.dualSwordTeleportTarget;
