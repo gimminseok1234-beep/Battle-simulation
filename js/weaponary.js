@@ -368,15 +368,16 @@ export class Weapon {
         const weaponType = this.type;
         const attackCountNeeded = 2; // 3타째
 
+        // [수정] 3타 검/활 및 충전 무기 준비 상태 확인
         if ((weaponType === 'sword' || weaponType === 'bow') && unit.attackCount >= attackCountNeeded) {
-            isSpecialReady = true;
-        } else if (weaponType === 'shuriken' && unit.shurikenSkillCooldown <= 0) {
             isSpecialReady = true;
         } else if (weaponType === 'axe' && unit.axeSkillCooldown <= 0) {
             isSpecialReady = true;
+        } else if (weaponType === 'fire_staff' && unit.fireStaffSpecialCooldown <= 0) {
+            isSpecialReady = true;
         } else if (weaponType === 'boomerang' && unit.boomerangCooldown <= 0) {
             isSpecialReady = true;
-        } else if (weaponType === 'fire_staff' && unit.fireStaffSpecialCooldown <= 0) {
+        } else if (weaponType === 'shuriken' && unit.shurikenSkillCooldown <= 0) {
             isSpecialReady = true;
         } else if (weaponType === 'magic_dagger' && unit.magicDaggerSkillCooldown <= 0) {
             isSpecialReady = true;
@@ -427,189 +428,175 @@ export class Weapon {
              ctx.rotate(rotation);
         }
 
-        // 각 무기 그리기 호출 (내부에서 추가적인 translate, rotate, scale 가능)
-        // [수정] 각 무기 그리기 전에 테두리 그리기 로직 추가
+        // [추가] 각 무기 테두리 그리기 함수
         const drawOutlineIfNeeded = () => {
-            if (isSpecialReady) {
-                ctx.save(); // 테두리 그리기를 위한 상태 저장
-                ctx.strokeStyle = COLORS[`TEAM_${unit.team}`] || DEEP_COLORS[`TEAM_${unit.team}`] || '#FFFFFF'; // 팀 색상으로 테두리
-                ctx.lineWidth = 2.5 / scale; // 테두리 두께 (스케일 고려)
-                // ctx.shadowColor = 'transparent'; // 테두리 자체에는 그림자 없앰 (선택 사항)
-                // ctx.shadowBlur = 0;
-                // 각 무기별 외곽선만 다시 그림 (stroke 사용)
-                // fill을 사용하는 로직은 제외하고 stroke만 호출
-                // 주의: 각 무기 그리기 함수 내부 구조를 알아야 정확히 외곽선만 그릴 수 있음
-                // 여기서는 각 무기별 그리기 함수를 그대로 다시 호출하고 fill 대신 stroke를 사용하는 방식으로 가정
-                // 예시: 검 (정확한 구현은 각 그리기 함수 구조에 따라 달라짐)
-                if (this.type === 'sword') {
-                    // Blade Outline
-                    ctx.beginPath();
-                    ctx.moveTo(-2, GRID_SIZE * 0.3); ctx.lineTo(-2, -GRID_SIZE * 1.0);
-                    ctx.lineTo(0, -GRID_SIZE * 1.2); ctx.lineTo(2, -GRID_SIZE * 1.0);
-                    ctx.lineTo(2, GRID_SIZE * 0.3);
-                    ctx.closePath(); ctx.stroke(); // fill 대신 stroke
-                    // Guard Outline
-                    ctx.beginPath();
-                    ctx.moveTo(-GRID_SIZE * 0.2, GRID_SIZE * 0.3); ctx.lineTo(GRID_SIZE * 0.2, GRID_SIZE * 0.3);
-                    ctx.lineTo(GRID_SIZE * 0.25, GRID_SIZE * 0.3 + 3); ctx.lineTo(-GRID_SIZE * 0.25, GRID_SIZE * 0.3 + 3);
-                    ctx.closePath(); ctx.stroke(); // fill 대신 stroke
-                    // Handle Outline
-                    ctx.strokeRect(-1.5, GRID_SIZE * 0.3 + 3, 3, GRID_SIZE * 0.3); // fillRect 대신 strokeRect
-                } else if (this.type === 'bow') {
-                    // 활은 구조가 복잡하여 외곽선 그리기가 어려움. 빛 효과로 대체하거나,
-                    // drawEquipped 내부의 그리기 코드를 복사하여 stroke()로 변경해야 함.
-                    // 여기서는 간단하게 활대 부분만 외곽선 추가
-                    const bowScale = 0.56;
-                    ctx.lineWidth = 4 / bowScale / scale; // 테두리 두께 조정
-                    ctx.beginPath(); ctx.arc(0, 0, GRID_SIZE * 0.8, -Math.PI / 2.2, Math.PI / 2.2); ctx.stroke();
+            if (!isSpecialReady) return; // 특수 공격 준비 상태일 때만 그림
 
-                } else if (this.type === 'magic_dagger') {
-                     // drawMagicDaggerIcon 내부 로직을 stroke() 버전으로 구현 필요
-                     // 예시 (실제 drawMagicDaggerIcon 구조에 맞춰야 함)
-                     // Handle Outline
-                     const handleWidth = 2.5 * (GRID_SIZE * 0.1);
-                     const handleHeight = 9 * (GRID_SIZE * 0.1);
-                     ctx.strokeRect(-handleWidth / 2, 0, handleWidth, handleHeight);
-                     // Guard Outline
-                     const guardWidth = 5 * (GRID_SIZE * 0.1);
-                     const guardHeight = 1.6 * (GRID_SIZE * 0.1);
-                     const guardY = -guardHeight / 2;
-                     ctx.strokeRect(-guardWidth / 2, guardY, guardWidth, guardHeight);
-                     // Blade Outline
-                     ctx.beginPath();
-                     ctx.moveTo(-guardWidth / 2, guardY);
-                     ctx.lineTo(1.5 * (GRID_SIZE * 0.1), -11 * (GRID_SIZE * 0.1));
-                     ctx.quadraticCurveTo(3 * (GRID_SIZE * 0.1), -5 * (GRID_SIZE * 0.1), guardWidth / 2, guardY);
+            ctx.save(); // 테두리 그리기를 위한 상태 저장
+            ctx.strokeStyle = COLORS[`TEAM_${unit.team}`] || DEEP_COLORS[`TEAM_${unit.team}`] || '#FFFFFF'; // 팀 색상으로 테두리
+            ctx.lineWidth = 2.5 / scale; // 테두리 두께 (스케일 고려)
+            ctx.shadowColor = 'transparent'; // 테두리 자체에는 그림자 없앰
+            ctx.shadowBlur = 0;
+
+            // 각 무기별 외곽선만 그림 (stroke 사용)
+            // fill을 사용하는 로직은 제외하고 stroke만 호출
+            // 주의: 각 무기 그리기 함수 내부 구조를 알아야 정확히 외곽선만 그릴 수 있음
+            if (this.type === 'sword') {
+                // Blade Outline
+                ctx.beginPath();
+                ctx.moveTo(-2, GRID_SIZE * 0.3); ctx.lineTo(-2, -GRID_SIZE * 1.0);
+                ctx.lineTo(0, -GRID_SIZE * 1.2); ctx.lineTo(2, -GRID_SIZE * 1.0);
+                ctx.lineTo(2, GRID_SIZE * 0.3);
+                ctx.closePath(); ctx.stroke(); // fill 대신 stroke
+                // Guard Outline
+                ctx.beginPath();
+                ctx.moveTo(-GRID_SIZE * 0.2, GRID_SIZE * 0.3); ctx.lineTo(GRID_SIZE * 0.2, GRID_SIZE * 0.3);
+                ctx.lineTo(GRID_SIZE * 0.25, GRID_SIZE * 0.3 + 3); ctx.lineTo(-GRID_SIZE * 0.25, GRID_SIZE * 0.3 + 3);
+                ctx.closePath(); ctx.stroke(); // fill 대신 stroke
+                // Handle Outline
+                ctx.strokeRect(-1.5, GRID_SIZE * 0.3 + 3, 3, GRID_SIZE * 0.3); // fillRect 대신 strokeRect
+            } else if (this.type === 'bow') {
+                // 활은 구조가 복잡하여 외곽선 그리기가 어려움. 빛 효과로 대체하거나,
+                // drawEquipped 내부의 그리기 코드를 복사하여 stroke()로 변경해야 함.
+                // 여기서는 간단하게 활대 부분만 외곽선 추가
+                const bowScale = 0.56;
+                ctx.lineWidth = 4 / bowScale / scale; // 테두리 두께 조정
+                ctx.beginPath(); ctx.arc(0, 0, GRID_SIZE * 0.8, -Math.PI / 2.2, Math.PI / 2.2); ctx.stroke();
+                // 활 시위는 그리지 않음 (선택 사항)
+
+            } else if (this.type === 'magic_dagger') {
+                 // drawMagicDaggerIcon 내부 로직을 stroke() 버전으로 구현
+                 const mdScale = GRID_SIZE * 0.1;
+                 // Handle Outline
+                 const handleWidth = 2.5 * mdScale;
+                 const handleHeight = 9 * mdScale;
+                 ctx.strokeRect(-handleWidth / 2, 0, handleWidth, handleHeight);
+                 // Guard Outline
+                 const guardWidth = 5 * mdScale;
+                 const guardHeight = 1.6 * mdScale;
+                 const guardY = -guardHeight / 2;
+                 ctx.strokeRect(-guardWidth / 2, guardY, guardWidth, guardHeight);
+                 // Blade Outline
+                 ctx.beginPath();
+                 ctx.moveTo(-guardWidth / 2, guardY);
+                 ctx.lineTo(1.5 * mdScale, -11 * mdScale);
+                 ctx.quadraticCurveTo(3 * mdScale, -5 * mdScale, guardWidth / 2, guardY);
+                 ctx.closePath(); ctx.stroke();
+
+            } else if (this.type === 'axe') {
+                // drawAxeIcon 내부 로직을 stroke() 버전으로 구현
+                const axeScale = GRID_SIZE * 0.08;
+                 // Handle Outline
+                 const handleWidth = 2.5 * axeScale;
+                 const handleHeight = 18 * axeScale;
+                 ctx.strokeRect(-handleWidth / 2, -5 * axeScale, handleWidth, handleHeight);
+                 // Blade Outline
+                ctx.beginPath();
+                ctx.moveTo(0, -6 * axeScale); ctx.quadraticCurveTo(-16 * axeScale, 0, 0, 6 * axeScale);
+                ctx.quadraticCurveTo(-7 * axeScale, 0, 0, -6 * axeScale); ctx.closePath(); ctx.stroke();
+                ctx.beginPath();
+                ctx.moveTo(0, -6 * axeScale); ctx.quadraticCurveTo(16 * axeScale, 0, 0, 6 * axeScale);
+                ctx.quadraticCurveTo(7 * axeScale, 0, 0, -6 * axeScale); ctx.closePath(); ctx.stroke();
+
+            } else if (this.type === 'dual_swords') {
+                 // drawEquippedCurvedSword 로직을 stroke 버전으로 구현
+                 const drawOutlineCurvedSword = (isRightHand) => {
+                     ctx.save();
+                     const yOffset = isRightHand ? GRID_SIZE * 0.6 : -GRID_SIZE * 0.6;
+                     const swordRotation = isRightHand ? Math.PI / 8 : -Math.PI / 8;
+                     ctx.translate(GRID_SIZE * 0.1, yOffset);
+                     ctx.rotate(swordRotation);
+                     // 핸들/가드/블레이드 외곽선 그리기 (stroke 사용)
+                     ctx.strokeRect(-GRID_SIZE * 0.05, 0, GRID_SIZE * 0.1, GRID_SIZE * 0.2); // Handle
+                     ctx.beginPath(); // Guard
+                     ctx.moveTo(-GRID_SIZE * 0.2, 0); ctx.lineTo(GRID_SIZE * 0.2, 0);
+                     ctx.lineTo(GRID_SIZE * 0.2, -GRID_SIZE * 0.05); ctx.lineTo(-GRID_SIZE * 0.2, -GRID_SIZE * 0.05);
                      ctx.closePath(); ctx.stroke();
-
-                } else if (this.type === 'axe') {
-                    // drawAxeIcon 내부 로직을 stroke() 버전으로 구현 필요
-                    // 예시 (실제 drawAxeIcon 구조에 맞춰야 함)
-                    const axeScale = GRID_SIZE * 0.08;
-                     const handleWidth = 2.5 * axeScale;
-                     const handleHeight = 18 * axeScale;
-                     ctx.strokeRect(-handleWidth / 2, -5 * axeScale, handleWidth, handleHeight);
-                     // Blade Outline
-                    ctx.beginPath();
-                    ctx.moveTo(0, -6 * axeScale); ctx.quadraticCurveTo(-16 * axeScale, 0, 0, 6 * axeScale);
-                    ctx.quadraticCurveTo(-7 * axeScale, 0, 0, -6 * axeScale); ctx.closePath(); ctx.stroke();
-                    ctx.beginPath();
-                    ctx.moveTo(0, -6 * axeScale); ctx.quadraticCurveTo(16 * axeScale, 0, 0, 6 * axeScale);
-                    ctx.quadraticCurveTo(7 * axeScale, 0, 0, -6 * axeScale); ctx.closePath(); ctx.stroke();
-
-                } else if (this.type === 'dual_swords') {
-                     // drawEquippedCurvedSword 로직을 stroke 버전으로 구현 필요
-                     const drawOutlineCurvedSword = (isRightHand) => {
-                         ctx.save();
-                         const yOffset = isRightHand ? GRID_SIZE * 0.6 : -GRID_SIZE * 0.6;
-                         const swordRotation = isRightHand ? Math.PI / 8 : -Math.PI / 8;
-                         ctx.translate(GRID_SIZE * 0.1, yOffset);
-                         ctx.rotate(swordRotation);
-                         ctx.strokeRect(-GRID_SIZE * 0.05, 0, GRID_SIZE * 0.1, GRID_SIZE * 0.2); // Handle
-                         ctx.beginPath(); // Guard
-                         ctx.moveTo(-GRID_SIZE * 0.2, 0); ctx.lineTo(GRID_SIZE * 0.2, 0);
-                         ctx.lineTo(GRID_SIZE * 0.2, -GRID_SIZE * 0.05); ctx.lineTo(-GRID_SIZE * 0.2, -GRID_SIZE * 0.05);
-                         ctx.closePath(); ctx.stroke();
-                         ctx.beginPath(); // Blade
-                         ctx.moveTo(0, -GRID_SIZE * 0.05);
-                         ctx.quadraticCurveTo(GRID_SIZE * 0.4, -GRID_SIZE * 0.3, 0, -GRID_SIZE * 0.8);
-                         ctx.quadraticCurveTo(-GRID_SIZE * 0.1, -GRID_SIZE * 0.3, 0, -GRID_SIZE * 0.05);
-                         ctx.closePath(); ctx.stroke();
-                         ctx.restore();
-                     };
-                     drawOutlineCurvedSword(true);
-                     drawOutlineCurvedSword(false);
-                } else if (this.type === 'fire_staff') {
-                     // drawStaff 내부 로직 stroke 버전
-                    const staffScale = 0.8;
-                    ctx.lineWidth = 3 / scale / staffScale;
-                    ctx.beginPath(); ctx.moveTo(0, GRID_SIZE * 1.2 * staffScale); ctx.lineTo(0, -GRID_SIZE * 0.8 * staffScale); ctx.stroke(); // Shaft
-                    ctx.lineWidth = 2 / scale / staffScale;
-                    ctx.beginPath(); ctx.arc(0, -GRID_SIZE * 0.8 * staffScale, GRID_SIZE * 0.4 * staffScale, 0, Math.PI * 2); ctx.stroke(); // Orb holder
-                    ctx.beginPath(); ctx.arc(0, -GRID_SIZE * 0.8 * staffScale, GRID_SIZE * 0.35 * staffScale, 0, Math.PI * 2); ctx.stroke(); // Orb
-
-                } else if (this.type === 'lightning') {
-                    // drawLightning 내부 로직 stroke 버전
-                    ctx.lineWidth = 2.5 / scale / 0.48; // 스케일 고려
-                    ctx.beginPath();
-                    ctx.moveTo(0, -GRID_SIZE * 1.2); ctx.lineTo(GRID_SIZE * 0.3, -GRID_SIZE * 0.2);
-                    ctx.lineTo(-GRID_SIZE * 0.1, -GRID_SIZE * 0.2); ctx.lineTo(GRID_SIZE * 0.1, GRID_SIZE * 0.4);
-                    ctx.lineTo(-GRID_SIZE * 0.3, -GRID_SIZE * 0.1); ctx.lineTo(GRID_SIZE * 0.1, -GRID_SIZE * 0.1);
-                    ctx.lineTo(0, GRID_SIZE * 1.2); ctx.lineTo(-0.1, -GRID_SIZE * 0.1);
-                    ctx.lineTo(0.3, -GRID_SIZE * 0.1); ctx.lineTo(-0.1, GRID_SIZE * 0.4);
-                    ctx.lineTo(0.1, -GRID_SIZE * 0.2); ctx.lineTo(-0.3, -GRID_SIZE * 0.2);
-                    ctx.closePath(); ctx.stroke();
-
-                } else if (this.type === 'ice_diamond') {
-                     // drawIceDiamondIcon 내부 로직 stroke 버전
-                    const diamondScale = 0.6;
-                    const size = GRID_SIZE * 0.8;
-                    ctx.lineWidth = 2 / scale / diamondScale;
-                    ctx.beginPath();
-                    ctx.moveTo(0, -size); ctx.lineTo(size * 0.7, 0); ctx.lineTo(0, size);
-                    ctx.lineTo(-size * 0.7, 0); ctx.closePath(); ctx.stroke();
-
-                } else if (this.type === 'magic_spear') {
-                    // drawMagicSpear 내부 로직 stroke 버전
-                    const spearScale = 0.5;
-                    ctx.lineWidth = 1.5 / scale / spearScale;
-                    const shaftLength = GRID_SIZE * 2.5; const shaftWidth = GRID_SIZE * 0.15;
-                    ctx.strokeRect(-shaftLength / 2, -shaftWidth, shaftLength, shaftWidth * 2); // Shaft
-                    ctx.lineWidth = 2 / scale / spearScale;
-                    const headLength = GRID_SIZE * 0.8; const headWidth = GRID_SIZE * 0.4; const headBaseX = shaftLength / 2;
-                    ctx.beginPath(); // Head
-                    ctx.moveTo(headBaseX, -headWidth); ctx.lineTo(headBaseX + headLength, 0); ctx.lineTo(headBaseX, headWidth);
-                    ctx.quadraticCurveTo(headBaseX - headLength * 0.2, 0, headBaseX, -headWidth); ctx.closePath(); ctx.stroke();
-                    const gemX = -GRID_SIZE * 0.4; const gemRadius = GRID_SIZE * 0.25;
-                    ctx.beginPath(); ctx.arc(gemX, 0, gemRadius, 0, Math.PI * 2); ctx.stroke(); // Gem
-
-                } else if (this.type === 'boomerang') {
-                    // drawBoomerang 내부 로직 stroke 버전
-                    const boomerangScale = 0.5;
-                     ctx.lineWidth = 2 / scale / boomerangScale;
-                     ctx.lineJoin = 'round'; ctx.lineCap = 'round';
-                     ctx.beginPath();
-                     ctx.moveTo(0, GRID_SIZE * 0.6); ctx.lineTo(-GRID_SIZE * 1.2, -GRID_SIZE * 0.5);
-                     ctx.quadraticCurveTo(-GRID_SIZE * 1.3, -GRID_SIZE * 0.6, -GRID_SIZE * 1.1, -GRID_SIZE * 0.7);
-                     ctx.lineTo(0, -GRID_SIZE * 0.2); ctx.lineTo(GRID_SIZE * 1.1, -GRID_SIZE * 0.7);
-                     ctx.quadraticCurveTo(GRID_SIZE * 1.3, -GRID_SIZE * 0.6, GRID_SIZE * 1.2, -GRID_SIZE * 0.5);
+                     ctx.beginPath(); // Blade
+                     ctx.moveTo(0, -GRID_SIZE * 0.05);
+                     ctx.quadraticCurveTo(GRID_SIZE * 0.4, -GRID_SIZE * 0.3, 0, -GRID_SIZE * 0.8);
+                     ctx.quadraticCurveTo(-GRID_SIZE * 0.1, -GRID_SIZE * 0.3, 0, -GRID_SIZE * 0.05);
                      ctx.closePath(); ctx.stroke();
+                     ctx.restore();
+                 };
+                 drawOutlineCurvedSword(true);
+                 drawOutlineCurvedSword(false);
+            } else if (this.type === 'fire_staff') {
+                 // drawStaff 내부 로직 stroke 버전
+                const staffScale = 0.8;
+                ctx.lineWidth = 3 / scale / staffScale; // 샤프트 두께
+                ctx.beginPath(); ctx.moveTo(0, GRID_SIZE * 1.2 * staffScale); ctx.lineTo(0, -GRID_SIZE * 0.8 * staffScale); ctx.stroke(); // Shaft
+                ctx.lineWidth = 2 / scale / staffScale; // 보석 홀더/보석 두께
+                ctx.beginPath(); ctx.arc(0, -GRID_SIZE * 0.8 * staffScale, GRID_SIZE * 0.4 * staffScale, 0, Math.PI * 2); ctx.stroke(); // Orb holder
+                ctx.beginPath(); ctx.arc(0, -GRID_SIZE * 0.8 * staffScale, GRID_SIZE * 0.35 * staffScale, 0, Math.PI * 2); ctx.stroke(); // Orb
 
-                } else if (this.type === 'poison_potion') {
-                     // drawPoisonPotion 내부 로직 stroke 버전
-                     const potionScale = 0.3;
-                     ctx.lineWidth = 3 / scale / potionScale;
-                     ctx.beginPath(); ctx.arc(0, GRID_SIZE * 0.2, GRID_SIZE * 1, 0, Math.PI * 2); ctx.stroke(); // Bottle body
-                     ctx.beginPath(); // Bottle neck
-                     ctx.moveTo(-GRID_SIZE * 0.5, -GRID_SIZE * 0.5); ctx.lineTo(-GRID_SIZE * 0.5, -GRID_SIZE * 1.2);
-                     ctx.lineTo(GRID_SIZE * 0.5, -GRID_SIZE * 1.2); ctx.lineTo(GRID_SIZE * 0.5, -GRID_SIZE * 0.5);
-                     ctx.stroke();
-                     ctx.strokeRect(-GRID_SIZE * 0.6, -GRID_SIZE * 1.5, GRID_SIZE * 1.2, GRID_SIZE * 0.3); // Lid base
-                     ctx.beginPath(); ctx.ellipse(0, -GRID_SIZE * 1.6, GRID_SIZE * 0.5, GRID_SIZE * 0.2, 0, 0, Math.PI * 2); ctx.stroke(); // Cork
+            } else if (this.type === 'lightning') {
+                // 번개는 형태가 불규칙하여 외곽선 효과를 주기 어려움. 빛 효과로 대체.
+                // 필요하다면 drawLightning 함수를 복사하여 stroke 버전으로 수정해야 함.
+            } else if (this.type === 'ice_diamond') {
+                 // drawIceDiamondIcon 내부 로직 stroke 버전
+                const diamondScale = 0.6;
+                const size = GRID_SIZE * 0.8;
+                ctx.lineWidth = 2 / scale / diamondScale; // 다이아몬드 테두리 두께
+                ctx.beginPath();
+                ctx.moveTo(0, -size); ctx.lineTo(size * 0.7, 0); ctx.lineTo(0, size);
+                ctx.lineTo(-size * 0.7, 0); ctx.closePath(); ctx.stroke();
+                // 주변 도는 오브젝트는 테두리 생략
 
-                } else if (this.type === 'hadoken') {
-                     // 장풍 외곽선
-                     const hadokenScale = 0.7;
-                     ctx.lineWidth = 1.5 / scale / hadokenScale;
-                     ctx.beginPath();
-                     ctx.arc(GRID_SIZE * 0.2, 0, GRID_SIZE * 0.6, -Math.PI / 2, Math.PI / 2, false);
-                     ctx.lineTo(-GRID_SIZE * 0.8, 0); ctx.closePath(); ctx.stroke();
+            } else if (this.type === 'magic_spear') {
+                // drawMagicSpear 내부 로직 stroke 버전
+                const spearScale = 0.5;
+                ctx.lineWidth = 1.5 / scale / spearScale; // 샤프트 두께
+                const shaftLength = GRID_SIZE * 2.5; const shaftWidth = GRID_SIZE * 0.15;
+                ctx.strokeRect(-shaftLength / 2, -shaftWidth, shaftLength, shaftWidth * 2); // Shaft
+                ctx.lineWidth = 2 / scale / spearScale; // 창날/보석 두께
+                const headLength = GRID_SIZE * 0.8; const headWidth = GRID_SIZE * 0.4; const headBaseX = shaftLength / 2;
+                ctx.beginPath(); // Head
+                ctx.moveTo(headBaseX, -headWidth); ctx.lineTo(headBaseX + headLength, 0); ctx.lineTo(headBaseX, headWidth);
+                ctx.quadraticCurveTo(headBaseX - headLength * 0.2, 0, headBaseX, -headWidth); ctx.closePath(); ctx.stroke();
+                const gemX = -GRID_SIZE * 0.4; const gemRadius = GRID_SIZE * 0.25;
+                ctx.beginPath(); ctx.arc(gemX, 0, gemRadius, 0, Math.PI * 2); ctx.stroke(); // Gem
 
-                } else if (this.type === 'shuriken') {
-                     // 표창 외곽선
-                     const shurikenScale = 0.5;
-                     ctx.lineWidth = 2 / scale / shurikenScale;
-                     ctx.beginPath();
-                     ctx.moveTo(0, -GRID_SIZE * 0.8); ctx.lineTo(GRID_SIZE * 0.2, -GRID_SIZE * 0.2);
-                     ctx.lineTo(GRID_SIZE * 0.8, 0); ctx.lineTo(GRID_SIZE * 0.2, GRID_SIZE * 0.2);
-                     ctx.lineTo(0, GRID_SIZE * 0.8); ctx.lineTo(-GRID_SIZE * 0.2, GRID_SIZE * 0.2);
-                     ctx.lineTo(-GRID_SIZE * 0.8, 0); ctx.lineTo(-GRID_SIZE * 0.2, -GRID_SIZE * 0.2);
-                     ctx.closePath(); ctx.stroke();
-                     ctx.beginPath(); ctx.arc(0, 0, GRID_SIZE * 0.2, 0, Math.PI * 2); ctx.stroke(); // Center circle
-                }
-                // 다른 무기 타입에 대한 외곽선 그리기 로직 추가...
-                ctx.restore(); // 테두리 그리기 상태 복원
+            } else if (this.type === 'boomerang') {
+                // drawBoomerang 내부 로직 stroke 버전
+                const boomerangScale = 0.5;
+                 ctx.lineWidth = 2 / scale / boomerangScale; // 부메랑 테두리 두께
+                 ctx.lineJoin = 'round'; ctx.lineCap = 'round';
+                 ctx.beginPath();
+                 ctx.moveTo(0, GRID_SIZE * 0.6); ctx.lineTo(-GRID_SIZE * 1.2, -GRID_SIZE * 0.5);
+                 ctx.quadraticCurveTo(-GRID_SIZE * 1.3, -GRID_SIZE * 0.6, -GRID_SIZE * 1.1, -GRID_SIZE * 0.7);
+                 ctx.lineTo(0, -GRID_SIZE * 0.2); ctx.lineTo(GRID_SIZE * 1.1, -GRID_SIZE * 0.7);
+                 ctx.quadraticCurveTo(GRID_SIZE * 1.3, -GRID_SIZE * 0.6, GRID_SIZE * 1.2, -GRID_SIZE * 0.5);
+                 ctx.closePath(); ctx.stroke();
+
+            } else if (this.type === 'poison_potion') {
+                 // drawPoisonPotion 내부 로직 stroke 버전
+                 const potionScale = 0.3;
+                 ctx.lineWidth = 3 / scale / potionScale; // 포션 병 테두리 두께
+                 ctx.beginPath(); ctx.arc(0, GRID_SIZE * 0.2, GRID_SIZE * 1, 0, Math.PI * 2); ctx.stroke(); // Bottle body
+                 ctx.beginPath(); // Bottle neck
+                 ctx.moveTo(-GRID_SIZE * 0.5, -GRID_SIZE * 0.5); ctx.lineTo(-GRID_SIZE * 0.5, -GRID_SIZE * 1.2);
+                 ctx.lineTo(GRID_SIZE * 0.5, -GRID_SIZE * 1.2); ctx.lineTo(GRID_SIZE * 0.5, -GRID_SIZE * 0.5);
+                 ctx.stroke();
+                 ctx.strokeRect(-GRID_SIZE * 0.6, -GRID_SIZE * 1.5, GRID_SIZE * 1.2, GRID_SIZE * 0.3); // Lid base
+                 ctx.beginPath(); ctx.ellipse(0, -GRID_SIZE * 1.6, GRID_SIZE * 0.5, GRID_SIZE * 0.2, 0, 0, Math.PI * 2); ctx.stroke(); // Cork
+
+            } else if (this.type === 'hadoken') {
+                 // 장풍은 발사체이므로 장착 시 외곽선 표시 안 함 (선택 사항)
+            } else if (this.type === 'shuriken') {
+                 // 표창 외곽선
+                 const shurikenScale = 0.5;
+                 ctx.lineWidth = 2 / scale / shurikenScale; // 표창 테두리 두께
+                 ctx.beginPath();
+                 ctx.moveTo(0, -GRID_SIZE * 0.8); ctx.lineTo(GRID_SIZE * 0.2, -GRID_SIZE * 0.2);
+                 ctx.lineTo(GRID_SIZE * 0.8, 0); ctx.lineTo(GRID_SIZE * 0.2, GRID_SIZE * 0.2);
+                 ctx.lineTo(0, GRID_SIZE * 0.8); ctx.lineTo(-GRID_SIZE * 0.2, GRID_SIZE * 0.2);
+                 ctx.lineTo(-GRID_SIZE * 0.8, 0); ctx.lineTo(-GRID_SIZE * 0.2, -GRID_SIZE * 0.2);
+                 ctx.closePath(); ctx.stroke();
+                 ctx.beginPath(); ctx.arc(0, 0, GRID_SIZE * 0.2, 0, Math.PI * 2); ctx.stroke(); // Center circle
             }
+            // 다른 무기 타입에 대한 외곽선 그리기 로직 추가...
+            ctx.restore(); // 테두리 그리기 상태 복원
         };
 
         // --- 각 무기 타입별 그리기 ---
@@ -617,11 +604,11 @@ export class Weapon {
             ctx.save(); // 검 그리기 상태 저장
             ctx.translate(GRID_SIZE * 0.5, 0);
             ctx.rotate(Math.PI / 4);
-            drawOutlineIfNeeded(); // 테두리 먼저 그리기
+            drawOutlineIfNeeded(); // [호출] 테두리 먼저 그리기
 
             const bladeGradient = ctx.createLinearGradient(0, -GRID_SIZE, 0, 0);
             bladeGradient.addColorStop(0, '#f3f4f6'); bladeGradient.addColorStop(1, '#9ca3af');
-            ctx.fillStyle = bladeGradient; ctx.strokeStyle = 'black';
+            ctx.fillStyle = bladeGradient; ctx.strokeStyle = 'black'; ctx.lineWidth = 1 / scale; // 원래 검은 테두리 두께 복원
             ctx.beginPath();
             ctx.moveTo(-2, GRID_SIZE * 0.3); ctx.lineTo(-2, -GRID_SIZE * 1.0); ctx.lineTo(0, -GRID_SIZE * 1.2);
             ctx.lineTo(2, -GRID_SIZE * 1.0); ctx.lineTo(2, GRID_SIZE * 0.3); ctx.closePath();
@@ -638,27 +625,31 @@ export class Weapon {
         } else if (this.type === 'magic_dagger') {
             ctx.save();
             ctx.translate(-GRID_SIZE * 0.4, 0); ctx.scale(0.7, 0.7); ctx.rotate(-Math.PI / 8);
-            drawOutlineIfNeeded(); // 테두리
-            drawMagicDaggerIcon(ctx);
+            drawOutlineIfNeeded(); // [호출] 테두리
+            drawMagicDaggerIcon(ctx); // 실제 단검 그리기
             ctx.restore();
         } else if (this.type === 'axe') {
             ctx.save();
             ctx.translate(GRID_SIZE * 0.8, -GRID_SIZE * 0.7); ctx.rotate(Math.PI / 4); ctx.scale(0.8, 0.8);
-            drawOutlineIfNeeded(); // 테두리
-            drawAxeIcon(ctx);
+            drawOutlineIfNeeded(); // [호출] 테두리
+            drawAxeIcon(ctx); // 실제 도끼 그리기
             ctx.restore();
         } else if (this.type === 'bow') {
             ctx.save();
             ctx.translate(GRID_SIZE * 0.4, 0); ctx.rotate(-Math.PI / 4);
             const bowScale = 0.56; ctx.scale(bowScale, bowScale);
-            drawOutlineIfNeeded(); // 테두리 (활대는 그림)
+            drawOutlineIfNeeded(); // [호출] 테두리 (활대는 그림)
 
-            ctx.fillStyle = '#f3f4f6'; ctx.fillRect(-GRID_SIZE * 0.7, -1, GRID_SIZE * 1.2, 2); ctx.strokeRect(-GRID_SIZE * 0.7, -1, GRID_SIZE * 1.2, 2);
+            // 실제 활 그리기
+            ctx.fillStyle = '#f3f4f6'; ctx.strokeStyle = 'black'; ctx.lineWidth = 1 / bowScale / scale; // 원래 검은 테두리 복원
+            ctx.fillRect(-GRID_SIZE * 0.7, -1, GRID_SIZE * 1.2, 2); ctx.strokeRect(-GRID_SIZE * 0.7, -1, GRID_SIZE * 1.2, 2);
             ctx.fillStyle = '#e5e7eb'; ctx.beginPath(); ctx.moveTo(GRID_SIZE * 0.5, 0); ctx.lineTo(GRID_SIZE * 0.3, -3); ctx.lineTo(GRID_SIZE * 0.3, 3); ctx.closePath(); ctx.fill();
             ctx.fillStyle = '#d1d5db'; ctx.beginPath(); ctx.moveTo(-GRID_SIZE * 0.6, -1); ctx.lineTo(-GRID_SIZE * 0.7, -4); ctx.lineTo(-GRID_SIZE * 0.5, -1); ctx.closePath(); ctx.fill();
             ctx.beginPath(); ctx.moveTo(-GRID_SIZE * 0.6, 1); ctx.lineTo(-GRID_SIZE * 0.7, 4); ctx.lineTo(-GRID_SIZE * 0.5, 1); ctx.closePath(); ctx.fill();
+            // 활대 그리기 (검은색 -> 갈색)
             ctx.strokeStyle = 'black'; ctx.lineWidth = 6 / bowScale; ctx.beginPath(); ctx.arc(0, 0, GRID_SIZE * 0.8, -Math.PI / 2.2, Math.PI / 2.2); ctx.stroke();
             ctx.strokeStyle = '#854d0e'; ctx.lineWidth = 4 / bowScale; ctx.beginPath(); ctx.arc(0, 0, GRID_SIZE * 0.8, -Math.PI / 2.2, Math.PI / 2.2); ctx.stroke();
+            // 활 시위 그리기
             ctx.strokeStyle = '#e5e7eb'; ctx.lineWidth = 1.5 / bowScale; ctx.beginPath();
             const arcRadius = GRID_SIZE * 0.8, arcAngle = Math.PI / 2.2; const bowstringY1 = Math.sin(-arcAngle) * arcRadius;
             const bowstringY2 = Math.sin(arcAngle) * arcRadius; const bowstringX = Math.cos(arcAngle) * arcRadius;
@@ -669,33 +660,14 @@ export class Weapon {
         } else if (this.type === 'dual_swords') {
             ctx.save(); // 쌍검 전체 상태 저장
             // 테두리 먼저 그리기 (좌표 변환 전에)
-            if (isSpecialReady) {
-                const drawOutlineCurvedSword = (isRightHand) => {
-                     ctx.save();
-                     const yOffset = isRightHand ? GRID_SIZE * 0.6 : -GRID_SIZE * 0.6;
-                     const swordRotation = isRightHand ? Math.PI / 8 : -Math.PI / 8;
-                     ctx.translate(GRID_SIZE * 0.1, yOffset);
-                     ctx.rotate(swordRotation);
-                     ctx.strokeStyle = COLORS[`TEAM_${unit.team}`] || DEEP_COLORS[`TEAM_${unit.team}`] || '#FFFFFF';
-                     ctx.lineWidth = 2.5 / scale;
-                     ctx.strokeRect(-GRID_SIZE * 0.05, 0, GRID_SIZE * 0.1, GRID_SIZE * 0.2); // Handle
-                     ctx.beginPath(); // Guard
-                     ctx.moveTo(-GRID_SIZE * 0.2, 0); ctx.lineTo(GRID_SIZE * 0.2, 0); ctx.lineTo(GRID_SIZE * 0.2, -GRID_SIZE * 0.05); ctx.lineTo(-GRID_SIZE * 0.2, -GRID_SIZE * 0.05); ctx.closePath(); ctx.stroke();
-                     ctx.beginPath(); // Blade
-                     ctx.moveTo(0, -GRID_SIZE * 0.05); ctx.quadraticCurveTo(GRID_SIZE * 0.4, -GRID_SIZE * 0.3, 0, -GRID_SIZE * 0.8);
-                     ctx.quadraticCurveTo(-GRID_SIZE * 0.1, -GRID_SIZE * 0.3, 0, -GRID_SIZE * 0.05); ctx.closePath(); ctx.stroke();
-                     ctx.restore();
-                 };
-                 drawOutlineCurvedSword(true);
-                 drawOutlineCurvedSword(false);
-            }
+            drawOutlineIfNeeded(); // [호출] 테두리
 
             // 실제 쌍검 그리기
             const drawEquippedCurvedSword = (isRightHand) => {
                 ctx.save();
                 const yOffset = isRightHand ? GRID_SIZE * 0.6 : -GRID_SIZE * 0.6; const swordRotation = isRightHand ? Math.PI / 8 : -Math.PI / 8;
                 ctx.translate(GRID_SIZE * 0.1, yOffset); ctx.rotate(swordRotation);
-                ctx.fillStyle = '#374151'; ctx.strokeStyle = 'black';
+                ctx.fillStyle = '#374151'; ctx.strokeStyle = 'black'; ctx.lineWidth = 1 / scale; // 원래 검은 테두리
                 ctx.fillRect(-GRID_SIZE * 0.05, 0, GRID_SIZE * 0.1, GRID_SIZE * 0.2); ctx.strokeRect(-GRID_SIZE * 0.05, 0, GRID_SIZE * 0.1, GRID_SIZE * 0.2);
                 ctx.beginPath(); ctx.moveTo(-GRID_SIZE * 0.2, 0); ctx.lineTo(GRID_SIZE * 0.2, 0); ctx.lineTo(GRID_SIZE * 0.2, -GRID_SIZE * 0.05); ctx.lineTo(-GRID_SIZE * 0.2, -GRID_SIZE * 0.05); ctx.closePath(); ctx.fill(); ctx.stroke();
                 const bladeGradient = ctx.createLinearGradient(0, -GRID_SIZE*0.8, 0, 0); bladeGradient.addColorStop(0, '#f3f4f6'); bladeGradient.addColorStop(0.5, '#9ca3af'); bladeGradient.addColorStop(1, '#4b5563');
@@ -709,8 +681,8 @@ export class Weapon {
             ctx.restore(); // 쌍검 전체 상태 복원
         } else if (this.type === 'fire_staff') {
             ctx.save();
-            drawOutlineIfNeeded(); // 테두리
-            this.drawStaff(ctx, 0.8);
+            drawOutlineIfNeeded(); // [호출] 테두리
+            this.drawStaff(ctx, 0.8); // 실제 지팡이 그리기
             ctx.restore();
         } else if (this.type === 'lightning') {
             const revolutionAngle = gameManager.animationFrameCounter * 0.05; const orbitRadius = GRID_SIZE * 0.8;
@@ -719,14 +691,14 @@ export class Weapon {
             ctx.translate(weaponX, weaponY);
             // 번개는 회전하므로 테두리 그리기가 복잡함. 빛 효과로 대체.
             // drawOutlineIfNeeded(); // 필요시 추가 구현
-            this.drawLightning(ctx, 0.48, 0);
+            this.drawLightning(ctx, 0.48, 0); // 실제 번개 그리기
             ctx.restore();
         } else if (this.type === 'ice_diamond') {
             ctx.save();
             ctx.translate(GRID_SIZE * 0.6, 0);
              // 얼음 다이아는 여러 개가 돌기 때문에 각 오브젝트에 테두리 적용 어려움. 빛 효과로 대체.
             // drawOutlineIfNeeded();
-            drawIceDiamondIcon(ctx, 0.6);
+            drawIceDiamondIcon(ctx, 0.6); // 실제 다이아 그리기
             // 주변 도는 오브젝트는 테두리 생략
             for (let i = 0; i < unit.iceDiamondCharges; i++) {
                 const angle = (gameManager.animationFrameCounter * 0.02) + (i * (Math.PI * 2 / 5)); const orbitRadius = GRID_SIZE * 1.2;
@@ -737,39 +709,31 @@ export class Weapon {
         } else if (this.type === 'magic_spear') {
             ctx.save();
             ctx.translate(GRID_SIZE * 0.2, GRID_SIZE * 0.4);
-            drawOutlineIfNeeded(); // 테두리
-            this.drawMagicSpear(ctx, 0.5, -Math.PI / 8 + Math.PI);
+            drawOutlineIfNeeded(); // [호출] 테두리
+            this.drawMagicSpear(ctx, 0.5, -Math.PI / 8 + Math.PI); // 실제 창 그리기
             ctx.restore();
         } else if (this.type === 'boomerang') {
             ctx.save();
             ctx.translate(0, -GRID_SIZE * 0.5);
-            drawOutlineIfNeeded(); // 테두리
-            this.drawBoomerang(ctx, 0.5);
+            drawOutlineIfNeeded(); // [호출] 테두리
+            this.drawBoomerang(ctx, 0.5); // 실제 부메랑 그리기
             ctx.restore();
         } else if (this.type === 'poison_potion') {
             ctx.save();
             ctx.translate(0, -GRID_SIZE * 0.5);
-            drawOutlineIfNeeded(); // 테두리
-            this.drawPoisonPotion(ctx, 0.3);
+            drawOutlineIfNeeded(); // [호출] 테두리
+            this.drawPoisonPotion(ctx, 0.3); // 실제 포션 그리기
             ctx.restore();
         } else if (this.type === 'hadoken') {
-            ctx.save();
-            ctx.translate(GRID_SIZE * 0.5, 0);
-            const hadokenScale = 0.7; ctx.scale(hadokenScale, hadokenScale);
-            drawOutlineIfNeeded(); // 테두리
-
-            const grad = ctx.createRadialGradient(0, 0, 1, 0, 0, GRID_SIZE * 1.2); grad.addColorStop(0, '#bfdbfe'); grad.addColorStop(0.6, '#3b82f6'); grad.addColorStop(1, '#1e40af');
-            ctx.fillStyle = grad; ctx.strokeStyle = 'black'; ctx.lineWidth = 1.5 / hadokenScale;
-            ctx.beginPath(); ctx.arc(GRID_SIZE * 0.2, 0, GRID_SIZE * 0.6, -Math.PI / 2, Math.PI / 2, false); ctx.lineTo(-GRID_SIZE * 0.8, 0); ctx.closePath();
-            ctx.fill(); ctx.stroke();
-            ctx.restore();
+            // 장풍은 발사체이므로 장착 시 그리지 않음 (기존 로직 유지)
         } else if (this.type === 'shuriken') {
             ctx.save();
             ctx.translate(GRID_SIZE * 0.4, GRID_SIZE * 0.3);
             const shurikenScale = 0.5; ctx.scale(shurikenScale, shurikenScale); ctx.rotate(gameManager.animationFrameCounter * 0.1);
-            drawOutlineIfNeeded(); // 테두리
+            drawOutlineIfNeeded(); // [호출] 테두리
 
-            ctx.fillStyle = '#4a5568'; ctx.strokeStyle = 'black'; ctx.lineWidth = 2 / shurikenScale;
+            // 실제 표창 그리기
+            ctx.fillStyle = '#4a5568'; ctx.strokeStyle = 'black'; ctx.lineWidth = 1 / shurikenScale / scale; // 원래 검은 테두리
             ctx.beginPath(); ctx.moveTo(0, -GRID_SIZE * 0.8); ctx.lineTo(GRID_SIZE * 0.2, -GRID_SIZE * 0.2); ctx.lineTo(GRID_SIZE * 0.8, 0); ctx.lineTo(GRID_SIZE * 0.2, GRID_SIZE * 0.2);
             ctx.lineTo(0, GRID_SIZE * 0.8); ctx.lineTo(-GRID_SIZE * 0.2, GRID_SIZE * 0.2); ctx.lineTo(-GRID_SIZE * 0.8, 0); ctx.lineTo(-GRID_SIZE * 0.2, -GRID_SIZE * 0.2); ctx.closePath();
             ctx.fill(); ctx.stroke();
