@@ -10,7 +10,14 @@ import {
     drawPoisonPotion as designDrawPoisonPotion,
 } from './weaponDesigns.js';
 
-// Drawing implementations moved to js/weaponDesigns.js
+// --- 추가: 형광 색상 정의 (unit.js와 동일하게) ---
+const GLOW_COLORS = {
+    TEAM_A: '#ff4444', // 밝은 빨강
+    TEAM_B: '#3b82f6', // 밝은 파랑
+    TEAM_C: '#10b981', // 밝은 초록
+    TEAM_D: '#facc15'  // 밝은 노랑
+};
+// ---------------------------------------------
 
 // Weapon class
 export class Weapon {
@@ -24,13 +31,16 @@ export class Weapon {
     }
 
     /**
-     * [NEW] Handles the weapon's attack logic.
+     * [MODIFIED] Handles the weapon's attack logic. Sets isSpecialReady to false after special use.
      * @param {Unit} unit - The unit using this weapon.
      * @param {Unit | Nexus} target - The attack target.
      */
     use(unit, target) {
         const gameManager = this.gameManager;
         if (!gameManager) return;
+
+        // Reset special ready status if a special attack is used
+        let usedSpecial = false;
 
         if (['sword', 'dual_swords', 'boomerang', 'poison_potion', 'magic_dagger', 'axe', 'bow'].includes(this.type)) {
             unit.attackAnimationTimer = 15;
@@ -42,12 +52,13 @@ export class Weapon {
             gameManager.createEffect('slash', unit.pixelX, unit.pixelY, target);
             gameManager.audioManager.play('swordHit');
             unit.attackCooldown = unit.cooldownTime;
-            
+
             if (unit.attackCount >= 3) {
                 unit.attackCount = 0;
                 unit.swordSpecialAttackAnimationTimer = 30;
                 gameManager.createProjectile(unit, target, 'sword_wave');
                 gameManager.audioManager.play('Aurablade');
+                usedSpecial = true; // Mark special as used
 
                 for (let i = 0; i < 20; i++) {
                     const angle = gameManager.random() * Math.PI * 2;
@@ -67,7 +78,7 @@ export class Weapon {
 
             if (unit.attackCount >= 3) {
                 unit.attackCount = 0;
-                
+
                 const recoilAngle = unit.facingAngle + Math.PI;
                 const recoilForce = 4;
                 unit.knockbackX += Math.cos(recoilAngle) * recoilForce;
@@ -79,6 +90,7 @@ export class Weapon {
                         gameManager.createProjectile(unit, target, 'arrow');
                     }
                 }, 150);
+                usedSpecial = true; // Mark special as used
 
                 for (let i = 0; i < 20; i++) {
                     const angle = gameManager.random() * Math.PI * 2;
@@ -94,16 +106,22 @@ export class Weapon {
                 gameManager.createProjectile(unit, target, 'arrow');
             }
         } else if (this.type === 'magic_dagger') {
+             // Magic dagger special is handled in unit update (aiming logic)
+             // This is the normal attack
             target.takeDamage(unit.attackPower, {}, unit);
             gameManager.createEffect('slash', unit.pixelX, unit.pixelY, target);
-            gameManager.audioManager.play('dualSwordHit');
-            unit.attackCooldown = 120;
+            gameManager.audioManager.play('dualSwordHit'); // Should probably be a different sound
+            unit.attackCooldown = 120; // Normal attack cooldown
         } else if (this.type === 'dual_swords') {
+             // Dual swords special is handled in unit update (projectile logic)
+             // This is the normal attack
             target.takeDamage(unit.attackPower, {}, unit);
             gameManager.createEffect('dual_sword_slash', unit.pixelX, unit.pixelY, target);
             gameManager.audioManager.play('dualSwordHit');
             unit.attackCooldown = unit.cooldownTime;
         } else if (this.type === 'axe') {
+             // Axe special is handled in unit update (spin logic)
+             // This is the normal attack
             target.takeDamage(unit.attackPower, {}, unit);
             gameManager.createEffect('slash', unit.pixelX, unit.pixelY, target);
             gameManager.audioManager.play('swordHit');
@@ -120,22 +138,26 @@ export class Weapon {
                 gameManager.audioManager.play('Ice');
                 unit.iceDiamondCharges = 0;
                 unit.iceDiamondChargeTimer = 0;
+                // Note: Ice Diamond doesn't have a traditional 'special ready' state reset here
             } else {
                 gameManager.createProjectile(unit, target, 'ice_bolt_projectile');
-                gameManager.audioManager.play('punch');
+                gameManager.audioManager.play('punch'); // Maybe ice sound?
             }
             unit.attackCooldown = unit.cooldownTime;
         } else if (this.type === 'fire_staff') {
+             // Fire staff special is handled in unit update (fireball logic)
+             // This is the normal attack
             gameManager.createProjectile(unit, target, 'black_sphere_projectile');
-            gameManager.audioManager.play('punch');
+            gameManager.audioManager.play('punch'); // Maybe fire sound?
             unit.attackCooldown = unit.cooldownTime;
         } else if (this.type === 'shuriken') {
-            if (unit.shurikenSkillCooldown <= 0) {
+            // Shuriken special is handled here, check isSpecialReady
+            if (unit.isSpecialReady) {
                 const angleToTarget = Math.atan2(target.pixelY - unit.pixelY, target.pixelX - unit.pixelX);
                 const spread = 0.3;
                 const angles = [angleToTarget - spread, angleToTarget, angleToTarget + spread];
 
-                const dummyTarget = { pixelX: 0, pixelY: 0 }; 
+                const dummyTarget = { pixelX: 0, pixelY: 0 };
 
                 angles.forEach(angle => {
                     gameManager.createProjectile(unit, dummyTarget, 'returning_shuriken', {
@@ -145,6 +167,7 @@ export class Weapon {
                     });
                 });
                 unit.shurikenSkillCooldown = 480;
+                usedSpecial = true; // Mark special as used
             } else {
                 gameManager.createProjectile(unit, target, 'shuriken');
             }
@@ -153,29 +176,43 @@ export class Weapon {
         } else if (this.type === 'hadoken') {
             gameManager.createProjectile(unit, target, 'hadoken');
             gameManager.audioManager.play('hadokenShoot');
-            unit.attackCooldown = unit.cooldownTime; 
+            unit.attackCooldown = unit.cooldownTime;
+            // Note: Hadoken doesn't have a special attack state in this logic
         } else if (this.type === 'lightning') {
             gameManager.createProjectile(unit, target, 'lightning_bolt');
             gameManager.audioManager.play('electricity');
             unit.attackCooldown = unit.cooldownTime;
+             // Note: Lightning doesn't have a special attack state in this logic
         } else if (this.type === 'magic_spear') {
+             // Magic spear special is handled in unit update (stunned target logic)
+             // This is the normal attack
             gameManager.createProjectile(unit, target, 'magic_spear_normal');
-            gameManager.audioManager.play('punch');
+            gameManager.audioManager.play('punch'); // Maybe spear sound?
             unit.attackCooldown = unit.cooldownTime;
         } else if (this.type === 'boomerang') {
+             // Boomerang special is handled in unit update (cooldown logic)
+             // This is the normal attack
             gameManager.createProjectile(unit, target, 'boomerang_normal_projectile');
-            gameManager.audioManager.play('punch');
+            gameManager.audioManager.play('punch'); // Maybe boomerang sound?
             unit.attackCooldown = unit.cooldownTime;
         } else if (this.type === 'poison_potion') {
-            target.takeDamage(15, {}, unit);
+            // Poison potion 'special' is dying and creating a cloud, handled in unit death
+            target.takeDamage(15, {}, unit); // Normal attack damage
             unit.attackCooldown = unit.cooldownTime;
         }
+
+        // --- 추가: 특수 공격 사용 시 상태 초기화 ---
+        if (usedSpecial) {
+            unit.isSpecialReady = false;
+        }
+        // ----------------------------------------
     }
+
 
     drawStaff(ctx, scale = 1.0) {
         designDrawStaff(ctx, scale);
     }
-    
+
     drawLightning(ctx, scale = 1.0, rotation = 0) {
         designDrawLightning(ctx, scale, rotation);
     }
@@ -183,7 +220,7 @@ export class Weapon {
     drawMagicSpear(ctx, scale = 1.0, rotation = 0) {
         designDrawMagicSpear(ctx, scale, rotation);
     }
-    
+
     drawBoomerang(ctx, scale = 1.0, rotation = 0, color = null) {
         designDrawBoomerang(ctx, scale, rotation, color);
     }
@@ -195,7 +232,7 @@ export class Weapon {
 
     /**
      * Draws the weapon when it's on the ground.
-     * @param {CanvasRenderingContext2D} ctx 
+     * @param {CanvasRenderingContext2D} ctx
      */
     draw(ctx) {
         if (this.isEquipped) return;
@@ -204,13 +241,14 @@ export class Weapon {
         ctx.save();
         ctx.translate(centerX, centerY);
         ctx.scale(scale, scale);
-        
-        if (this.type !== 'magic_dagger') {
-            ctx.strokeStyle = 'black';
-            ctx.lineWidth = 1 / scale;
+
+        if (this.type !== 'magic_dagger') { // Magic dagger has its own shadow
+             ctx.strokeStyle = 'black';
+             ctx.lineWidth = 1 / scale;
         }
 
 
+        // ... (코드 생략 - 각 무기별 땅에 떨어져 있을 때 그리는 로직) ...
         if (this.type === 'sword') {
             ctx.rotate(Math.PI / 4);
             const bladeGradient = ctx.createLinearGradient(0, -GRID_SIZE, 0, 0);
@@ -304,7 +342,7 @@ export class Weapon {
         } else if (this.type === 'shuriken') {
             ctx.rotate(Math.PI / 4);
             ctx.fillStyle = '#9ca3af';
-            ctx.strokeStyle = 'black'; 
+            ctx.strokeStyle = 'black';
             ctx.lineWidth = 2 / scale;
 
             ctx.beginPath();
@@ -336,22 +374,22 @@ export class Weapon {
         }
         ctx.restore();
     }
-    
+
     /**
-     * [NEW] Draws the weapon when it's equipped by a unit.
-     * @param {CanvasRenderingContext2D} ctx 
-     * @param {Unit} unit 
+     * [MODIFIED] Draws the weapon when it's equipped by a unit. Adds glow effect.
+     * @param {CanvasRenderingContext2D} ctx
+     * @param {Unit} unit
      */
     drawEquipped(ctx, unit) {
         const gameManager = this.gameManager;
         if (!gameManager) return;
-        
+
         const scale = 1 + (unit.awakeningEffect?.stacks || 0) * 0.2;
 
-        ctx.save(); 
+        ctx.save();
         ctx.translate(unit.pixelX, unit.pixelY);
         ctx.scale(scale, scale);
-        
+
         let rotation = unit.facingAngle;
         if (this.type !== 'bow' && unit.attackAnimationTimer > 0) {
             const swingProgress = Math.sin((15 - unit.attackAnimationTimer) / 15 * Math.PI);
@@ -361,11 +399,11 @@ export class Weapon {
         if (this.type === 'axe' && unit.spinAnimationTimer > 0) {
             rotation += ((30 - unit.spinAnimationTimer) / 30) * Math.PI * 2;
         }
-        
+
         if (this.type === 'sword' && unit.swordSpecialAttackAnimationTimer > 0) {
             rotation += ((30 - unit.swordSpecialAttackAnimationTimer) / 30) * Math.PI * 2;
         }
-        
+
         if (this.type === 'dual_swords' && unit.dualSwordSpinAttackTimer > 0) {
             const spinProgress = (20 - unit.dualSwordSpinAttackTimer) / 20;
             rotation += spinProgress * Math.PI * 4;
@@ -375,16 +413,46 @@ export class Weapon {
             ctx.rotate(rotation);
         }
 
+        // --- 추가: 특수 공격 준비 시 무기 빛나는 효과 ---
+        const glowWeapons = ['sword', 'bow', 'axe', 'fire_staff', 'boomerang', 'shuriken', 'magic_dagger', 'dual_swords'];
+        if (unit.isSpecialReady && glowWeapons.includes(this.type)) {
+            ctx.save();
+            ctx.globalCompositeOperation = 'lighter';
+            let glowColor;
+            switch (unit.team) {
+                case TEAM.A: glowColor = GLOW_COLORS.TEAM_A; break;
+                case TEAM.B: glowColor = GLOW_COLORS.TEAM_B; break;
+                case TEAM.C: glowColor = GLOW_COLORS.TEAM_C; break;
+                case TEAM.D: glowColor = GLOW_COLORS.TEAM_D; break;
+                default: glowColor = '#FFFFFF'; break;
+            }
+            // 무기 그림자/블러 효과 설정 (기존 무기 그리기 코드에서 shadow 관련 부분을 참고하여 조정)
+            if (this.type === 'magic_dagger') {
+                 ctx.shadowColor = 'rgba(255, 255, 255, 0.6)';
+                 ctx.shadowBlur = 10;
+            } else if (this.type === 'magic_spear') { // 비록 요청 목록엔 없지만, 혹시 몰라 추가
+                 ctx.shadowColor = 'rgba(192, 132, 252, 0.8)';
+                 ctx.shadowBlur = 15 / scale;
+            } else {
+                ctx.shadowColor = glowColor;
+                ctx.shadowBlur = 10 / scale; // 유닛 크기 변화에 따라 블러 조정
+            }
+        }
+        // ---------------------------------------------
+
+
+        // --- 각 무기별 그리기 로직 (기존 코드와 유사) ---
+        // ... (코드 생략 - 검, 활, 쌍검 등 각 무기 그리기) ...
         if (this.type === 'sword') {
             ctx.translate(GRID_SIZE * 0.5, 0);
             ctx.rotate(Math.PI / 4);
-            
+
             const bladeGradient = ctx.createLinearGradient(0, -GRID_SIZE, 0, 0);
             bladeGradient.addColorStop(0, '#f3f4f6');
             bladeGradient.addColorStop(1, '#9ca3af');
             ctx.fillStyle = bladeGradient;
             ctx.strokeStyle = 'black';
-            
+
             ctx.beginPath();
             ctx.moveTo(-2, GRID_SIZE * 0.3);
             ctx.lineTo(-2, -GRID_SIZE * 1.0);
@@ -412,29 +480,109 @@ export class Weapon {
             ctx.translate(-GRID_SIZE * 0.4, 0);
             ctx.scale(0.7, 0.7);
             ctx.rotate(-Math.PI / 8);
-            drawMagicDaggerIcon(ctx);
+            // drawMagicDaggerIcon 함수를 직접 호출하는 대신 내부 로직 사용 (빛 효과 적용 위해)
+             const daggerScale = GRID_SIZE * 0.1;
+             ctx.strokeStyle = '#111827';
+             ctx.lineWidth = 2;
+
+             // Handle
+             const handleGradient = ctx.createLinearGradient(0, 0, 0, 10 * daggerScale);
+             handleGradient.addColorStop(0, '#374151');
+             handleGradient.addColorStop(1, '#1f2937');
+             ctx.fillStyle = handleGradient;
+             const handleWidth = 2.5 * daggerScale;
+             const handleHeight = 9 * daggerScale;
+             ctx.beginPath();
+             ctx.rect(-handleWidth / 2, 0, handleWidth, handleHeight);
+             ctx.fill();
+             ctx.stroke();
+
+             // Guard
+             ctx.fillStyle = '#e5e7eb';
+             const guardWidth = 5 * daggerScale;
+             const guardHeight = 1.6 * daggerScale;
+             const guardY = -guardHeight / 2;
+             ctx.fillRect(-guardWidth / 2, guardY, guardWidth, guardHeight);
+             ctx.strokeRect(-guardWidth / 2, guardY, guardWidth, guardHeight);
+
+             // Blade
+             const bladeGradientDagger = ctx.createLinearGradient(0, -12 * daggerScale, 0, guardY);
+             bladeGradientDagger.addColorStop(0, '#ffffff');
+             bladeGradientDagger.addColorStop(0.5, '#f3f4f6');
+             bladeGradientDagger.addColorStop(1, '#d1d5db');
+             ctx.fillStyle = bladeGradientDagger;
+             ctx.beginPath();
+             ctx.moveTo(-guardWidth / 2, guardY);
+             ctx.lineTo(1.5 * daggerScale, -11 * daggerScale);
+             ctx.quadraticCurveTo(3 * daggerScale, -5 * daggerScale, guardWidth / 2, guardY);
+             ctx.closePath();
+             ctx.fill();
+             ctx.stroke();
+
+             // Inner bevel
+             ctx.beginPath();
+             ctx.moveTo(0.5 * daggerScale, guardY);
+             ctx.quadraticCurveTo(0, -5 * daggerScale, 1.2 * daggerScale, -8 * daggerScale);
+             ctx.strokeStyle = 'rgba(17,24,39,0.45)';
+             ctx.lineWidth = 1.2;
+             ctx.stroke();
+
         } else if (this.type === 'axe') {
             ctx.translate(GRID_SIZE * 0.8, -GRID_SIZE * 0.7);
             ctx.rotate(Math.PI / 4);
             ctx.scale(0.8, 0.8);
-            drawAxeIcon(ctx);
+            // drawAxeIcon 함수를 직접 호출하는 대신 내부 로직 사용
+             const axeScale = GRID_SIZE * 0.08;
+             // Handle
+             ctx.fillStyle = '#1f2937';
+             ctx.strokeStyle = '#000000';
+             ctx.lineWidth = 2;
+             const handleWidthAxe = 2.5 * axeScale;
+             const handleHeightAxe = 18 * axeScale;
+             ctx.fillRect(-handleWidthAxe / 2, -5 * axeScale, handleWidthAxe, handleHeightAxe);
+             ctx.strokeRect(-handleWidthAxe / 2, -5 * axeScale, handleWidthAxe, handleHeightAxe);
+
+             // Double blade
+             const bladeGradientAxe = ctx.createLinearGradient(-12 * axeScale, 0, 12 * axeScale, 0);
+             bladeGradientAxe.addColorStop(0, '#d1d5db');
+             bladeGradientAxe.addColorStop(0.5, '#f9fafb');
+             bladeGradientAxe.addColorStop(1, '#9ca3af');
+             ctx.fillStyle = bladeGradientAxe;
+
+             ctx.beginPath();
+             ctx.moveTo(0, -6 * axeScale);
+             ctx.quadraticCurveTo(-16 * axeScale, 0, 0, 6 * axeScale);
+             ctx.quadraticCurveTo(-7 * axeScale, 0, 0, -6 * axeScale);
+             ctx.closePath();
+             ctx.fill();
+             ctx.stroke();
+
+             ctx.beginPath();
+             ctx.moveTo(0, -6 * axeScale);
+             ctx.quadraticCurveTo(16 * axeScale, 0, 0, 6 * axeScale);
+             ctx.quadraticCurveTo(7 * axeScale, 0, 0, -6 * axeScale);
+             ctx.closePath();
+             ctx.fill();
+             ctx.stroke();
         } else if (this.type === 'bow') {
             ctx.translate(GRID_SIZE * 0.4, 0);
             ctx.rotate(-Math.PI / 4);
-            const bowScale = 0.56; // [수정] 활 크기 30% 감소 (0.8 * 0.7)
+            const bowScale = 0.56;
             ctx.scale(bowScale, bowScale);
             ctx.fillStyle = '#f3f4f6';
+            ctx.strokeStyle = 'black'; // 테두리 색상 추가
+            ctx.lineWidth = 1 / bowScale; // 테두리 두께 조정
             ctx.fillRect(-GRID_SIZE * 0.7, -1, GRID_SIZE * 1.2, 2);
-            ctx.strokeRect(-GRID_SIZE * 0.7, -1, GRID_SIZE * 1.2, 2);
+            ctx.strokeRect(-GRID_SIZE * 0.7, -1, GRID_SIZE * 1.2, 2); // 테두리 그리기
             ctx.fillStyle = '#e5e7eb';
-            ctx.beginPath(); ctx.moveTo(GRID_SIZE * 0.5, 0); ctx.lineTo(GRID_SIZE * 0.3, -3); ctx.lineTo(GRID_SIZE * 0.3, 3); ctx.closePath(); ctx.fill();
+            ctx.beginPath(); ctx.moveTo(GRID_SIZE * 0.5, 0); ctx.lineTo(GRID_SIZE * 0.3, -3); ctx.lineTo(GRID_SIZE * 0.3, 3); ctx.closePath(); ctx.fill(); ctx.stroke(); // 테두리
             ctx.fillStyle = '#d1d5db';
-            ctx.beginPath(); ctx.moveTo(-GRID_SIZE * 0.6, -1); ctx.lineTo(-GRID_SIZE * 0.7, -4); ctx.lineTo(-GRID_SIZE * 0.5, -1); ctx.closePath(); ctx.fill()
-            ctx.beginPath(); ctx.moveTo(-GRID_SIZE * 0.6, 1); ctx.lineTo(-GRID_SIZE * 0.7, 4); ctx.lineTo(-GRID_SIZE * 0.5, 1); ctx.closePath(); ctx.fill()
+            ctx.beginPath(); ctx.moveTo(-GRID_SIZE * 0.6, -1); ctx.lineTo(-GRID_SIZE * 0.7, -4); ctx.lineTo(-GRID_SIZE * 0.5, -1); ctx.closePath(); ctx.fill(); ctx.stroke(); // 테두리
+            ctx.beginPath(); ctx.moveTo(-GRID_SIZE * 0.6, 1); ctx.lineTo(-GRID_SIZE * 0.7, 4); ctx.lineTo(-GRID_SIZE * 0.5, 1); ctx.closePath(); ctx.fill(); ctx.stroke(); // 테두리
+
             ctx.strokeStyle = 'black'; ctx.lineWidth = 6 / bowScale; ctx.beginPath(); ctx.arc(0, 0, GRID_SIZE * 0.8, -Math.PI / 2.2, Math.PI / 2.2); ctx.stroke();
             ctx.strokeStyle = '#854d0e'; ctx.lineWidth = 4 / bowScale; ctx.beginPath(); ctx.arc(0, 0, GRID_SIZE * 0.8, -Math.PI / 2.2, Math.PI / 2.2); ctx.stroke();
-            
-            // [수정] 활시위 당기는 애니메이션 추가
+
             ctx.strokeStyle = '#e5e7eb';
             ctx.lineWidth = 1.5 / bowScale;
             ctx.beginPath();
@@ -442,11 +590,11 @@ export class Weapon {
             const bowstringY1 = Math.sin(-arcAngle) * arcRadius;
             const bowstringY2 = Math.sin(arcAngle) * arcRadius;
             const bowstringX = Math.cos(arcAngle) * arcRadius;
-            
+
             let pullBack = -GRID_SIZE * 0.4;
             if (unit.attackAnimationTimer > 0) {
                 const pullProgress = Math.sin((15 - unit.attackAnimationTimer) / 15 * Math.PI);
-                pullBack -= pullProgress * GRID_SIZE * 0.5; // 시위를 더 당김
+                pullBack -= pullProgress * GRID_SIZE * 0.5;
             }
 
             ctx.moveTo(bowstringX, bowstringY1);
@@ -461,7 +609,9 @@ export class Weapon {
                 const swordRotation = isRightHand ? Math.PI / 8 : -Math.PI / 8;
                 ctx.translate(GRID_SIZE * 0.1, yOffset);
                 ctx.rotate(swordRotation);
-                ctx.fillStyle = '#374151';
+                ctx.fillStyle = '#374151'; // 손잡이 색 어둡게
+                ctx.strokeStyle = 'black'; // 테두리
+                 ctx.lineWidth = 1; // 테두리 두께
                 ctx.fillRect(-GRID_SIZE * 0.05, 0, GRID_SIZE * 0.1, GRID_SIZE * 0.2);
                 ctx.strokeRect(-GRID_SIZE * 0.05, 0, GRID_SIZE * 0.1, GRID_SIZE * 0.2);
                 ctx.beginPath();
@@ -482,55 +632,55 @@ export class Weapon {
             drawEquippedCurvedSword(false);
         } else if (this.type === 'fire_staff') {
             this.drawStaff(ctx, 0.8);
-        } else if (this.type === 'lightning') {
-            const revolutionAngle = gameManager.animationFrameCounter * 0.05;
-            const orbitRadius = GRID_SIZE * 0.8;
-            const weaponX = Math.cos(revolutionAngle) * orbitRadius;
-            const weaponY = Math.sin(revolutionAngle) * orbitRadius;
-            
-            ctx.save();
-            ctx.translate(weaponX, weaponY);
-            this.drawLightning(ctx, 0.48, 0); 
-            ctx.restore();
-        } else if (this.type === 'ice_diamond') {
-            ctx.translate(GRID_SIZE * 0.6, 0);
-            drawIceDiamondIcon(ctx, 0.6); // 60% size when equipped
-            for (let i = 0; i < unit.iceDiamondCharges; i++) {
-                const angle = (gameManager.animationFrameCounter * 0.02) + (i * (Math.PI * 2 / 5));
-                const orbitRadius = GRID_SIZE * 1.2;
-                const orbX = Math.cos(angle) * orbitRadius;
-                const orbY = Math.sin(angle) * orbitRadius;
-                ctx.save();
-                ctx.translate(orbX, orbY);
-                drawIceDiamondIcon(ctx, 0.5); // 50% size for orbiting orbs
-                ctx.restore();
-            }
-        } else if (this.type === 'magic_spear') {
+        } else if (this.type === 'lightning') { // 번개는 빛 효과 제외
+             const revolutionAngle = gameManager.animationFrameCounter * 0.05;
+             const orbitRadius = GRID_SIZE * 0.8;
+             const weaponX = Math.cos(revolutionAngle) * orbitRadius;
+             const weaponY = Math.sin(revolutionAngle) * orbitRadius;
+
+             ctx.save();
+             ctx.translate(weaponX, weaponY);
+             this.drawLightning(ctx, 0.48, 0);
+             ctx.restore();
+        } else if (this.type === 'ice_diamond') { // 얼음 다이아는 빛 효과 제외
+             ctx.translate(GRID_SIZE * 0.6, 0);
+             drawIceDiamondIcon(ctx, 0.6);
+             for (let i = 0; i < unit.iceDiamondCharges; i++) {
+                 const angle = (gameManager.animationFrameCounter * 0.02) + (i * (Math.PI * 2 / 5));
+                 const orbitRadius = GRID_SIZE * 1.2;
+                 const orbX = Math.cos(angle) * orbitRadius;
+                 const orbY = Math.sin(angle) * orbitRadius;
+                 ctx.save();
+                 ctx.translate(orbX, orbY);
+                 drawIceDiamondIcon(ctx, 0.5);
+                 ctx.restore();
+             }
+        } else if (this.type === 'magic_spear') { // 마법창은 빛 효과 제외 (자체 효과 있음)
             ctx.translate(GRID_SIZE * 0.2, GRID_SIZE * 0.4);
             this.drawMagicSpear(ctx, 0.5, -Math.PI / 8 + Math.PI);
         } else if (this.type === 'boomerang') {
-            ctx.translate(0, -GRID_SIZE * 0.5); 
+            ctx.translate(0, -GRID_SIZE * 0.5);
             this.drawBoomerang(ctx, 0.5);
-        } else if (this.type === 'poison_potion') {
-            ctx.translate(0, -GRID_SIZE * 0.5); 
+        } else if (this.type === 'poison_potion') { // 독포션은 빛 효과 제외
+            ctx.translate(0, -GRID_SIZE * 0.5);
             this.drawPoisonPotion(ctx, 0.3);
-        } else if (this.type === 'hadoken') {
-            ctx.translate(GRID_SIZE * 0.5, 0);
-            const hadokenScale = 0.7;
-            ctx.scale(hadokenScale, hadokenScale);
-            const grad = ctx.createRadialGradient(0, 0, 1, 0, 0, GRID_SIZE * 1.2);
-            grad.addColorStop(0, '#bfdbfe');
-            grad.addColorStop(0.6, '#3b82f6');
-            grad.addColorStop(1, '#1e40af');
-            ctx.fillStyle = grad;
-            ctx.strokeStyle = 'black';
-            ctx.lineWidth = 1.5 / hadokenScale;
-            ctx.beginPath();
-            ctx.arc(GRID_SIZE * 0.2, 0, GRID_SIZE * 0.6, -Math.PI / 2, Math.PI / 2, false);
-            ctx.lineTo(-GRID_SIZE * 0.8, 0);
-            ctx.closePath();
-            ctx.fill();
-            ctx.stroke();
+        } else if (this.type === 'hadoken') { // 장풍은 빛 효과 제외 (발사체에 효과)
+             ctx.translate(GRID_SIZE * 0.5, 0);
+             const hadokenScale = 0.7;
+             ctx.scale(hadokenScale, hadokenScale);
+             const grad = ctx.createRadialGradient(0, 0, 1, 0, 0, GRID_SIZE * 1.2);
+             grad.addColorStop(0, '#bfdbfe');
+             grad.addColorStop(0.6, '#3b82f6');
+             grad.addColorStop(1, '#1e40af');
+             ctx.fillStyle = grad;
+             ctx.strokeStyle = 'black';
+             ctx.lineWidth = 1.5 / hadokenScale;
+             ctx.beginPath();
+             ctx.arc(GRID_SIZE * 0.2, 0, GRID_SIZE * 0.6, -Math.PI / 2, Math.PI / 2, false);
+             ctx.lineTo(-GRID_SIZE * 0.8, 0);
+             ctx.closePath();
+             ctx.fill();
+             ctx.stroke();
         } else if (this.type === 'shuriken') {
             ctx.translate(GRID_SIZE * 0.4, GRID_SIZE * 0.3);
             const shurikenScale = 0.5;
@@ -552,10 +702,19 @@ export class Weapon {
             ctx.fill();
             ctx.stroke();
         }
-        ctx.restore();
+
+
+        // --- 추가: 빛나는 효과 복원 ---
+        if (unit.isSpecialReady && glowWeapons.includes(this.type)) {
+            ctx.restore(); // 빛 효과 그린 후 복원
+        }
+        // -----------------------------
+
+        ctx.restore(); // 최종 위치, 회전 복원
     }
 }
 
+// ... (Particle, createPhysicalHitEffect, createFireballHitEffect, Projectile, Effect, MagicDaggerDashEffect, AreaEffect 클래스는 변경 없음) ...
 // Particle class
 export class Particle {
     constructor(gameManager, options) {
@@ -595,8 +754,8 @@ export class Particle {
 
 /**
  * Function to create a physical hit effect
- * @param {object} gameManager 
- * @param {Unit | Nexus} target 
+ * @param {object} gameManager
+ * @param {Unit | Nexus} target
  */
 export function createPhysicalHitEffect(gameManager, target) {
     const particleCount = 6;
@@ -618,9 +777,9 @@ export function createPhysicalHitEffect(gameManager, target) {
 
 /**
  * [신규] 화염구 폭발 효과 생성 함수
- * @param {object} gameManager 
- * @param {number} x 
- * @param {number} y 
+ * @param {object} gameManager
+ * @param {number} x
+ * @param {number} y
  */
 export function createFireballHitEffect(gameManager, x, y) {
     const particleCount = 20; // 파티클 수를 20개로 줄임
@@ -649,7 +808,7 @@ export class Projectile {
         this.pixelX = options.startX !== undefined ? options.startX : owner.pixelX;
         this.pixelY = options.startY !== undefined ? options.startY : owner.pixelY;
         this.type = type;
-        
+
         // --- Shuriken Special Attack ---
         this.state = options.state || 'DEFAULT';
         this.lingerDuration = options.lingerDuration || 60; // Linger for 1 second (60 frames)
@@ -674,13 +833,12 @@ export class Projectile {
         else if (type === 'bouncing_sword') this.speed = 7;
         else this.speed = 6;
 
-        // [MODIFIED] 일반 공격과 스킬 공격의 데미지 계산을 완벽히 분리
         let baseNormalDamage = owner.baseAttackPower;
         let baseSpecialDamage = owner.specialAttackLevelBonus;
 
         const weaponType = owner.weapon ? owner.weapon.type : null;
         const skillAttackWeapons = [
-            'magic_dagger', 'poison_potion', 'ice_diamond', 'fire_staff', 
+            'magic_dagger', 'poison_potion', 'ice_diamond', 'fire_staff',
             'magic_spear', 'boomerang', 'hadoken', 'shuriken'
         ];
 
@@ -689,9 +847,8 @@ export class Projectile {
         } else {
             baseNormalDamage += owner.weapon.attackPowerBonus || 0;
         }
-    
+
         switch (type) {
-            // --- 스킬 공격력 기반 ---
             case 'shuriken':
             case 'returning_shuriken':
                 this.damage = baseSpecialDamage;
@@ -706,23 +863,21 @@ export class Projectile {
                 this.damage = baseSpecialDamage;
                 break;
             case 'mini_fireball_projectile':
-                this.damage = 15; // 고정 데미지로 변경
+                this.damage = 15;
                 break;
             case 'bouncing_sword':
-                this.damage = 20; // 고정 데미지로 변경
+                this.damage = 20;
                 break;
-            case 'boomerang_projectile': 
-                this.damage = 0; 
+            case 'boomerang_projectile':
+                this.damage = 0;
                 break;
-
-            // --- 일반 공격력 기반 ---
             case 'magic_spear_normal':
                 this.damage = baseNormalDamage + 5;
                 break;
             case 'boomerang_normal_projectile':
                 this.damage = baseNormalDamage + 10;
                 break;
-            case 'black_sphere_projectile': 
+            case 'black_sphere_projectile':
                 this.damage = baseNormalDamage + 7;
                 break;
             default:
@@ -732,7 +887,7 @@ export class Projectile {
 
         this.knockback = (type === 'hadoken') ? gameManager.hadokenKnockback : 0;
         const inaccuracy = (type === 'shuriken' || type === 'lightning_bolt' || type === 'sword_wave') ? 0 : GRID_SIZE * 0.8;
-        
+
         let targetX, targetY;
         if (type === 'returning_shuriken') {
             targetX = this.pixelX + Math.cos(options.angle);
@@ -758,7 +913,7 @@ export class Projectile {
     update() {
         const gameManager = this.gameManager;
         if (!gameManager) return;
-        
+
         if (this.type === 'returning_shuriken') {
             this.rotationAngle += this.lingerRotationSpeed * gameManager.gameSpeed;
 
@@ -768,7 +923,7 @@ export class Projectile {
                 this.pixelX += moveX;
                 this.pixelY += moveY;
                 this.distanceTraveled += Math.hypot(moveX, moveY);
-                
+
                 for (const unit of gameManager.units) {
                     if (unit.team !== this.owner.team && !this.hitTargets.has(unit) && Math.hypot(this.pixelX - unit.pixelX, this.pixelY - unit.pixelY) < GRID_SIZE / 2) {
                         unit.takeDamage(this.damage, {}, this.owner);
@@ -823,17 +978,15 @@ export class Projectile {
             return;
         }
 
-        // [MODIFIED] 얼음 다이아와 부메랑 특수 공격 투사체에 유도 기능 추가
         if (this.type === 'ice_diamond_projectile' || this.type === 'boomerang_projectile') {
             if (this.target && this.target.hp > 0) {
                 const targetAngle = Math.atan2(this.target.pixelY - this.pixelY, this.target.pixelX - this.pixelX);
                 let angleDiff = targetAngle - this.angle;
 
-                // 각도 차이를 -PI ~ PI 범위로 정규화
                 while (angleDiff > Math.PI) angleDiff -= 2 * Math.PI;
                 while (angleDiff < -Math.PI) angleDiff += 2 * Math.PI;
 
-                const turnSpeed = 0.03; // 프레임당 회전 속도 (라디안)
+                const turnSpeed = 0.03;
                 if (Math.abs(angleDiff) > turnSpeed) {
                     this.angle += Math.sign(angleDiff) * turnSpeed * gameManager.gameSpeed;
                 } else {
@@ -876,16 +1029,17 @@ export class Projectile {
         }
         this.pixelX = nextX; this.pixelY = nextY;
     }
-    
+
     draw(ctx) {
+        // ... (코드 생략 - 발사체 타입별 그리기 로직) ...
         if (this.type === 'shuriken' || this.type === 'returning_shuriken') {
             ctx.save();
             ctx.translate(this.pixelX, this.pixelY);
             ctx.rotate(this.rotationAngle);
-            const scale = 0.8; 
+            const scale = 0.8;
             ctx.scale(scale, scale);
-            ctx.fillStyle = '#9ca3af'; 
-            ctx.strokeStyle = 'black'; 
+            ctx.fillStyle = '#9ca3af';
+            ctx.strokeStyle = 'black';
             ctx.lineWidth = 2 / scale;
 
             ctx.beginPath();
@@ -901,7 +1055,7 @@ export class Projectile {
             ctx.fill();
             ctx.stroke();
 
-            ctx.fillStyle = '#d1d5db'; 
+            ctx.fillStyle = '#d1d5db';
             ctx.beginPath();
             ctx.arc(0, 0, GRID_SIZE * 0.2, 0, Math.PI * 2);
             ctx.fill();
@@ -911,8 +1065,8 @@ export class Projectile {
         }
 
         if (this.type === 'arrow') {
-            ctx.save(); 
-            ctx.translate(this.pixelX, this.pixelY); 
+            ctx.save();
+            ctx.translate(this.pixelX, this.pixelY);
             ctx.rotate(this.angle);
             ctx.scale(1.2, 1.2);
 
@@ -920,7 +1074,6 @@ export class Projectile {
             ctx.strokeStyle = '#000000';
             ctx.lineWidth = 1;
 
-            // 화살 몸통
             ctx.beginPath();
             ctx.moveTo(-GRID_SIZE * 0.7, 0);
             ctx.lineTo(GRID_SIZE * 0.4, 0);
@@ -933,7 +1086,6 @@ export class Projectile {
             ctx.fill();
             ctx.stroke();
 
-            // 화살촉
             ctx.beginPath();
             ctx.moveTo(GRID_SIZE * 0.6, -2.5);
             ctx.lineTo(GRID_SIZE * 0.9, 0);
@@ -942,7 +1094,6 @@ export class Projectile {
             ctx.fill();
             ctx.stroke();
 
-            // 깃털
             ctx.beginPath();
             ctx.moveTo(-GRID_SIZE * 0.7, 0);
             ctx.lineTo(-GRID_SIZE * 0.8, -3);
@@ -955,7 +1106,7 @@ export class Projectile {
             ctx.save();
             ctx.translate(this.pixelX, this.pixelY);
             ctx.rotate(this.angle - Math.PI / 2);
-            
+
             ctx.strokeStyle = '#ef4444';
             ctx.lineWidth = 4;
             ctx.shadowColor = 'rgba(255, 0, 0, 0.7)';
@@ -964,7 +1115,7 @@ export class Projectile {
             ctx.beginPath();
             ctx.arc(0, 0, GRID_SIZE * 0.7, 0, Math.PI, false);
             ctx.stroke();
-            
+
             ctx.restore();
         } else if (this.type === 'bouncing_sword') {
             ctx.save();
@@ -1039,7 +1190,7 @@ export class Projectile {
                 const alpha = (i / this.trail.length) * 0.3;
                 const trailX = (pos.x - this.pixelX) * Math.cos(-this.angle) - (pos.y - this.pixelY) * Math.sin(-this.angle);
                 const trailY = (pos.x - this.pixelX) * Math.sin(-this.angle) + (pos.y - this.pixelY) * Math.cos(-this.angle);
-                
+
                 ctx.fillStyle = trailColor.replace('0.4', alpha);
                 ctx.beginPath();
                 ctx.arc(trailX, trailY, (GRID_SIZE / 4) * (i / this.trail.length), 0, Math.PI * 2);
@@ -1053,13 +1204,13 @@ export class Projectile {
             ctx.lineTo(0, spearWidth);
             ctx.closePath();
             ctx.fill();
-            
+
             ctx.restore();
         } else if (this.type === 'boomerang_projectile') {
             ctx.save();
             ctx.translate(this.pixelX, this.pixelY);
-            ctx.rotate(this.rotationAngle); 
-            this.owner.weapon.drawBoomerang(ctx, 0.6); 
+            ctx.rotate(this.rotationAngle);
+            this.owner.weapon.drawBoomerang(ctx, 0.6);
             ctx.restore();
         } else if (this.type === 'boomerang_normal_projectile') {
             ctx.save();
@@ -1079,7 +1230,7 @@ export class Projectile {
             ctx.save();
             ctx.translate(this.pixelX, this.pixelY);
             ctx.rotate(this.angle);
-            
+
             const size = GRID_SIZE * 0.6;
             const grad = ctx.createLinearGradient(-size, -size, size, size);
             grad.addColorStop(0, '#e0f2fe');
@@ -1096,10 +1247,10 @@ export class Projectile {
             ctx.lineTo(-size * 0.8, 0);
             ctx.lineTo(0, size * 0.6);
             ctx.closePath();
-            
+
             ctx.fill();
             ctx.stroke();
-            
+
             ctx.restore();
         } else if (this.type === 'ice_bolt_projectile') {
             ctx.save();
@@ -1158,7 +1309,7 @@ export class Effect {
         this.gameManager = gameManager;
         this.x = x; this.y = y; this.type = type; this.target = target;
         this.duration = 20; this.angle = this.gameManager.random() * Math.PI * 2;
-        
+
         if (this.type === 'question_mark_effect') {
             this.duration = 60;
             this.particles = [];
@@ -1172,7 +1323,6 @@ export class Effect {
                 });
             }
         } else if (this.type === 'level_up') {
-            // [NEW] 레벨업 이펙트 지속 시간 설정
             this.duration = 40;
         }
     }
@@ -1236,12 +1386,10 @@ export class Effect {
             const opacity = Math.min(1, this.duration / (initialDuration / 2));
             ctx.save();
             ctx.translate(this.target.pixelX, this.target.pixelY + yOffset);
-            // [MODIFIED] 레벨업 글자 크기를 기존보다 30% 작게 조정했습니다.
             ctx.scale(1.05, 1.05);
             ctx.fillStyle = `rgba(255, 215, 0, ${opacity})`;
             ctx.font = 'bold 12px Arial';
             ctx.textAlign = 'center';
-            // [MODIFIED] 가독성을 위해 검은색 테두리를 제거했습니다.
             ctx.fillText('LEVEL UP!', 0, 0);
             ctx.restore();
         }
@@ -1267,7 +1415,7 @@ export class MagicDaggerDashEffect {
             const progress = 1 - (this.life / this.initialLife);
             const particleX = this.startPos.x + (this.endPos.x - this.startPos.x) * progress;
             const particleY = this.startPos.y + (this.endPos.y - this.startPos.y) * progress;
-            
+
             this.gameManager.addParticle({
                 x: particleX,
                 y: particleY,
@@ -1282,7 +1430,7 @@ export class MagicDaggerDashEffect {
 
     draw(ctx) {
         const opacity = this.life / this.initialLife;
-        
+
         ctx.save();
         ctx.globalAlpha = opacity;
         ctx.strokeStyle = '#ffffff';
@@ -1294,12 +1442,11 @@ export class MagicDaggerDashEffect {
         ctx.moveTo(this.startPos.x, this.startPos.y);
         ctx.lineTo(this.endPos.x, this.endPos.y);
         ctx.stroke();
-        
+
         ctx.restore();
     }
 }
 
-// [수정] AreaEffect 클래스를 export 합니다.
 export class AreaEffect {
     constructor(gameManager, x, y, type, options = {}) {
         this.gameManager = gameManager;
@@ -1329,7 +1476,7 @@ export class AreaEffect {
         if (!gameManager) return;
         this.duration -= gameManager.gameSpeed;
         this.currentRadius = this.maxRadius * (1 - (this.duration / 30));
-        
+
         if (this.type === 'fire_pillar') {
             this.particles.forEach(p => {
                 p.y -= p.speed * gameManager.gameSpeed;
@@ -1347,7 +1494,7 @@ export class AreaEffect {
                     }
                 }
             });
-            
+
             gameManager.nexuses.forEach(nexus => {
                 if (nexus.team !== this.ownerTeam && !this.damagedNexuses.has(nexus)) {
                     const dist = Math.hypot(nexus.pixelX - this.pixelX, nexus.pixelY - this.pixelY);
@@ -1373,7 +1520,7 @@ export class AreaEffect {
             ctx.beginPath();
             ctx.arc(0, 0, this.currentRadius, 0, Math.PI * 2);
             ctx.fill();
-            
+
             this.particles.forEach(p => {
                 ctx.globalAlpha = (p.lifespan / 20) * opacity;
                 ctx.fillStyle = p.color;
