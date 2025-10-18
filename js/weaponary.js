@@ -10,14 +10,13 @@ import {
     drawPoisonPotion as designDrawPoisonPotion,
 } from './weaponDesigns.js';
 
-// --- 추가: 형광 색상 정의 (unit.js와 동일하게) ---
+// 형광 색상 정의 (밝기를 약간 낮춤 - alpha 값 추가)
 const GLOW_COLORS = {
-    TEAM_A: '#ff4444', // 밝은 빨강
-    TEAM_B: '#3b82f6', // 밝은 파랑
-    TEAM_C: '#10b981', // 밝은 초록
-    TEAM_D: '#facc15'  // 밝은 노랑
+    TEAM_A: 'rgba(255, 100, 100, 0.8)',
+    TEAM_B: 'rgba(100, 150, 255, 0.8)',
+    TEAM_C: 'rgba(50, 220, 150, 0.8)',
+    TEAM_D: 'rgba(255, 220, 100, 0.8)'
 };
-// ---------------------------------------------
 
 // Weapon class
 export class Weapon {
@@ -39,7 +38,6 @@ export class Weapon {
         const gameManager = this.gameManager;
         if (!gameManager) return;
 
-        // Reset special ready status if a special attack is used
         let usedSpecial = false;
 
         if (['sword', 'dual_swords', 'boomerang', 'poison_potion', 'magic_dagger', 'axe', 'bow'].includes(this.type)) {
@@ -58,9 +56,9 @@ export class Weapon {
                 unit.swordSpecialAttackAnimationTimer = 30;
                 gameManager.createProjectile(unit, target, 'sword_wave');
                 gameManager.audioManager.play('Aurablade');
-                usedSpecial = true; // Mark special as used
+                usedSpecial = true;
 
-                for (let i = 0; i < 20; i++) {
+                for (let i = 0; i < 20; i++) { /* ... 파티클 ... */
                     const angle = gameManager.random() * Math.PI * 2;
                     const speed = 1 + gameManager.random() * 3;
                     gameManager.addParticle({
@@ -78,21 +76,21 @@ export class Weapon {
 
             if (unit.attackCount >= 3) {
                 unit.attackCount = 0;
-
-                const recoilAngle = unit.facingAngle + Math.PI;
+                /* ... 반동 ... */
+                 const recoilAngle = unit.facingAngle + Math.PI;
                 const recoilForce = 4;
                 unit.knockbackX += Math.cos(recoilAngle) * recoilForce;
                 unit.knockbackY += Math.sin(recoilAngle) * recoilForce;
 
                 gameManager.createProjectile(unit, target, 'arrow');
-                setTimeout(() => {
+                setTimeout(() => { /* ... 추가 화살 ... */
                     if (unit.hp > 0) {
                         gameManager.createProjectile(unit, target, 'arrow');
                     }
-                }, 150);
-                usedSpecial = true; // Mark special as used
+                 }, 150);
+                usedSpecial = true;
 
-                for (let i = 0; i < 20; i++) {
+                for (let i = 0; i < 20; i++) { /* ... 파티클 ... */
                     const angle = gameManager.random() * Math.PI * 2;
                     const speed = 1 + gameManager.random() * 3;
                     gameManager.addParticle({
@@ -106,28 +104,23 @@ export class Weapon {
                 gameManager.createProjectile(unit, target, 'arrow');
             }
         } else if (this.type === 'magic_dagger') {
-             // Magic dagger special is handled in unit update (aiming logic)
-             // This is the normal attack
             target.takeDamage(unit.attackPower, {}, unit);
             gameManager.createEffect('slash', unit.pixelX, unit.pixelY, target);
-            gameManager.audioManager.play('dualSwordHit'); // Should probably be a different sound
-            unit.attackCooldown = 120; // Normal attack cooldown
+            gameManager.audioManager.play('dualSwordHit');
+            unit.attackCooldown = 120;
         } else if (this.type === 'dual_swords') {
-             // Dual swords special is handled in unit update (projectile logic)
-             // This is the normal attack
             target.takeDamage(unit.attackPower, {}, unit);
             gameManager.createEffect('dual_sword_slash', unit.pixelX, unit.pixelY, target);
             gameManager.audioManager.play('dualSwordHit');
             unit.attackCooldown = unit.cooldownTime;
         } else if (this.type === 'axe') {
-             // Axe special is handled in unit update (spin logic)
-             // This is the normal attack
             target.takeDamage(unit.attackPower, {}, unit);
             gameManager.createEffect('slash', unit.pixelX, unit.pixelY, target);
             gameManager.audioManager.play('swordHit');
             unit.attackCooldown = unit.cooldownTime;
         } else if (this.type === 'ice_diamond') {
-            if (unit.iceDiamondCharges > 0) {
+            // ... (얼음 다이아 로직 - 변경 없음) ...
+             if (unit.iceDiamondCharges > 0) {
                 for (let i = 0; i < unit.iceDiamondCharges; i++) {
                     setTimeout(() => {
                         if (unit.hp > 0) {
@@ -138,27 +131,22 @@ export class Weapon {
                 gameManager.audioManager.play('Ice');
                 unit.iceDiamondCharges = 0;
                 unit.iceDiamondChargeTimer = 0;
-                // Note: Ice Diamond doesn't have a traditional 'special ready' state reset here
             } else {
                 gameManager.createProjectile(unit, target, 'ice_bolt_projectile');
-                gameManager.audioManager.play('punch'); // Maybe ice sound?
+                gameManager.audioManager.play('punch');
             }
             unit.attackCooldown = unit.cooldownTime;
         } else if (this.type === 'fire_staff') {
-             // Fire staff special is handled in unit update (fireball logic)
-             // This is the normal attack
             gameManager.createProjectile(unit, target, 'black_sphere_projectile');
-            gameManager.audioManager.play('punch'); // Maybe fire sound?
+            gameManager.audioManager.play('punch');
             unit.attackCooldown = unit.cooldownTime;
         } else if (this.type === 'shuriken') {
-            // Shuriken special is handled here, check isSpecialReady
             if (unit.isSpecialReady) {
-                const angleToTarget = Math.atan2(target.pixelY - unit.pixelY, target.pixelX - unit.pixelX);
+                // ... (표창 스킬 로직) ...
+                 const angleToTarget = Math.atan2(target.pixelY - unit.pixelY, target.pixelX - unit.pixelX);
                 const spread = 0.3;
                 const angles = [angleToTarget - spread, angleToTarget, angleToTarget + spread];
-
                 const dummyTarget = { pixelX: 0, pixelY: 0 };
-
                 angles.forEach(angle => {
                     gameManager.createProjectile(unit, dummyTarget, 'returning_shuriken', {
                         angle: angle,
@@ -167,49 +155,42 @@ export class Weapon {
                     });
                 });
                 unit.shurikenSkillCooldown = 480;
-                usedSpecial = true; // Mark special as used
+                usedSpecial = true;
             } else {
                 gameManager.createProjectile(unit, target, 'shuriken');
             }
             gameManager.audioManager.play('shurikenShoot');
             unit.attackCooldown = unit.cooldownTime;
         } else if (this.type === 'hadoken') {
-            gameManager.createProjectile(unit, target, 'hadoken');
+            // ... (장풍 로직 - 변경 없음) ...
+             gameManager.createProjectile(unit, target, 'hadoken');
             gameManager.audioManager.play('hadokenShoot');
             unit.attackCooldown = unit.cooldownTime;
-            // Note: Hadoken doesn't have a special attack state in this logic
         } else if (this.type === 'lightning') {
-            gameManager.createProjectile(unit, target, 'lightning_bolt');
+            // ... (번개 로직 - 변경 없음) ...
+             gameManager.createProjectile(unit, target, 'lightning_bolt');
             gameManager.audioManager.play('electricity');
             unit.attackCooldown = unit.cooldownTime;
-             // Note: Lightning doesn't have a special attack state in this logic
         } else if (this.type === 'magic_spear') {
-             // Magic spear special is handled in unit update (stunned target logic)
-             // This is the normal attack
             gameManager.createProjectile(unit, target, 'magic_spear_normal');
-            gameManager.audioManager.play('punch'); // Maybe spear sound?
+            gameManager.audioManager.play('punch');
             unit.attackCooldown = unit.cooldownTime;
         } else if (this.type === 'boomerang') {
-             // Boomerang special is handled in unit update (cooldown logic)
-             // This is the normal attack
             gameManager.createProjectile(unit, target, 'boomerang_normal_projectile');
-            gameManager.audioManager.play('punch'); // Maybe boomerang sound?
+            gameManager.audioManager.play('punch');
             unit.attackCooldown = unit.cooldownTime;
         } else if (this.type === 'poison_potion') {
-            // Poison potion 'special' is dying and creating a cloud, handled in unit death
-            target.takeDamage(15, {}, unit); // Normal attack damage
+            target.takeDamage(15, {}, unit);
             unit.attackCooldown = unit.cooldownTime;
         }
 
-        // --- 추가: 특수 공격 사용 시 상태 초기화 ---
         if (usedSpecial) {
             unit.isSpecialReady = false;
         }
-        // ----------------------------------------
     }
 
-
-    drawStaff(ctx, scale = 1.0) {
+    // ... (drawStaff, drawLightning, drawMagicSpear, drawBoomerang, drawPoisonPotion - 변경 없음) ...
+     drawStaff(ctx, scale = 1.0) {
         designDrawStaff(ctx, scale);
     }
 
@@ -229,28 +210,26 @@ export class Weapon {
         designDrawPoisonPotion(ctx, scale);
     }
 
-
     /**
      * Draws the weapon when it's on the ground.
      * @param {CanvasRenderingContext2D} ctx
      */
     draw(ctx) {
-        if (this.isEquipped) return;
+        // ... (땅에 떨어진 무기 그리기 - 변경 없음) ...
+         if (this.isEquipped) return;
         const centerX = this.pixelX; const centerY = this.pixelY;
         const scale = (this.type === 'crown') ? 1.0 : (this.type === 'lightning' ? 0.6 : (this.type === 'magic_spear' ? 0.6 : (this.type === 'poison_potion' ? 0.624 : (this.type === 'boomerang' ? 0.49 : 0.8))));
         ctx.save();
         ctx.translate(centerX, centerY);
         ctx.scale(scale, scale);
 
-        if (this.type !== 'magic_dagger') { // Magic dagger has its own shadow
+        if (this.type !== 'magic_dagger') {
              ctx.strokeStyle = 'black';
              ctx.lineWidth = 1 / scale;
         }
 
-
-        // ... (코드 생략 - 각 무기별 땅에 떨어져 있을 때 그리는 로직) ...
-        if (this.type === 'sword') {
-            ctx.rotate(Math.PI / 4);
+        if (this.type === 'sword') { /* ... 검 그리기 ... */
+              ctx.rotate(Math.PI / 4);
             const bladeGradient = ctx.createLinearGradient(0, -GRID_SIZE, 0, 0);
             bladeGradient.addColorStop(0, '#f3f4f6'); bladeGradient.addColorStop(1, '#9ca3af');
             ctx.fillStyle = bladeGradient;
@@ -266,8 +245,8 @@ export class Weapon {
             ctx.closePath(); ctx.fill(); ctx.stroke();
             ctx.fillStyle = '#1f2937';
             ctx.fillRect(-1.5, GRID_SIZE * 0.3 + 3, 3, GRID_SIZE * 0.3); ctx.strokeRect(-1.5, GRID_SIZE * 0.3 + 3, 3, GRID_SIZE * 0.3);
-        } else if (this.type === 'bow') {
-            ctx.rotate(Math.PI / 4);
+         } else if (this.type === 'bow') { /* ... 활 그리기 ... */
+              ctx.rotate(Math.PI / 4);
             ctx.fillStyle = '#f3f4f6';
             ctx.fillRect(-GRID_SIZE * 0.7, -1, GRID_SIZE * 1.2, 2);
             ctx.strokeRect(-GRID_SIZE * 0.7, -1, GRID_SIZE * 1.2, 2);
@@ -283,8 +262,8 @@ export class Weapon {
             ctx.moveTo(Math.cos(-arcAngle) * arcRadius, Math.sin(-arcAngle) * arcRadius);
             ctx.lineTo(-GRID_SIZE * 0.4, 0);
             ctx.lineTo(Math.cos(arcAngle) * arcRadius, Math.sin(arcAngle) * arcRadius); ctx.stroke();
-        } else if (this.type === 'dual_swords') {
-            const drawCurvedSword = (rotation) => {
+         } else if (this.type === 'dual_swords') { /* ... 쌍검 그리기 ... */
+               const drawCurvedSword = (rotation) => {
                 ctx.save();
                 ctx.rotate(rotation);
                 ctx.fillStyle = '#6b7280';
@@ -306,26 +285,22 @@ export class Weapon {
             };
             drawCurvedSword(-Math.PI / 4);
             drawCurvedSword(Math.PI / 4);
-        } else if (this.type === 'fire_staff') {
-            this.drawStaff(ctx, scale);
-        } else if (this.type === 'lightning') {
-            this.drawLightning(ctx, 1.0, Math.PI / 4);
-        } else if (this.type === 'magic_spear') {
-            this.drawMagicSpear(ctx, 0.8, -Math.PI / 8);
-        } else if (this.type === 'boomerang') {
-            this.drawBoomerang(ctx, 1.0, -Math.PI / 6);
-        } else if (this.type === 'poison_potion') {
-            this.drawPoisonPotion(ctx, scale);
-        } else if (this.type === 'magic_dagger') {
-            ctx.rotate(Math.PI / 4);
+         } else if (this.type === 'fire_staff') { this.drawStaff(ctx, scale); }
+         else if (this.type === 'lightning') { this.drawLightning(ctx, 1.0, Math.PI / 4); }
+         else if (this.type === 'magic_spear') { this.drawMagicSpear(ctx, 0.8, -Math.PI / 8); }
+         else if (this.type === 'boomerang') { this.drawBoomerang(ctx, 1.0, -Math.PI / 6); }
+         else if (this.type === 'poison_potion') { this.drawPoisonPotion(ctx, scale); }
+         else if (this.type === 'magic_dagger') { /* ... 마법 단검 그리기 ... */
+              ctx.rotate(Math.PI / 4);
             drawMagicDaggerIcon(ctx);
-        } else if (this.type === 'axe') {
-            ctx.rotate(Math.PI / 4);
+          }
+         else if (this.type === 'axe') { /* ... 도끼 그리기 ... */
+              ctx.rotate(Math.PI / 4);
             drawAxeIcon(ctx);
-        } else if (this.type === 'ice_diamond') {
-            drawIceDiamondIcon(ctx);
-        } else if (this.type === 'hadoken') {
-            ctx.rotate(Math.PI / 4);
+          }
+         else if (this.type === 'ice_diamond') { drawIceDiamondIcon(ctx); }
+         else if (this.type === 'hadoken') { /* ... 장풍 아이콘 그리기 ... */
+              ctx.rotate(Math.PI / 4);
             const grad = ctx.createRadialGradient(0, 0, 1, 0, 0, GRID_SIZE * 1.2);
             grad.addColorStop(0, '#bfdbfe');
             grad.addColorStop(0.6, '#3b82f6');
@@ -339,8 +314,9 @@ export class Weapon {
             ctx.closePath();
             ctx.fill();
             ctx.stroke();
-        } else if (this.type === 'shuriken') {
-            ctx.rotate(Math.PI / 4);
+          }
+         else if (this.type === 'shuriken') { /* ... 표창 그리기 ... */
+              ctx.rotate(Math.PI / 4);
             ctx.fillStyle = '#9ca3af';
             ctx.strokeStyle = 'black';
             ctx.lineWidth = 2 / scale;
@@ -363,20 +339,21 @@ export class Weapon {
             ctx.arc(0, 0, GRID_SIZE * 0.2, 0, Math.PI * 2);
             ctx.fill();
             ctx.stroke();
-        } else if (this.type === 'crown') {
-            ctx.fillStyle = '#facc15';
+          }
+         else if (this.type === 'crown') { /* ... 왕관 그리기 ... */
+              ctx.fillStyle = '#facc15';
             ctx.beginPath();
             ctx.moveTo(-GRID_SIZE * 0.6, -GRID_SIZE * 0.25); ctx.lineTo(-GRID_SIZE * 0.6, GRID_SIZE * 0.35);
             ctx.lineTo(GRID_SIZE * 0.6, GRID_SIZE * 0.35); ctx.lineTo(GRID_SIZE * 0.6, -GRID_SIZE * 0.25);
             ctx.lineTo(GRID_SIZE * 0.3, 0); ctx.lineTo(0, -GRID_SIZE * 0.25);
             ctx.lineTo(-GRID_SIZE * 0.3, 0); ctx.closePath();
             ctx.fill(); ctx.stroke();
-        }
+          }
         ctx.restore();
     }
 
     /**
-     * [MODIFIED] Draws the weapon when it's equipped by a unit. Adds glow effect.
+     * [MODIFIED] Draws the weapon when it's equipped by a unit. Adds adjusted glow effect.
      * @param {CanvasRenderingContext2D} ctx
      * @param {Unit} unit
      */
@@ -386,25 +363,25 @@ export class Weapon {
 
         const scale = 1 + (unit.awakeningEffect?.stacks || 0) * 0.2;
 
-        ctx.save();
+        ctx.save(); // 전체 상태 저장
+
+        // --- 위치, 크기, 회전 적용 (변경 없음) ---
         ctx.translate(unit.pixelX, unit.pixelY);
         ctx.scale(scale, scale);
 
         let rotation = unit.facingAngle;
+        // ... (회전 애니메이션 로직) ...
         if (this.type !== 'bow' && unit.attackAnimationTimer > 0) {
             const swingProgress = Math.sin((15 - unit.attackAnimationTimer) / 15 * Math.PI);
             rotation += swingProgress * Math.PI / 4;
         }
-
-        if (this.type === 'axe' && unit.spinAnimationTimer > 0) {
+         if (this.type === 'axe' && unit.spinAnimationTimer > 0) {
             rotation += ((30 - unit.spinAnimationTimer) / 30) * Math.PI * 2;
         }
-
         if (this.type === 'sword' && unit.swordSpecialAttackAnimationTimer > 0) {
             rotation += ((30 - unit.swordSpecialAttackAnimationTimer) / 30) * Math.PI * 2;
         }
-
-        if (this.type === 'dual_swords' && unit.dualSwordSpinAttackTimer > 0) {
+         if (this.type === 'dual_swords' && unit.dualSwordSpinAttackTimer > 0) {
             const spinProgress = (20 - unit.dualSwordSpinAttackTimer) / 20;
             rotation += spinProgress * Math.PI * 4;
         }
@@ -412,39 +389,33 @@ export class Weapon {
         if (this.type !== 'lightning' && this.type !== 'ice_diamond') {
             ctx.rotate(rotation);
         }
+        // ------------------------------------
 
-        // --- 추가: 특수 공격 준비 시 무기 빛나는 효과 ---
+        // --- 수정: 빛나는 효과 적용 (밝기 조절) ---
         const glowWeapons = ['sword', 'bow', 'axe', 'fire_staff', 'boomerang', 'shuriken', 'magic_dagger', 'dual_swords'];
+        let needsGlowRestore = false;
         if (unit.isSpecialReady && glowWeapons.includes(this.type)) {
-            ctx.save();
-            ctx.globalCompositeOperation = 'lighter';
+            needsGlowRestore = true;
+            ctx.save(); // 빛 효과를 위한 상태 저장
+            // ctx.globalCompositeOperation = 'lighter'; // 제거
             let glowColor;
             switch (unit.team) {
                 case TEAM.A: glowColor = GLOW_COLORS.TEAM_A; break;
                 case TEAM.B: glowColor = GLOW_COLORS.TEAM_B; break;
                 case TEAM.C: glowColor = GLOW_COLORS.TEAM_C; break;
                 case TEAM.D: glowColor = GLOW_COLORS.TEAM_D; break;
-                default: glowColor = '#FFFFFF'; break;
+                default: glowColor = 'rgba(255, 255, 255, 0.7)'; break;
             }
-            // 무기 그림자/블러 효과 설정 (기존 무기 그리기 코드에서 shadow 관련 부분을 참고하여 조정)
-            if (this.type === 'magic_dagger') {
-                 ctx.shadowColor = 'rgba(255, 255, 255, 0.6)';
-                 ctx.shadowBlur = 10;
-            } else if (this.type === 'magic_spear') { // 비록 요청 목록엔 없지만, 혹시 몰라 추가
-                 ctx.shadowColor = 'rgba(192, 132, 252, 0.8)';
-                 ctx.shadowBlur = 15 / scale;
-            } else {
-                ctx.shadowColor = glowColor;
-                ctx.shadowBlur = 10 / scale; // 유닛 크기 변화에 따라 블러 조정
-            }
+            // 그림자 색상의 투명도를 낮추고 블러 반경 줄임
+            ctx.shadowColor = glowColor.substring(0, glowColor.lastIndexOf(',')) + ', 0.5)';
+            ctx.shadowBlur = 8 / scale;
         }
-        // ---------------------------------------------
+        // ---------------------------------------
 
-
-        // --- 각 무기별 그리기 로직 (기존 코드와 유사) ---
-        // ... (코드 생략 - 검, 활, 쌍검 등 각 무기 그리기) ...
-        if (this.type === 'sword') {
-            ctx.translate(GRID_SIZE * 0.5, 0);
+        // --- 각 무기별 그리기 로직 (변경 없음) ---
+        // ... (검, 활, 쌍검 등 각 무기 그리기 로직 - 이전과 동일) ...
+         if (this.type === 'sword') { /* ... 검 그리기 ... */
+               ctx.translate(GRID_SIZE * 0.5, 0);
             ctx.rotate(Math.PI / 4);
 
             const bladeGradient = ctx.createLinearGradient(0, -GRID_SIZE, 0, 0);
@@ -476,16 +447,14 @@ export class Weapon {
             ctx.fillStyle = '#1f2937';
             ctx.fillRect(-1.5, GRID_SIZE * 0.3 + 3, 3, GRID_SIZE * 0.3);
             ctx.strokeRect(-1.5, GRID_SIZE * 0.3 + 3, 3, GRID_SIZE * 0.3);
-        } else if (this.type === 'magic_dagger') {
-            ctx.translate(-GRID_SIZE * 0.4, 0);
+          } else if (this.type === 'magic_dagger') { /* ... 마법 단검 그리기 ... */
+              ctx.translate(-GRID_SIZE * 0.4, 0);
             ctx.scale(0.7, 0.7);
             ctx.rotate(-Math.PI / 8);
-            // drawMagicDaggerIcon 함수를 직접 호출하는 대신 내부 로직 사용 (빛 효과 적용 위해)
              const daggerScale = GRID_SIZE * 0.1;
              ctx.strokeStyle = '#111827';
              ctx.lineWidth = 2;
 
-             // Handle
              const handleGradient = ctx.createLinearGradient(0, 0, 0, 10 * daggerScale);
              handleGradient.addColorStop(0, '#374151');
              handleGradient.addColorStop(1, '#1f2937');
@@ -497,7 +466,6 @@ export class Weapon {
              ctx.fill();
              ctx.stroke();
 
-             // Guard
              ctx.fillStyle = '#e5e7eb';
              const guardWidth = 5 * daggerScale;
              const guardHeight = 1.6 * daggerScale;
@@ -505,7 +473,6 @@ export class Weapon {
              ctx.fillRect(-guardWidth / 2, guardY, guardWidth, guardHeight);
              ctx.strokeRect(-guardWidth / 2, guardY, guardWidth, guardHeight);
 
-             // Blade
              const bladeGradientDagger = ctx.createLinearGradient(0, -12 * daggerScale, 0, guardY);
              bladeGradientDagger.addColorStop(0, '#ffffff');
              bladeGradientDagger.addColorStop(0.5, '#f3f4f6');
@@ -519,21 +486,17 @@ export class Weapon {
              ctx.fill();
              ctx.stroke();
 
-             // Inner bevel
              ctx.beginPath();
              ctx.moveTo(0.5 * daggerScale, guardY);
              ctx.quadraticCurveTo(0, -5 * daggerScale, 1.2 * daggerScale, -8 * daggerScale);
              ctx.strokeStyle = 'rgba(17,24,39,0.45)';
              ctx.lineWidth = 1.2;
              ctx.stroke();
-
-        } else if (this.type === 'axe') {
-            ctx.translate(GRID_SIZE * 0.8, -GRID_SIZE * 0.7);
+          } else if (this.type === 'axe') { /* ... 도끼 그리기 ... */
+               ctx.translate(GRID_SIZE * 0.8, -GRID_SIZE * 0.7);
             ctx.rotate(Math.PI / 4);
             ctx.scale(0.8, 0.8);
-            // drawAxeIcon 함수를 직접 호출하는 대신 내부 로직 사용
              const axeScale = GRID_SIZE * 0.08;
-             // Handle
              ctx.fillStyle = '#1f2937';
              ctx.strokeStyle = '#000000';
              ctx.lineWidth = 2;
@@ -542,7 +505,6 @@ export class Weapon {
              ctx.fillRect(-handleWidthAxe / 2, -5 * axeScale, handleWidthAxe, handleHeightAxe);
              ctx.strokeRect(-handleWidthAxe / 2, -5 * axeScale, handleWidthAxe, handleHeightAxe);
 
-             // Double blade
              const bladeGradientAxe = ctx.createLinearGradient(-12 * axeScale, 0, 12 * axeScale, 0);
              bladeGradientAxe.addColorStop(0, '#d1d5db');
              bladeGradientAxe.addColorStop(0.5, '#f9fafb');
@@ -564,21 +526,21 @@ export class Weapon {
              ctx.closePath();
              ctx.fill();
              ctx.stroke();
-        } else if (this.type === 'bow') {
-            ctx.translate(GRID_SIZE * 0.4, 0);
+          } else if (this.type === 'bow') { /* ... 활 그리기 ... */
+              ctx.translate(GRID_SIZE * 0.4, 0);
             ctx.rotate(-Math.PI / 4);
             const bowScale = 0.56;
             ctx.scale(bowScale, bowScale);
             ctx.fillStyle = '#f3f4f6';
-            ctx.strokeStyle = 'black'; // 테두리 색상 추가
-            ctx.lineWidth = 1 / bowScale; // 테두리 두께 조정
+            ctx.strokeStyle = 'black';
+            ctx.lineWidth = 1 / bowScale;
             ctx.fillRect(-GRID_SIZE * 0.7, -1, GRID_SIZE * 1.2, 2);
-            ctx.strokeRect(-GRID_SIZE * 0.7, -1, GRID_SIZE * 1.2, 2); // 테두리 그리기
+            ctx.strokeRect(-GRID_SIZE * 0.7, -1, GRID_SIZE * 1.2, 2);
             ctx.fillStyle = '#e5e7eb';
-            ctx.beginPath(); ctx.moveTo(GRID_SIZE * 0.5, 0); ctx.lineTo(GRID_SIZE * 0.3, -3); ctx.lineTo(GRID_SIZE * 0.3, 3); ctx.closePath(); ctx.fill(); ctx.stroke(); // 테두리
+            ctx.beginPath(); ctx.moveTo(GRID_SIZE * 0.5, 0); ctx.lineTo(GRID_SIZE * 0.3, -3); ctx.lineTo(GRID_SIZE * 0.3, 3); ctx.closePath(); ctx.fill(); ctx.stroke();
             ctx.fillStyle = '#d1d5db';
-            ctx.beginPath(); ctx.moveTo(-GRID_SIZE * 0.6, -1); ctx.lineTo(-GRID_SIZE * 0.7, -4); ctx.lineTo(-GRID_SIZE * 0.5, -1); ctx.closePath(); ctx.fill(); ctx.stroke(); // 테두리
-            ctx.beginPath(); ctx.moveTo(-GRID_SIZE * 0.6, 1); ctx.lineTo(-GRID_SIZE * 0.7, 4); ctx.lineTo(-GRID_SIZE * 0.5, 1); ctx.closePath(); ctx.fill(); ctx.stroke(); // 테두리
+            ctx.beginPath(); ctx.moveTo(-GRID_SIZE * 0.6, -1); ctx.lineTo(-GRID_SIZE * 0.7, -4); ctx.lineTo(-GRID_SIZE * 0.5, -1); ctx.closePath(); ctx.fill(); ctx.stroke();
+            ctx.beginPath(); ctx.moveTo(-GRID_SIZE * 0.6, 1); ctx.lineTo(-GRID_SIZE * 0.7, 4); ctx.lineTo(-GRID_SIZE * 0.5, 1); ctx.closePath(); ctx.fill(); ctx.stroke();
 
             ctx.strokeStyle = 'black'; ctx.lineWidth = 6 / bowScale; ctx.beginPath(); ctx.arc(0, 0, GRID_SIZE * 0.8, -Math.PI / 2.2, Math.PI / 2.2); ctx.stroke();
             ctx.strokeStyle = '#854d0e'; ctx.lineWidth = 4 / bowScale; ctx.beginPath(); ctx.arc(0, 0, GRID_SIZE * 0.8, -Math.PI / 2.2, Math.PI / 2.2); ctx.stroke();
@@ -601,17 +563,16 @@ export class Weapon {
             ctx.lineTo(pullBack, 0);
             ctx.lineTo(bowstringX, bowstringY2);
             ctx.stroke();
-
-        } else if (this.type === 'dual_swords') {
-            const drawEquippedCurvedSword = (isRightHand) => {
+          } else if (this.type === 'dual_swords') { /* ... 쌍검 그리기 ... */
+              const drawEquippedCurvedSword = (isRightHand) => {
                 ctx.save();
                 const yOffset = isRightHand ? GRID_SIZE * 0.6 : -GRID_SIZE * 0.6;
                 const swordRotation = isRightHand ? Math.PI / 8 : -Math.PI / 8;
                 ctx.translate(GRID_SIZE * 0.1, yOffset);
                 ctx.rotate(swordRotation);
-                ctx.fillStyle = '#374151'; // 손잡이 색 어둡게
-                ctx.strokeStyle = 'black'; // 테두리
-                 ctx.lineWidth = 1; // 테두리 두께
+                ctx.fillStyle = '#374151';
+                ctx.strokeStyle = 'black';
+                 ctx.lineWidth = 1;
                 ctx.fillRect(-GRID_SIZE * 0.05, 0, GRID_SIZE * 0.1, GRID_SIZE * 0.2);
                 ctx.strokeRect(-GRID_SIZE * 0.05, 0, GRID_SIZE * 0.1, GRID_SIZE * 0.2);
                 ctx.beginPath();
@@ -630,10 +591,9 @@ export class Weapon {
             };
             drawEquippedCurvedSword(true);
             drawEquippedCurvedSword(false);
-        } else if (this.type === 'fire_staff') {
-            this.drawStaff(ctx, 0.8);
-        } else if (this.type === 'lightning') { // 번개는 빛 효과 제외
-             const revolutionAngle = gameManager.animationFrameCounter * 0.05;
+          } else if (this.type === 'fire_staff') { this.drawStaff(ctx, 0.8); }
+          else if (this.type === 'lightning') { /* ... 번개 그리기 ... */
+               const revolutionAngle = gameManager.animationFrameCounter * 0.05;
              const orbitRadius = GRID_SIZE * 0.8;
              const weaponX = Math.cos(revolutionAngle) * orbitRadius;
              const weaponY = Math.sin(revolutionAngle) * orbitRadius;
@@ -642,8 +602,8 @@ export class Weapon {
              ctx.translate(weaponX, weaponY);
              this.drawLightning(ctx, 0.48, 0);
              ctx.restore();
-        } else if (this.type === 'ice_diamond') { // 얼음 다이아는 빛 효과 제외
-             ctx.translate(GRID_SIZE * 0.6, 0);
+          } else if (this.type === 'ice_diamond') { /* ... 얼음 다이아 그리기 ... */
+               ctx.translate(GRID_SIZE * 0.6, 0);
              drawIceDiamondIcon(ctx, 0.6);
              for (let i = 0; i < unit.iceDiamondCharges; i++) {
                  const angle = (gameManager.animationFrameCounter * 0.02) + (i * (Math.PI * 2 / 5));
@@ -655,17 +615,17 @@ export class Weapon {
                  drawIceDiamondIcon(ctx, 0.5);
                  ctx.restore();
              }
-        } else if (this.type === 'magic_spear') { // 마법창은 빛 효과 제외 (자체 효과 있음)
-            ctx.translate(GRID_SIZE * 0.2, GRID_SIZE * 0.4);
+          } else if (this.type === 'magic_spear') { /* ... 마법창 그리기 ... */
+              ctx.translate(GRID_SIZE * 0.2, GRID_SIZE * 0.4);
             this.drawMagicSpear(ctx, 0.5, -Math.PI / 8 + Math.PI);
-        } else if (this.type === 'boomerang') {
-            ctx.translate(0, -GRID_SIZE * 0.5);
+          } else if (this.type === 'boomerang') { /* ... 부메랑 그리기 ... */
+               ctx.translate(0, -GRID_SIZE * 0.5);
             this.drawBoomerang(ctx, 0.5);
-        } else if (this.type === 'poison_potion') { // 독포션은 빛 효과 제외
-            ctx.translate(0, -GRID_SIZE * 0.5);
+          } else if (this.type === 'poison_potion') { /* ... 독포션 그리기 ... */
+               ctx.translate(0, -GRID_SIZE * 0.5);
             this.drawPoisonPotion(ctx, 0.3);
-        } else if (this.type === 'hadoken') { // 장풍은 빛 효과 제외 (발사체에 효과)
-             ctx.translate(GRID_SIZE * 0.5, 0);
+          } else if (this.type === 'hadoken') { /* ... 장풍 아이콘 그리기 ... */
+               ctx.translate(GRID_SIZE * 0.5, 0);
              const hadokenScale = 0.7;
              ctx.scale(hadokenScale, hadokenScale);
              const grad = ctx.createRadialGradient(0, 0, 1, 0, 0, GRID_SIZE * 1.2);
@@ -681,8 +641,8 @@ export class Weapon {
              ctx.closePath();
              ctx.fill();
              ctx.stroke();
-        } else if (this.type === 'shuriken') {
-            ctx.translate(GRID_SIZE * 0.4, GRID_SIZE * 0.3);
+          } else if (this.type === 'shuriken') { /* ... 표창 그리기 ... */
+              ctx.translate(GRID_SIZE * 0.4, GRID_SIZE * 0.3);
             const shurikenScale = 0.5;
             ctx.scale(shurikenScale, shurikenScale);
             ctx.rotate(gameManager.animationFrameCounter * 0.1);
@@ -701,20 +661,21 @@ export class Weapon {
             ctx.closePath();
             ctx.fill();
             ctx.stroke();
-        }
+          }
+        // ----------------------------------------
 
-
-        // --- 추가: 빛나는 효과 복원 ---
-        if (unit.isSpecialReady && glowWeapons.includes(this.type)) {
+        // --- 수정: 빛나는 효과 복원 ---
+        if (needsGlowRestore) {
             ctx.restore(); // 빛 효과 그린 후 복원
         }
         // -----------------------------
 
-        ctx.restore(); // 최종 위치, 회전 복원
+        ctx.restore(); // 전체 상태 복원
     }
 }
 
-// ... (Particle, createPhysicalHitEffect, createFireballHitEffect, Projectile, Effect, MagicDaggerDashEffect, AreaEffect 클래스는 변경 없음) ...
+
+// ... (Particle, createPhysicalHitEffect, createFireballHitEffect, Projectile, Effect, MagicDaggerDashEffect, AreaEffect 클래스 - 변경 없음) ...
 // Particle class
 export class Particle {
     constructor(gameManager, options) {
@@ -911,11 +872,11 @@ export class Projectile {
     }
 
     update() {
-        const gameManager = this.gameManager;
+         const gameManager = this.gameManager;
         if (!gameManager) return;
 
-        if (this.type === 'returning_shuriken') {
-            this.rotationAngle += this.lingerRotationSpeed * gameManager.gameSpeed;
+        if (this.type === 'returning_shuriken') { /* ... 표창 복귀 로직 ... */
+              this.rotationAngle += this.lingerRotationSpeed * gameManager.gameSpeed;
 
             if (this.state === 'MOVING_OUT') {
                 const moveX = Math.cos(this.angle) * this.speed * gameManager.gameSpeed;
@@ -951,7 +912,7 @@ export class Projectile {
                     this.state = 'RETURNING';
                 }
             } else if (this.state === 'RETURNING') {
-                if (!this.owner || this.owner.hp <= 0) {
+                 if (!this.owner || this.owner.hp <= 0) {
                     this.destroyed = true;
                     return;
                 }
@@ -963,6 +924,7 @@ export class Projectile {
                     this.destroyed = true;
                     return;
                 }
+
 
                 const returnAngle = Math.atan2(dy, dx);
                 this.pixelX += Math.cos(returnAngle) * this.speed * gameManager.gameSpeed;
@@ -976,10 +938,10 @@ export class Projectile {
                 }
             }
             return;
-        }
+         }
 
-        if (this.type === 'ice_diamond_projectile' || this.type === 'boomerang_projectile') {
-            if (this.target && this.target.hp > 0) {
+        if (this.type === 'ice_diamond_projectile' || this.type === 'boomerang_projectile') { /* ... 유도 로직 ... */
+             if (this.target && this.target.hp > 0) {
                 const targetAngle = Math.atan2(this.target.pixelY - this.pixelY, this.target.pixelX - this.pixelX);
                 let angleDiff = targetAngle - this.angle;
 
@@ -993,25 +955,28 @@ export class Projectile {
                     this.angle = targetAngle;
                 }
             }
-        }
+         }
 
-        if (['hadoken', 'lightning_bolt', 'magic_spear', 'ice_diamond_projectile', 'fireball_projectile', 'mini_fireball_projectile', 'black_sphere_projectile'].some(t => this.type.startsWith(t))) {
+        if (['hadoken', 'lightning_bolt', 'magic_spear', 'ice_diamond_projectile', 'fireball_projectile', 'mini_fireball_projectile', 'black_sphere_projectile'].some(t => this.type.startsWith(t))) { /* ... 꼬리 로직 ... */
             this.trail.push({x: this.pixelX, y: this.pixelY});
             if (this.trail.length > 10) this.trail.shift();
         }
-        if (this.type.includes('shuriken') || this.type.includes('boomerang') || this.type.includes('bouncing_sword')) {
-            this.rotationAngle += 0.4 * gameManager.gameSpeed;
-        }
+        if (this.type.includes('shuriken') || this.type.includes('boomerang') || this.type.includes('bouncing_sword')) { /* ... 회전 로직 ... */
+             this.rotationAngle += 0.4 * gameManager.gameSpeed;
+         }
 
-        if (this.type === 'ice_diamond_projectile' && gameManager.random() > 0.4) {
-            gameManager.addParticle({
-                x: this.pixelX, y: this.pixelY,
-                vx: (gameManager.random() - 0.5) * 1, vy: (gameManager.random() - 0.5) * 1,
-                life: 0.6, color: '#3b82f6', size: gameManager.random() * 2 + 1,
-            });
-        }
+        if (this.type === 'ice_diamond_projectile') { /* ... 얼음 파티클 ... */
+              if (gameManager.random() > 0.4) {
+                gameManager.addParticle({
+                    x: this.pixelX, y: this.pixelY,
+                    vx: (gameManager.random() - 0.5) * 1, vy: (gameManager.random() - 0.5) * 1,
+                    life: 0.6, color: '#3b82f6', size: gameManager.random() * 2 + 1,
+                });
+            }
+         }
 
-        const nextX = this.pixelX + Math.cos(this.angle) * gameManager.gameSpeed * this.speed;
+        // --- 이동 및 충돌 처리 (변경 없음) ---
+         const nextX = this.pixelX + Math.cos(this.angle) * gameManager.gameSpeed * this.speed;
         const nextY = this.pixelY + Math.sin(this.angle) * gameManager.gameSpeed * this.speed;
         const gridX = Math.floor(nextX / GRID_SIZE);
         const gridY = Math.floor(nextY / GRID_SIZE);
@@ -1030,10 +995,11 @@ export class Projectile {
         this.pixelX = nextX; this.pixelY = nextY;
     }
 
+
     draw(ctx) {
-        // ... (코드 생략 - 발사체 타입별 그리기 로직) ...
-        if (this.type === 'shuriken' || this.type === 'returning_shuriken') {
-            ctx.save();
+        // ... (발사체 타입별 그리기 로직 - 변경 없음) ...
+         if (this.type === 'shuriken' || this.type === 'returning_shuriken') { /* ... 표창 그리기 ... */
+              ctx.save();
             ctx.translate(this.pixelX, this.pixelY);
             ctx.rotate(this.rotationAngle);
             const scale = 0.8;
@@ -1062,10 +1028,10 @@ export class Projectile {
             ctx.stroke();
             ctx.restore();
             return;
-        }
+          }
 
-        if (this.type === 'arrow') {
-            ctx.save();
+        if (this.type === 'arrow') { /* ... 화살 그리기 ... */
+             ctx.save();
             ctx.translate(this.pixelX, this.pixelY);
             ctx.rotate(this.angle);
             ctx.scale(1.2, 1.2);
@@ -1102,8 +1068,8 @@ export class Projectile {
             ctx.stroke();
 
             ctx.restore();
-        } else if (this.type === 'sword_wave') {
-            ctx.save();
+         } else if (this.type === 'sword_wave') { /* ... 검기 그리기 ... */
+               ctx.save();
             ctx.translate(this.pixelX, this.pixelY);
             ctx.rotate(this.angle - Math.PI / 2);
 
@@ -1117,8 +1083,8 @@ export class Projectile {
             ctx.stroke();
 
             ctx.restore();
-        } else if (this.type === 'bouncing_sword') {
-            ctx.save();
+         } else if (this.type === 'bouncing_sword') { /* ... 튕기는 검 그리기 ... */
+              ctx.save();
             ctx.translate(this.pixelX, this.pixelY);
             ctx.rotate(this.rotationAngle);
             ctx.scale(0.72, 0.72);
@@ -1142,8 +1108,8 @@ export class Projectile {
             ctx.quadraticCurveTo(-GRID_SIZE * 0.1, -GRID_SIZE * 0.4, 0, GRID_SIZE * 0.2);
             ctx.closePath(); ctx.fill(); ctx.stroke();
             ctx.restore();
-        } else if (this.type === 'hadoken') {
-            for (let i = 0; i < this.trail.length; i++) {
+         } else if (this.type === 'hadoken') { /* ... 장풍 그리기 ... */
+              for (let i = 0; i < this.trail.length; i++) {
                 const pos = this.trail[i];
                 const alpha = (i / this.trail.length) * 0.5;
                 ctx.fillStyle = `rgba(139, 92, 246, ${alpha})`;
@@ -1159,8 +1125,8 @@ export class Projectile {
             ctx.beginPath();
             ctx.arc(this.pixelX, this.pixelY, GRID_SIZE / 3, 0, Math.PI * 2);
             ctx.fill();
-        } else if (this.type === 'lightning_bolt') {
-            ctx.save();
+         } else if (this.type === 'lightning_bolt') { /* ... 번개 그리기 ... */
+              ctx.save();
             ctx.translate(this.pixelX, this.pixelY);
             ctx.rotate(this.angle);
             ctx.strokeStyle = '#fef08a';
@@ -1173,8 +1139,8 @@ export class Projectile {
             ctx.lineTo(GRID_SIZE * 0.5, 0);
             ctx.stroke();
             ctx.restore();
-        } else if (this.type.startsWith('magic_spear')) {
-            const isSpecial = this.type === 'magic_spear_special';
+         } else if (this.type.startsWith('magic_spear')) { /* ... 마법창 그리기 ... */
+              const isSpecial = this.type === 'magic_spear_special';
             const mainColor = isSpecial ? '#a855f7' : '#111827';
             const trailColor = isSpecial ? 'rgba(192, 132, 252, 0.4)' : 'rgba(107, 114, 128, 0.4)';
             const spearLength = isSpecial ? GRID_SIZE * 1.2 : GRID_SIZE * 1.0;
@@ -1206,20 +1172,20 @@ export class Projectile {
             ctx.fill();
 
             ctx.restore();
-        } else if (this.type === 'boomerang_projectile') {
-            ctx.save();
+         } else if (this.type === 'boomerang_projectile') { /* ... 부메랑 스킬 그리기 ... */
+              ctx.save();
             ctx.translate(this.pixelX, this.pixelY);
             ctx.rotate(this.rotationAngle);
             this.owner.weapon.drawBoomerang(ctx, 0.6);
             ctx.restore();
-        } else if (this.type === 'boomerang_normal_projectile') {
-            ctx.save();
+         } else if (this.type === 'boomerang_normal_projectile') { /* ... 부메랑 일반 그리기 ... */
+              ctx.save();
             ctx.translate(this.pixelX, this.pixelY);
             ctx.rotate(this.rotationAngle);
             this.owner.weapon.drawBoomerang(ctx, 0.3, 0, '#18181b');
             ctx.restore();
-        } else if (this.type === 'ice_diamond_projectile') {
-            for (let i = 0; i < this.trail.length; i++) {
+         } else if (this.type === 'ice_diamond_projectile') { /* ... 얼음 다이아 그리기 ... */
+              for (let i = 0; i < this.trail.length; i++) {
                 const pos = this.trail[i];
                 const alpha = (i / this.trail.length) * 0.5;
                 ctx.fillStyle = `rgba(165, 243, 252, ${alpha})`;
@@ -1252,8 +1218,8 @@ export class Projectile {
             ctx.stroke();
 
             ctx.restore();
-        } else if (this.type === 'ice_bolt_projectile') {
-            ctx.save();
+         } else if (this.type === 'ice_bolt_projectile') { /* ... 얼음 볼트 그리기 ... */
+              ctx.save();
             ctx.translate(this.pixelX, this.pixelY);
             ctx.rotate(this.angle);
             ctx.fillStyle = '#000000';
@@ -1264,8 +1230,8 @@ export class Projectile {
             ctx.fill();
             ctx.stroke();
             ctx.restore();
-        } else if (this.type === 'fireball_projectile' || this.type === 'mini_fireball_projectile') {
-            const size = this.type === 'fireball_projectile' ? GRID_SIZE / 1.67 : GRID_SIZE / 4;
+         } else if (this.type === 'fireball_projectile' || this.type === 'mini_fireball_projectile') { /* ... 화염구 그리기 ... */
+              const size = this.type === 'fireball_projectile' ? GRID_SIZE / 1.67 : GRID_SIZE / 4;
             for (let i = 0; i < this.trail.length; i++) {
                 const pos = this.trail[i];
                 const alpha = (i / this.trail.length) * 0.4;
@@ -1282,8 +1248,8 @@ export class Projectile {
             ctx.beginPath();
             ctx.arc(this.pixelX, this.pixelY, size, 0, Math.PI * 2);
             ctx.fill();
-        } else if (this.type === 'black_sphere_projectile') {
-            const size = GRID_SIZE / 3;
+         } else if (this.type === 'black_sphere_projectile') { /* ... 검은 구체 그리기 ... */
+              const size = GRID_SIZE / 3;
             for (let i = 0; i < this.trail.length; i++) {
                 const pos = this.trail[i];
                 const alpha = (i / this.trail.length) * 0.2;
@@ -1299,10 +1265,12 @@ export class Projectile {
             ctx.arc(this.pixelX, this.pixelY, size, 0, Math.PI * 2);
             ctx.fill();
             ctx.stroke();
-        }
+         }
     }
 }
 
+
+// ... (Effect, MagicDaggerDashEffect, AreaEffect 클래스 - 변경 없음) ...
 // Effect class
 export class Effect {
     constructor(gameManager, x, y, type, target, options = {}) {
@@ -1472,13 +1440,13 @@ export class AreaEffect {
         }
     }
     update() {
-        const gameManager = this.gameManager;
+         const gameManager = this.gameManager;
         if (!gameManager) return;
         this.duration -= gameManager.gameSpeed;
         this.currentRadius = this.maxRadius * (1 - (this.duration / 30));
 
-        if (this.type === 'fire_pillar') {
-            this.particles.forEach(p => {
+        if (this.type === 'fire_pillar') { /* ... 불기둥 업데이트 로직 ... */
+             this.particles.forEach(p => {
                 p.y -= p.speed * gameManager.gameSpeed;
                 p.lifespan -= gameManager.gameSpeed;
                 p.x += (this.gameManager.random() - 0.5) * 0.5;
@@ -1504,12 +1472,12 @@ export class AreaEffect {
                     }
                 }
             });
-        }
+         }
     }
     draw(ctx) {
         const opacity = this.duration / 30;
-        if (this.type === 'fire_pillar') {
-            ctx.save();
+        if (this.type === 'fire_pillar') { /* ... 불기둥 그리기 ... */
+              ctx.save();
             ctx.translate(this.pixelX, this.pixelY);
 
             const grad = ctx.createRadialGradient(0, 0, this.currentRadius * 0.3, 0, 0, this.currentRadius);
@@ -1530,10 +1498,9 @@ export class AreaEffect {
             });
             ctx.restore();
             ctx.globalAlpha = 1.0;
-
-        } else if (this.type === 'poison_cloud') {
-            ctx.fillStyle = `rgba(132, 204, 22, ${opacity * 0.4})`;
+         } else if (this.type === 'poison_cloud') { /* ... 독구름 그리기 ... */
+              ctx.fillStyle = `rgba(132, 204, 22, ${opacity * 0.4})`;
             ctx.fillRect(this.pixelX - GRID_SIZE * 2.5, this.pixelY - GRID_SIZE * 2.5, GRID_SIZE * 5, GRID_SIZE * 5);
-        }
+         }
     }
 }
