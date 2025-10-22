@@ -33,7 +33,7 @@ export class Weapon {
         if (!gameManager) return;
 
         if (['sword', 'dual_swords', 'boomerang', 'poison_potion', 'magic_dagger', 'axe', 'bow'].includes(this.type)) {
-            unit.attackAnimationTimer = 15;
+            unit.attackAnimationTimer = 12; // [MODIFIED] 공격 애니메이션 속도 증가 (15 -> 12)
         }
 
         if (this.type === 'sword') {
@@ -363,8 +363,13 @@ export class Weapon {
         
         let rotation = unit.facingAngle;
         if (this.type !== 'bow' && unit.attackAnimationTimer > 0) {
-            const swingProgress = Math.sin((15 - unit.attackAnimationTimer) / 15 * Math.PI);
-            rotation += swingProgress * Math.PI / 4;
+            // [MODIFIED] 더 빠르고 힘있는 공격 모션을 위한 애니메이션 곡선 변경
+            const duration = 12;
+            const progress = (duration - unit.attackAnimationTimer) / duration; // 0 -> 1
+            // Ease-out-quad easing function: starts fast, slows down
+            const swingProgress = 1 - Math.pow(1 - progress, 3);
+            // 스윙 각도를 90도로 늘려 더 역동적으로 보이게 함
+            rotation += swingProgress * (Math.PI / 2);
         }
 
         if (this.type === 'axe' && unit.spinAnimationTimer > 0) {
