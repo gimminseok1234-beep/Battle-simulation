@@ -833,6 +833,23 @@ export class Projectile {
         }
     }
 
+    // [NEW] 부메랑 파티클 효과
+    handleBoomerangTrail() {
+        if (this.gameManager.random() > 0.4) {
+            const teamColor = COLORS[`TEAM_${this.owner.team}`] || '#9ca3af';
+            this.gameManager.addParticle({
+                x: this.pixelX,
+                y: this.pixelY,
+                vx: (this.gameManager.random() - 0.5) * 1.2,
+                vy: (this.gameManager.random() - 0.5) * 1.2,
+                life: 0.5,
+                color: teamColor,
+                size: this.gameManager.random() * 2 + 1,
+                gravity: 0
+            });
+        }
+    }
+
     // [NEW] 장풍 파티클 효과
     handleHadokenTrail() {
         if (this.gameManager.random() > 0.3) {
@@ -954,6 +971,11 @@ export class Projectile {
         // [NEW] 번개 파티클 생성 로직 호출
         if (this.type === 'lightning_bolt') {
             this.handleLightningTrail();
+        }
+
+        // [NEW] 부메랑 파티클 생성 로직 호출
+        if (this.type === 'boomerang_projectile') {
+            this.handleBoomerangTrail();
         }
 
         // [MODIFIED] 얼음 다이아와 부메랑 특수 공격 투사체에 유도 기능 추가
@@ -1175,32 +1197,29 @@ export class Projectile {
 
             ctx.restore();
         } else if (this.type === 'lightning_bolt') {
-            // [MODIFIED] 번개 투사체 디자인 강화
+            // [MODIFIED] 번개 투사체를 날카로운 모양으로 변경
             ctx.save();
+            ctx.translate(this.pixelX, this.pixelY);
+            ctx.rotate(this.angle);
+
             ctx.globalCompositeOperation = 'lighter';
-            const radius = GRID_SIZE * 0.4;
-            const grad = ctx.createRadialGradient(this.pixelX, this.pixelY, 0, this.pixelX, this.pixelY, radius);
-            grad.addColorStop(0, 'rgba(255, 255, 255, 1)');
-            grad.addColorStop(0.4, 'rgba(254, 249, 195, 0.9)');
-            grad.addColorStop(1, 'rgba(250, 204, 21, 0.3)');
-            
-            ctx.fillStyle = grad;
             ctx.shadowColor = '#fde047';
             ctx.shadowBlur = 20;
-            ctx.beginPath();
-            ctx.arc(this.pixelX, this.pixelY, radius, 0, Math.PI * 2);
-            ctx.fill();
 
-            // 전기 스파크 효과
-            ctx.strokeStyle = 'rgba(254, 240, 138, 0.8)';
-            ctx.lineWidth = 1.5;
-            for (let i = 0; i < 3; i++) {
-                ctx.beginPath();
-                const startAngle = this.gameManager.random() * Math.PI * 2;
-                const endAngle = startAngle + (this.gameManager.random() - 0.5) * Math.PI;
-                ctx.arc(this.pixelX, this.pixelY, radius * (1 + this.gameManager.random() * 0.5), startAngle, endAngle);
-                ctx.stroke();
+            ctx.strokeStyle = '#fef08a';
+            ctx.lineWidth = 4;
+            ctx.beginPath();
+            ctx.moveTo(-GRID_SIZE * 0.6, 0);
+            for(let i = -GRID_SIZE * 0.6; i < GRID_SIZE * 0.6; i += 5) {
+                ctx.lineTo(i, (this.gameManager.random() - 0.5) * 6);
             }
+            ctx.lineTo(GRID_SIZE * 0.6, 0);
+            ctx.stroke();
+
+            ctx.lineWidth = 1.5;
+            ctx.strokeStyle = '#ffffff';
+            ctx.stroke(); // 같은 경로에 흰색으로 얇게 덧그리기
+
             ctx.restore();
         } else if (this.type.startsWith('magic_spear')) {
             const isSpecial = this.type === 'magic_spear_special';
