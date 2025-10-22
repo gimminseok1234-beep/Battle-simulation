@@ -135,20 +135,27 @@ export function drawMapImpl() {
  */
 function drawSpecialAttackGlows() {
     this.ctx.save();
-    // 빛나는 효과를 위한 그림자 설정
-    this.ctx.shadowBlur = 12; // 빛의 확산 정도
+    // [수정] 'lighter' 혼합 모드를 사용하여 빛이 겹칠 때 더 밝아지도록 설정합니다.
+    this.ctx.globalCompositeOperation = 'lighter';
 
     for (const unit of this.units) {
         // 유닛이 무기를 가지고 있고, 해당 무기가 빛나는 무기 타입에 포함되며, 특수 공격이 준비된 경우
         if (unit.weapon && GLOWING_WEAPON_TYPES.has(unit.weapon.type) && unit.isSpecialAttackReady) {
             const teamColor = COLORS[`TEAM_${unit.team}`];
             if (teamColor) {
-                // 맥박처럼 깜빡이는 효과를 위한 투명도와 그림자 색상 설정
-                this.ctx.globalAlpha = 0.6 + Math.sin(this.animationFrameCounter * 0.1) * 0.2;
-                this.ctx.shadowColor = teamColor;
+                // [수정] 0에서 1 사이를 더 빠르게 왕복하는 맥박 효과
+                const pulse = Math.sin(this.animationFrameCounter * 0.15) * 0.5 + 0.5;
 
-                // 유닛의 무기를 빛나는 효과와 함께 다시 그립니다.
-                // unit.draw() 내부 로직과 동일하게 컨텍스트를 설정하고 weapon.drawEquipped를 호출합니다.
+                // 1. 넓고 부드러운 외부 광원 효과
+                this.ctx.globalAlpha = pulse * 0.6; // 투명도를 조절하여 부드럽게
+                this.ctx.shadowBlur = 25; // 빛 번짐 효과를 크게 증가
+                this.ctx.shadowColor = teamColor;
+                unit.weapon.drawEquipped(this.ctx, unit);
+
+                // 2. 밝고 선명한 내부 광원 효과 (한 번 더 그림)
+                this.ctx.globalAlpha = pulse * 0.8; // 더 밝은 투명도
+                this.ctx.shadowBlur = 10; // 내부 빛은 덜 번지게
+                this.ctx.shadowColor = teamColor;
                 unit.weapon.drawEquipped(this.ctx, unit);
             }
         }
