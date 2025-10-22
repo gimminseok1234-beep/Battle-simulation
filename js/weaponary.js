@@ -428,7 +428,7 @@ export class Weapon {
             ctx.scale(0.8, 0.8);
             drawAxeIcon(ctx);
         } else if (this.type === 'bow') {
-            this.drawBow(ctx, 0.8, true, unit, rotation);
+            this.drawBow(ctx, 0.64, true, unit, rotation);
         } else if (this.type === 'dual_swords') {
             const drawEquippedCurvedSword = (isRightHand) => {
                 ctx.save();
@@ -589,7 +589,7 @@ export class Weapon {
             ctx.lineWidth = 0.5 / scale;
             ctx.fillRect(pullBack, -1, (GRID_SIZE * 1.2) - pullBack, 2);
             ctx.strokeRect(pullBack, -1, (GRID_SIZE * 1.2) - pullBack, 2);
-            ctx.fillStyle = '#ffffff'; // Arrow head color changed to white
+            ctx.fillStyle = '#ffffff'; // Arrow head
             ctx.beginPath();
             ctx.moveTo(GRID_SIZE * 1.2, 0);
             ctx.lineTo(GRID_SIZE * 0.8, -2.5);
