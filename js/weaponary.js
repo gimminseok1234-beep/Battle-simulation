@@ -248,29 +248,25 @@ export class Weapon {
             ctx.lineTo(2, GRID_SIZE * 0.3);
             ctx.closePath(); ctx.fill(); ctx.stroke();
             ctx.fillStyle = '#374151';
-            ctx.beginPath();
-            ctx.moveTo(-GRID_SIZE * 0.4, GRID_SIZE * 0.3); ctx.lineTo(GRID_SIZE * 0.4, GRID_SIZE * 0.3);
-            ctx.lineTo(GRID_SIZE * 0.5, GRID_SIZE * 0.3 + 3); ctx.lineTo(-GRID_SIZE * 0.5, GRID_SIZE * 0.3 + 3);
-            ctx.closePath(); ctx.fill(); ctx.stroke();
+            ctx.fillRect(-GRID_SIZE * 0.2, GRID_SIZE * 0.3, GRID_SIZE * 0.4, 3);
+            ctx.strokeRect(-GRID_SIZE * 0.2, GRID_SIZE * 0.3, GRID_SIZE * 0.4, 3);
             ctx.fillStyle = '#1f2937';
             ctx.fillRect(-1.5, GRID_SIZE * 0.3 + 3, 3, GRID_SIZE * 0.3); ctx.strokeRect(-1.5, GRID_SIZE * 0.3 + 3, 3, GRID_SIZE * 0.3);
         } else if (this.type === 'bow') {
+            // [MODIFIED] 활 디자인 변경 (중세 장궁 스타일)
             ctx.rotate(Math.PI / 4);
-            ctx.fillStyle = '#f3f4f6';
-            ctx.fillRect(-GRID_SIZE * 0.7, -1, GRID_SIZE * 1.2, 2);
-            ctx.strokeRect(-GRID_SIZE * 0.7, -1, GRID_SIZE * 1.2, 2);
-            ctx.fillStyle = '#e5e7eb';
-            ctx.beginPath(); ctx.moveTo(GRID_SIZE * 0.5, 0); ctx.lineTo(GRID_SIZE * 0.3, -3); ctx.lineTo(GRID_SIZE * 0.3, 3); ctx.closePath(); ctx.fill();
-            ctx.fillStyle = '#d1d5db';
-            ctx.beginPath(); ctx.moveTo(-GRID_SIZE * 0.6, -1); ctx.lineTo(-GRID_SIZE * 0.7, -4); ctx.lineTo(-GRID_SIZE * 0.5, -1); ctx.closePath(); ctx.fill()
-            ctx.beginPath(); ctx.moveTo(-GRID_SIZE * 0.6, 1); ctx.lineTo(-GRID_SIZE * 0.7, 4); ctx.lineTo(-GRID_SIZE * 0.5, 1); ctx.closePath(); ctx.fill()
-            ctx.strokeStyle = 'black'; ctx.lineWidth = 6 / scale; ctx.beginPath(); ctx.arc(0, 0, GRID_SIZE * 0.8, -Math.PI / 2.2, Math.PI / 2.2); ctx.stroke();
-            ctx.strokeStyle = '#854d0e'; ctx.lineWidth = 4 / scale; ctx.beginPath(); ctx.arc(0, 0, GRID_SIZE * 0.8, -Math.PI / 2.2, Math.PI / 2.2); ctx.stroke();
-            ctx.strokeStyle = '#e5e7eb'; ctx.lineWidth = 1.5 / scale; ctx.beginPath();
-            const arcRadius = GRID_SIZE * 0.8, arcAngle = Math.PI / 2.2;
-            ctx.moveTo(Math.cos(-arcAngle) * arcRadius, Math.sin(-arcAngle) * arcRadius);
-            ctx.lineTo(-GRID_SIZE * 0.4, 0);
-            ctx.lineTo(Math.cos(arcAngle) * arcRadius, Math.sin(arcAngle) * arcRadius); ctx.stroke();
+            ctx.strokeStyle = '#1c1917';
+            ctx.lineWidth = 3 / scale;
+            const woodGradient = ctx.createLinearGradient(0, -GRID_SIZE, 0, GRID_SIZE);
+            woodGradient.addColorStop(0, '#854d0e'); woodGradient.addColorStop(0.5, '#a16207'); woodGradient.addColorStop(1, '#854d0e');
+            ctx.strokeStyle = woodGradient;
+            ctx.lineCap = 'round';
+            ctx.beginPath();
+            ctx.arc(0, 0, GRID_SIZE * 1.1, -Math.PI / 2.5, Math.PI / 2.5);
+            ctx.stroke();
+            ctx.fillStyle = '#57534e'; // 손잡이 가죽
+            ctx.fillRect(-2, -GRID_SIZE * 0.3, 4, GRID_SIZE * 0.6);
+            ctx.strokeRect(-2, -GRID_SIZE * 0.3, 4, GRID_SIZE * 0.6);
         } else if (this.type === 'dual_swords') {
             const drawCurvedSword = (rotation) => {
                 ctx.save();
@@ -445,26 +441,26 @@ export class Weapon {
             ctx.scale(0.8, 0.8);
             drawAxeIcon(ctx);
         } else if (this.type === 'bow') {
-            ctx.translate(GRID_SIZE * 0.4, 0);
-            ctx.rotate(-Math.PI / 4);
-            const bowScale = 0.56; // [수정] 활 크기 30% 감소 (0.8 * 0.7)
+            // [MODIFIED] 장착된 활 디자인 및 위치 수정
+            ctx.translate(GRID_SIZE * 0.5, 0);
+            ctx.rotate(rotation - Math.PI / 2); // 유닛 방향에 맞춰 회전
+            const bowScale = 0.6;
             ctx.scale(bowScale, bowScale);
-            ctx.fillStyle = '#f3f4f6';
-            ctx.fillRect(-GRID_SIZE * 0.7, -1, GRID_SIZE * 1.2, 2);
-            ctx.strokeRect(-GRID_SIZE * 0.7, -1, GRID_SIZE * 1.2, 2);
-            ctx.fillStyle = '#e5e7eb';
-            ctx.beginPath(); ctx.moveTo(GRID_SIZE * 0.5, 0); ctx.lineTo(GRID_SIZE * 0.3, -3); ctx.lineTo(GRID_SIZE * 0.3, 3); ctx.closePath(); ctx.fill();
-            ctx.fillStyle = '#d1d5db';
-            ctx.beginPath(); ctx.moveTo(-GRID_SIZE * 0.6, -1); ctx.lineTo(-GRID_SIZE * 0.7, -4); ctx.lineTo(-GRID_SIZE * 0.5, -1); ctx.closePath(); ctx.fill()
-            ctx.beginPath(); ctx.moveTo(-GRID_SIZE * 0.6, 1); ctx.lineTo(-GRID_SIZE * 0.7, 4); ctx.lineTo(-GRID_SIZE * 0.5, 1); ctx.closePath(); ctx.fill()
-            ctx.strokeStyle = 'black'; ctx.lineWidth = 6 / bowScale; ctx.beginPath(); ctx.arc(0, 0, GRID_SIZE * 0.8, -Math.PI / 2.2, Math.PI / 2.2); ctx.stroke();
-            ctx.strokeStyle = '#854d0e'; ctx.lineWidth = 4 / bowScale; ctx.beginPath(); ctx.arc(0, 0, GRID_SIZE * 0.8, -Math.PI / 2.2, Math.PI / 2.2); ctx.stroke();
+            
+            const woodGradient = ctx.createLinearGradient(0, -GRID_SIZE, 0, GRID_SIZE);
+            woodGradient.addColorStop(0, '#854d0e'); woodGradient.addColorStop(0.5, '#a16207'); woodGradient.addColorStop(1, '#854d0e');
+            ctx.strokeStyle = woodGradient;
+            ctx.lineWidth = 5 / bowScale;
+            ctx.lineCap = 'round';
+            ctx.beginPath();
+            ctx.arc(0, 0, GRID_SIZE * 1.1, -Math.PI / 2.5, Math.PI / 2.5);
+            ctx.stroke();
             
             // [수정] 활시위 당기는 애니메이션 추가
             ctx.strokeStyle = '#e5e7eb';
             ctx.lineWidth = 1.5 / bowScale;
             ctx.beginPath();
-            const arcRadius = GRID_SIZE * 0.8, arcAngle = Math.PI / 2.2;
+            const arcRadius = GRID_SIZE * 1.1, arcAngle = Math.PI / 2.5;
             const bowstringY1 = Math.sin(-arcAngle) * arcRadius;
             const bowstringY2 = Math.sin(arcAngle) * arcRadius;
             const bowstringX = Math.cos(arcAngle) * arcRadius;
@@ -678,6 +674,7 @@ export class Projectile {
         
         // --- Shuriken Special Attack ---
         this.state = options.state || 'DEFAULT';
+        this.lingerRotationSpeed = 0.5;
         this.lingerDuration = options.lingerDuration || 60; // Linger for 1 second (60 frames)
         this.maxDistance = options.maxDistance || 0;
         this.distanceTraveled = 0;
@@ -685,7 +682,6 @@ export class Projectile {
         this.damageInterval = 30;
         this.damageCooldown = 0;
         this.alreadyDamagedOnReturn = new Set();
-        this.lingerRotationSpeed = 0.5;
 
         if (type === 'hadoken') this.speed = 4;
         else if (type === 'shuriken' || type === 'returning_shuriken') this.speed = 5;
@@ -1173,16 +1169,28 @@ export class Projectile {
 
             ctx.restore();
         } else if (this.type === 'hadoken') {
-            // [MODIFIED] 장풍 투사체 디자인 강화
+            // [MODIFIED] 장풍 투사체에 유닛 색상 반영
             ctx.save();
             const radius = GRID_SIZE / 1.8;
+            
+            let teamColorRgb = '59, 130, 246'; // Default blue
+            let shadowColor = 'rgba(96, 165, 250, 1)';
+            if (this.owner) {
+                switch(this.owner.team) {
+                    case TEAM.A: teamColorRgb = '239, 68, 68'; shadowColor = 'rgba(255, 100, 100, 1)'; break; // Red
+                    case TEAM.B: teamColorRgb = '59, 130, 246'; shadowColor = 'rgba(96, 165, 250, 1)'; break; // Blue
+                    case TEAM.C: teamColorRgb = '16, 185, 129'; shadowColor = 'rgba(52, 211, 153, 1)'; break; // Green
+                    case TEAM.D: teamColorRgb = '250, 204, 21'; shadowColor = 'rgba(253, 224, 71, 1)'; break; // Yellow
+                }
+            }
+
             const grad = ctx.createRadialGradient(this.pixelX, this.pixelY, radius * 0.2, this.pixelX, this.pixelY, radius);
             grad.addColorStop(0, 'rgba(255, 255, 255, 0.9)');
-            grad.addColorStop(0.5, 'rgba(147, 197, 253, 0.8)');
-            grad.addColorStop(1, 'rgba(59, 130, 246, 0.4)');
+            grad.addColorStop(0.5, `rgba(${teamColorRgb}, 0.8)`);
+            grad.addColorStop(1, `rgba(${teamColorRgb}, 0.4)`);
 
             ctx.fillStyle = grad;
-            ctx.shadowColor = 'rgba(96, 165, 250, 1)';
+            ctx.shadowColor = shadowColor;
             ctx.shadowBlur = 25;
             ctx.beginPath();
             ctx.arc(this.pixelX, this.pixelY, radius, 0, Math.PI * 2);
@@ -1190,7 +1198,7 @@ export class Projectile {
 
             // 소용돌이 효과
             ctx.globalCompositeOperation = 'lighter';
-            ctx.strokeStyle = 'rgba(219, 234, 254, 0.6)';
+            ctx.strokeStyle = `rgba(${teamColorRgb}, 0.3)`;
             ctx.lineWidth = 2;
             ctx.beginPath();
             const angle = this.gameManager.animationFrameCounter * 0.2;
