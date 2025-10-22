@@ -852,11 +852,6 @@ export class Projectile {
             this.rotationAngle += 0.4 * gameManager.gameSpeed;
         }
 
-        // [추가] 강화 화살 이펙트
-        if (this.type === 'empowered_arrow' && gameManager.random() > 0.3) {
-            gameManager.addParticle({ x: this.pixelX, y: this.pixelY, vx: (gameManager.random() - 0.5) * 1, vy: (gameManager.random() - 0.5) * 1, life: 0.5, color: '#fef08a', size: gameManager.random() * 1.5 + 1 });
-        }
-
         if (this.type === 'ice_diamond_projectile' && gameManager.random() > 0.4) {
             gameManager.addParticle({
                 x: this.pixelX, y: this.pixelY,
@@ -886,7 +881,6 @@ export class Projectile {
     
     draw(ctx) {
         if (this.type === 'shuriken' || this.type === 'returning_shuriken') {
-        if (this.type === 'shuriken' || this.type === 'returning_shuriken') { // 표창
             ctx.save();
             ctx.translate(this.pixelX, this.pixelY);
             ctx.rotate(this.rotationAngle);
@@ -919,7 +913,6 @@ export class Projectile {
         }
 
         if (this.type === 'arrow') {
-        if (this.type === 'arrow' || this.type === 'empowered_arrow') { // 일반 화살 및 강화 화살
             ctx.save(); 
             ctx.translate(this.pixelX, this.pixelY); 
             ctx.rotate(this.angle);
@@ -928,14 +921,6 @@ export class Projectile {
             ctx.fillStyle = '#FFFFFF';
             ctx.strokeStyle = '#000000';
             ctx.lineWidth = 1;
-            ctx.lineWidth = this.type === 'empowered_arrow' ? 1.5 : 1;
-
-            // [추가] 강화 화살일 경우 빛나는 효과 추가
-            if (this.type === 'empowered_arrow') {
-                ctx.shadowColor = '#fef08a';
-                ctx.shadowBlur = 10;
-                ctx.fillStyle = '#fef9c3';
-            }
 
             // 화살 몸통
             ctx.beginPath();
@@ -969,40 +954,18 @@ export class Projectile {
 
             ctx.restore();
         } else if (this.type === 'sword_wave') {
-        } else if (this.type === 'sword_wave') { // 검기
             ctx.save();
             ctx.translate(this.pixelX, this.pixelY);
             ctx.rotate(this.angle - Math.PI / 2);
-            ctx.globalCompositeOperation = 'lighter'; // 빛이 겹칠수록 밝아지는 효과
             
             ctx.strokeStyle = '#ef4444';
             ctx.lineWidth = 4;
             ctx.shadowColor = 'rgba(255, 0, 0, 0.7)';
-            const arcRadius = GRID_SIZE * 0.8;
-            const pulse = Math.sin(this.gameManager.animationFrameCounter * 0.2) * 0.2 + 0.8;
-
-            // 1. 넓고 붉은 외부 광선
-            ctx.strokeStyle = `rgba(239, 68, 68, ${0.6 * pulse})`; // Red
-            ctx.lineWidth = 8;
-            ctx.shadowColor = '#ef4444';
-            ctx.shadowBlur = 20;
-            ctx.beginPath(); ctx.arc(0, 0, arcRadius, 0, Math.PI, false); ctx.stroke();
-
-            // 2. 더 밝은 주황색 내부 광선
-            ctx.strokeStyle = `rgba(251, 146, 60, ${0.8 * pulse})`; // Orange
-            ctx.lineWidth = 5;
-            ctx.shadowBlur = 15;
-            ctx.beginPath(); ctx.arc(0, 0, arcRadius * 0.85, 0, Math.PI, false); ctx.stroke();
-
-            // 3. 가장 밝은 흰색 중심선
-            ctx.strokeStyle = `rgba(255, 255, 255, ${pulse})`; // White
-            ctx.lineWidth = 2;
             ctx.shadowBlur = 10;
 
             ctx.beginPath();
             ctx.arc(0, 0, GRID_SIZE * 0.7, 0, Math.PI, false);
             ctx.stroke();
-            ctx.beginPath(); ctx.arc(0, 0, arcRadius * 0.7, 0, Math.PI, false); ctx.stroke();
             
             ctx.restore();
         } else if (this.type === 'bouncing_sword') {
