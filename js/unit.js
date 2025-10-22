@@ -80,6 +80,10 @@ export class Unit {
         // 유닛이 길을 찾지 못하고 막혔는지 판단하기 위한 속성
         this.stuckTimer = 0;
         this.lastPosition = { x: this.pixelX, y: this.pixelY };
+
+        // [NEW] 눈 깜빡임 관련 속성
+        this.blinkTimer = this.gameManager.random() * 300 + 120; // 2~7초 사이 랜덤
+        this.isBlinking = false;
     }
 
     get speed() {
@@ -522,6 +526,23 @@ export class Unit {
                         gravity: -0.02
                     });
                 }
+            }
+        }
+
+        // [NEW] 눈 깜빡임 타이머 업데이트
+        if (!this.isBlinking && this.hp > 0) {
+            this.blinkTimer -= gameManager.gameSpeed;
+            if (this.blinkTimer <= 0) {
+                this.isBlinking = true;
+                // 깜빡임 지속 시간 (짧게)
+                this.blinkTimer = 10;
+            }
+        } else if (this.isBlinking) {
+            this.blinkTimer -= gameManager.gameSpeed;
+            if (this.blinkTimer <= 0) {
+                this.isBlinking = false;
+                // 다음 깜빡임까지의 시간
+                this.blinkTimer = this.gameManager.random() * 300 + 120;
             }
         }
 
@@ -1221,124 +1242,8 @@ export class Unit {
             ctx.stroke();
         }
 
-        // Eyes
-        {
-            const headRadius = GRID_SIZE / 1.67;
-            const eyeScale = this.gameManager?.unitEyeScale ?? 1.0;
-            const faceWidth = headRadius * 1.1 * eyeScale;
-            const faceHeight = headRadius * 0.7 * eyeScale;
-            const gap = headRadius * 0.3;
-            const eyeWidth = (faceWidth - gap) / 2;
-            const eyeHeight = faceHeight;
-
-            const isDead = this.hp <= 0;
-            const isFighting = this.attackAnimationTimer > 0 || this.isCasting || (this.target && this.weapon);
-            const isMoving = !!this.moveTarget && !isFighting && !this.isDashing;
-
-            ctx.save();
-            ctx.translate(this.pixelX, this.pixelY);
-
-            if (isDead) {
-                ctx.strokeStyle = '#0f172a';
-                ctx.lineWidth = headRadius * 0.5;
-                const xo = headRadius * 0.5;
-                const yo = headRadius * 0.5;
-                ctx.beginPath();
-                ctx.moveTo(-xo, -yo);
-                ctx.lineTo(xo, yo);
-                ctx.moveTo(xo, -yo);
-                ctx.lineTo(-xo, yo);
-                ctx.stroke();
-            } else {
-                const leftX = -faceWidth / 2;
-                const rightX = gap / 2;
-                const topY = -eyeHeight / 2;
-                ctx.fillStyle = '#ffffff';
-                ctx.strokeStyle = '#0f172a';
-                ctx.lineWidth = headRadius * 0.12;
-
-                const rx = Math.min(eyeWidth, eyeHeight) * 0.35;
-                ctx.beginPath();
-                ctx.moveTo(leftX + rx, topY);
-                ctx.lineTo(leftX + eyeWidth - rx, topY);
-                ctx.quadraticCurveTo(leftX + eyeWidth, topY, leftX + eyeWidth, topY + rx);
-                ctx.lineTo(leftX + eyeWidth, topY + eyeHeight - rx);
-                ctx.quadraticCurveTo(leftX + eyeWidth, topY + eyeHeight, leftX + eyeWidth - rx, topY + eyeHeight);
-                ctx.lineTo(leftX + rx, topY + eyeHeight);
-                ctx.quadraticCurveTo(leftX, topY + eyeHeight, leftX, topY + eyeHeight - rx);
-                ctx.lineTo(leftX, topY + rx);
-                ctx.quadraticCurveTo(leftX, topY, leftX + rx, topY);
-                ctx.closePath();
-                ctx.fill(); ctx.stroke();
-
-                ctx.beginPath();
-                ctx.moveTo(rightX + rx, topY);
-                ctx.lineTo(rightX + eyeWidth - rx, topY);
-                ctx.quadraticCurveTo(rightX + eyeWidth, topY, rightX + eyeWidth, topY + rx);
-                ctx.lineTo(rightX + eyeWidth, topY + eyeHeight - rx);
-                ctx.quadraticCurveTo(rightX + eyeWidth, topY + eyeHeight, rightX + eyeWidth - rx, topY + eyeHeight);
-                ctx.lineTo(rightX + rx, topY + eyeHeight);
-                ctx.quadraticCurveTo(rightX, topY + eyeHeight, rightX, topY + eyeHeight - rx);
-                ctx.lineTo(rightX, topY + rx);
-                ctx.quadraticCurveTo(rightX, topY, rightX + rx, topY);
-                ctx.closePath();
-                ctx.fill(); ctx.stroke();
-
-                let targetX = 0, targetY = 0;
-                if (isFighting && this.target) {
-                    targetX = this.target.pixelX - this.pixelX;
-                    targetY = this.target.pixelY - this.pixelY;
-                } else if (isMoving && this.moveTarget) {
-                    targetX = this.moveTarget.x - this.pixelX;
-                    targetY = this.moveTarget.y - this.pixelY;
-                } else {
-                    const t = this.gameManager.animationFrameCounter * 0.09 + (this.pixelX + this.pixelY) * 0.001;
-                    targetX = Math.cos(t);
-                    targetY = Math.sin(t * 1.4);
-                }
-
-                const ang = Math.atan2(targetY, targetX);
-                const maxOffX = eyeWidth * 0.18;
-                const maxOffY = eyeHeight * 0.18;
-                const offX = Math.cos(ang) * maxOffX;
-                const offY = Math.sin(ang) * maxOffY;
-
-                if (isFighting) {
-                    switch(this.team) {
-                        case TEAM.A: ctx.fillStyle = DEEP_COLORS.TEAM_A; break;
-                        case TEAM.B: ctx.fillStyle = DEEP_COLORS.TEAM_B; break;
-                        case TEAM.C: ctx.fillStyle = DEEP_COLORS.TEAM_C; break;
-                        case TEAM.D: ctx.fillStyle = DEEP_COLORS.TEAM_D; break;
-                        default: ctx.fillStyle = '#0b1020'; break;
-                    }
-                } else {
-                    ctx.fillStyle = '#0b1020';
-                }
-                const basePR = Math.min(eyeWidth, eyeHeight) * (isFighting ? 0.34 : 0.42);
-
-                ctx.beginPath();
-                ctx.arc(leftX + eyeWidth / 2 + offX * 0.6, topY + eyeHeight / 2 + offY * 0.6, basePR, 0, Math.PI * 2);
-                ctx.fill();
-                ctx.beginPath();
-                ctx.arc(rightX + eyeWidth / 2 + offX * 0.6, topY + eyeHeight / 2 + offY * 0.6, basePR, 0, Math.PI * 2);
-                ctx.fill();
-
-                if (isFighting) {
-                    ctx.strokeStyle = '#0b1020';
-                    ctx.lineWidth = headRadius * 0.25;
-                    const browY = topY - headRadius * 0.15;
-                    ctx.beginPath();
-                    ctx.moveTo(leftX + eyeWidth * 0.15, browY + headRadius * 0.12);
-                    ctx.lineTo(leftX + eyeWidth * 0.85, browY - headRadius * 0.12);
-                    ctx.stroke();
-                    ctx.beginPath();
-                    ctx.moveTo(rightX + eyeWidth * 0.15, browY - headRadius * 0.12);
-                    ctx.lineTo(rightX + eyeWidth * 0.85, browY + headRadius * 0.12);
-                    ctx.stroke();
-                }
-            }
-            ctx.restore();
-        }
+        // [NEW] 눈 그리기 로직을 별도 메소드로 분리
+        this.drawEyes(ctx);
 
         ctx.restore();
 
@@ -1571,4 +1476,144 @@ export class Unit {
         this.dualSwordTeleportTarget = null;
         this.state = 'IDLE';
     }
+}
+
+// [NEW] 눈 그리기 메소드
+Unit.prototype.drawEyes = function(ctx) {
+    const headRadius = GRID_SIZE / 1.67;
+    const eyeScale = this.gameManager?.unitEyeScale ?? 1.0;
+    const faceWidth = headRadius * 1.1 * eyeScale;
+    const faceHeight = headRadius * 0.7 * eyeScale;
+    const gap = headRadius * 0.3;
+    const eyeWidth = (faceWidth - gap) / 2;
+    const eyeHeight = faceHeight;
+
+    const isDead = this.hp <= 0;
+    const isFighting = this.attackAnimationTimer > 0 || this.isCasting || (this.target && this.weapon);
+    const isMoving = !!this.moveTarget && !isFighting && !this.isDashing;
+
+    ctx.save();
+    ctx.translate(this.pixelX, this.pixelY);
+
+    if (isDead) {
+        ctx.strokeStyle = '#0f172a';
+        ctx.lineWidth = headRadius * 0.5;
+        const xo = headRadius * 0.5;
+        const yo = headRadius * 0.5;
+        ctx.beginPath();
+        ctx.moveTo(-xo, -yo);
+        ctx.lineTo(xo, yo);
+        ctx.moveTo(xo, -yo);
+        ctx.lineTo(-xo, yo);
+        ctx.stroke();
+    } else {
+        const leftX = -faceWidth / 2;
+        const rightX = gap / 2;
+        const topY = -eyeHeight / 2;
+        ctx.fillStyle = '#ffffff';
+        ctx.strokeStyle = '#0f172a';
+        ctx.lineWidth = headRadius * 0.12;
+
+        // [MODIFIED] 눈 깜빡임 처리
+        if (this.isBlinking && !isFighting) {
+            ctx.beginPath();
+            ctx.moveTo(leftX, 0);
+            ctx.lineTo(leftX + eyeWidth, 0);
+            ctx.stroke();
+            ctx.beginPath();
+            ctx.moveTo(rightX, 0);
+            ctx.lineTo(rightX + eyeWidth, 0);
+            ctx.stroke();
+        } else {
+            // 눈 흰자 그리기
+            const rx = Math.min(eyeWidth, eyeHeight) * 0.35;
+            ctx.beginPath();
+            ctx.moveTo(leftX + rx, topY);
+            ctx.lineTo(leftX + eyeWidth - rx, topY);
+            ctx.quadraticCurveTo(leftX + eyeWidth, topY, leftX + eyeWidth, topY + rx);
+            ctx.lineTo(leftX + eyeWidth, topY + eyeHeight - rx);
+            ctx.quadraticCurveTo(leftX + eyeWidth, topY + eyeHeight, leftX + eyeWidth - rx, topY + eyeHeight);
+            ctx.lineTo(leftX + rx, topY + eyeHeight);
+            ctx.quadraticCurveTo(leftX, topY + eyeHeight, leftX, topY + eyeHeight - rx);
+            ctx.lineTo(leftX, topY + rx);
+            ctx.quadraticCurveTo(leftX, topY, leftX + rx, topY);
+            ctx.closePath();
+            ctx.fill(); ctx.stroke();
+
+            ctx.beginPath();
+            ctx.moveTo(rightX + rx, topY);
+            ctx.lineTo(rightX + eyeWidth - rx, topY);
+            ctx.quadraticCurveTo(rightX + eyeWidth, topY, rightX + eyeWidth, topY + rx);
+            ctx.lineTo(rightX + eyeWidth, topY + eyeHeight - rx);
+            ctx.quadraticCurveTo(rightX + eyeWidth, topY + eyeHeight, rightX + eyeWidth - rx, topY + eyeHeight);
+            ctx.lineTo(rightX + rx, topY + eyeHeight);
+            ctx.quadraticCurveTo(rightX, topY + eyeHeight, rightX, topY + eyeHeight - rx);
+            ctx.lineTo(rightX, topY + rx);
+            ctx.quadraticCurveTo(rightX, topY, rightX + rx, topY);
+            ctx.closePath();
+            ctx.fill(); ctx.stroke();
+
+            // 눈동자 시선 처리
+            let targetX = 0, targetY = 0;
+            if (isFighting && this.target) {
+                targetX = this.target.pixelX - this.pixelX;
+                targetY = this.target.pixelY - this.pixelY;
+            } else if (isMoving && this.moveTarget) {
+                targetX = this.moveTarget.x - this.pixelX;
+                targetY = this.moveTarget.y - this.pixelY;
+            } else {
+                const t = this.gameManager.animationFrameCounter * 0.09 + (this.pixelX + this.pixelY) * 0.001;
+                targetX = Math.cos(t);
+                targetY = Math.sin(t * 1.4);
+            }
+
+            const ang = Math.atan2(targetY, targetX);
+            const maxOffX = eyeWidth * 0.18;
+            const maxOffY = eyeHeight * 0.18;
+            const offX = Math.cos(ang) * maxOffX;
+            const offY = Math.sin(ang) * maxOffY;
+
+            // 눈동자 색상 및 크기
+            if (isFighting) {
+                switch(this.team) {
+                    case TEAM.A: ctx.fillStyle = DEEP_COLORS.TEAM_A; break;
+                    case TEAM.B: ctx.fillStyle = DEEP_COLORS.TEAM_B; break;
+                    case TEAM.C: ctx.fillStyle = DEEP_COLORS.TEAM_C; break;
+                    case TEAM.D: ctx.fillStyle = DEEP_COLORS.TEAM_D; break;
+                    default: ctx.fillStyle = '#0b1020'; break;
+                }
+            } else {
+                ctx.fillStyle = '#0b1020';
+            }
+            const basePR = Math.min(eyeWidth, eyeHeight) * (isFighting ? 0.34 : 0.42);
+
+            // 눈동자 그리기
+            ctx.beginPath();
+            ctx.arc(leftX + eyeWidth / 2 + offX * 0.6, topY + eyeHeight / 2 + offY * 0.6, basePR, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.beginPath();
+            ctx.arc(rightX + eyeWidth / 2 + offX * 0.6, topY + eyeHeight / 2 + offY * 0.6, basePR, 0, Math.PI * 2);
+            ctx.fill();
+        }
+
+        // [MODIFIED] 화난 눈썹 애니메이션
+        if (isFighting) {
+            ctx.strokeStyle = '#0b1020';
+            ctx.lineWidth = headRadius * 0.25;
+            
+            // 씰룩이는 효과 추가
+            const browWiggle = Math.sin(this.gameManager.animationFrameCounter * 0.3) * headRadius * 0.05;
+            const browY = topY - headRadius * 0.15 + browWiggle;
+
+            ctx.beginPath();
+            ctx.moveTo(leftX + eyeWidth * 0.15, browY + headRadius * 0.12);
+            ctx.lineTo(leftX + eyeWidth * 0.85, browY - headRadius * 0.12);
+            ctx.stroke();
+            ctx.beginPath();
+            ctx.moveTo(rightX + eyeWidth * 0.15, browY - headRadius * 0.12);
+            ctx.lineTo(rightX + eyeWidth * 0.85, browY + headRadius * 0.12);
+            ctx.stroke();
+        }
+    }
+    ctx.restore();
 }
