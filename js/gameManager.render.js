@@ -1,5 +1,9 @@
 import { TILE, COLORS, GRID_SIZE } from './constants.js';
 
+const GLOWING_WEAPON_TYPES = new Set([
+    'sword', 'bow', 'shuriken', 'axe', 'fire_staff', 'boomerang', 'magic_dagger'
+]);
+
 export function drawImpl(mouseEvent) {
     this.ctx.save();
     this.ctx.fillStyle = '#1f2937';
@@ -66,6 +70,9 @@ export function drawImpl(mouseEvent) {
         this.ctx.strokeRect(x, y, width, height);
     }
 
+    // [추가] 모든 요소가 그려진 후, 특수 공격 빛 효과를 마지막에 덧그립니다.
+    drawSpecialAttackGlows.call(this);
+
     this.ctx.restore();
 }
 
@@ -121,4 +128,29 @@ export function drawMapImpl() {
     this.ctx.restore();
 }
 
+/**
+ * [신규] 특수 공격이 준비된 유닛 주변에 빛나는 효과를 그리는 함수.
+ * 이 함수는 drawImpl 내부에서 호출됩니다.
+ * @this {import('./gameManager.js').GameManager}
+ */
+function drawSpecialAttackGlows() {
+    this.ctx.save();
+    // 빛나는 효과를 위한 투명도와 그림자 설정
+    this.ctx.globalAlpha = 0.5 + Math.sin(this.animationFrameCounter * 0.1) * 0.2; // 맥박처럼 깜빡이는 효과
+    this.ctx.shadowBlur = 15; // 빛의 확산 정도
 
+    for (const unit of this.units) {
+        // 유닛이 무기를 가지고 있고, 해당 무기가 빛나는 무기 타입에 포함되며, 특수 공격이 준비된 경우
+        if (unit.weapon && GLOWING_WEAPON_TYPES.has(unit.weapon.type) && unit.isSpecialAttackReady) {
+            const teamColor = COLORS[`TEAM_${unit.team}`]; // 유닛의 팀 색상 가져오기
+            if (teamColor) {
+                this.ctx.shadowColor = teamColor;
+                this.ctx.fillStyle = teamColor;
+                this.ctx.beginPath();
+                this.ctx.arc(unit.pixelX, unit.pixelY, GRID_SIZE * 0.7, 0, Math.PI * 2); // 유닛보다 약간 큰 원을 그림
+                this.ctx.fill();
+            }
+        }
+    }
+    this.ctx.restore();
+}
