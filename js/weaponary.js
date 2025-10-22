@@ -549,34 +549,68 @@ export class Weapon {
         }
         ctx.restore();
     }
-
+    
     /**
-     * [NEW] Draws the bow, used for both ground and equipped states.
-     * @param {CanvasRenderingContext2D} ctx
-     * @param {number} scale
-     * @param {boolean} isEquipped
-     * @param {Unit} [unit]
-     * @param {number} [rotation]
+     * [NEW] Draws the bow with a nocked arrow, used for both ground and equipped states.
+     * @param {CanvasRenderingContext2D} ctx - The rendering context.
+     * @param {number} scale - The drawing scale.
+     * @param {boolean} isEquipped - Whether the bow is equipped by a unit.
+     * @param {Unit | null} unit - The unit equipping the bow (if any).
+     * @param {number} rotation - The rotation angle.
      */
     drawBow(ctx, scale, isEquipped, unit, rotation) {
+        ctx.save();
+
         if (isEquipped) {
-            ctx.translate(0, GRID_SIZE * 0.3); // 눈 아래 중앙으로 이동
-            ctx.rotate(rotation); // 유닛 방향과 일치
+            ctx.translate(0, GRID_SIZE * 0.3);
+            ctx.rotate(rotation);
         } else {
-            ctx.rotate(Math.PI / 4);
+            ctx.rotate(rotation); // 바닥에 놓일 때의 기본 각도
         }
         ctx.scale(scale, scale);
-        const woodGradient = ctx.createLinearGradient(0, -GRID_SIZE, 0, GRID_SIZE);
-        woodGradient.addColorStop(0, '#854d0e'); woodGradient.addColorStop(0.5, '#a16207'); woodGradient.addColorStop(1, '#854d0e');
-        ctx.strokeStyle = woodGradient;
-        ctx.lineWidth = 5 / scale;
-        ctx.lineCap = 'round';
+
+        // 1. Draw Bow Body
+        ctx.strokeStyle = 'black';
+        ctx.lineWidth = 6 / scale;
         ctx.beginPath();
-        ctx.arc(0, 0, GRID_SIZE * 1.1, -Math.PI / 2.5, Math.PI / 2.5);
+        ctx.arc(0, 0, GRID_SIZE * 0.8, -Math.PI / 2.2, Math.PI / 2.2);
         ctx.stroke();
-        ctx.fillStyle = '#57534e'; // 손잡이 가죽
-        ctx.fillRect(-2, -GRID_SIZE * 0.3, 4, GRID_SIZE * 0.6);
-        ctx.strokeRect(-2, -GRID_SIZE * 0.3, 4, GRID_SIZE * 0.6);
+        ctx.strokeStyle = '#854d0e';
+        ctx.lineWidth = 4 / scale;
+        ctx.stroke();
+
+        // 2. Draw Bowstring
+        ctx.strokeStyle = '#e5e7eb';
+        ctx.lineWidth = 1.5 / scale;
+        const arcRadius = GRID_SIZE * 0.8, arcAngle = Math.PI / 2.2;
+        const bowstringY1 = Math.sin(-arcAngle) * arcRadius;
+        const bowstringY2 = Math.sin(arcAngle) * arcRadius;
+        const bowstringX = Math.cos(arcAngle) * arcRadius;
+        
+        let pullBack = -GRID_SIZE * 0.4;
+        if (isEquipped && unit && unit.attackAnimationTimer > 0) {
+            const pullProgress = Math.sin((15 - unit.attackAnimationTimer) / 15 * Math.PI);
+            pullBack -= pullProgress * GRID_SIZE * 0.5;
+        }
+
+        ctx.beginPath();
+        ctx.moveTo(bowstringX, bowstringY1);
+        ctx.lineTo(pullBack, 0);
+        ctx.lineTo(bowstringX, bowstringY2);
+        ctx.stroke();
+
+        // 3. Draw Nocked Arrow
+        ctx.fillStyle = '#a16207'; // Arrow shaft
+        ctx.fillRect(pullBack, -1, GRID_SIZE * 1.2 - pullBack, 2);
+        ctx.fillStyle = '#a8a29e'; // Arrow head
+        ctx.beginPath();
+        ctx.moveTo(GRID_SIZE * 1.2, 0);
+        ctx.lineTo(GRID_SIZE * 0.8, -2.5);
+        ctx.lineTo(GRID_SIZE * 0.8, 2.5);
+        ctx.closePath();
+        ctx.fill();
+
+        ctx.restore();
     }
 }
 
