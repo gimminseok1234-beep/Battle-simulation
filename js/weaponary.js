@@ -833,6 +833,36 @@ export class Projectile {
         }
     }
 
+    // [NEW] 장풍 파티클 효과
+    handleHadokenTrail() {
+        if (this.gameManager.random() > 0.3) {
+            this.gameManager.addParticle({
+                x: this.pixelX, y: this.pixelY,
+                vx: (this.gameManager.random() - 0.5) * 2,
+                vy: (this.gameManager.random() - 0.5) * 2,
+                life: 0.5,
+                color: this.gameManager.random() > 0.5 ? '#60a5fa' : '#bfdbfe', // 푸른색 계열
+                size: this.gameManager.random() * 2.5 + 1,
+                gravity: 0
+            });
+        }
+    }
+
+    // [NEW] 번개 파티클 효과
+    handleLightningTrail() {
+        if (this.gameManager.random() > 0.2) {
+            this.gameManager.addParticle({
+                x: this.pixelX, y: this.pixelY,
+                vx: (this.gameManager.random() - 0.5) * 1.5,
+                vy: (this.gameManager.random() - 0.5) * 1.5,
+                life: 0.3,
+                color: '#fef08a',
+                size: this.gameManager.random() * 2 + 1,
+                gravity: 0
+            });
+        }
+    }
+
     update() {
         const gameManager = this.gameManager;
         if (!gameManager) return;
@@ -914,6 +944,16 @@ export class Projectile {
         // [NEW] 쌍검 칼날비 파티클 생성 로직 호출
         if (this.type === 'bouncing_sword') {
             this.handleBouncingSwordTrail();
+        }
+
+        // [NEW] 장풍 파티클 생성 로직 호출
+        if (this.type === 'hadoken') {
+            this.handleHadokenTrail();
+        }
+
+        // [NEW] 번개 파티클 생성 로직 호출
+        if (this.type === 'lightning_bolt') {
+            this.handleLightningTrail();
         }
 
         // [MODIFIED] 얼음 다이아와 부메랑 특수 공격 투사체에 유도 기능 추가
@@ -1106,35 +1146,61 @@ export class Projectile {
 
             ctx.restore();
         } else if (this.type === 'hadoken') {
-            for (let i = 0; i < this.trail.length; i++) {
-                const pos = this.trail[i];
-                const alpha = (i / this.trail.length) * 0.5;
-                ctx.fillStyle = `rgba(139, 92, 246, ${alpha})`;
-                ctx.beginPath();
-                ctx.arc(pos.x, pos.y, (GRID_SIZE / 2) * (i / this.trail.length), 0, Math.PI * 2);
-                ctx.fill();
-            }
-            ctx.fillStyle = '#c4b5fd';
-            ctx.beginPath();
-            ctx.arc(this.pixelX, this.pixelY, GRID_SIZE / 2, 0, Math.PI * 2);
-            ctx.fill();
-            ctx.fillStyle = '#8b5cf6';
-            ctx.beginPath();
-            ctx.arc(this.pixelX, this.pixelY, GRID_SIZE / 3, 0, Math.PI * 2);
-            ctx.fill();
-        } else if (this.type === 'lightning_bolt') {
+            // [MODIFIED] 장풍 투사체 디자인 강화
             ctx.save();
-            ctx.translate(this.pixelX, this.pixelY);
-            ctx.rotate(this.angle);
-            ctx.strokeStyle = '#fef08a';
-            ctx.lineWidth = 3;
+            const radius = GRID_SIZE / 1.8;
+            const grad = ctx.createRadialGradient(this.pixelX, this.pixelY, radius * 0.2, this.pixelX, this.pixelY, radius);
+            grad.addColorStop(0, 'rgba(255, 255, 255, 0.9)');
+            grad.addColorStop(0.5, 'rgba(147, 197, 253, 0.8)');
+            grad.addColorStop(1, 'rgba(59, 130, 246, 0.4)');
+
+            ctx.fillStyle = grad;
+            ctx.shadowColor = 'rgba(96, 165, 250, 1)';
+            ctx.shadowBlur = 25;
             ctx.beginPath();
-            ctx.moveTo(-GRID_SIZE * 0.5, 0);
-            for(let i = -GRID_SIZE * 0.5; i < GRID_SIZE * 0.5; i += 4) {
-                ctx.lineTo(i, (this.gameManager.random() - 0.5) * 4);
-            }
-            ctx.lineTo(GRID_SIZE * 0.5, 0);
+            ctx.arc(this.pixelX, this.pixelY, radius, 0, Math.PI * 2);
+            ctx.fill();
+
+            // 소용돌이 효과
+            ctx.globalCompositeOperation = 'lighter';
+            ctx.strokeStyle = 'rgba(219, 234, 254, 0.6)';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            const angle = this.gameManager.animationFrameCounter * 0.2;
+            ctx.arc(this.pixelX, this.pixelY, radius * 0.7, angle, angle + Math.PI * 1.5);
             ctx.stroke();
+            ctx.beginPath();
+            ctx.arc(this.pixelX, this.pixelY, radius * 0.5, -angle, -angle + Math.PI * 1.5);
+            ctx.stroke();
+
+            ctx.restore();
+        } else if (this.type === 'lightning_bolt') {
+            // [MODIFIED] 번개 투사체 디자인 강화
+            ctx.save();
+            ctx.globalCompositeOperation = 'lighter';
+            const radius = GRID_SIZE * 0.4;
+            const grad = ctx.createRadialGradient(this.pixelX, this.pixelY, 0, this.pixelX, this.pixelY, radius);
+            grad.addColorStop(0, 'rgba(255, 255, 255, 1)');
+            grad.addColorStop(0.4, 'rgba(254, 249, 195, 0.9)');
+            grad.addColorStop(1, 'rgba(250, 204, 21, 0.3)');
+            
+            ctx.fillStyle = grad;
+            ctx.shadowColor = '#fde047';
+            ctx.shadowBlur = 20;
+            ctx.beginPath();
+            ctx.arc(this.pixelX, this.pixelY, radius, 0, Math.PI * 2);
+            ctx.fill();
+
+            // 전기 스파크 효과
+            ctx.strokeStyle = 'rgba(254, 240, 138, 0.8)';
+            ctx.lineWidth = 1.5;
+            for (let i = 0; i < 3; i++) {
+                ctx.beginPath();
+                const startAngle = this.gameManager.random() * Math.PI * 2;
+                const endAngle = startAngle + (this.gameManager.random() - 0.5) * Math.PI;
+                ctx.arc(this.pixelX, this.pixelY, radius * (1 + this.gameManager.random() * 0.5), startAngle, endAngle);
+                ctx.stroke();
+            }
             ctx.restore();
         } else if (this.type.startsWith('magic_spear')) {
             const isSpecial = this.type === 'magic_spear_special';
@@ -1171,9 +1237,25 @@ export class Projectile {
             ctx.restore();
         } else if (this.type === 'boomerang_projectile') {
             ctx.save();
+            // [MODIFIED] 부메랑 특수 공격 이펙트 강화
+            const teamColor = COLORS[`TEAM_${this.owner.team}`] || '#9ca3af';
+            ctx.shadowColor = teamColor;
+            ctx.shadowBlur = 15;
+
+            // 잔상 효과
+            this.trail.forEach((pos, index) => {
+                const opacity = (index / this.trail.length) * 0.4;
+                ctx.fillStyle = teamColor.replace(')', `, ${opacity})`).replace('#', 'rgba(').replace(')', '');
+                ctx.beginPath();
+                const size = (GRID_SIZE / 3) * (index / this.trail.length);
+                ctx.arc(pos.x, pos.y, size, 0, Math.PI * 2);
+                ctx.fill();
+            });
+
             ctx.translate(this.pixelX, this.pixelY);
             ctx.rotate(this.rotationAngle); 
-            this.owner.weapon.drawBoomerang(ctx, 0.6); 
+            // 부메랑 주변에 아우라 추가
+            this.owner.weapon.drawBoomerang(ctx, 0.6, 0, teamColor); 
             ctx.restore();
         } else if (this.type === 'boomerang_normal_projectile') {
             ctx.save();
