@@ -66,7 +66,6 @@ export class Unit {
         this.isSlowed = 0;
         this.attackCount = 0;
         this.swordSpecialAttackAnimationTimer = 0;
-        this.isSpecialAttackReady = false; // [추가] 특수 공격 준비 상태
 
         this.dualSwordSkillCooldown = 0;
         this.dualSwordTeleportTarget = null;
@@ -444,36 +443,6 @@ export class Unit {
         const gameManager = this.gameManager;
         if (!gameManager) {
             return;
-        }
-
-        // [수정] 특수 공격 준비 상태 업데이트 로직
-        if (this.weapon) {
-            switch (this.weapon.type) {
-                case 'sword':
-                case 'bow':
-                    // 3타마다 특수 공격이므로, 2번 공격하면 다음 공격이 특수 공격임
-                    this.isSpecialAttackReady = (this.attackCount === 2);
-                    break;
-                case 'shuriken':
-                    this.isSpecialAttackReady = (this.shurikenSkillCooldown <= 0);
-                    break;
-                case 'axe':
-                    this.isSpecialAttackReady = (this.axeSkillCooldown <= 0);
-                    break;
-                case 'fire_staff':
-                    this.isSpecialAttackReady = (this.fireStaffSpecialCooldown <= 0);
-                    break;
-                case 'boomerang':
-                    this.isSpecialAttackReady = (this.boomerangCooldown <= 0);
-                    break;
-                case 'magic_dagger':
-                    this.isSpecialAttackReady = (this.magicDaggerSkillCooldown <= 0 && !this.isAimingMagicDagger);
-                    break;
-                default:
-                    this.isSpecialAttackReady = false;
-            }
-        } else {
-            this.isSpecialAttackReady = false;
         }
 
         // [추가] 부드러운 체력바 감소 및 피격 효과 처리
