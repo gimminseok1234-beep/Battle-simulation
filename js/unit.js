@@ -1324,6 +1324,16 @@ export class Unit {
             ctx.stroke();
         }
 
+        // [NEW] 피격 섬광 효과
+        if (this.damageFlash > 0) {
+            ctx.save();
+            ctx.fillStyle = `rgba(255, 255, 255, ${this.damageFlash * 0.8})`;
+            ctx.beginPath();
+            ctx.arc(this.pixelX, this.pixelY, radius + 1, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.restore();
+        }
+
         // [NEW] 눈 그리기 로직을 별도 메소드로 분리
         this.drawEyes(ctx);
 
