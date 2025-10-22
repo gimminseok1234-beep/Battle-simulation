@@ -42,20 +42,12 @@ export class Weapon {
             gameManager.createEffect('slash', unit.pixelX, unit.pixelY, target);
             gameManager.audioManager.play('swordHit');
             unit.attackCooldown = unit.cooldownTime;
-            
-            // [MODIFIED] 검 특수 공격 강화
+
             if (unit.attackCount >= 3) {
                 unit.attackCount = 0;
                 unit.swordSpecialAttackAnimationTimer = 30;
                 gameManager.createProjectile(unit, target, 'sword_wave');
                 gameManager.audioManager.play('Aurablade');
-
-                // 붉은 충격파 이펙트 추가
-                gameManager.createEffect('axe_spin_effect', unit.pixelX, unit.pixelY, unit, {
-                    color: 'rgba(239, 68, 68, 0.7)', // 붉은색
-                    maxRadius: GRID_SIZE * 4,
-                    duration: 25
-                });
             }
         } else if (this.type === 'bow') {
             unit.attackCount++;
@@ -749,6 +741,22 @@ export class Projectile {
         }
     }
 
+    // [NEW] 활 특수 공격 파티클 효과
+    handleSpecialArrowTrail() {
+        if (this.gameManager.random() > 0.3) { // 파티클 생성 빈도 조절
+            this.gameManager.addParticle({
+                x: this.pixelX,
+                y: this.pixelY,
+                vx: (this.gameManager.random() - 0.5) * 1.5,
+                vy: (this.gameManager.random() - 0.5) * 1.5,
+                life: 0.4,
+                color: this.gameManager.random() > 0.5 ? '#facc15' : '#fb923c', // 노랑/주황
+                size: this.gameManager.random() * 2 + 1,
+                gravity: 0
+            });
+        }
+    }
+
     update() {
         const gameManager = this.gameManager;
         if (!gameManager) return;
@@ -815,6 +823,11 @@ export class Projectile {
                 }
             }
             return;
+        }
+
+        // [NEW] 활 특수 공격 파티클 생성 로직 호출
+        if (this.type === 'arrow' && this.isSpecial) {
+            this.handleSpecialArrowTrail();
         }
 
         // [MODIFIED] 얼음 다이아와 부메랑 특수 공격 투사체에 유도 기능 추가
@@ -904,18 +917,6 @@ export class Projectile {
             return;
         }
 
-        // [NEW] 활 특수 공격 잔상 효과
-        if (this.type === 'arrow' && this.isSpecial) {
-            this.trail.forEach((pos, index) => {
-                const opacity = (index / this.trail.length) * 0.6;
-                ctx.fillStyle = `rgba(250, 204, 21, ${opacity})`; // 노란색 계열
-                ctx.beginPath();
-                const size = (GRID_SIZE / 4) * (index / this.trail.length);
-                ctx.arc(pos.x, pos.y, size, 0, Math.PI * 2);
-                ctx.fill();
-            });
-        }
-
         if (this.type === 'arrow') {
             ctx.save(); 
             ctx.translate(this.pixelX, this.pixelY); 
@@ -962,27 +963,30 @@ export class Projectile {
             ctx.translate(this.pixelX, this.pixelY);
             ctx.rotate(this.angle - Math.PI / 2);
             
-            // [MODIFIED] 검기 이펙트 강화
-            const opacity = 1.0;
-            const grad = ctx.createRadialGradient(0, 0, 0, 0, 0, GRID_SIZE * 0.8);
-            grad.addColorStop(0, `rgba(255, 150, 150, ${opacity})`);
-            grad.addColorStop(0.7, `rgba(239, 68, 68, ${opacity * 0.8})`);
-            grad.addColorStop(1, `rgba(239, 68, 68, 0)`);
+            // [MODIFIED] 검기 이펙트 대폭 강화
+            ctx.shadowColor = 'rgba(255, 0, 0, 1)';
+            ctx.shadowBlur = 20;
 
-            ctx.fillStyle = grad;
-            ctx.beginPath();
-            ctx.arc(0, 0, GRID_SIZE * 0.8, 0, Math.PI, false);
-            ctx.fill();
-
-            ctx.strokeStyle = `rgba(255, 255, 255, ${opacity * 0.8})`;
-            ctx.lineWidth = 2;
-            ctx.shadowColor = 'rgba(255, 100, 100, 1)';
-            ctx.shadowBlur = 15;
-
+            // 1. 부드러운 외부 광원
+            ctx.globalCompositeOperation = 'lighter';
+            ctx.strokeStyle = 'rgba(255, 50, 50, 0.6)';
+            ctx.lineWidth = 7;
             ctx.beginPath();
             ctx.arc(0, 0, GRID_SIZE * 0.7, 0, Math.PI, false);
             ctx.stroke();
-            
+
+            // 2. 중간 칼날 (선명한 붉은색)
+            ctx.strokeStyle = 'rgba(255, 150, 150, 1)';
+            ctx.lineWidth = 4;
+            ctx.stroke(); // 같은 경로에 다시 그림
+
+            // 3. 날카로운 내부 칼날 (흰색)
+            ctx.shadowBlur = 0; // 내부 칼날은 번짐 없음
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.9)';
+            ctx.lineWidth = 1.5;
+            ctx.beginPath();
+            ctx.arc(0, 0, GRID_SIZE * 0.7, 0, Math.PI, false);
+            ctx.stroke();
             ctx.restore();
         } else if (this.type === 'bouncing_sword') {
             ctx.save();
