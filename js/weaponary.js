@@ -248,18 +248,17 @@ export class Weapon {
             ctx.lineTo(2, GRID_SIZE * 0.3);
             ctx.closePath(); ctx.fill(); ctx.stroke();
             ctx.fillStyle = '#374151';
-            ctx.fillRect(-GRID_SIZE * 0.2, GRID_SIZE * 0.3, GRID_SIZE * 0.4, 3);
-            ctx.strokeRect(-GRID_SIZE * 0.2, GRID_SIZE * 0.3, GRID_SIZE * 0.4, 3);
+            ctx.fillRect(-GRID_SIZE * 0.2, GRID_SIZE * 0.3, GRID_SIZE * 0.4, 3 / scale);
+            ctx.strokeRect(-GRID_SIZE * 0.2, GRID_SIZE * 0.3, GRID_SIZE * 0.4, 3 / scale);
             ctx.fillStyle = '#1f2937';
-            ctx.fillRect(-1.5, GRID_SIZE * 0.3 + 3, 3, GRID_SIZE * 0.3); ctx.strokeRect(-1.5, GRID_SIZE * 0.3 + 3, 3, GRID_SIZE * 0.3);
+            ctx.fillRect(-1.5, GRID_SIZE * 0.3 + 3 / scale, 3, GRID_SIZE * 0.3); ctx.strokeRect(-1.5, GRID_SIZE * 0.3 + 3 / scale, 3, GRID_SIZE * 0.3);
         } else if (this.type === 'bow') {
             // [MODIFIED] 활 디자인 변경 (중세 장궁 스타일)
             ctx.rotate(Math.PI / 4);
-            ctx.strokeStyle = '#1c1917';
-            ctx.lineWidth = 3 / scale;
             const woodGradient = ctx.createLinearGradient(0, -GRID_SIZE, 0, GRID_SIZE);
             woodGradient.addColorStop(0, '#854d0e'); woodGradient.addColorStop(0.5, '#a16207'); woodGradient.addColorStop(1, '#854d0e');
             ctx.strokeStyle = woodGradient;
+            ctx.lineWidth = 5 / scale;
             ctx.lineCap = 'round';
             ctx.beginPath();
             ctx.arc(0, 0, GRID_SIZE * 1.1, -Math.PI / 2.5, Math.PI / 2.5);
@@ -442,8 +441,8 @@ export class Weapon {
             drawAxeIcon(ctx);
         } else if (this.type === 'bow') {
             // [MODIFIED] 장착된 활 디자인 및 위치 수정
-            ctx.translate(GRID_SIZE * 0.5, 0);
-            ctx.rotate(rotation - Math.PI / 2); // 유닛 방향에 맞춰 회전
+            ctx.translate(GRID_SIZE * 0.4, GRID_SIZE * 0.4); // 오른쪽 어깨 쪽으로 이동
+            ctx.rotate(rotation - Math.PI / 4); // 유닛 방향에 맞춰 회전
             const bowScale = 0.6;
             ctx.scale(bowScale, bowScale);
             
