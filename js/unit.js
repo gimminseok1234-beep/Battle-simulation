@@ -1256,22 +1256,6 @@ export class Unit {
         ctx.scale(totalScale, totalScale);
         ctx.translate(-this.pixelX, -this.pixelY);
 
-        // [NEW] 그림자 효과 추가
-        ctx.save();
-        ctx.globalAlpha = 0.3;
-        ctx.fillStyle = 'black';
-        ctx.beginPath();
-        ctx.ellipse(
-            this.pixelX, 
-            this.pixelY + GRID_SIZE / 1.8, // 유닛 발밑에 위치
-            GRID_SIZE / 1.8, // 가로 반지름
-            GRID_SIZE / 4,   // 세로 반지름
-            0, 0, Math.PI * 2
-        );
-        ctx.fill();
-        ctx.restore();
-
-
         if (this.isStunned > 0) {
             ctx.globalAlpha = 0.7;
         }
@@ -1327,7 +1311,7 @@ export class Unit {
         // [NEW] 피격 섬광 효과
         if (this.damageFlash > 0) {
             ctx.save();
-            ctx.fillStyle = `rgba(255, 255, 255, ${this.damageFlash * 0.8})`;
+            ctx.fillStyle = `rgba(255, 255, 255, ${this.damageFlash * 0.4})`;
             ctx.beginPath();
             ctx.arc(this.pixelX, this.pixelY, radius + 1, 0, Math.PI * 2);
             ctx.fill();
