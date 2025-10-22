@@ -248,10 +248,10 @@ export class Weapon {
             ctx.lineTo(2, GRID_SIZE * 0.3);
             ctx.closePath(); ctx.fill(); ctx.stroke();
             ctx.fillStyle = '#374151';
-            ctx.fillRect(-GRID_SIZE * 0.2, GRID_SIZE * 0.3, GRID_SIZE * 0.4, 3);
-            ctx.strokeRect(-GRID_SIZE * 0.2, GRID_SIZE * 0.3, GRID_SIZE * 0.4, 3);
+            ctx.fillRect(-GRID_SIZE * 0.2, GRID_SIZE * 0.3, GRID_SIZE * 0.4, 3 / scale);
+            ctx.strokeRect(-GRID_SIZE * 0.2, GRID_SIZE * 0.3, GRID_SIZE * 0.4, 3 / scale);
             ctx.fillStyle = '#1f2937';
-            ctx.fillRect(-1.5, GRID_SIZE * 0.3 + 3, 3, GRID_SIZE * 0.3); ctx.strokeRect(-1.5, GRID_SIZE * 0.3 + 3, 3, GRID_SIZE * 0.3);
+            ctx.fillRect(-1.5, GRID_SIZE * 0.3 + 3 / scale, 3, GRID_SIZE * 0.3); ctx.strokeRect(-1.5, GRID_SIZE * 0.3 + 3 / scale, 3, GRID_SIZE * 0.3);
         } else if (this.type === 'bow') {
             this.drawBow(ctx, scale, false);
         } else if (this.type === 'dual_swords') {
@@ -543,7 +543,7 @@ export class Weapon {
         
         if (isEquipped) {
             ctx.rotate(rotation); // 먼저 유닛의 방향으로 회전
-            ctx.translate(GRID_SIZE * 0.6, 0); // 그 다음, 회전된 축을 기준으로 오른쪽으로 이동
+            ctx.translate(GRID_SIZE * 0.6, 0); // 그 다음, 회전된 축을 기준으로 바깥쪽으로 이동
         } else {
             ctx.rotate(rotation); // 바닥에 놓일 때의 기본 각도
         }
