@@ -428,27 +428,7 @@ export class Weapon {
             ctx.scale(0.8, 0.8);
             drawAxeIcon(ctx);
         } else if (this.type === 'bow') {
-            this.drawBow(ctx, 0.6, true, unit, rotation);
-            // [수정] 활시위 당기는 애니메이션 추가
-            ctx.strokeStyle = '#e5e7eb';
-            ctx.lineWidth = 1.5 / bowScale;
-            ctx.beginPath();
-            const arcRadius = GRID_SIZE * 1.1, arcAngle = Math.PI / 2.5;
-            const bowstringY1 = Math.sin(-arcAngle) * arcRadius;
-            const bowstringY2 = Math.sin(arcAngle) * arcRadius;
-            const bowstringX = Math.cos(arcAngle) * arcRadius;
-            
-            let pullBack = -GRID_SIZE * 0.4;
-            if (unit.attackAnimationTimer > 0) {
-                const pullProgress = Math.sin((15 - unit.attackAnimationTimer) / 15 * Math.PI);
-                pullBack -= pullProgress * GRID_SIZE * 0.5; // 시위를 더 당김
-            }
-
-            ctx.moveTo(bowstringX, bowstringY1);
-            ctx.lineTo(pullBack, 0);
-            ctx.lineTo(bowstringX, bowstringY2);
-            ctx.stroke();
-
+            this.drawBow(ctx, 0.8, true, unit, rotation);
         } else if (this.type === 'dual_swords') {
             const drawEquippedCurvedSword = (isRightHand) => {
                 ctx.save();
@@ -598,17 +578,26 @@ export class Weapon {
         ctx.lineTo(pullBack, 0);
         ctx.lineTo(bowstringX, bowstringY2);
         ctx.stroke();
+        
+        // 3. Draw Nocked Arrow (if not just fired)
+        // [MODIFIED] 화살을 쏘는 순간(attackAnimationTimer가 5 이하일 때)에는 장전된 화살을 그리지 않습니다.
+        const justFired = isEquipped && unit && unit.attackAnimationTimer > 0 && unit.attackAnimationTimer <= 5;
 
-        // 3. Draw Nocked Arrow
-        ctx.fillStyle = '#a16207'; // Arrow shaft
-        ctx.fillRect(pullBack, -1, GRID_SIZE * 1.2 - pullBack, 2);
-        ctx.fillStyle = '#a8a29e'; // Arrow head
-        ctx.beginPath();
-        ctx.moveTo(GRID_SIZE * 1.2, 0);
-        ctx.lineTo(GRID_SIZE * 0.8, -2.5);
-        ctx.lineTo(GRID_SIZE * 0.8, 2.5);
-        ctx.closePath();
-        ctx.fill();
+        if (!justFired) {
+            ctx.fillStyle = '#a16207'; // Arrow shaft
+            ctx.strokeStyle = 'black';
+            ctx.lineWidth = 0.5 / scale;
+            ctx.fillRect(pullBack, -1, (GRID_SIZE * 1.2) - pullBack, 2);
+            ctx.strokeRect(pullBack, -1, (GRID_SIZE * 1.2) - pullBack, 2);
+            ctx.fillStyle = '#a8a29e'; // Arrow head
+            ctx.beginPath();
+            ctx.moveTo(GRID_SIZE * 1.2, 0);
+            ctx.lineTo(GRID_SIZE * 0.8, -2.5);
+            ctx.lineTo(GRID_SIZE * 0.8, 2.5);
+            ctx.closePath();
+            ctx.fill();
+            ctx.stroke();
+        }
 
         ctx.restore();
     }
