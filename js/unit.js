@@ -1606,12 +1606,12 @@ Unit.prototype.drawEyes = function(ctx) {
             const browY = topY - headRadius * 0.15 + browWiggle;
 
             ctx.beginPath();
-            ctx.moveTo(leftX + eyeWidth * 0.15, browY + headRadius * 0.12);
-            ctx.lineTo(leftX + eyeWidth * 0.85, browY - headRadius * 0.12);
+            ctx.moveTo(leftX + eyeWidth * 0.15, browY - headRadius * 0.12);
+            ctx.lineTo(leftX + eyeWidth * 0.85, browY + headRadius * 0.12);
             ctx.stroke();
             ctx.beginPath();
-            ctx.moveTo(rightX + eyeWidth * 0.15, browY - headRadius * 0.12);
-            ctx.lineTo(rightX + eyeWidth * 0.85, browY + headRadius * 0.12);
+            ctx.moveTo(rightX + eyeWidth * 0.15, browY + headRadius * 0.12);
+            ctx.lineTo(rightX + eyeWidth * 0.85, browY - headRadius * 0.12);
             ctx.stroke();
         }
     }
