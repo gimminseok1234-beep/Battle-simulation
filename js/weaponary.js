@@ -1,4 +1,4 @@
-import { TEAM, COLORS, GRID_SIZE } from './constants.js';
+import { TEAM, COLORS, GRID_SIZE, DEEP_COLORS } from './constants.js';
 import {
     drawMagicDaggerIcon,
     drawAxeIcon,
@@ -48,6 +48,29 @@ export class Weapon {
                 unit.swordSpecialAttackAnimationTimer = 30;
                 gameManager.createProjectile(unit, target, 'sword_wave');
                 gameManager.audioManager.play('Aurablade');
+
+                // [NEW] 유닛 색상에 맞는 파티클 이펙트 추가
+                let teamColor;
+                switch(unit.team) {
+                    case TEAM.A: teamColor = DEEP_COLORS.TEAM_A; break;
+                    case TEAM.B: teamColor = DEEP_COLORS.TEAM_B; break;
+                    case TEAM.C: teamColor = DEEP_COLORS.TEAM_C; break;
+                    case TEAM.D: teamColor = DEEP_COLORS.TEAM_D; break;
+                    default: teamColor = '#FFFFFF'; break;
+                }
+
+                for (let i = 0; i < 15; i++) {
+                    const angle = gameManager.random() * Math.PI * 2;
+                    const speed = 1 + gameManager.random() * 2;
+                    gameManager.addParticle({
+                        x: unit.pixelX, y: unit.pixelY,
+                        vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed,
+                        life: 0.7,
+                        color: teamColor,
+                        size: gameManager.random() * 2 + 1,
+                        gravity: 0.05
+                    });
+                }
             }
         } else if (this.type === 'bow') {
             unit.attackCount++;
@@ -61,6 +84,29 @@ export class Weapon {
                 const recoilForce = 4;
                 unit.knockbackX += Math.cos(recoilAngle) * recoilForce;
                 unit.knockbackY += Math.sin(recoilAngle) * recoilForce;
+
+                // [NEW] 유닛 색상에 맞는 파티클 이펙트 추가
+                let teamColor;
+                switch(unit.team) {
+                    case TEAM.A: teamColor = DEEP_COLORS.TEAM_A; break;
+                    case TEAM.B: teamColor = DEEP_COLORS.TEAM_B; break;
+                    case TEAM.C: teamColor = DEEP_COLORS.TEAM_C; break;
+                    case TEAM.D: teamColor = DEEP_COLORS.TEAM_D; break;
+                    default: teamColor = '#FFFFFF'; break;
+                }
+
+                for (let i = 0; i < 15; i++) {
+                    const angle = gameManager.random() * Math.PI * 2;
+                    const speed = 1 + gameManager.random() * 2;
+                    gameManager.addParticle({
+                        x: unit.pixelX, y: unit.pixelY,
+                        vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed,
+                        life: 0.7,
+                        color: teamColor,
+                        size: gameManager.random() * 2 + 1,
+                        gravity: 0.05
+                    });
+                }
 
                 // [MODIFIED] 특수 화살 발사 (isSpecial 플래그 추가)
                 gameManager.createProjectile(unit, target, 'arrow', { isSpecial: true });
@@ -757,6 +803,21 @@ export class Projectile {
         }
     }
 
+    // [NEW] 검기 파티클 효과
+    handleSwordWaveTrail() {
+        if (this.gameManager.random() > 0.4) {
+            this.gameManager.addParticle({
+                x: this.pixelX, y: this.pixelY,
+                vx: (this.gameManager.random() - 0.5) * 1.5,
+                vy: (this.gameManager.random() - 0.5) * 1.5,
+                life: 0.5,
+                color: this.gameManager.random() > 0.5 ? '#ef4444' : '#fca5a5',
+                size: this.gameManager.random() * 2 + 1,
+                gravity: 0.02
+            });
+        }
+    }
+
     update() {
         const gameManager = this.gameManager;
         if (!gameManager) return;
@@ -828,6 +889,11 @@ export class Projectile {
         // [NEW] 활 특수 공격 파티클 생성 로직 호출
         if (this.type === 'arrow' && this.isSpecial) {
             this.handleSpecialArrowTrail();
+        }
+
+        // [NEW] 검기 파티클 생성 로직 호출
+        if (this.type === 'sword_wave') {
+            this.handleSwordWaveTrail();
         }
 
         // [MODIFIED] 얼음 다이아와 부메랑 특수 공격 투사체에 유도 기능 추가
@@ -963,30 +1029,32 @@ export class Projectile {
             ctx.translate(this.pixelX, this.pixelY);
             ctx.rotate(this.angle - Math.PI / 2);
             
-            // [MODIFIED] 검기 이펙트 대폭 강화
+            // [MODIFIED] 검기 이펙트를 초승달 모양으로 변경
             ctx.shadowColor = 'rgba(255, 0, 0, 1)';
             ctx.shadowBlur = 20;
-
-            // 1. 부드러운 외부 광원
             ctx.globalCompositeOperation = 'lighter';
+
+            const radius = GRID_SIZE * 0.8;
+            const innerRadius = radius * 0.6;
+
+            // 1. 부드러운 외부 광원 (초승달 모양)
             ctx.strokeStyle = 'rgba(255, 50, 50, 0.6)';
             ctx.lineWidth = 7;
             ctx.beginPath();
-            ctx.arc(0, 0, GRID_SIZE * 0.7, 0, Math.PI, false);
+            ctx.moveTo(-radius, 0);
+            ctx.quadraticCurveTo(0, -innerRadius, radius, 0);
+            ctx.quadraticCurveTo(0, innerRadius * 0.8, -radius, 0);
             ctx.stroke();
 
-            // 2. 중간 칼날 (선명한 붉은색)
+            // 2. 중간 칼날 (선명한 붉은색) & 3. 날카로운 내부 칼날 (흰색)
             ctx.strokeStyle = 'rgba(255, 150, 150, 1)';
             ctx.lineWidth = 4;
-            ctx.stroke(); // 같은 경로에 다시 그림
+            ctx.stroke(); 
 
-            // 3. 날카로운 내부 칼날 (흰색)
             ctx.shadowBlur = 0; // 내부 칼날은 번짐 없음
             ctx.strokeStyle = 'rgba(255, 255, 255, 0.9)';
             ctx.lineWidth = 1.5;
-            ctx.beginPath();
-            ctx.arc(0, 0, GRID_SIZE * 0.7, 0, Math.PI, false);
-            ctx.stroke();
+            ctx.stroke(); // 같은 경로에 다시 그림
             ctx.restore();
         } else if (this.type === 'bouncing_sword') {
             ctx.save();
