@@ -446,7 +446,7 @@ export class Unit {
             return;
         }
 
-        // [추가] 특수 공격 준비 상태 업데이트 로직
+        // [수정] 특수 공격 준비 상태 업데이트 로직
         if (this.weapon) {
             switch (this.weapon.type) {
                 case 'sword':
