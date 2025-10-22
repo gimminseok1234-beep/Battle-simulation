@@ -1177,6 +1177,7 @@ export class Effect {
         this.x = x; this.y = y; this.type = type; this.target = target;
         this.duration = options.duration || 20;
         this.angle = this.gameManager.random() * Math.PI * 2;
+        this.initialDuration = this.duration; // [NEW] 초기 지속 시간 저장
         this.options = options;
         
         if (this.type === 'question_mark_effect') {
@@ -1240,8 +1241,8 @@ export class Effect {
             });
             ctx.globalAlpha = 1.0;
         } else if (this.type === 'axe_spin_effect') {
-            const progress = 1 - (this.duration / 20);
-            const radius = (this.options.maxRadius || GRID_SIZE * 3.5) * progress;
+            const progress = 1 - (Math.max(0, this.duration) / this.initialDuration); // [MODIFIED] progress 계산 수정
+            const radius = (this.options.maxRadius || GRID_SIZE * 3.5) * progress; // radius는 이제 음수가 될 수 없음
             ctx.save();
             ctx.translate(this.x, this.y);
             ctx.strokeStyle = this.options.color || `rgba(220, 38, 38, ${opacity})`;
