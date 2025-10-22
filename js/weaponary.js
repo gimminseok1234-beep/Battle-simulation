@@ -540,10 +540,10 @@ export class Weapon {
      */
     drawBow(ctx, scale, isEquipped, unit, rotation) {
         ctx.save();
-
+        
         if (isEquipped) {
-            ctx.rotate(rotation); // 먼저 유닛 방향으로 회전
-            ctx.translate(GRID_SIZE * 0.8, 0); // 그 다음 회전된 축을 기준으로 오른쪽으로 이동
+            ctx.rotate(rotation); // 먼저 유닛의 방향으로 회전
+            ctx.translate(GRID_SIZE * 0.6, 0); // 그 다음, 회전된 축을 기준으로 오른쪽으로 이동
         } else {
             ctx.rotate(rotation); // 바닥에 놓일 때의 기본 각도
         }
