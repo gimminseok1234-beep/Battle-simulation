@@ -1256,6 +1256,21 @@ export class Unit {
         ctx.scale(totalScale, totalScale);
         ctx.translate(-this.pixelX, -this.pixelY);
 
+        // [NEW] 그림자 효과 추가
+        ctx.save();
+        ctx.globalAlpha = 0.3;
+        ctx.fillStyle = 'black';
+        ctx.beginPath();
+        ctx.ellipse(
+            this.pixelX, 
+            this.pixelY + GRID_SIZE / 1.8, // 유닛 발밑에 위치
+            GRID_SIZE / 1.8, // 가로 반지름
+            GRID_SIZE / 4,   // 세로 반지름
+            0, 0, Math.PI * 2
+        );
+        ctx.fill();
+        ctx.restore();
+
 
         if (this.isStunned > 0) {
             ctx.globalAlpha = 0.7;
@@ -1281,12 +1296,26 @@ export class Unit {
             ctx.restore();
         }
 
+        // [MODIFIED] 유닛 몸체에 그라데이션을 적용하여 입체감 부여
+        let teamColor;
         switch(this.team) {
-            case TEAM.A: ctx.fillStyle = COLORS.TEAM_A; break;
-            case TEAM.B: ctx.fillStyle = COLORS.TEAM_B; break;
-            case TEAM.C: ctx.fillStyle = COLORS.TEAM_C; break;
-            case TEAM.D: ctx.fillStyle = COLORS.TEAM_D; break;
+            case TEAM.A: teamColor = COLORS.TEAM_A; break;
+            case TEAM.B: teamColor = COLORS.TEAM_B; break;
+            case TEAM.C: teamColor = COLORS.TEAM_C; break;
+            case TEAM.D: teamColor = COLORS.TEAM_D; break;
+            default: teamColor = '#FFFFFF'; break;
         }
+
+        const radius = GRID_SIZE / 1.67;
+        const gradient = ctx.createRadialGradient(
+            this.pixelX - radius * 0.2, this.pixelY - radius * 0.2, radius * 0.1, 
+            this.pixelX, this.pixelY, radius * 1.2
+        );
+        gradient.addColorStop(0, `hsl(0, 0%, 100%)`); // 밝은 하이라이트
+        gradient.addColorStop(0.4, teamColor);
+        gradient.addColorStop(1, DEEP_COLORS[`TEAM_${this.team}`] || teamColor); // 어두운 부분
+
+        ctx.fillStyle = gradient;
         ctx.beginPath(); ctx.arc(this.pixelX, this.pixelY, GRID_SIZE / 1.67, 0, Math.PI * 2); ctx.fill();
 
         if (isOutlineEnabled) {
