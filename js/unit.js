@@ -14,6 +14,7 @@ export class Unit {
         this.maxHp = 100;
         this.displayHp = 100; // [추가] 화면에 표시될 체력
         this.damageFlash = 0; // [추가] 피격 시 깜빡임 효과
+        this.hpBarAlpha = 0; // [NEW] 체력바 투명도
 
         // 레벨업 시스템 속성
         this.level = 1;
@@ -500,6 +501,20 @@ export class Unit {
         }
         if (this.damageFlash > 0) {
             this.damageFlash -= 0.05 * this.gameManager.gameSpeed;
+        }
+
+        // [NEW] 체력바 알파값 부드럽게 조절
+        const healthBarShouldBeVisible = this.hp < this.maxHp || this.hpBarVisibleTimer > 0;
+        if (healthBarShouldBeVisible) {
+            if (this.hpBarAlpha < 1) {
+                this.hpBarAlpha += 0.1 * this.gameManager.gameSpeed;
+                if (this.hpBarAlpha > 1) this.hpBarAlpha = 1;
+            }
+        } else {
+            if (this.hpBarAlpha > 0) {
+                this.hpBarAlpha -= 0.05 * this.gameManager.gameSpeed;
+                if (this.hpBarAlpha < 0) this.hpBarAlpha = 0;
+            }
         }
 
 
@@ -1342,8 +1357,8 @@ export class Unit {
         const barHeight = 4;
         const barGap = 1;
         const barX = this.pixelX - barWidth / 2;
-
-        const healthBarIsVisible = this.hp < this.maxHp || this.hpBarVisibleTimer > 0;
+        
+        const healthBarIsVisible = this.hpBarAlpha > 0;
         const normalAttackIsVisible = (this.isCasting && this.weapon?.type === 'poison_potion') || (this.attackCooldown > 0);
         const kingSpawnBarIsVisible = this.isKing && this.spawnCooldown > 0;
         let specialSkillIsVisible =
@@ -1388,6 +1403,9 @@ export class Unit {
             }
 
             if (healthBarIsVisible) {
+                ctx.save();
+                ctx.globalAlpha = this.hpBarAlpha;
+
                 // [수정] 부드러운 체력 감소 효과 렌더링 로직
                 ctx.fillStyle = '#111827'; // 배경
                 ctx.fillRect(barX, currentBarY, barWidth, barHeight);
@@ -1425,6 +1443,8 @@ export class Unit {
                     ctx.textBaseline = 'middle';
                     ctx.fillText(this.level, levelX, levelY);
                 }
+
+                ctx.restore();
             }
         }
 
