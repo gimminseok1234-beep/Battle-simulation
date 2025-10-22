@@ -1029,32 +1029,28 @@ export class Projectile {
             ctx.translate(this.pixelX, this.pixelY);
             ctx.rotate(this.angle - Math.PI / 2);
             
-            // [MODIFIED] 검기 이펙트를 초승달 모양으로 변경
+            // [MODIFIED] 검기 이펙트를 원래의 곡선 모양으로 되돌리고, 시각 효과는 강화
             ctx.shadowColor = 'rgba(255, 0, 0, 1)';
             ctx.shadowBlur = 20;
             ctx.globalCompositeOperation = 'lighter';
 
-            const radius = GRID_SIZE * 0.8;
-            const innerRadius = radius * 0.6;
-
-            // 1. 부드러운 외부 광원 (초승달 모양)
+            // 1. 부드러운 외부 광원
             ctx.strokeStyle = 'rgba(255, 50, 50, 0.6)';
             ctx.lineWidth = 7;
             ctx.beginPath();
-            ctx.moveTo(-radius, 0);
-            ctx.quadraticCurveTo(0, -innerRadius, radius, 0);
-            ctx.quadraticCurveTo(0, innerRadius * 0.8, -radius, 0);
+            ctx.arc(0, 0, GRID_SIZE * 0.7, 0, Math.PI, false);
             ctx.stroke();
 
-            // 2. 중간 칼날 (선명한 붉은색) & 3. 날카로운 내부 칼날 (흰색)
+            // 2. 중간 칼날 (선명한 붉은색)
             ctx.strokeStyle = 'rgba(255, 150, 150, 1)';
             ctx.lineWidth = 4;
-            ctx.stroke(); 
+            ctx.stroke(); // 같은 경로에 다시 그림
 
+            // 3. 날카로운 내부 칼날 (흰색)
             ctx.shadowBlur = 0; // 내부 칼날은 번짐 없음
             ctx.strokeStyle = 'rgba(255, 255, 255, 0.9)';
             ctx.lineWidth = 1.5;
-            ctx.stroke(); // 같은 경로에 다시 그림
+            ctx.stroke();
             ctx.restore();
         } else if (this.type === 'bouncing_sword') {
             ctx.save();
