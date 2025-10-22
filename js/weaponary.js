@@ -1091,9 +1091,9 @@ export class Projectile {
             // 화살촉
             ctx.fillStyle = headColor;
             ctx.beginPath();
-            ctx.moveTo(GRID_SIZE * 0.4, 0);
-            ctx.lineTo(GRID_SIZE * 0.8, -2.5);
-            ctx.lineTo(GRID_SIZE * 0.8, 2.5);
+            ctx.moveTo(GRID_SIZE * 0.8, 0); // 뾰족한 끝
+            ctx.lineTo(GRID_SIZE * 0.4, -2.5); // 위쪽 어깨
+            ctx.lineTo(GRID_SIZE * 0.4, 2.5);  // 아래쪽 어깨
             ctx.closePath();
             ctx.fill();
             ctx.stroke();
@@ -1101,9 +1101,10 @@ export class Projectile {
             // 깃털
             ctx.fillStyle = featherColor;
             ctx.beginPath();
-            ctx.moveTo(-GRID_SIZE * 0.7, 0);
+            // 위쪽 깃털
             ctx.lineTo(-GRID_SIZE * 0.8, -3);
-            ctx.moveTo(-GRID_SIZE * 0.7, 0);
+            ctx.lineTo(-GRID_SIZE * 0.9, -3);
+            // 아래쪽 깃털
             ctx.lineTo(-GRID_SIZE * 0.8, 3);
             ctx.lineTo(-GRID_SIZE * 0.9, 3);
             ctx.stroke();
