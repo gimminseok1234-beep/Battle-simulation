@@ -481,6 +481,9 @@ export class Unit {
                 case 'magic_dagger':
                     this.isSpecialAttackReady = (this.magicDaggerSkillCooldown <= 0 && !this.isAimingMagicDagger);
                     break;
+                case 'dual_swords':
+                    this.isSpecialAttackReady = (this.dualSwordSkillCooldown <= 0);
+                    break;
                 default:
                     this.isSpecialAttackReady = false;
             }
@@ -871,19 +874,19 @@ export class Unit {
                     }
                 });
                 gameManager.audioManager.play('swordHit');
-            }
 
-            // [MODIFIED] 도끼 특수 공격 이펙트 강화
-            for (let i = 0; i < 30; i++) {
-                const angle = gameManager.random() * Math.PI * 2;
-                const speed = 2 + gameManager.random() * 4;
-                gameManager.addParticle({
-                    x: this.pixelX, y: this.pixelY,
-                    vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed,
-                    life: 0.9,
-                    color: ['#9ca3af', '#e5e7eb', '#6b7280'][Math.floor(gameManager.random() * 3)],
-                    size: gameManager.random() * 2 + 1, gravity: 0.1
-                });
+                // [MODIFIED] 도끼 특수 공격 이펙트 강화 (조건문 안으로 이동)
+                for (let i = 0; i < 30; i++) {
+                    const angle = gameManager.random() * Math.PI * 2;
+                    const speed = 2 + gameManager.random() * 4;
+                    gameManager.addParticle({
+                        x: this.pixelX, y: this.pixelY,
+                        vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed,
+                        life: 0.9,
+                        color: ['#9ca3af', '#e5e7eb', '#6b7280'][Math.floor(gameManager.random() * 3)],
+                        size: gameManager.random() * 2 + 1, gravity: 0.1
+                    });
+                }
             }
         }
 
