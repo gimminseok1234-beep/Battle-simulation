@@ -718,6 +718,7 @@ export class Projectile {
     
         switch (type) {
             // --- 스킬 공격력 기반 ---
+            case 'hadoken':
             case 'shuriken':
             case 'returning_shuriken':
                 this.damage = baseSpecialDamage;
@@ -1063,47 +1064,50 @@ export class Projectile {
             ctx.stroke();
             ctx.restore();
             return;
-        }
-
-        if (this.type === 'arrow') {
+        } else if (this.type === 'arrow') {
+            // [MODIFIED] 화살 디자인 개선
             ctx.save(); 
             ctx.translate(this.pixelX, this.pixelY); 
             ctx.rotate(this.angle);
-            ctx.scale(1.2, 1.2);
+            ctx.scale(1.3, 1.3);
 
-            ctx.fillStyle = '#FFFFFF';
-            ctx.strokeStyle = '#000000';
-            ctx.lineWidth = 1;
+            const isSpecialArrow = this.isSpecial;
+            const shaftColor = isSpecialArrow ? '#fef08a' : '#a16207'; // 특수: 노랑, 일반: 갈색
+            const headColor = isSpecialArrow ? '#fde047' : '#a8a29e';  // 특수: 밝은 노랑, 일반: 회색
+            const featherColor = isSpecialArrow ? '#fef9c3' : '#e5e7eb'; // 특수: 연노랑, 일반: 연회색
 
-            // 화살 몸통
-            ctx.beginPath();
-            ctx.moveTo(-GRID_SIZE * 0.7, 0);
-            ctx.lineTo(GRID_SIZE * 0.4, 0);
-            ctx.lineTo(GRID_SIZE * 0.4, -1.5);
-            ctx.lineTo(GRID_SIZE * 0.6, -1.5);
-            ctx.lineTo(GRID_SIZE * 0.6, 1.5);
-            ctx.lineTo(GRID_SIZE * 0.4, 1.5);
-            ctx.lineTo(GRID_SIZE * 0.4, 0);
-            ctx.closePath();
-            ctx.fill();
-            ctx.stroke();
+            if (isSpecialArrow) {
+                ctx.shadowColor = '#facc15';
+                ctx.shadowBlur = 8;
+            }
+
+            // 화살대
+            ctx.fillStyle = shaftColor;
+            ctx.strokeStyle = '#1c1917';
+            ctx.lineWidth = 1.5;
+            ctx.fillRect(-GRID_SIZE * 0.8, -1, GRID_SIZE * 1.2, 2);
+            ctx.strokeRect(-GRID_SIZE * 0.8, -1, GRID_SIZE * 1.2, 2);
 
             // 화살촉
+            ctx.fillStyle = headColor;
             ctx.beginPath();
-            ctx.moveTo(GRID_SIZE * 0.6, -2.5);
-            ctx.lineTo(GRID_SIZE * 0.9, 0);
-            ctx.lineTo(GRID_SIZE * 0.6, 2.5);
+            ctx.moveTo(GRID_SIZE * 0.4, 0);
+            ctx.lineTo(GRID_SIZE * 0.8, -2.5);
+            ctx.lineTo(GRID_SIZE * 0.8, 2.5);
             ctx.closePath();
             ctx.fill();
             ctx.stroke();
 
             // 깃털
+            ctx.fillStyle = featherColor;
             ctx.beginPath();
             ctx.moveTo(-GRID_SIZE * 0.7, 0);
             ctx.lineTo(-GRID_SIZE * 0.8, -3);
             ctx.moveTo(-GRID_SIZE * 0.7, 0);
             ctx.lineTo(-GRID_SIZE * 0.8, 3);
+            ctx.lineTo(-GRID_SIZE * 0.9, 3);
             ctx.stroke();
+            ctx.fill();
 
             ctx.restore();
         } else if (this.type === 'sword_wave') {
