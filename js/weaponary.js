@@ -248,24 +248,12 @@ export class Weapon {
             ctx.lineTo(2, GRID_SIZE * 0.3);
             ctx.closePath(); ctx.fill(); ctx.stroke();
             ctx.fillStyle = '#374151';
-            ctx.fillRect(-GRID_SIZE * 0.2, GRID_SIZE * 0.3, GRID_SIZE * 0.4, 3 / scale);
-            ctx.strokeRect(-GRID_SIZE * 0.2, GRID_SIZE * 0.3, GRID_SIZE * 0.4, 3 / scale);
+            ctx.fillRect(-GRID_SIZE * 0.2, GRID_SIZE * 0.3, GRID_SIZE * 0.4, 3);
+            ctx.strokeRect(-GRID_SIZE * 0.2, GRID_SIZE * 0.3, GRID_SIZE * 0.4, 3);
             ctx.fillStyle = '#1f2937';
-            ctx.fillRect(-1.5, GRID_SIZE * 0.3 + 3 / scale, 3, GRID_SIZE * 0.3); ctx.strokeRect(-1.5, GRID_SIZE * 0.3 + 3 / scale, 3, GRID_SIZE * 0.3);
+            ctx.fillRect(-1.5, GRID_SIZE * 0.3 + 3, 3, GRID_SIZE * 0.3); ctx.strokeRect(-1.5, GRID_SIZE * 0.3 + 3, 3, GRID_SIZE * 0.3);
         } else if (this.type === 'bow') {
-            // [MODIFIED] 활 디자인 변경 (중세 장궁 스타일)
-            ctx.rotate(Math.PI / 4);
-            const woodGradient = ctx.createLinearGradient(0, -GRID_SIZE, 0, GRID_SIZE);
-            woodGradient.addColorStop(0, '#854d0e'); woodGradient.addColorStop(0.5, '#a16207'); woodGradient.addColorStop(1, '#854d0e');
-            ctx.strokeStyle = woodGradient;
-            ctx.lineWidth = 5 / scale;
-            ctx.lineCap = 'round';
-            ctx.beginPath();
-            ctx.arc(0, 0, GRID_SIZE * 1.1, -Math.PI / 2.5, Math.PI / 2.5);
-            ctx.stroke();
-            ctx.fillStyle = '#57534e'; // 손잡이 가죽
-            ctx.fillRect(-2, -GRID_SIZE * 0.3, 4, GRID_SIZE * 0.6);
-            ctx.strokeRect(-2, -GRID_SIZE * 0.3, 4, GRID_SIZE * 0.6);
+            this.drawBow(ctx, scale, false);
         } else if (this.type === 'dual_swords') {
             const drawCurvedSword = (rotation) => {
                 ctx.save();
@@ -440,21 +428,7 @@ export class Weapon {
             ctx.scale(0.8, 0.8);
             drawAxeIcon(ctx);
         } else if (this.type === 'bow') {
-            // [MODIFIED] 장착된 활 디자인 및 위치 수정
-            ctx.translate(GRID_SIZE * 0.4, GRID_SIZE * 0.4); // 오른쪽 어깨 쪽으로 이동
-            ctx.rotate(rotation - Math.PI / 4); // 유닛 방향에 맞춰 회전
-            const bowScale = 0.6;
-            ctx.scale(bowScale, bowScale);
-            
-            const woodGradient = ctx.createLinearGradient(0, -GRID_SIZE, 0, GRID_SIZE);
-            woodGradient.addColorStop(0, '#854d0e'); woodGradient.addColorStop(0.5, '#a16207'); woodGradient.addColorStop(1, '#854d0e');
-            ctx.strokeStyle = woodGradient;
-            ctx.lineWidth = 5 / bowScale;
-            ctx.lineCap = 'round';
-            ctx.beginPath();
-            ctx.arc(0, 0, GRID_SIZE * 1.1, -Math.PI / 2.5, Math.PI / 2.5);
-            ctx.stroke();
-            
+            this.drawBow(ctx, 0.6, true, unit, rotation);
             // [수정] 활시위 당기는 애니메이션 추가
             ctx.strokeStyle = '#e5e7eb';
             ctx.lineWidth = 1.5 / bowScale;
@@ -574,6 +548,35 @@ export class Weapon {
             ctx.stroke();
         }
         ctx.restore();
+    }
+
+    /**
+     * [NEW] Draws the bow, used for both ground and equipped states.
+     * @param {CanvasRenderingContext2D} ctx
+     * @param {number} scale
+     * @param {boolean} isEquipped
+     * @param {Unit} [unit]
+     * @param {number} [rotation]
+     */
+    drawBow(ctx, scale, isEquipped, unit, rotation) {
+        if (isEquipped) {
+            ctx.translate(0, GRID_SIZE * 0.3); // 눈 아래 중앙으로 이동
+            ctx.rotate(rotation); // 유닛 방향과 일치
+        } else {
+            ctx.rotate(Math.PI / 4);
+        }
+        ctx.scale(scale, scale);
+        const woodGradient = ctx.createLinearGradient(0, -GRID_SIZE, 0, GRID_SIZE);
+        woodGradient.addColorStop(0, '#854d0e'); woodGradient.addColorStop(0.5, '#a16207'); woodGradient.addColorStop(1, '#854d0e');
+        ctx.strokeStyle = woodGradient;
+        ctx.lineWidth = 5 / scale;
+        ctx.lineCap = 'round';
+        ctx.beginPath();
+        ctx.arc(0, 0, GRID_SIZE * 1.1, -Math.PI / 2.5, Math.PI / 2.5);
+        ctx.stroke();
+        ctx.fillStyle = '#57534e'; // 손잡이 가죽
+        ctx.fillRect(-2, -GRID_SIZE * 0.3, 4, GRID_SIZE * 0.6);
+        ctx.strokeRect(-2, -GRID_SIZE * 0.3, 4, GRID_SIZE * 0.6);
     }
 }
 
