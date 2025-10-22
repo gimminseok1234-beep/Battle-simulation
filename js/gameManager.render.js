@@ -135,26 +135,25 @@ export function drawMapImpl() {
  */
 function drawSpecialAttackGlows() {
     this.ctx.save();
-    // [MODIFIED] 'lighter' 혼합 모드를 제거하여 과도한 밝기를 줄입니다.
-    // this.ctx.globalCompositeOperation = 'lighter';
+    // [MODIFIED] 'lighter' 혼합 모드를 다시 추가하되, alpha와 blur 값을 조정하여 밝기를 조절합니다.
+    this.ctx.globalCompositeOperation = 'lighter';
 
     for (const unit of this.units) {
         // 유닛이 무기를 가지고 있고, 해당 무기가 빛나는 무기 타입에 포함되며, 특수 공격이 준비된 경우
         if (unit.weapon && GLOWING_WEAPON_TYPES.has(unit.weapon.type) && unit.isSpecialAttackReady) {
             const teamColor = COLORS[`TEAM_${unit.team}`];
             if (teamColor) {
-                // [수정] 0에서 1 사이를 더 빠르게 왕복하는 맥박 효과
                 const pulse = Math.sin(this.animationFrameCounter * 0.15) * 0.5 + 0.5;
 
-                // [MODIFIED] 1. 넓고 부드러운 외부 광원 효과 (밝기 감소)
-                this.ctx.globalAlpha = pulse * 0.4; // 투명도 감소 (0.6 -> 0.4)
-                this.ctx.shadowBlur = 15; // 빛 번짐 효과 감소 (25 -> 15)
+                // [MODIFIED] 1. 넓고 부드러운 외부 광원 효과 (밝기 재조정)
+                this.ctx.globalAlpha = pulse * 0.3; // 투명도 (0.4 -> 0.3)
+                this.ctx.shadowBlur = 20; // 빛 번짐 효과 (15 -> 20)
                 this.ctx.shadowColor = teamColor;
                 unit.weapon.drawEquipped(this.ctx, unit);
 
-                // [MODIFIED] 2. 밝고 선명한 내부 광원 효과 (밝기 감소)
-                this.ctx.globalAlpha = pulse * 0.5; // 투명도 감소 (0.8 -> 0.5)
-                this.ctx.shadowBlur = 8; // 내부 빛 번짐 효과 감소 (10 -> 8)
+                // [MODIFIED] 2. 밝고 선명한 내부 광원 효과 (밝기 재조정)
+                this.ctx.globalAlpha = pulse * 0.4; // 투명도 (0.5 -> 0.4)
+                this.ctx.shadowBlur = 10; // 내부 빛 번짐 효과 (8 -> 10)
                 this.ctx.shadowColor = teamColor;
                 unit.weapon.drawEquipped(this.ctx, unit);
             }
