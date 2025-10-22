@@ -400,6 +400,14 @@ export class Unit {
 
         if (attacker && attacker instanceof Unit) {
             this.killedBy = attacker;
+
+            // [NEW] 공격받았을 때 기본 넉백 효과 추가
+            if (!effectInfo.force && damage > 0 && !effectInfo.isTileDamage) {
+                const angle = Math.atan2(this.pixelY - attacker.pixelY, this.pixelX - attacker.pixelX);
+                const force = 1.5; // 기본 넉백 강도
+                this.knockbackX += Math.cos(angle) * force;
+                this.knockbackY += Math.sin(angle) * force;
+            }
         }
 
         if (this.hp <= 0 && !this.killedBy && attacker) {
