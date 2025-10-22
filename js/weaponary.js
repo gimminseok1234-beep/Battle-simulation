@@ -589,7 +589,7 @@ export class Weapon {
             ctx.lineWidth = 0.5 / scale;
             ctx.fillRect(pullBack, -1, (GRID_SIZE * 1.2) - pullBack, 2);
             ctx.strokeRect(pullBack, -1, (GRID_SIZE * 1.2) - pullBack, 2);
-            ctx.fillStyle = '#a8a29e'; // Arrow head
+            ctx.fillStyle = '#ffffff'; // Arrow head color changed to white
             ctx.beginPath();
             ctx.moveTo(GRID_SIZE * 1.2, 0);
             ctx.lineTo(GRID_SIZE * 0.8, -2.5);
