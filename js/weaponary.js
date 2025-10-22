@@ -74,9 +74,11 @@ export class Weapon {
                 unit.knockbackY += Math.sin(recoilAngle) * recoilForce;
 
                 gameManager.createProjectile(unit, target, 'arrow');
+                gameManager.createProjectile(unit, target, 'empowered_arrow');
                 setTimeout(() => {
                     if (unit.hp > 0) {
                         gameManager.createProjectile(unit, target, 'arrow');
+                        gameManager.createProjectile(unit, target, 'empowered_arrow');
                     }
                 }, 150);
 
