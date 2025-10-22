@@ -542,8 +542,8 @@ export class Weapon {
         ctx.save();
 
         if (isEquipped) {
-            ctx.translate(GRID_SIZE * 0.8, 0); // 먼저 오른쪽으로 이동
-            ctx.rotate(rotation); // 그 다음 유닛 방향으로 회전
+            ctx.rotate(rotation); // 먼저 유닛 방향으로 회전
+            ctx.translate(GRID_SIZE * 0.8, 0); // 그 다음 회전된 축을 기준으로 오른쪽으로 이동
         } else {
             ctx.rotate(rotation); // 바닥에 놓일 때의 기본 각도
         }
