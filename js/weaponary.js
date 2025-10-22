@@ -818,6 +818,21 @@ export class Projectile {
         }
     }
 
+    // [NEW] 쌍검 칼날비 파티클 효과
+    handleBouncingSwordTrail() {
+        if (this.gameManager.random() > 0.3) {
+            this.gameManager.addParticle({
+                x: this.pixelX, y: this.pixelY,
+                vx: (this.gameManager.random() - 0.5) * 1.0,
+                vy: (this.gameManager.random() - 0.5) * 1.0,
+                life: 0.4,
+                color: '#9ca3af',
+                size: this.gameManager.random() * 1.5 + 1,
+                gravity: 0
+            });
+        }
+    }
+
     update() {
         const gameManager = this.gameManager;
         if (!gameManager) return;
@@ -894,6 +909,11 @@ export class Projectile {
         // [NEW] 검기 파티클 생성 로직 호출
         if (this.type === 'sword_wave') {
             this.handleSwordWaveTrail();
+        }
+
+        // [NEW] 쌍검 칼날비 파티클 생성 로직 호출
+        if (this.type === 'bouncing_sword') {
+            this.handleBouncingSwordTrail();
         }
 
         // [MODIFIED] 얼음 다이아와 부메랑 특수 공격 투사체에 유도 기능 추가
@@ -1053,29 +1073,37 @@ export class Projectile {
             ctx.stroke();
             ctx.restore();
         } else if (this.type === 'bouncing_sword') {
+            // [MODIFIED] 쌍검 칼날비 투사체 디자인 강화
             ctx.save();
             ctx.translate(this.pixelX, this.pixelY);
             ctx.rotate(this.rotationAngle);
-            ctx.scale(0.72, 0.72);
+            ctx.scale(0.8, 0.8);
 
-            ctx.fillStyle = '#6b7280';
-            ctx.strokeStyle = 'black';
-            ctx.lineWidth = 1.5;
+            ctx.shadowColor = 'rgba(200, 200, 200, 0.8)';
+            ctx.shadowBlur = 10;
 
-            ctx.fillRect(-GRID_SIZE * 0.1, GRID_SIZE * 0.3, GRID_SIZE * 0.2, GRID_SIZE * 0.3);
-            ctx.strokeRect(-GRID_SIZE * 0.1, GRID_SIZE * 0.3, GRID_SIZE * 0.2, GRID_SIZE * 0.3);
-            ctx.beginPath();
-            ctx.moveTo(-GRID_SIZE * 0.3, GRID_SIZE * 0.3); ctx.lineTo(GRID_SIZE * 0.3, GRID_SIZE * 0.3);
-            ctx.lineTo(GRID_SIZE * 0.3, GRID_SIZE * 0.2); ctx.lineTo(-GRID_SIZE * 0.3, GRID_SIZE * 0.2);
-            ctx.closePath(); ctx.fill(); ctx.stroke();
-            const bladeGradient = ctx.createLinearGradient(0, -GRID_SIZE, 0, 0);
-            bladeGradient.addColorStop(0, '#f3f4f6'); bladeGradient.addColorStop(0.5, '#9ca3af'); bladeGradient.addColorStop(1, '#d1d5db');
+            const bladeGradient = ctx.createLinearGradient(0, -GRID_SIZE, 0, GRID_SIZE);
+            bladeGradient.addColorStop(0, '#f9fafb');
+            bladeGradient.addColorStop(0.5, '#9ca3af');
+            bladeGradient.addColorStop(1, '#6b7280');
             ctx.fillStyle = bladeGradient;
-            ctx.beginPath();
-            ctx.moveTo(0, GRID_SIZE * 0.2);
-            ctx.quadraticCurveTo(GRID_SIZE * 0.5, -GRID_SIZE * 0.4, 0, -GRID_SIZE * 0.9);
-            ctx.quadraticCurveTo(-GRID_SIZE * 0.1, -GRID_SIZE * 0.4, 0, GRID_SIZE * 0.2);
-            ctx.closePath(); ctx.fill(); ctx.stroke();
+            ctx.strokeStyle = '#1f2937';
+            ctx.lineWidth = 2;
+
+            const bladeCount = 4;
+            for (let i = 0; i < bladeCount; i++) {
+                ctx.save();
+                ctx.rotate(i * (Math.PI * 2 / bladeCount));
+                ctx.beginPath();
+                ctx.moveTo(0, 0);
+                ctx.quadraticCurveTo(GRID_SIZE * 0.6, -GRID_SIZE * 0.2, GRID_SIZE * 1.1, 0);
+                ctx.quadraticCurveTo(GRID_SIZE * 0.6, GRID_SIZE * 0.2, 0, 0);
+                ctx.closePath();
+                ctx.fill();
+                ctx.stroke();
+                ctx.restore();
+            }
+
             ctx.restore();
         } else if (this.type === 'hadoken') {
             for (let i = 0; i < this.trail.length; i++) {
