@@ -785,35 +785,35 @@ export class Unit {
                 this.isAimingMagicDagger = false;
                 this.magicDaggerSkillCooldown = 420;
                 this.attackCooldown = 30;
-
+ 
                 const startPos = { x: this.pixelX, y: this.pixelY };
                 const endPos = this.magicDaggerTargetPos;
-
+ 
                 enemies.forEach(enemy => {
                     const distToLine = Math.abs((endPos.y - startPos.y) * enemy.pixelX - (endPos.x - startPos.x) * enemy.pixelY + endPos.x * startPos.y - endPos.y * startPos.x) / Math.hypot(endPos.y - startPos.y, endPos.x - startPos.x);
                     if (distToLine < GRID_SIZE) {
                         enemy.takeDamage(this.attackPower * 1.2, { stun: 60 }, this);
                     }
                 });
-
+ 
                 this.pixelX = endPos.x;
                 this.pixelY = endPos.y;
-
+ 
                 gameManager.effects.push(new MagicDaggerDashEffect(gameManager, startPos, endPos));
                 gameManager.audioManager.play('rush');
-
-                for (let i = 0; i < 15; i++) {
+ 
+                // [MODIFIED] 마법 단검 특수 공격 이펙트 강화
+                gameManager.createEffect('axe_spin_effect', endPos.x, endPos.y, this, {
+                    color: 'rgba(168, 85, 247, 0.8)', maxRadius: GRID_SIZE * 2.5, duration: 20, lineWidth: 2
+                });
+                for (let i = 0; i < 25; i++) {
                     const angle = gameManager.random() * Math.PI * 2;
-                    const speed = 1 + gameManager.random() * 2;
+                    const speed = 1 + gameManager.random() * 3;
                     gameManager.addParticle({
-                        x: endPos.x,
-                        y: endPos.y,
-                        vx: Math.cos(angle) * speed,
-                        vy: Math.sin(angle) * speed,
-                        life: 0.6,
-                        color: ['#c084fc', '#a855f7', '#f5d0fe'][Math.floor(gameManager.random() * 3)],
-                        size: gameManager.random() * 2 + 1,
-                        gravity: 0.05
+                        x: endPos.x, y: endPos.y,
+                        vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed,
+                        life: 0.8, color: ['#5b21b6', '#a855f7', '#1e293b'][Math.floor(gameManager.random() * 3)],
+                        size: gameManager.random() * 2.5 + 1, gravity: 0.03
                     });
                 }
                 return;
@@ -871,6 +871,19 @@ export class Unit {
                     }
                 });
                 gameManager.audioManager.play('swordHit');
+            }
+
+            // [MODIFIED] 도끼 특수 공격 이펙트 강화
+            for (let i = 0; i < 30; i++) {
+                const angle = gameManager.random() * Math.PI * 2;
+                const speed = 2 + gameManager.random() * 4;
+                gameManager.addParticle({
+                    x: this.pixelX, y: this.pixelY,
+                    vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed,
+                    life: 0.9,
+                    color: ['#9ca3af', '#e5e7eb', '#6b7280'][Math.floor(gameManager.random() * 3)],
+                    size: gameManager.random() * 2 + 1, gravity: 0.1
+                });
             }
         }
 
@@ -1016,6 +1029,20 @@ export class Unit {
                             this.attackCooldown = 60;
                             this.moveTarget = null;
                             this.facingAngle = Math.atan2(this.target.pixelY - this.pixelY, this.target.pixelX - this.pixelX);
+
+                            // [MODIFIED] 쌍검 특수 공격 이펙트 강화
+                            gameManager.createEffect('axe_spin_effect', this.pixelX, this.pixelY, this, {
+                                color: 'rgba(156, 163, 175, 0.7)', maxRadius: GRID_SIZE * 2, duration: 15, lineWidth: 4
+                            });
+                            for (let i = 0; i < 20; i++) {
+                                const angle = gameManager.random() * Math.PI * 2;
+                                const speed = 1 + gameManager.random() * 2.5;
+                                gameManager.addParticle({
+                                    x: this.pixelX, y: this.pixelY,
+                                    vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed,
+                                    life: 0.6, color: '#6b7280', size: gameManager.random() * 2 + 1, gravity: 0.04
+                                });
+                            }
                             break;
                         }
                     }
