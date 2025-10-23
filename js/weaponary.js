@@ -586,7 +586,6 @@ export class Weapon {
         const bowstringY2 = Math.sin(arcAngle) * arcRadius;
         const bowstringX = Math.cos(arcAngle) * arcRadius;
         
-        let pullBack = -GRID_SIZE * 0.4;
         let pullBack = -GRID_SIZE * 0.3; // 활시위 당김 기본 위치 조정
         if (isEquipped && unit && unit.attackAnimationTimer > 0) {
             const pullProgress = Math.sin((15 - unit.attackAnimationTimer) / 15 * Math.PI);
