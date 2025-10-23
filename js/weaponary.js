@@ -496,8 +496,16 @@ export class Weapon {
             ctx.translate(0, -GRID_SIZE * 0.5); 
             this.drawBoomerang(ctx, 0.5);
         } else if (this.type === 'poison_potion') {
-            ctx.translate(0, -GRID_SIZE * 0.5); 
-            this.drawPoisonPotion(ctx, 0.3);
+            // [신규] 번개 무기처럼 유닛 주위를 공전하도록 수정
+            const revolutionAngle = gameManager.animationFrameCounter * 0.05;
+            const orbitRadius = GRID_SIZE * 0.8;
+            const weaponX = Math.cos(revolutionAngle) * orbitRadius;
+            const weaponY = Math.sin(revolutionAngle) * orbitRadius;
+            
+            ctx.save();
+            ctx.translate(weaponX, weaponY);
+            this.drawPoisonPotion(ctx, 0.4); // 크기를 약간 키워 가시성 확보
+            ctx.restore();
         } else if (this.type === 'hadoken') {
             ctx.translate(GRID_SIZE * 0.5, 0);
             const hadokenScale = 0.7;
