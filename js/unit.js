@@ -1499,8 +1499,8 @@ export class Unit {
         let specialSkillIsVisible =
             (this.weapon?.type === 'magic_dagger' && this.magicDaggerSkillCooldown > 0) ||
             (this.weapon?.type === 'axe' && this.axeSkillCooldown > 0) ||
-            (this.weapon?.type === 'ice_diamond' && this.iceDiamondChargeTimer > 0 && this.iceDiamondCharges < 5) || (this.weapon?.type === 'magic_spear' && this.magicSpearSpecialCooldown > 0) ||
-            (this.weapon?.type === 'boomerang' && this.boomerangCooldown > 0) ||
+            (this.weapon?.type === 'ice_diamond' && this.iceDiamondChargeTimer > 0 && this.iceDiamondCharges < 5) ||
+            (this.weapon?.type === 'boomerang' && this.boomerangCooldown > 0) || (this.weapon?.type === 'magic_spear' && this.magicSpearSpecialCooldown > 0) ||
             (this.weapon?.type === 'shuriken' && this.shurikenSkillCooldown > 0) ||
             (this.weapon?.type === 'fire_staff' && this.fireStaffSpecialCooldown > 0) ||
             (this.weapon?.type === 'dual_swords' && this.dualSwordSkillCooldown > 0) ||
@@ -1597,11 +1597,8 @@ export class Unit {
             if (this.weapon?.type === 'fire_staff') {
                 fgColor = '#ef4444';
                 progress = 240 - this.fireStaffSpecialCooldown; max = 240;
-            } else if (this.weapon?.type === 'magic_spear') { // [수정] 마법창 쿨다운 게이지 로직
-                fgColor = '#a855f7'; // 보라색
-                progress = 420 - this.magicSpearSpecialCooldown; max = 420; // 7초 (420 프레임)
-            } else if (['boomerang', 'shuriken', 'poison_potion', 'magic_dagger', 'axe', 'dual_swords'].includes(this.weapon?.type)) {
-                fgColor = '#94a3b8';
+            } else if (['boomerang', 'shuriken', 'poison_potion', 'magic_dagger', 'axe', 'dual_swords', 'magic_spear'].includes(this.weapon?.type)) {
+                fgColor = '#94a3b8'; // [수정] 마법창을 다른 무기들과 함께 회색으로 처리
                 if(this.weapon.type === 'boomerang') {
                     progress = 480 - this.boomerangCooldown; max = 480;
                 } else if(this.weapon.type === 'shuriken') {
@@ -1610,6 +1607,8 @@ export class Unit {
                     progress = 420 - this.magicDaggerSkillCooldown; max = 420;
                 } else if(this.weapon.type === 'axe') {
                     progress = 240 - this.axeSkillCooldown; max = 240;
+                } else if(this.weapon.type === 'magic_spear') {
+                    progress = 420 - this.magicSpearSpecialCooldown; max = 420;
                 } else if(this.weapon.type === 'dual_swords') {
                     progress = 300 - this.dualSwordSkillCooldown; max = 300;
                 } else {
