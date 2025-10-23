@@ -87,9 +87,9 @@ export class GameManager {
         this.winnerTeam = null;
 
         // Managers
-        this.uiManager = new UIManager(this, this.persistenceManager);
         this.persistenceManager = new PersistenceManager(this);
         this.simulationManager = new SimulationManager(this);
+        this.uiManager = new UIManager(this, this.persistenceManager);
         this.inputManager = new InputManager(this);
         this.audioManager = new AudioManager();
         
@@ -156,6 +156,7 @@ export class GameManager {
 
     async init() {
         if (!this.currentUser) return;
+        // GameManager의 모든 상태가 준비된 후, 각 매니저를 명시적으로 초기화합니다.
         this.uiManager.init();
         this.inputManager.setupEventListeners();
         this.showHomeScreen();
@@ -165,7 +166,6 @@ export class GameManager {
     showHomeScreen() {
         this.state = 'HOME';
         this.currentMapId = null;
-        this.isReplayMode = false;
         this.currentMapName = null;
         document.getElementById('homeScreen').style.display = 'block';
         document.getElementById('editorScreen').style.display = 'none';
