@@ -296,10 +296,12 @@ export class SimulationManager {
 
                     // [신규] 독 포션 투사체 적중 시 독 장판 생성
                     if (p.type === 'poison_potion_projectile') {
+                        unit.takeDamage(p.damage, { stun: 60 }, p.owner); // [수정] 데미지와 함께 1초(60프레임) 기절 효과 추가
                         const gridX = Math.floor(unit.pixelX / GRID_SIZE);
                         const gridY = Math.floor(unit.pixelY / GRID_SIZE);
                         gm.addPoisonPuddle(gridX, gridY);
                         p.destroyed = true;
+                        hit = true; // [수정] hit 플래그를 true로 설정하여 아래 로직을 건너뛰도록 함
                     }
 
                     p.hitTargets.add(unit);
