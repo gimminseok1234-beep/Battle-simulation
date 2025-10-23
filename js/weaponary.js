@@ -157,24 +157,8 @@ export class Weapon {
             gameManager.audioManager.play('punch');
             unit.attackCooldown = unit.cooldownTime;
         } else if (this.type === 'shuriken') {
-            if (unit.shurikenSkillCooldown <= 0) {
-                const angleToTarget = Math.atan2(target.pixelY - unit.pixelY, target.pixelX - unit.pixelX);
-                const spread = 0.3;
-                const angles = [angleToTarget - spread, angleToTarget, angleToTarget + spread];
-
-                const dummyTarget = { pixelX: 0, pixelY: 0 }; 
-
-                angles.forEach(angle => {
-                    gameManager.createProjectile(unit, dummyTarget, 'returning_shuriken', {
-                        angle: angle,
-                        state: 'MOVING_OUT',
-                        maxDistance: GRID_SIZE * 8
-                    });
-                });
-                unit.shurikenSkillCooldown = 480;
-            } else {
-                gameManager.createProjectile(unit, target, 'shuriken');
-            }
+            // [수정] use 메서드는 일반 공격만 처리하도록 단순화
+            gameManager.createProjectile(unit, target, 'shuriken');
             gameManager.audioManager.play('shurikenShoot');
             unit.attackCooldown = unit.cooldownTime;
         } else if (this.type === 'hadoken') {
