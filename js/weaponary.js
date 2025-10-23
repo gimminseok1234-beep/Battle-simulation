@@ -579,7 +579,7 @@ export class Weapon {
 
         // 1. Draw Bow Body
         ctx.strokeStyle = 'black';
-        ctx.lineWidth = 5 / scale;
+        ctx.lineWidth = 6 / scale;
         ctx.beginPath();
         ctx.arc(0, 0, GRID_SIZE * 0.8, -Math.PI / 2.2, Math.PI / 2.2);
         ctx.stroke();
