@@ -186,16 +186,9 @@ export class Weapon {
             gameManager.audioManager.play('electricity');
             unit.attackCooldown = unit.cooldownTime;
         } else if (this.type === 'magic_spear') {
-            // [수정] 쿨다운 상태에 따라 특수 공격과 일반 공격을 분기하여 발사
-            if (unit.magicSpearSpecialCooldown <= 0) {
-                // 특수 공격
-                gameManager.createProjectile(unit, target, 'magic_spear_special');
-                gameManager.audioManager.play('spear');
-            } else {
-                // 일반 공격
-                gameManager.createProjectile(unit, target, 'magic_spear_normal');
-                gameManager.audioManager.play('punch');
-            }
+            // [수정] use 메서드는 일반 공격만 처리하도록 단순화
+            gameManager.createProjectile(unit, target, 'magic_spear_normal');
+            gameManager.audioManager.play('punch');
             unit.attackCooldown = unit.cooldownTime;
         } else if (this.type === 'boomerang') {
             gameManager.createProjectile(unit, target, 'boomerang_normal_projectile');
