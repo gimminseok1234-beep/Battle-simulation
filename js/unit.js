@@ -1,5 +1,6 @@
 import { TILE, TEAM, COLORS, GRID_SIZE, DEEP_COLORS } from './constants.js';
 import { Weapon, MagicDaggerDashEffect, createPhysicalHitEffect } from './weaponary.js';
+import { astar } from './astar.js';
 import { Nexus } from './entities.js';
 
 // Unit class
@@ -81,6 +82,9 @@ export class Unit {
         // 유닛이 길을 찾지 못하고 막혔는지 판단하기 위한 속성
         this.stuckTimer = 0;
         this.lastPosition = { x: this.pixelX, y: this.pixelY };
+        // [NEW] A* 길찾기 관련 속성
+        this.path = [];
+        this.pathUpdateCooldown = 0;
 
         // [NEW] 눈 깜빡임 관련 속성
         this.blinkTimer = this.gameManager.random() * 300 + 120; // 2~7초 사이 랜덤
@@ -192,6 +196,41 @@ export class Unit {
         return { item: closestItem, distance: minDistance };
     }
 
+    /**
+     * [NEW] 점수 기반으로 최적의 공격 대상을 찾습니다.
+     * 체력이 낮은 적에게 높은 점수를 부여합니다.
+     * @param {Unit[]} enemies - 잠재적 공격 대상 목록
+     * @returns {{item: Unit | null, distance: number}}
+     */
+    findBestTarget(enemies) {
+        let bestTarget = null;
+        let maxScore = -Infinity;
+
+        for (const enemy of enemies) {
+            const distance = Math.hypot(this.pixelX - enemy.pixelX, this.pixelY - enemy.pixelY);
+
+            // 탐지 범위 밖이거나 시야에 없으면 무시
+            if (distance > this.detectionRange || !this.gameManager.hasLineOfSight(this, enemy)) {
+                continue;
+            }
+
+            // 기본 점수: 거리가 가까울수록 높음 (0으로 나누는 것 방지)
+            let score = 1000 / (distance + 1);
+
+            // '딸피' 우선 순위: 잃은 체력 1당 2점씩 추가
+            const missingHpScore = (enemy.maxHp - enemy.hp) * 2;
+            score += missingHpScore;
+
+            if (score > maxScore) {
+                maxScore = score;
+                bestTarget = enemy;
+            }
+        }
+
+        const bestDistance = bestTarget ? Math.hypot(this.pixelX - bestTarget.pixelX, this.pixelY - bestTarget.pixelY) : Infinity;
+        return { item: bestTarget, distance: bestDistance };
+    }
+
     applyPhysics() {
         const gameManager = this.gameManager;
         if (!gameManager) return;
@@ -292,6 +331,28 @@ export class Unit {
         if (!this.moveTarget || this.isCasting || this.isStunned > 0 || this.isAimingMagicDagger) return;
         const gameManager = this.gameManager;
         if (!gameManager) return;
+
+        // [NEW] A* 길찾기 로직 적용
+        if (this.path.length > 0) {
+            const nextNode = this.path[0];
+            const targetPixelX = nextNode.x * GRID_SIZE + GRID_SIZE / 2;
+            const targetPixelY = nextNode.y * GRID_SIZE + GRID_SIZE / 2;
+
+            const dx = targetPixelX - this.pixelX;
+            const dy = targetPixelY - this.pixelY;
+            const distance = Math.hypot(dx, dy);
+            const currentSpeed = this.speed * gameManager.gameSpeed;
+
+            if (distance < currentSpeed) {
+                this.path.shift(); // 다음 노드로 이동
+            }
+
+            const angle = Math.atan2(dy, dx);
+            this.facingAngle = angle;
+            this.pixelX += Math.cos(angle) * currentSpeed;
+            this.pixelY += Math.sin(angle) * currentSpeed;
+            return; // A* 경로를 따라 이동 중에는 아래 로직을 건너뜁니다.
+        }
 
         const dx = this.moveTarget.x - this.pixelX, dy = this.moveTarget.y - this.pixelY;
         const distance = Math.hypot(dx, dy);
@@ -712,6 +773,7 @@ export class Unit {
         if (this.fireStaffSpecialCooldown > 0) this.fireStaffSpecialCooldown -= gameManager.gameSpeed;
         if (this.fleeingCooldown > 0) this.fleeingCooldown -= gameManager.gameSpeed;
 
+        if (this.pathUpdateCooldown > 0) this.pathUpdateCooldown -= gameManager.gameSpeed;
         if (this.weapon && (this.weapon.type === 'shuriken' || this.weapon.type === 'lightning') && this.evasionCooldown <= 0) {
             for (const p of projectiles) {
                 if (p.owner.team === this.team) continue;
@@ -922,10 +984,10 @@ export class Unit {
             this.fleeingCooldown = 60;
         } else if (this.fleeingCooldown <= 0) {
             const enemyNexus = gameManager.nexuses.find(n => n.team !== this.team && !n.isDestroying);
-            const { item: closestEnemy, distance: enemyDist } = this.findClosest(enemies);
+            const { item: bestEnemy, distance: enemyDist } = this.findBestTarget(enemies);
 
             const visibleWeapons = weapons.filter(w => !w.isEquipped && gameManager.hasLineOfSightForWeapon(this, w));
-            const { item: targetWeapon, distance: weaponDist } = this.findClosest(visibleWeapons);
+            const { item: targetWeapon, distance: weaponDist } = this.findClosest(visibleWeapons); // 무기는 가장 가까운 것
 
             let closestQuestionMark = null;
             let questionMarkDist = Infinity;
@@ -940,13 +1002,13 @@ export class Unit {
             }
 
             let targetEnemy = null;
-            if (closestEnemy && enemyDist <= this.detectionRange && gameManager.hasLineOfSight(this, closestEnemy)) {
-                targetEnemy = closestEnemy;
-                targetEnemyForAlert = closestEnemy;
+            if (bestEnemy) { // findBestTarget는 이미 범위와 시야를 확인합니다.
+                targetEnemy = bestEnemy;
+                targetEnemyForAlert = bestEnemy;
             }
 
             if (this.isKing && targetEnemy) {
-                newState = 'FLEEING'; newTarget = targetEnemy;
+                newState = 'FLEEING'; newTarget = targetEnemy; // 왕은 도망
             } else if (this.hp < this.maxHp / 2) {
                 const healPacks = gameManager.getTilesOfType(TILE.HEAL_PACK);
                 if (healPacks.length > 0) {
@@ -997,13 +1059,13 @@ export class Unit {
 
         switch (this.state) {
             case 'FLEEING_FIELD':
-                this.moveTarget = gameManager.findClosestSafeSpot(this.pixelX, this.pixelY);
+                this.updatePathTo(gameManager.findClosestSafeSpot(this.pixelX, this.pixelY));
                 break;
             case 'FLEEING_LAVA':
-                this.moveTarget = gameManager.findClosestSafeSpotFromLava(this.pixelX, this.pixelY);
+                this.updatePathTo(gameManager.findClosestSafeSpotFromLava(this.pixelX, this.pixelY));
                 break;
             case 'FLEEING':
-                if (this.target) {
+                if (this.target) { // 도망칠 때는 직선 이동
                     const fleeAngle = Math.atan2(this.pixelY - this.target.pixelY, this.pixelX - this.target.pixelX);
                     this.moveTarget = { x: this.pixelX + Math.cos(fleeAngle) * GRID_SIZE * 5, y: this.pixelY + Math.sin(fleeAngle) * GRID_SIZE * 5 };
                 }
@@ -1015,14 +1077,14 @@ export class Unit {
                 if (this.target) this.moveTarget = { x: this.target.pixelX, y: this.target.pixelY };
                 break;
             case 'SEEKING_WEAPON':
-                if (this.target) {
+                if (this.target) { // 무기를 주으러 갈 때
                     const distance = Math.hypot(this.pixelX - this.target.pixelX, this.pixelY - this.target.pixelY);
                     if (distance < GRID_SIZE * 0.8 && !this.target.isEquipped) {
                         this.equipWeapon(this.target.type);
                         this.target.isEquipped = true;
                         this.target = null;
                     } else {
-                        this.moveTarget = { x: this.target.pixelX, y: this.target.pixelY };
+                        this.updatePathTo(this.target);
                     }
                 }
                 break;
@@ -1074,12 +1136,18 @@ export class Unit {
                         this.attack(this.target);
                         this.facingAngle = Math.atan2(this.target.pixelY - this.pixelY, this.target.pixelX - this.pixelX);
                     } else { this.moveTarget = { x: this.target.pixelX, y: this.target.pixelY }; }
+
+                    if (this.moveTarget) {
+                        this.updatePathTo(this.moveTarget);
+                    } else {
+                        this.path = []; // 공격 시 경로 초기화
+                    }
                 }
                 break;
             case 'IDLE': default:
-                if (!this.moveTarget || Math.hypot(this.pixelX - this.moveTarget.x, this.pixelY - this.moveTarget.y) < GRID_SIZE) {
+                if (this.path.length === 0 && this.pathUpdateCooldown <= 0) {
                     const angle = gameManager.random() * Math.PI * 2;
-                    this.moveTarget = { x: this.pixelX + Math.cos(angle) * GRID_SIZE * 8, y: this.pixelY + Math.sin(angle) * GRID_SIZE * 8 };
+                    this.updatePathTo({ x: this.pixelX + Math.cos(angle) * GRID_SIZE * 8, y: this.pixelY + Math.sin(angle) * GRID_SIZE * 8 });
                 }
                 break;
         }
@@ -1191,6 +1259,27 @@ export class Unit {
                 }
             }
         }
+    }
+
+    /**
+     * [NEW] A* 알고리즘을 사용해 목표 지점까지의 경로를 업데이트합니다.
+     * @param {{x: number, y: number}} targetPos - 목표 픽셀 좌표
+     */
+    updatePathTo(targetPos) {
+        if (this.pathUpdateCooldown > 0) return;
+
+        const startNode = {
+            x: Math.floor(this.pixelX / GRID_SIZE),
+            y: Math.floor(this.pixelY / GRID_SIZE)
+        };
+        const endNode = {
+            x: Math.floor(targetPos.x / GRID_SIZE),
+            y: Math.floor(targetPos.y / GRID_SIZE)
+        };
+
+        this.path = astar(this.gameManager.map, startNode, endNode);
+        this.moveTarget = null; // A* 경로가 있으면 직접 이동 목표는 비활성화
+        this.pathUpdateCooldown = 15; // 0.25초마다 경로 재계산
     }
 
     draw(ctx, isOutlineEnabled, outlineWidth) {
