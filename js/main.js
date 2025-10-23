@@ -3,7 +3,7 @@ import { loadAssets } from './assets.js';
 import { GameManager } from './gameManager.js';
 
 document.addEventListener('DOMContentLoaded', async () => {
-    // GameManager 생성 시, 반드시 db 정보를 전달해야 합니다.
+    // GameManager 생성 시, db 정보를 전달합니다.
     const gameManager = new GameManager(db); 
     
     // 인증 UI 이벤트 리스너 설정
