@@ -47,6 +47,7 @@ export class GameManager {
         this.growingFields = [];
         this.magicCircles = [];
         this.poisonClouds = [];
+        this.poisonPuddles = []; // [신규] 독 장판 배열 초기화
         this.particles = [];
         this.currentTool = { tool: 'tile', type: 'FLOOR' };
         this.initialUnitsState = [];
@@ -1092,6 +1093,50 @@ export class GameManager {
 
     findStunnedByMagicCircleEnemy(team) {
         return this.units.find(u => u.team !== team && u.isStunned > 0 && u.stunnedByMagicCircle);
+    }
+
+    // [신규] 독 장판 관련 메서드 추가
+    addPoisonPuddle(x, y) {
+        this.poisonPuddles.push({
+            gridX: x,
+            gridY: y,
+            duration: 180, // 3초
+            draw: (ctx) => {
+                const opacity = Math.min(1, this.duration / 60) * 0.5;
+                ctx.fillStyle = `rgba(132, 204, 22, ${opacity})`;
+                ctx.fillRect(this.gridX * GRID_SIZE, this.gridY * GRID_SIZE, GRID_SIZE, GRID_SIZE);
+        
+                if (this.gameManager.random() > 0.9) {
+                    this.gameManager.addParticle({
+                        x: (this.gridX + this.gameManager.random()) * GRID_SIZE,
+                        y: (this.gridY + this.gameManager.random()) * GRID_SIZE,
+                        vx: (this.gameManager.random() - 0.5) * 0.2,
+                        vy: -this.gameManager.random() * 0.5,
+                        life: 0.5,
+                        color: '#a3e635',
+                        size: this.gameManager.random() * 2 + 1,
+                        gravity: -0.05
+                    });
+                }
+            }
+        });
+    }
+
+    updatePoisonPuddles() {
+        this.poisonPuddles.forEach(puddle => {
+            puddle.duration -= this.gameSpeed;
+        });
+        this.poisonPuddles = this.poisonPuddles.filter(puddle => puddle.duration > 0);
+    }
+
+    isPosInPoisonPuddle(gridX, gridY) {
+        return this.poisonPuddles.some(puddle => puddle.gridX === gridX && puddle.gridY === gridY);
+    }
+
+    drawPoisonPuddles(ctx) {
+        this.poisonPuddles.forEach(puddle => {
+            puddle.draw(ctx);
+        });
     }
 
     spawnMagicCircle(team) {
