@@ -185,8 +185,9 @@ export class Weapon {
             gameManager.createProjectile(unit, target, 'boomerang_normal_projectile');
             gameManager.audioManager.play('punch');
             unit.attackCooldown = unit.cooldownTime;
-        } else if (this.type === 'poison_potion') {
-            target.takeDamage(15, {}, unit);
+        } else if (this.type === 'poison_potion') { // [수정] 5초 쿨다운 공격으로만 작동하므로, 일반 공격 시에는 투사체를 생성합니다.
+            gameManager.createProjectile(unit, target, 'poison_potion_projectile');
+            gameManager.audioManager.play('shurikenShoot');
             unit.attackCooldown = unit.cooldownTime;
         }
     }
@@ -720,6 +721,7 @@ export function createFireballHitEffect(gameManager, x, y) {
 export class Projectile {
     constructor(gameManager, owner, target, type = 'arrow', options = {}) {
         this.gameManager = gameManager;
+        this.gameManager = gameManager; // [수정] 중복된 코드 제거
         this.owner = owner;
         this.target = target;
         this.pixelX = options.startX !== undefined ? options.startX : owner.pixelX;
