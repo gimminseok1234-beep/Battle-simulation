@@ -1288,8 +1288,6 @@ export class GameManager {
         this.recentWallColors = [...wallColors].slice(0, MAX_RECENT_COLORS);
     
         const floorColor = mapData.floorColor || (this.recentFloorColors.length > 0 ? this.recentFloorColors[0] : COLORS.FLOOR);
-            alert(`'${replayName}' 리플레이가 저장되었습니다!`);
-        const replays = replaySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
         const wallColor = mapData.wallColor || (this.recentWallColors.length > 0 ? this.recentWallColors[0] : COLORS.WALL);
         
         this.uiManager.setCurrentColor(floorColor, 'floor', false);
