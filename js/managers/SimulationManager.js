@@ -425,18 +425,6 @@ export class SimulationManager {
         gm.poisonClouds.forEach(cloud => cloud.update());
         gm.poisonClouds = gm.poisonClouds.filter(c => c.duration > 0);
 
-        for (const unit of gm.units) {
-            const gridX = Math.floor(unit.pixelX / GRID_SIZE);
-            const gridY = Math.floor(unit.pixelY / GRID_SIZE);
-            for (let i = gm.magicCircles.length - 1; i >= 0; i--) {
-                const circle = gm.magicCircles[i];
-                if (circle.gridX === gridX && circle.gridY === gridY && circle.team !== unit.team) {
-                    unit.takeDamage(15, { stun: 120, stunSource: 'magic_circle' });
-                    gm.magicCircles.splice(i, 1);
-                }
-            }
-        }
-
         gm.weapons = gm.weapons.filter(w => !w.isEquipped);
 
         gm.effects.forEach(e => e.update());
