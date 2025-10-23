@@ -1139,14 +1139,16 @@ export class Unit {
                         }
                     }
 
-                    // [수정] 마법창 특수/일반 공격 로직 통합
+                    // [수정] 마법창 특수 공격 로직을 use()를 거치지 않고 직접 발동하도록 수정
                     if (this.weapon?.type === 'magic_spear' && this.magicSpearSpecialCooldown <= 0) {
                         const distanceToTarget = Math.hypot(this.pixelX - this.target.pixelX, this.pixelY - this.target.pixelY);
                         if (distanceToTarget <= this.attackRange && gameManager.hasLineOfSight(this, this.target)) {
                             this.moveTarget = null;
-                            this.attack(this.target); // weapon.use()에서 특수 공격 발사
+                            gameManager.createProjectile(this, this.target, 'magic_spear_special');
+                            gameManager.audioManager.play('spear');
                             this.facingAngle = Math.atan2(this.target.pixelY - this.pixelY, this.target.pixelX - this.pixelX);
                             this.magicSpearSpecialCooldown = 420; // 특수 공격 사용 후 쿨다운 설정
+                            this.attackCooldown = this.cooldownTime; // 공격 애니메이션 및 후딜레이 적용
                             break;
                         }
                     }
