@@ -544,13 +544,18 @@ export class Weapon {
      * @param {number} rotation - The rotation angle.
      */
     drawBow(ctx, scale, isEquipped, unit, rotation) {
+        // [수정] unit 객체에 월드 좌표가 없을 경우를 대비한 방어 코드 추가
+        const unitWorldX = unit.worldPixelX ?? unit.pixelX;
+        const unitWorldY = unit.worldPixelY ?? unit.pixelY;
+
         ctx.save();
         
         if (isEquipped) {
             let bowAngle;
             // 공격 대상이 있으면 대상을 향하고, 없으면 유닛이 바라보는 방향의 옆에 위치합니다.
             if (unit.target && (unit.state === 'AGGRESSIVE' || unit.state === 'ATTACKING_NEXUS')) {
-                bowAngle = Math.atan2(unit.target.pixelY - unit.pixelY, unit.target.pixelX - unit.pixelX);
+                // [수정] 유닛의 월드 좌표를 기준으로 타겟과의 각도를 정확히 계산합니다.
+                bowAngle = Math.atan2(unit.target.pixelY - unitWorldY, unit.target.pixelX - unitWorldX);
             } else {
                 // 기본적으로 유닛이 바라보는 방향의 약간 옆에 활을 위치시킵니다.
                 bowAngle = unit.facingAngle - Math.PI / 4;
