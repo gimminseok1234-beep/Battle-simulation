@@ -454,6 +454,9 @@ export class SimulationManager {
         gm.poisonClouds.forEach(cloud => cloud.update());
         gm.poisonClouds = gm.poisonClouds.filter(c => c.duration > 0);
 
+        // [신규] 독 장판 업데이트 로직 추가
+        gm.updatePoisonPuddles();
+
         gm.weapons = gm.weapons.filter(w => !w.isEquipped);
 
         gm.effects.forEach(e => e.update());
