@@ -157,10 +157,11 @@ export class Weapon {
             gameManager.audioManager.play('punch');
             unit.attackCooldown = unit.cooldownTime;
         } else if (this.type === 'shuriken') {
-            // [수정] isSpecialAttackReady 플래그가 정상 작동하도록 쿨다운 확인 로직 복원
+            // [수정] isSpecialAttackReady 플래그가 정상 작동하도록 쿨다운 확인 로직을 복원합니다.
+            // unit.js에서 특수 공격이 우선 처리되므로, 이 블록은 일반 공격 시에만 실행됩니다.
             if (unit.shurikenSkillCooldown <= 0) {
-                // 이 블록은 unit.js의 특수 공격 로직이 우선적으로 실행되므로 실제로는 호출되지 않지만,
-                // isSpecialAttackReady 상태를 올바르게 판단하기 위해 남겨둡니다.
+                // 특수 공격이 준비되었지만 unit.js에서 발동되지 않은 예외적인 경우, 일반 공격을 수행합니다.
+                gameManager.createProjectile(unit, target, 'shuriken');
             } else {
                 gameManager.createProjectile(unit, target, 'shuriken');
             }
