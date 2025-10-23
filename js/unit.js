@@ -527,7 +527,7 @@ export class Unit {
             return;
         }
 
-        // [수정] 특수 공격 준비 상태 업데이트 로직
+        // [수정] isSpecialAttackReady 업데이트 로직을 최상단으로 이동하여 매 프레임마다 상태가 정확히 갱신되도록 합니다.
         if (this.weapon) {
             switch (this.weapon.type) {
                 case 'sword':
@@ -553,7 +553,7 @@ export class Unit {
                 case 'dual_swords':
                     this.isSpecialAttackReady = (this.dualSwordSkillCooldown <= 0);
                     break;
-                case 'magic_spear': // [신규] 마법창 특수 공격 준비 상태
+                case 'magic_spear':
                     this.isSpecialAttackReady = (this.magicSpearSpecialCooldown <= 0);
                     break;
                 default:
