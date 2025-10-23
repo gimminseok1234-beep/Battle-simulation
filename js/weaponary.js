@@ -190,12 +190,6 @@ export class Weapon {
             if (unit.magicSpearSpecialCooldown <= 0) {
                 gameManager.createProjectile(unit, target, 'magic_spear_special');
                 gameManager.audioManager.play('spear');
-
-                // [신규] 특수 공격 시 반동(recoil) 효과 추가
-                const recoilAngle = unit.facingAngle + Math.PI;
-                const recoilForce = 3;
-                unit.knockbackX += Math.cos(recoilAngle) * recoilForce;
-                unit.knockbackY += Math.sin(recoilAngle) * recoilForce;
             } else { // 일반 공격
                 gameManager.createProjectile(unit, target, 'magic_spear_normal');
                 gameManager.audioManager.play('punch');
