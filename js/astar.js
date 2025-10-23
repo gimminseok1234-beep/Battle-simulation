@@ -64,17 +64,28 @@ export function astar(grid, start, end) {
         // 이웃 노드 확인
         const neighbors = [];
         const { x, y } = currentNode;
+
+        // 상하좌우 이웃
         if (y > 0) neighbors.push(nodes[y - 1][x]);
         if (y < rows - 1) neighbors.push(nodes[y + 1][x]);
         if (x > 0) neighbors.push(nodes[y][x - 1]);
         if (x < cols - 1) neighbors.push(nodes[y][x + 1]);
+
+        // [NEW] 대각선 이웃 추가
+        if (y > 0 && x > 0 && (!nodes[y-1][x].isWall || !nodes[y][x-1].isWall)) neighbors.push(nodes[y - 1][x - 1]);
+        if (y > 0 && x < cols - 1 && (!nodes[y-1][x].isWall || !nodes[y][x+1].isWall)) neighbors.push(nodes[y - 1][x + 1]);
+        if (y < rows - 1 && x > 0 && (!nodes[y+1][x].isWall || !nodes[y][x-1].isWall)) neighbors.push(nodes[y + 1][x - 1]);
+        if (y < rows - 1 && x < cols - 1 && (!nodes[y+1][x].isWall || !nodes[y][x+1].isWall)) neighbors.push(nodes[y + 1][x + 1]);
 
         for (const neighbor of neighbors) {
             if (closedSet.includes(neighbor) || neighbor.isWall) {
                 continue;
             }
 
-            const tempG = currentNode.g + 1;
+            // [MODIFIED] 대각선 이동에 추가 비용 부여
+            const isDiagonal = (neighbor.x !== currentNode.x && neighbor.y !== currentNode.y);
+            const cost = isDiagonal ? 1.414 : 1; // 대각선 비용: sqrt(2)
+            const tempG = currentNode.g + cost;
 
             let newPath = false;
             if (openSet.includes(neighbor)) {
@@ -89,7 +100,10 @@ export function astar(grid, start, end) {
             }
 
             if (newPath) {
-                neighbor.h = Math.hypot(neighbor.x - end.x, neighbor.y - end.y);
+                // [MODIFIED] 휴리스틱도 대각선을 고려한 맨해튼 거리로 변경
+                const dx = Math.abs(neighbor.x - end.x);
+                const dy = Math.abs(neighbor.y - end.y);
+                neighbor.h = (dx + dy) + (1.414 - 2) * Math.min(dx, dy);
                 neighbor.f = neighbor.g + neighbor.h;
                 neighbor.parent = currentNode;
             }
