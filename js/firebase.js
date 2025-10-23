@@ -16,6 +16,25 @@ const auth = getAuth(app);
 const db = getFirestore(app);
 const provider = new GoogleAuthProvider();
 
+// UI 업데이트 로직을 별도 함수로 분리하여 handleAuthStateChange의 복잡도를 낮춥니다.
+function updateUIForUser(user) {
+    const googleLoginBtn = document.getElementById('googleLoginBtn');
+    const userDetails = document.getElementById('userDetails');
+    const addNewMapCard = document.getElementById('addNewMapCard');
+
+    if (user && !user.isAnonymous) {
+        googleLoginBtn.classList.add('hidden');
+        userDetails.classList.remove('hidden');
+        document.getElementById('userPhoto').src = user.photoURL;
+        document.getElementById('userName').textContent = user.displayName;
+        addNewMapCard.classList.remove('hidden');
+    } else { // 익명 사용자 또는 로그아웃 상태
+        googleLoginBtn.classList.remove('hidden');
+        userDetails.classList.add('hidden');
+        addNewMapCard.classList.add('hidden');
+    }
+}
+
 function signInWithGoogle() {
     signInWithPopup(auth, provider).catch(error => console.error("Google 로그인 실패:", error));
 }
@@ -36,34 +55,20 @@ async function handleAuthStateChange(user, gameManager) {
     const mapGrid = document.getElementById('mapGrid');
 
     loadingStatus.style.display = 'none';
+    updateUIForUser(user);
 
     if (user) {
-        // [오류 수정] 사용자 정보 설정과 초기화 로직을 분리하여 타이밍 문제를 해결합니다.
         gameManager.setCurrentUser(user);
-        
-        if (user.isAnonymous) {
-            googleLoginBtn.classList.remove('hidden');
-            userDetails.classList.add('hidden');
-        } else {
-            googleLoginBtn.classList.add('hidden');
-            userDetails.classList.remove('hidden');
-            document.getElementById('userPhoto').src = user.photoURL;
-            document.getElementById('userName').textContent = user.displayName;
-        }
-        
-        addNewMapCard.classList.remove('hidden');
-        // [오류 수정] 사용자 정보가 확실히 설정된 후에 게임 매니저를 초기화합니다.
+        // 사용자 정보가 확실히 설정된 후에 게임 매니저를 초기화합니다.
         await gameManager.init();
     } else {
-        googleLoginBtn.classList.remove('hidden');
-        userDetails.classList.add('hidden');
-        addNewMapCard.classList.add('hidden');
-        
+        // 로그아웃 상태일 때 맵 목록을 정리합니다.
         while (mapGrid.firstChild && mapGrid.firstChild !== addNewMapCard) {
             mapGrid.removeChild(mapGrid.firstChild);
         }
         gameManager.setCurrentUser(null);
         
+        // 최초 접속 시 익명 로그인을 시도합니다.
         try {
             await signInAnonymously(auth);
         } catch (error) {
@@ -79,4 +84,3 @@ function setupAuthEventListeners() {
 }
 
 export { auth, db, onAuthStateChanged, handleAuthStateChange, setupAuthEventListeners };
-
