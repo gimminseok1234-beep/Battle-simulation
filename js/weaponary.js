@@ -190,6 +190,12 @@ export class Weapon {
             if (unit.magicSpearSpecialCooldown <= 0) {
                 gameManager.createProjectile(unit, target, 'magic_spear_special');
                 gameManager.audioManager.play('spear');
+
+                // [신규] 특수 공격 시 반동(recoil) 효과 추가
+                const recoilAngle = unit.facingAngle + Math.PI;
+                const recoilForce = 3;
+                unit.knockbackX += Math.cos(recoilAngle) * recoilForce;
+                unit.knockbackY += Math.sin(recoilAngle) * recoilForce;
             } else { // 일반 공격
                 gameManager.createProjectile(unit, target, 'magic_spear_normal');
                 gameManager.audioManager.play('punch');
@@ -1315,16 +1321,41 @@ export class Projectile {
 
             ctx.restore();
         } else if (this.type.startsWith('magic_spear')) {
-            const isSpecial = this.type === 'magic_spear_special';
-            const mainColor = isSpecial ? '#a855f7' : '#111827';
-            const trailColor = isSpecial ? 'rgba(192, 132, 252, 0.4)' : 'rgba(107, 114, 128, 0.4)';
-            const spearLength = isSpecial ? GRID_SIZE * 1.2 : GRID_SIZE * 1.0;
-            const spearWidth = isSpecial ? GRID_SIZE * 0.25 : GRID_SIZE * 0.2;
-
-
             ctx.save();
             ctx.translate(this.pixelX, this.pixelY);
             ctx.rotate(this.angle);
+
+            // [수정] 새로운 특수 공격 투사체 디자인 (전체 보라색)
+            if (this.type === 'magic_spear_special') {
+                const spearLength = GRID_SIZE * 1.2;
+                const spearWidth = GRID_SIZE * 0.25;
+                const grad = ctx.createLinearGradient(-spearLength, 0, spearLength, 0);
+                grad.addColorStop(0, '#d8b4fe');
+                grad.addColorStop(1, '#7e22ce');
+                ctx.fillStyle = grad;
+                ctx.shadowColor = '#a855f7';
+                ctx.shadowBlur = 10;
+
+                ctx.beginPath();
+                ctx.moveTo(spearLength, 0);
+                ctx.lineTo(0, -spearWidth);
+                ctx.lineTo(-spearLength * 0.5, 0); // 몸통 뒷부분
+                ctx.lineTo(0, spearWidth);
+                ctx.closePath();
+                ctx.fill();
+            } else { // 일반 공격 투사체
+                const spearLength = GRID_SIZE * 1.0;
+                const spearWidth = GRID_SIZE * 0.2;
+                ctx.fillStyle = '#111827'; // 몸통
+                ctx.fillRect(0, -spearWidth / 2, spearLength * 0.7, spearWidth);
+                ctx.fillStyle = '#a855f7'; // 창날
+                ctx.beginPath();
+                ctx.moveTo(spearLength, 0);
+                ctx.lineTo(spearLength * 0.7, -spearWidth);
+                ctx.lineTo(spearLength * 0.7, spearWidth);
+                ctx.closePath();
+                ctx.fill();
+            }
 
             for (let i = 0; i < this.trail.length; i++) {
                 const pos = this.trail[i];
@@ -1332,32 +1363,28 @@ export class Projectile {
                 const trailX = (pos.x - this.pixelX) * Math.cos(-this.angle) - (pos.y - this.pixelY) * Math.sin(-this.angle);
                 const trailY = (pos.x - this.pixelX) * Math.sin(-this.angle) + (pos.y - this.pixelY) * Math.cos(-this.angle);
                 
-                ctx.fillStyle = trailColor.replace('0.4', alpha);
+                ctx.fillStyle = `rgba(192, 132, 252, ${alpha})`;
                 ctx.beginPath();
                 ctx.arc(trailX, trailY, (GRID_SIZE / 4) * (i / this.trail.length), 0, Math.PI * 2);
                 ctx.fill();
             }
-
-            ctx.fillStyle = mainColor;
-            ctx.beginPath();
-            ctx.moveTo(spearLength, 0);
-            ctx.lineTo(0, -spearWidth);
-            ctx.lineTo(0, spearWidth);
-            ctx.closePath();
-            ctx.fill();
             ctx.restore();
         } else if (this.type === 'magic_spear_fragment') {
-            // [신규] 마법창 파편 그리기
+            // [수정] 마법창 파편 디자인 (기존 특수 공격 디자인)
             ctx.save();
             ctx.translate(this.pixelX, this.pixelY);
             ctx.rotate(this.angle);
-            ctx.fillStyle = '#d8b4fe';
-            ctx.shadowColor = '#a855f7';
-            ctx.shadowBlur = 8;
+
+            const spearLength = GRID_SIZE * 1.0;
+            const spearWidth = GRID_SIZE * 0.2;
+
+            ctx.fillStyle = '#111827'; // 몸통
+            ctx.fillRect(0, -spearWidth / 2, spearLength * 0.7, spearWidth);
+            ctx.fillStyle = '#a855f7'; // 창날
             ctx.beginPath();
-            ctx.moveTo(GRID_SIZE * 0.5, 0);
-            ctx.lineTo(-GRID_SIZE * 0.2, -GRID_SIZE * 0.15);
-            ctx.lineTo(-GRID_SIZE * 0.2, GRID_SIZE * 0.15);
+            ctx.moveTo(spearLength, 0);
+            ctx.lineTo(spearLength * 0.7, -spearWidth);
+            ctx.lineTo(spearLength * 0.7, spearWidth);
             ctx.closePath();
             ctx.fill();
             
