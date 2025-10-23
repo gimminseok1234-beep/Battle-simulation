@@ -1101,20 +1101,21 @@ export class GameManager {
             gridX: x,
             gridY: y,
             duration: 180, // 3초
-            draw: (ctx) => {
+            gameManager: this, // [신규] GameManager 인스턴스를 명시적으로 저장
+            draw: function(ctx) { // [수정] 화살표 함수를 일반 함수로 변경하여 'this'가 puddle 객체를 가리키도록 함
                 const opacity = Math.min(1, this.duration / 60) * 0.5;
                 ctx.fillStyle = `rgba(132, 204, 22, ${opacity})`;
                 ctx.fillRect(this.gridX * GRID_SIZE, this.gridY * GRID_SIZE, GRID_SIZE, GRID_SIZE);
         
-                if (this.gameManager.random() > 0.9) {
+                if (this.gameManager.random() > 0.9) { // [수정] this.gameManager를 통해 random 함수에 접근
                     this.gameManager.addParticle({
-                        x: (this.gridX + this.gameManager.random()) * GRID_SIZE,
-                        y: (this.gridY + this.gameManager.random()) * GRID_SIZE,
-                        vx: (this.gameManager.random() - 0.5) * 0.2,
-                        vy: -this.gameManager.random() * 0.5,
+                        x: (this.gridX + this.gameManager.random()) * GRID_SIZE, // [수정]
+                        y: (this.gridY + this.gameManager.random()) * GRID_SIZE, // [수정]
+                        vx: (this.gameManager.random() - 0.5) * 0.2, // [수정]
+                        vy: -this.gameManager.random() * 0.5, // [수정]
                         life: 0.5,
                         color: '#a3e635',
-                        size: this.gameManager.random() * 2 + 1,
+                        size: this.gameManager.random() * 2 + 1, // [수정]
                         gravity: -0.05
                     });
                 }
