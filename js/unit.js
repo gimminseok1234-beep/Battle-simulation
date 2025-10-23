@@ -1121,15 +1121,6 @@ export class Unit {
                         }
                     }
 
-                    // [수정] 마법창 특수 공격 로직을 독립적인 if-else 구문으로 분리
-                    if (this.weapon?.type === 'magic_spear' && this.magicSpearSpecialCooldown <= 0) {
-                        this.moveTarget = null;
-                        this.attack(this.target);
-                        this.facingAngle = Math.atan2(this.target.pixelY - this.pixelY, this.target.pixelX - this.pixelX);
-                        this.magicSpearSpecialCooldown = 420; // 7초 쿨다운
-                        break;
-                    }
-
                     // [신규] 다른 충전식 무기들의 특수 공격 로직을 독립적인 if문으로 분리
                     if (this.weapon?.type === 'shuriken' && this.shurikenSkillCooldown <= 0) {
                         this.attack(this.target); // use 메서드에서 3방향 표창 발사
@@ -1145,19 +1136,6 @@ export class Unit {
                             gameManager.audioManager.play('axe');
                             gameManager.createEffect('axe_spin_effect', this.pixelX, this.pixelY, this);
                             // ... (이하 파티클 및 데미지 로직은 기존과 동일)
-                            break;
-                        }
-                    }
-
-                    if (this.weapon && this.weapon.type === 'dual_swords' && this.dualSwordSkillCooldown <= 0) {
-                        const distanceToTarget = Math.hypot(this.pixelX - this.target.pixelX, this.pixelY - this.target.pixelY);
-                        if (distanceToTarget <= this.detectionRange && gameManager.hasLineOfSight(this, this.target)) {
-                            gameManager.audioManager.play('shurikenShoot');
-                            gameManager.createProjectile(this, this.target, 'bouncing_sword');
-                            this.dualSwordSkillCooldown = 300;
-                            this.attackCooldown = 60;
-                            this.moveTarget = null;
-                            this.facingAngle = Math.atan2(this.target.pixelY - this.pixelY, this.target.pixelX - this.pixelX);
                             break;
                         }
                     }
@@ -1499,8 +1477,8 @@ export class Unit {
         let specialSkillIsVisible =
             (this.weapon?.type === 'magic_dagger' && this.magicDaggerSkillCooldown > 0) ||
             (this.weapon?.type === 'axe' && this.axeSkillCooldown > 0) ||
-            (this.weapon?.type === 'ice_diamond' && this.iceDiamondChargeTimer > 0 && this.iceDiamondCharges < 5) ||
-            (this.weapon?.type === 'boomerang' && this.boomerangCooldown > 0) || (this.weapon?.type === 'magic_spear' && this.magicSpearSpecialCooldown > 0) ||
+            (this.weapon?.type === 'ice_diamond' && this.iceDiamondChargeTimer > 0 && this.iceDiamondCharges < 5) || (this.weapon?.type === 'magic_spear' && this.magicSpearSpecialCooldown > 0) ||
+            (this.weapon?.type === 'boomerang' && this.boomerangCooldown > 0) ||
             (this.weapon?.type === 'shuriken' && this.shurikenSkillCooldown > 0) ||
             (this.weapon?.type === 'fire_staff' && this.fireStaffSpecialCooldown > 0) ||
             (this.weapon?.type === 'dual_swords' && this.dualSwordSkillCooldown > 0) ||
@@ -1597,26 +1575,44 @@ export class Unit {
             if (this.weapon?.type === 'fire_staff') {
                 fgColor = '#ef4444';
                 progress = 240 - this.fireStaffSpecialCooldown; max = 240;
-            } else if (['boomerang', 'shuriken', 'poison_potion', 'magic_dagger', 'axe', 'dual_swords', 'magic_spear'].includes(this.weapon?.type)) {
-                fgColor = '#94a3b8'; // [수정] 마법창을 다른 무기들과 함께 회색으로 처리
+            } else if (['boomerang', 'shuriken', 'poison_potion', 'magic_dagger', 'axe', 'dual_swords'].includes(this.weapon?.type)) {
+                fgColor = '#94a3b8';
                 if(this.weapon.type === 'boomerang') {
+            // [수정] 모든 충전식 무기의 게이지 색상을 회색으로 통일
+            const specialAttackWeapons = ['fire_staff', 'boomerang', 'shuriken', 'poison_potion', 'magic_dagger', 'axe', 'dual_swords', 'magic_spear', 'ice_diamond'];
+            if (specialAttackWeapons.includes(this.weapon?.type)) {
+                fgColor = '#facc15'; // [수정] 특수 공격 게이지 색상을 노란색으로 변경
+
+                if (this.weapon.type === 'fire_staff') {
+                    progress = 240 - this.fireStaffSpecialCooldown; max = 240;
+                } else if (this.weapon.type === 'boomerang') {
                     progress = 480 - this.boomerangCooldown; max = 480;
                 } else if(this.weapon.type === 'shuriken') {
+                } else if (this.weapon.type === 'shuriken') {
                     progress = 300 - this.shurikenSkillCooldown; max = 300;
                 } else if(this.weapon.type === 'magic_dagger') {
+                } else if (this.weapon.type === 'magic_dagger') {
                     progress = 420 - this.magicDaggerSkillCooldown; max = 420;
                 } else if(this.weapon.type === 'axe') {
+                } else if (this.weapon.type === 'axe') {
                     progress = 240 - this.axeSkillCooldown; max = 240;
-                } else if(this.weapon.type === 'magic_spear') {
-                    progress = 420 - this.magicSpearSpecialCooldown; max = 420;
                 } else if(this.weapon.type === 'dual_swords') {
+                } else if (this.weapon.type === 'dual_swords') {
                     progress = 300 - this.dualSwordSkillCooldown; max = 300;
                 } else {
+                } else if (this.weapon.type === 'magic_spear') {
+                    progress = 420 - this.magicSpearSpecialCooldown; max = 420;
+                } else if (this.weapon.type === 'ice_diamond') {
+                    progress = this.iceDiamondChargeTimer; max = 240;
+                } else if (this.weapon.type === 'poison_potion') { // Casting bar
                     progress = this.castingProgress; max = this.castDuration;
                 }
             } else if (this.weapon?.type === 'ice_diamond') {
                 fgColor = '#38bdf8';
                 progress = this.iceDiamondChargeTimer; max = 240;
+            } else if (this.weapon?.type === 'magic_spear') {
+                fgColor = '#a855f7'; // 보라색
+                progress = 420 - this.magicSpearSpecialCooldown; max = 420;
             }
 
             if (fgColor) {
