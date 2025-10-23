@@ -233,7 +233,7 @@ export class Weapon {
     draw(ctx) {
         if (this.isEquipped) return;
         const centerX = this.pixelX; const centerY = this.pixelY;
-        const scale = (this.type === 'crown') ? 1.0 : (this.type === 'lightning' ? 0.6 : (this.type === 'magic_spear' ? 0.6 : (this.type === 'poison_potion' ? 0.624 : (this.type === 'boomerang' ? 0.49 : 0.8))));
+        const scale = (this.type === 'crown') ? 1.0 : (this.type === 'lightning' ? 0.6 : (this.type === 'magic_spear' ? 0.78 : (this.type === 'poison_potion' ? 0.624 : (this.type === 'boomerang' ? 0.49 : 0.8))));
         ctx.save();
         ctx.translate(centerX, centerY);
         ctx.scale(scale, scale);
