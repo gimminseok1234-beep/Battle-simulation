@@ -1112,21 +1112,20 @@ export class Unit {
                 if (this.target) {
                     if (this.weapon && this.weapon.type === 'fire_staff' && this.fireStaffSpecialCooldown <= 0) {
                         const distanceToTarget = Math.hypot(this.pixelX - this.target.pixelX, this.pixelY - this.target.pixelY);
-                        if (distanceToTarget <= this.attackRange && gameManager.hasLineOfSight(this, this.target)) {
-                            gameManager.createProjectile(this, this.target, 'fireball_projectile');
-                            gameManager.audioManager.play('fireball');
-                            this.fireStaffSpecialCooldown = 240;
-                            this.attackCooldown = 60;
-                            break;
+                        if (distanceToTarget <= this.attackRange && gameManager.hasLineOfSight(this, this.target)) { // ...
                         }
-                    } else if (this.weapon?.type === 'magic_spear' && this.magicSpearSpecialCooldown <= 0) {
-                        // [수정] 마법창 특수 공격 로직을 독립적인 if-else 구문으로 분리
+                    }
+
+                    // [수정] 마법창 특수 공격 로직을 독립적인 if-else 구문으로 분리
+                    if (this.weapon?.type === 'magic_spear' && this.magicSpearSpecialCooldown <= 0) {
                         this.moveTarget = null;
                         this.attack(this.target);
                         this.facingAngle = Math.atan2(this.target.pixelY - this.pixelY, this.target.pixelX - this.pixelX);
                         this.magicSpearSpecialCooldown = 420; // 7초 쿨다운
                         break;
-                    } else if (this.weapon && this.weapon.type === 'dual_swords' && this.dualSwordSkillCooldown <= 0) {
+                    }
+
+                    if (this.weapon && this.weapon.type === 'dual_swords' && this.dualSwordSkillCooldown <= 0) {
                         const distanceToTarget = Math.hypot(this.pixelX - this.target.pixelX, this.pixelY - this.target.pixelY);
                         if (distanceToTarget <= this.detectionRange && gameManager.hasLineOfSight(this, this.target)) {
                             gameManager.audioManager.play('shurikenShoot');
