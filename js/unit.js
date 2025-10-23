@@ -908,17 +908,8 @@ export class Unit {
 
         if (this.weapon && this.weapon.type === 'magic_spear') {
             if (this.magicCircleCooldown <= 0) {
-                gameManager.spawnMagicCircle(this.team);
-                this.magicCircleCooldown = 300;
-            }
-            const stunnedEnemy = gameManager.findStunnedByMagicCircleEnemy(this.team);
-            if (stunnedEnemy && this.attackCooldown <= 0) {
-                this.alertedCounter = 60;
-                this.target = stunnedEnemy;
-                gameManager.createProjectile(this, stunnedEnemy, 'magic_spear_special');
-                gameManager.audioManager.play('spear');
-                this.attackCooldown = this.cooldownTime;
-                return;
+                gameManager.spawnMagicCircle(this.team); // 마법진 생성
+                this.magicCircleCooldown = 300; // 5초 쿨다운
             }
         } else if (this.weapon && this.weapon.type === 'boomerang' && this.boomerangCooldown <= 0) {
             const { item: closestEnemy } = this.findClosest(enemies);
@@ -1099,6 +1090,13 @@ export class Unit {
                 if (this.target) {
                     if (this.weapon && this.weapon.type === 'fire_staff' && this.fireStaffSpecialCooldown <= 0) {
                         const distanceToTarget = Math.hypot(this.pixelX - this.target.pixelX, this.pixelY - this.target.pixelY);
+                    // [NEW] 마법창 특수 공격 로직 추가
+                    } else if (this.weapon && this.weapon.type === 'magic_spear' && this.target.isStunned > 0 && this.target.stunnedByMagicCircle) {
+                        this.moveTarget = null;
+                        this.attack(this.target); // 기절한 적을 즉시 공격
+                        this.facingAngle = Math.atan2(this.target.pixelY - this.pixelY, this.target.pixelX - this.pixelX);
+                        break;
+                    } else if (this.weapon && this.weapon.type === 'fire_staff' && this.fireStaffSpecialCooldown <= 0) {
                         if (distanceToTarget <= this.attackRange && gameManager.hasLineOfSight(this, this.target)) {
                             gameManager.createProjectile(this, this.target, 'fireball_projectile');
                             gameManager.audioManager.play('fireball');
