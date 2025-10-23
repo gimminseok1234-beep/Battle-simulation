@@ -181,9 +181,12 @@ export class Weapon {
             gameManager.createProjectile(unit, target, 'magic_spear_normal');
             gameManager.audioManager.play('punch');
             unit.attackCooldown = unit.cooldownTime;
-        } else if (this.type === 'boomerang' || this.type === 'poison_potion') { // [수정] 독 포션 공격 로직 추가
+        } else if (this.type === 'boomerang') {
             gameManager.createProjectile(unit, target, 'boomerang_normal_projectile');
-            gameManager.audioManager.play('shurikenShoot'); // [수정] 효과음 변경
+            gameManager.audioManager.play('punch');
+            unit.attackCooldown = unit.cooldownTime;
+        } else if (this.type === 'poison_potion') {
+            target.takeDamage(15, {}, unit);
             unit.attackCooldown = unit.cooldownTime;
         }
     }
