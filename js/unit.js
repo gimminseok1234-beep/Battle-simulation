@@ -1266,7 +1266,7 @@ export class Unit {
      * @param {{x: number, y: number}} targetPos - 목표 픽셀 좌표
      */
     updatePathTo(targetPos) {
-        if (this.pathUpdateCooldown > 0) return;
+        if (this.pathUpdateCooldown > 0 || !targetPos) return;
 
         const startNode = {
             x: Math.floor(this.pixelX / GRID_SIZE),
