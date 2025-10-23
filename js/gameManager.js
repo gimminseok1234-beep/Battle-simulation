@@ -1,24 +1,15 @@
 import { Unit } from './unit.js';
 import { Weapon, Projectile, AreaEffect, Effect, MagicDaggerDashEffect, createFireballHitEffect, Particle } from './weaponary.js';
 import { Nexus, GrowingMagneticField, MagicCircle, PoisonCloud } from './entities.js';
-import { getFirestore, collection, doc, getDoc, getDocs, setDoc, deleteDoc, query, where } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 import { AudioManager } from './audioManager.js';
 import { TILE, TEAM, COLORS, GRID_SIZE } from './constants.js';
 import { drawImpl, drawMapImpl } from './gameManager.render.js';
 import { localMaps } from './maps/index.js';
-
-// Seed based random number generator: the same seed will always produce the same sequence of random numbers.
-class SeededRandom {
-    constructor(seed) {
-        this.seed = seed % 2147483647;
-        if (this.seed <= 0) this.seed += 2147483646;
-    }
-
-    next() {
-        this.seed = (this.seed * 16807) % 2147483647;
-        return (this.seed - 1) / 2147483646;
-    }
-}
+import { SeededRandom } from './utils.js';
+import { UIManager } from './managers/UIManager.js';
+import { PersistenceManager } from './managers/PersistenceManager.js';
+import { SimulationManager } from './managers/SimulationManager.js';
+import { InputManager } from './managers/InputManager.js';
 
 let instance = null;
 
@@ -58,8 +49,6 @@ export class GameManager {
         this.poisonClouds = [];
         this.particles = [];
         this.currentTool = { tool: 'tile', type: 'FLOOR' };
-        this.isPainting = false;
-        this.dragStartPos = null;
         this.initialUnitsState = [];
         this.initialWeaponsState = [];
         this.initialNexusesState = [];
@@ -71,8 +60,6 @@ export class GameManager {
         this.gameSpeed = 1;
         this.currentWallColor = COLORS.WALL;
         this.currentFloorColor = COLORS.FLOOR;
-        this.recentWallColors = [];
-        this.recentFloorColors = [];
         this.replicationValue = 2;
         this.isActionCam = false;
         this.actionCam = {
@@ -99,6 +86,11 @@ export class GameManager {
         this.initialNexusCount = 0;
         this.winnerTeam = null;
 
+        // Managers
+        this.uiManager = new UIManager(this, this.persistenceManager);
+        this.persistenceManager = new PersistenceManager(this);
+        this.simulationManager = new SimulationManager(this);
+        this.inputManager = new InputManager(this);
         this.audioManager = new AudioManager();
         
         this.isUnitOutlineEnabled = true;
@@ -117,8 +109,6 @@ export class GameManager {
         this.simulationSeed = null;
         this.rngPolicy = 'legacy'; // 'legacy' | 'seeded_v2'
         this._originalMathRandom = null;
-        this.isReplayMode = false;
-        this.lastSimulationResult = null;
         
         this.simulationTime = 0;
         this.timerElement = document.getElementById('timerText');
@@ -126,6 +116,11 @@ export class GameManager {
         this.isLavaAvoidanceEnabled = true;
 
         instance = this;
+
+        // These were in UIManager, but they need access to GameManager state that is not yet initialized.
+        // So we keep them here for now.
+        this.recentWallColors = [];
+        this.recentFloorColors = [];
     }
 
     random() {
@@ -161,10 +156,8 @@ export class GameManager {
 
     async init() {
         if (!this.currentUser) return;
-        this.createToolboxUI();
-        this.setupEventListeners();
         this.showHomeScreen();
-        await this.loadNametagSettings();
+        await this.persistenceManager.loadNametagSettings();
     }
    
     showHomeScreen() {
@@ -177,7 +170,7 @@ export class GameManager {
         document.getElementById('replayScreen').style.display = 'none';
         this.updateUIToEditorMode(); 
         this.resetActionCam(true);
-        this.renderMapCards();
+        this.persistenceManager.renderMapCards();
         if (this.timerElement) this.timerElement.style.display = 'none';
     }
 
@@ -194,7 +187,7 @@ export class GameManager {
         document.getElementById('editorScreen').style.display = 'none';
         document.getElementById('defaultMapsScreen').style.display = 'none';
         document.getElementById('replayScreen').style.display = 'block';
-        this.renderReplayCards();
+        this.persistenceManager.renderReplayCards();
     }
 
     async showEditorScreen(mapId) {
@@ -240,226 +233,6 @@ export class GameManager {
         }
     }
     
-    createToolboxUI() {
-        const toolbox = document.getElementById('toolbox');
-        if (!toolbox) return;
-        
-        toolbox.innerHTML = `
-            <div class="category-header collapsed" data-target="category-basic-tiles">기본 타일</div>
-            <div id="category-basic-tiles" class="category-content collapsed">
-                <button class="tool-btn selected" data-tool="tile" data-type="FLOOR">바닥</button>
-                <div class="flex items-center gap-2 my-1">
-                    <input type="color" id="floorColorPicker" value="${this.currentFloorColor}" class="w-full h-8 p-1 rounded">
-                    <button id="defaultFloorColorBtn" class="p-2 rounded bg-gray-600 hover:bg-gray-500" title="기본값으로">🔄</button>
-                </div>
-                <div id="recentFloorColors" class="grid grid-cols-4 gap-1 mb-2"></div>
-                
-                <button class="tool-btn" data-tool="tile" data-type="WALL">벽</button>
-                <div class="flex items-center gap-2 my-1">
-                    <input type="color" id="wallColorPicker" value="${this.currentWallColor}" class="w-full h-8 p-1 rounded">
-                    <button id="defaultWallColorBtn" class="p-2 rounded bg-gray-600 hover:bg-gray-500" title="기본값으로">🔄</button>
-                </div>
-                <div id="recentWallColors" class="grid grid-cols-4 gap-1 mb-2"></div>
-            </div>
-
-            <div class="category-header collapsed" data-target="category-special-tiles">특수 타일</div>
-            <div id="category-special-tiles" class="category-content collapsed">
-                <div class="overflow-y-auto max-h-60 pr-2">
-                    <div class="flex items-center gap-1 mt-1">
-                        <button class="tool-btn flex-grow" data-tool="tile" data-type="LAVA">용암</button>
-                        <button id="lavaSettingsBtn" class="p-2 rounded hover:bg-gray-600">⚙️</button>
-                    </div>
-                    <button class="tool-btn" data-tool="tile" data-type="GLASS_WALL">유리벽</button>
-                    <button class="tool-btn" data-tool="tile" data-type="CRACKED_WALL">부서지는 벽</button>
-                    <button class="tool-btn" data-tool="tile" data-type="HEAL_PACK">회복 팩</button>
-                    <button class="tool-btn" data-tool="tile" data-type="AWAKENING_POTION">각성 물약</button>
-                    <button class="tool-btn" data-tool="tile" data-type="TELEPORTER">텔레포터</button>
-                    <button class="tool-btn" data-tool="tile" data-type="QUESTION_MARK">물음표</button>
-                    <div class="flex items-center gap-2 mt-1">
-                        <button class="tool-btn flex-grow" data-tool="tile" data-type="REPLICATION_TILE">+N 복제</button>
-                        <input type="number" id="replicationValue" value="${this.replicationValue}" min="1" class="modal-input w-16">
-                    </div>
-                    <div class="flex items-center gap-1 mt-1">
-                        <button class="tool-btn flex-grow" data-tool="tile" data-type="DASH_TILE">돌진 타일</button>
-                        <button id="dashTileSettingsBtn" class="p-2 rounded hover:bg-gray-600">⚙️</button>
-                    </div>
-                    <div class="flex items-center gap-1 mt-1">
-                        <button class="tool-btn flex-grow" data-tool="growing_field">성장형 자기장</button>
-                        <button id="growingFieldSettingsBtn" class="p-2 rounded hover:bg-gray-600">⚙️</button>
-                    </div>
-                    <div class="flex items-center gap-1 mt-1">
-                        <button class="tool-btn flex-grow" data-tool="auto_field">자동 자기장</button>
-                        <button id="autoFieldSettingsBtn" class="p-2 rounded hover:bg-gray-600">⚙️</button>
-                    </div>
-                </div>
-            </div>
-
-            <div class="category-header collapsed" data-target="category-units">유닛</div>
-            <div id="category-units" class="category-content collapsed">
-                <button class="tool-btn" data-tool="unit" data-team="A">빨강 유닛</button>
-                <button class="tool-btn" data-tool="unit" data-team="B">파랑 유닛</button>
-                <button class="tool-btn" data-tool="unit" data-team="C">초록 유닛</button>
-                <button class="tool-btn" data-tool="unit" data-team="D">노랑 유닛</button>
-            </div>
-            
-            <div class="category-header collapsed" data-target="category-weapons">무기</div>
-            <div id="category-weapons" class="category-content collapsed">
-                <div class="overflow-y-auto max-h-60 pr-2">
-                    <button class="tool-btn" data-tool="weapon" data-type="sword">검</button>
-                    <button class="tool-btn" data-tool="weapon" data-type="axe">도끼</button>
-                    <button class="tool-btn" data-tool="weapon" data-type="bow">활</button>
-                    <button class="tool-btn" data-tool="weapon" data-type="ice_diamond">얼음 다이아</button>
-                    <button class="tool-btn" data-tool="weapon" data-type="dual_swords">쌍검</button>
-                    <button class="tool-btn" data-tool="weapon" data-type="fire_staff">불 지팡이</button>
-                    <button class="tool-btn" data-tool="weapon" data-type="lightning">번개</button>
-                    <button class="tool-btn" data-tool="weapon" data-type="magic_spear">마법창</button>
-                    <button class="tool-btn" data-tool="weapon" data-type="boomerang">부메랑</button>
-                    <button class="tool-btn" data-tool="weapon" data-type="poison_potion">독 포션</button>
-                    <button class="tool-btn" data-tool="weapon" data-type="magic_dagger">마법 단검</button>
-                    <div class="flex items-center gap-1">
-                        <button class="tool-btn flex-grow" data-tool="weapon" data-type="hadoken">장풍</button>
-                        <button id="hadokenSettingsBtn" class="p-2 rounded hover:bg-gray-600">⚙️</button>
-                    </div>
-                    <button class="tool-btn" data-tool="weapon" data-type="shuriken">표창</button>
-                    <button class="tool-btn" data-tool="weapon" data-type="crown">왕관</button>
-                </div>
-            </div>
-
-            <div class="category-header collapsed" data-target="category-nexus">넥서스</div>
-            <div id="category-nexus" class="category-content collapsed">
-                <button class="tool-btn" data-tool="nexus" data-team="A">빨강 넥서스</button>
-                <button class="tool-btn" data-tool="nexus" data-team="B">파랑 넥서스</button>
-                <button class="tool-btn" data-tool="nexus" data-team="C">초록 넥서스</button>
-                <button class="tool-btn" data-tool="nexus" data-team="D">노랑 넥서스</button>
-            </div>
-            
-            <div class="category-header bg-slate-800 collapsed" data-target="category-utils">기타</div>
-            <div id="category-utils" class="category-content collapsed">
-                 <button class="tool-btn" data-tool="erase">지우개</button>
-                 <button class="tool-btn" data-tool="nametag">이름표</button>
-            </div>
-        `;
-    }
-
-    async getAllMaps() {
-        if (!this.currentUser) return [];
-        const mapsColRef = collection(this.db, "maps", this.currentUser.uid, "userMaps");
-        const mapSnapshot = await getDocs(mapsColRef);
-        return mapSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-    }
-
-    async getMapById(mapId) {
-        if (!this.currentUser) return null;
-        const mapDocRef = doc(this.db, "maps", this.currentUser.uid, "userMaps", mapId);
-        const mapSnap = await getDoc(mapDocRef);
-        return mapSnap.exists() ? { id: mapSnap.id, ...mapSnap.data() } : null;
-    }
-
-    async saveCurrentMap() {
-        if (!this.currentUser || !this.currentMapName) {
-            alert('맵을 저장하려면 로그인이 필요하며, 맵 이름이 지정되어야 합니다.');
-            return;
-        }
-
-        if (!this.currentMapId || this.currentMapId.startsWith('local_')) {
-            this.currentMapId = `map_${Date.now()}`;
-            const newName = prompt("새로운 맵의 이름을 입력하세요:", this.currentMapName);
-            if (newName) {
-                this.currentMapName = newName;
-            } else {
-                this.currentMapId = null; 
-                return;
-            }
-        }
-
-        const plainUnits = this.units.map(u => ({
-            gridX: u.gridX,
-            gridY: u.gridY,
-            team: u.team,
-            hp: u.hp,
-            isKing: u.isKing,
-            name: u.name,
-            weapon: u.weapon ? { type: u.weapon.type } : null
-        }));
-        
-        const plainWeapons = this.weapons.map(w => ({
-            gridX: w.gridX,
-            gridY: w.gridY,
-            type: w.type
-        }));
-        
-        const plainNexuses = this.nexuses.map(n => ({
-            gridX: n.gridX,
-            gridY: n.gridY,
-            team: n.team,
-            hp: n.hp
-        }));
-        
-        const plainGrowingFields = this.growingFields.map(f => ({
-            id: f.id,
-            gridX: f.gridX,
-            gridY: f.gridY,
-            width: f.width,
-            height: f.height,
-            direction: f.direction,
-            totalFrames: f.totalFrames,
-            delay: f.delay
-        }));
-
-        const mapData = {
-            name: this.currentMapName,
-            width: this.canvas.width,
-            height: this.canvas.height,
-            map: JSON.stringify(this.map),
-            units: plainUnits,
-            weapons: plainWeapons,
-            nexuses: plainNexuses,
-            growingFields: plainGrowingFields,
-            autoMagneticField: this.autoMagneticField,
-            hadokenKnockback: this.hadokenKnockback,
-            isLevelUpEnabled: this.isLevelUpEnabled,
-            floorColor: this.currentFloorColor,
-            wallColor: this.currentWallColor,
-            recentFloorColors: this.recentFloorColors,
-            recentWallColors: this.recentWallColors,
-            isLavaAvoidanceEnabled: this.isLavaAvoidanceEnabled,
-        };
-
-        const mapDocRef = doc(this.db, "maps", this.currentUser.uid, "userMaps", this.currentMapId);
-        try {
-            await setDoc(mapDocRef, mapData, { merge: true });
-            alert(`'${this.currentMapName}' 맵이 Firebase에 성공적으로 저장되었습니다!`);
-        } catch (error) {
-            console.error("Error saving map to Firebase: ", error);
-            alert('맵 저장에 실패했습니다.');
-        }
-    }
-
-    async renderMapCards() {
-        document.getElementById('loadingStatus').textContent = "맵 목록을 불러오는 중...";
-        const maps = await this.getAllMaps();
-        document.getElementById('loadingStatus').style.display = 'none';
-        
-        const mapGrid = document.getElementById('mapGrid');
-        const addNewMapCard = document.getElementById('addNewMapCard');
-        while (mapGrid.firstChild && mapGrid.firstChild !== addNewMapCard) {
-            mapGrid.removeChild(mapGrid.firstChild);
-        }
-
-        maps.forEach(mapData => {
-            const card = this.createMapCard(mapData, false);
-            mapGrid.insertBefore(card, addNewMapCard);
-        });
-
-        document.addEventListener('click', (e) => {
-             if (!e.target.closest('.map-menu-button')) {
-                document.querySelectorAll('.map-menu').forEach(menu => {
-                     menu.style.display = 'none';
-                });
-            }
-        }, true);
-    }
-
     renderDefaultMapCards() {
         const defaultMapGrid = document.getElementById('defaultMapGrid');
         while (defaultMapGrid.firstChild) {
@@ -482,7 +255,7 @@ export class GameManager {
             if (!e.target.closest('.map-menu-button')) {
                 if (isLocal) {
                     this.loadLocalMapForEditing(mapData);
-                } else {
+                } else { 
                     this.showEditorScreen(mapId);
                 }
             }
@@ -519,14 +292,14 @@ export class GameManager {
             renameBtn.textContent = '이름 변경';
             renameBtn.onclick = () => {
                 menu.style.display = 'none';
-                this.openRenameModal(mapId, mapData.name, 'map');
+                this.uiManager.openRenameModal(mapId, mapData.name, 'map');
             };
             const deleteBtn = document.createElement('button');
             deleteBtn.className = 'w-full text-left px-3 py-1.5 text-sm text-red-400 rounded hover:bg-gray-600';
             deleteBtn.textContent = '삭제';
             deleteBtn.onclick = () => {
                 menu.style.display = 'none';
-                this.openDeleteConfirmModal(mapId, mapData.name, 'map');
+                this.uiManager.openDeleteConfirmModal(mapId, mapData.name, 'map');
             };
             menu.append(renameBtn, deleteBtn);
 
@@ -620,434 +393,10 @@ export class GameManager {
         (mapData.weapons || []).forEach(item => drawItem(item, '#eab308'));
     }
     
-    openRenameModal(id, currentName, type) {
-        const input = document.getElementById('renameMapInput');
-        const renameMapModal = document.getElementById('renameMapModal');
-        input.value = currentName;
-        renameMapModal.classList.add('show-modal');
-        
-        document.getElementById('confirmRenameBtn').onclick = async () => {
-            const newName = input.value.trim();
-            if (newName && this.currentUser) {
-                const collectionPath = type === 'map' ? 'userMaps' : 'userReplays';
-                const docRef = doc(this.db, type === 'map' ? "maps" : "replays", this.currentUser.uid, collectionPath, id);
-                try {
-                    await setDoc(docRef, { name: newName }, { merge: true });
-                    if (type === 'map') this.renderMapCards();
-                    else this.renderReplayCards();
-                } catch (error) {
-                    console.error(`Error renaming ${type}:`, error);
-                }
-                renameMapModal.classList.remove('show-modal');
-            }
-        };
-    }
-
-    openDeleteConfirmModal(id, name, type) {
-        const deleteConfirmModal = document.getElementById('deleteConfirmModal');
-        document.getElementById('deleteConfirmText').textContent = `'${name}' ${type === 'map' ? '맵' : '리플레이'}을(를) 정말 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.`;
-        deleteConfirmModal.classList.add('show-modal');
-
-        document.getElementById('confirmDeleteBtn').onclick = async () => {
-            if (!this.currentUser) return;
-            const collectionPath = type === 'map' ? 'userMaps' : 'userReplays';
-            const docRef = doc(this.db, type === 'map' ? "maps" : "replays", this.currentUser.uid, collectionPath, id);
-            try {
-                await deleteDoc(docRef);
-                if (type === 'map') this.renderMapCards();
-                else this.renderReplayCards();
-            } catch (error) {
-                console.error(`Error deleting ${type}:`, error);
-            }
-            deleteConfirmModal.classList.remove('show-modal');
-        };
-    }
-    
-    setupEventListeners() {
-        document.getElementById('cancelNewMapBtn').addEventListener('click', () => document.getElementById('newMapModal').classList.remove('show-modal'));
-        document.getElementById('cancelRenameBtn').addEventListener('click', () => document.getElementById('renameMapModal').classList.remove('show-modal'));
-        document.getElementById('cancelDeleteBtn').addEventListener('click', () => document.getElementById('deleteConfirmModal').classList.remove('show-modal'));
-        document.getElementById('closeMapSettingsModal').addEventListener('click', () => document.getElementById('mapSettingsModal').classList.remove('show-modal'));
-        document.getElementById('closeDashTileModal').addEventListener('click', () => {
-            this.dashTileSettings.direction = document.getElementById('dashTileDirection').value;
-            document.getElementById('dashTileModal').classList.remove('show-modal');
-        });
-        document.getElementById('cancelSaveReplayBtn').addEventListener('click', () => document.getElementById('saveReplayModal').classList.remove('show-modal'));
-        document.getElementById('confirmSaveReplayBtn').addEventListener('click', () => this.saveLastReplay());
-
-        document.getElementById('closeLavaSettingsModal').addEventListener('click', () => {
-            this.isLavaAvoidanceEnabled = document.getElementById('lavaAvoidanceToggle').checked;
-            document.getElementById('lavaSettingsModal').classList.remove('show-modal');
-        });
-
-        document.getElementById('addNewMapCard').addEventListener('click', () => {
-            document.getElementById('newMapName').value = '';
-            document.getElementById('newMapWidth').value = '460';
-            document.getElementById('newMapHeight').value = '800';
-            document.getElementById('newMapModal').classList.add('show-modal');
-        });
-
-        document.getElementById('defaultMapsBtn').addEventListener('click', () => this.showDefaultMapsScreen());
-        document.getElementById('replaysBtn').addEventListener('click', () => this.showReplayScreen());
-        document.getElementById('backToHomeFromDefaultBtn').addEventListener('click', () => this.showHomeScreen());
-        document.getElementById('backToHomeFromReplayBtn').addEventListener('click', () => this.showHomeScreen());
-
-
-        document.getElementById('confirmNewMapBtn').addEventListener('click', async () => {
-            if (!this.currentUser) return;
-            const name = document.getElementById('newMapName').value.trim() || '새로운 맵';
-            const width = parseInt(document.getElementById('newMapWidth').value) || 460;
-            const height = parseInt(document.getElementById('newMapHeight').value) || 800;
-            
-            const newMapId = `map_${Date.now()}`;
-            const newMapData = {
-                id: newMapId,
-                name: name,
-                width: width,
-                height: height,
-                map: JSON.stringify(Array(Math.floor(height / GRID_SIZE)).fill().map(() => Array(Math.floor(width / GRID_SIZE)).fill({ type: TILE.FLOOR, color: COLORS.FLOOR }))),
-                units: [], weapons: [], nexuses: [], growingFields: [],
-                isLevelUpEnabled: false,
-                floorColor: COLORS.FLOOR, wallColor: COLORS.WALL,
-                recentFloorColors: [], recentWallColors: [],
-                isLavaAvoidanceEnabled: true,
-            };
-            
-            const newMapDocRef = doc(this.db, "maps", this.currentUser.uid, "userMaps", newMapId);
-            try {
-                await setDoc(newMapDocRef, newMapData);
-                document.getElementById('newMapModal').classList.remove('show-modal');
-                this.showEditorScreen(newMapId);
-            } catch(error) {
-                console.error("Error creating new map: ", error);
-            }
-        });
-
-        document.getElementById('backToHomeBtn').addEventListener('click', () => this.showHomeScreen());
-        document.getElementById('saveMapBtn').addEventListener('click', () => this.saveCurrentMap());
-        document.getElementById('saveReplayBtn').addEventListener('click', () => this.openSaveReplayModal());
-        document.getElementById('mapSettingsBtn').addEventListener('click', () => {
-            document.getElementById('widthInput').value = this.canvas.width;
-            document.getElementById('heightInput').value = this.canvas.height;
-            document.getElementById('mapSettingsModal').classList.add('show-modal');
-        });
-
-        document.getElementById('killSoundToggle').addEventListener('change', (e) => {
-            this.audioManager.toggleKillSound(e.target.checked);
-        });
-        document.getElementById('volumeControl').addEventListener('input', (e) => {
-            this.audioManager.setVolume(parseFloat(e.target.value));
-        });
-
-        document.getElementById('muteBtn').addEventListener('click', () => this.audioManager.toggleMute());
-
-        this.canvas.addEventListener('mousedown', (e) => {
-            if (this.isActionCam) {
-                if (this.actionCam.isAnimating) return;
-                const pos = this.getMousePos(e);
-                if (this.actionCam.target.scale === 1) {
-                    this.actionCam.target.x = pos.pixelX;
-                    this.actionCam.target.y = pos.pixelY;
-                    const maxZ = this.actionCam.maxZoom || 1.8;
-                    this.actionCam.target.scale = Math.min(maxZ, 3.0);
-                } else {
-                    this.actionCam.target.x = this.canvas.width / 2;
-                    this.actionCam.target.y = this.canvas.height / 2;
-                    this.actionCam.target.scale = 1;
-                }
-                this.actionCam.isAnimating = true;
-                if (this.state !== 'SIMULATE' && !this.animationFrameId) this.gameLoop();
-                return;
-            }
-            if (this.state === 'EDIT') {
-                const pos = this.getMousePos(e);
-                
-                if (this.currentTool.tool === 'nametag') {
-                    const clickedUnit = this.units.find(u => Math.hypot(u.pixelX - pos.pixelX, u.pixelY - pos.pixelY) < GRID_SIZE / 2);
-                    if (clickedUnit) {
-                        this.editingUnit = clickedUnit;
-                        document.getElementById('unitNameInput').value = clickedUnit.name || '';
-                        document.getElementById('unitNameModal').classList.add('show-modal');
-                        return;
-                    }
-                }
-
-                this.isPainting = true;
-                if (this.currentTool.tool === 'growing_field') this.dragStartPos = pos;
-                else this.applyTool(pos);
-            }
-        });
-        this.canvas.addEventListener('mouseup', (e) => {
-            if (this.state === 'EDIT' && this.currentTool.tool === 'growing_field' && this.dragStartPos) {
-                this.applyTool(this.getMousePos(e));
-            }
-            this.isPainting = false;
-            this.dragStartPos = null;
-        });
-        this.canvas.addEventListener('mousemove', (e) => {
-            if (this.isPainting && this.state === 'EDIT' && this.currentTool.tool !== 'growing_field') {
-                this.applyTool(this.getMousePos(e));
-            }
-            if (this.state === 'EDIT' && this.dragStartPos) this.draw(e);
-        });
-        this.canvas.addEventListener('mouseleave', () => {
-            this.isPainting = false;
-            this.dragStartPos = null;
-            this.draw();
-        });
-
-        document.getElementById('simStartBtn').addEventListener('click', () => this.startSimulation());
-        document.getElementById('simPauseBtn').addEventListener('click', () => this.pauseSimulation());
-        document.getElementById('simPlayBtn').addEventListener('click', () => this.playSimulation());
-        document.getElementById('simPlacementResetBtn').addEventListener('click', () => this.resetPlacement());
-        document.getElementById('simResetBtn').addEventListener('click', () => this.resetMap());
-        document.getElementById('resizeBtn').addEventListener('click', () => {
-            this.resizeCanvas(parseInt(document.getElementById('widthInput').value), parseInt(document.getElementById('heightInput').value));
-            document.getElementById('mapSettingsModal').classList.remove('show-modal');
-        });
-        document.getElementById('actionCamToggle').addEventListener('change', (e) => {
-            this.isActionCam = e.target.checked;
-            if (!this.isActionCam) this.resetActionCam(true);
-        });
-
-        const homeSettingsBtn = document.getElementById('homeSettingsBtn');
-        const homeSettingsModal = document.getElementById('homeSettingsModal');
-        if (homeSettingsBtn && homeSettingsModal) {
-            homeSettingsBtn.addEventListener('click', () => {
-                const lvl = document.getElementById('homeLevelUpToggle');
-                const out = document.getElementById('homeUnitOutlineToggle');
-                const outW = document.getElementById('homeUnitOutlineWidthControl');
-                const outWV = document.getElementById('homeUnitOutlineWidthValue');
-                const eye = document.getElementById('homeUnitEyeSizeControl');
-                const eyeV = document.getElementById('homeUnitEyeSizeValue');
-                const camMax = document.getElementById('homeActionCamZoomMax');
-                const camMaxV = document.getElementById('homeActionCamZoomMaxValue');
-
-                if (lvl) lvl.checked = !!this.isLevelUpEnabled;
-                if (out) out.checked = !!this.isUnitOutlineEnabled;
-                if (outW && outWV) { outW.value = this.unitOutlineWidth; outWV.textContent = this.unitOutlineWidth.toFixed(1); }
-                if (eye && eyeV) { eye.value = (this.unitEyeScale ?? 1.0).toFixed(2); eyeV.textContent = (this.unitEyeScale ?? 1.0).toFixed(2); }
-                if (camMax && camMaxV) { camMax.value = (this.actionCam.maxZoom ?? 1.8); camMaxV.textContent = (this.actionCam.maxZoom ?? 1.8).toFixed(2); }
-
-                homeSettingsModal.classList.add('show-modal');
-            });
-
-            const closeHomeSettingsModal = document.getElementById('closeHomeSettingsModal');
-            if (closeHomeSettingsModal) {
-                closeHomeSettingsModal.addEventListener('click', () => homeSettingsModal.classList.remove('show-modal'));
-            }
-
-            // 홈 설정 실시간 업데이트 이벤트 리스너들
-            const homeLevelUpToggle = document.getElementById('homeLevelUpToggle');
-            if (homeLevelUpToggle) {
-                homeLevelUpToggle.addEventListener('change', (e) => {
-                    this.isLevelUpEnabled = e.target.checked;
-                });
-            }
-
-            const homeUnitOutlineToggle = document.getElementById('homeUnitOutlineToggle');
-            if (homeUnitOutlineToggle) {
-                homeUnitOutlineToggle.addEventListener('change', (e) => {
-                    this.isUnitOutlineEnabled = e.target.checked;
-                    this.draw();
-                });
-            }
-
-            const homeUnitOutlineWidthControl = document.getElementById('homeUnitOutlineWidthControl');
-            if (homeUnitOutlineWidthControl) {
-                homeUnitOutlineWidthControl.addEventListener('input', (e) => {
-                    this.unitOutlineWidth = parseFloat(e.target.value);
-                    const label = document.getElementById('homeUnitOutlineWidthValue');
-                    if (label) label.textContent = this.unitOutlineWidth.toFixed(1);
-                    if (this.isUnitOutlineEnabled) {
-                        this.draw();
-                    }
-                });
-            }
-
-            const homeUnitEyeSizeControl = document.getElementById('homeUnitEyeSizeControl');
-            if (homeUnitEyeSizeControl) {
-                homeUnitEyeSizeControl.addEventListener('input', (e) => {
-                    this.unitEyeScale = parseFloat(e.target.value);
-                    const label = document.getElementById('homeUnitEyeSizeValue');
-                    if (label) label.textContent = this.unitEyeScale.toFixed(2);
-                    this.draw();
-                });
-            }
-
-            const homeActionCamZoomMax = document.getElementById('homeActionCamZoomMax');
-            if (homeActionCamZoomMax) {
-                homeActionCamZoomMax.addEventListener('input', (e) => {
-                    this.actionCam.maxZoom = parseFloat(e.target.value);
-                    const label = document.getElementById('homeActionCamZoomMaxValue');
-                    if (label) label.textContent = this.actionCam.maxZoom.toFixed(2);
-                });
-            }
-
-            const saveHomeSettingsBtn = document.getElementById('saveHomeSettingsBtn');
-            if (saveHomeSettingsBtn) {
-                saveHomeSettingsBtn.addEventListener('click', () => {
-                    const lvl = document.getElementById('homeLevelUpToggle');
-                    const out = document.getElementById('homeUnitOutlineToggle');
-                    const outW = document.getElementById('homeUnitOutlineWidthControl');
-                    const eye = document.getElementById('homeUnitEyeSizeControl');
-                    const camMax = document.getElementById('homeActionCamZoomMax');
-
-                    if (lvl) this.isLevelUpEnabled = lvl.checked;
-                    if (out) this.isUnitOutlineEnabled = out.checked;
-                    if (outW) this.unitOutlineWidth = parseFloat(outW.value);
-                    if (eye) this.unitEyeScale = parseFloat(eye.value);
-                    if (camMax) {
-                        this.actionCam.maxZoom = parseFloat(camMax.value);
-                        localStorage.setItem('actionCamMaxZoom', String(this.actionCam.maxZoom));
-                    }
-
-                    localStorage.setItem('levelUpEnabled', String(this.isLevelUpEnabled));
-                    localStorage.setItem('unitOutlineEnabled', String(this.isUnitOutlineEnabled));
-                    localStorage.setItem('unitOutlineWidth', String(this.unitOutlineWidth));
-                    localStorage.setItem('unitEyeScale', String(this.unitEyeScale));
-
-                    this.draw();
-                    homeSettingsModal.classList.remove('show-modal');
-                });
-            }
-        }
-        
-        document.getElementById('toolbox').addEventListener('click', (e) => {
-            const target = e.target;
-            const toolButton = target.closest('.tool-btn');
-            const categoryHeader = target.closest('.category-header');
-            const recentColorSwatch = target.closest('.recent-color-swatch');
-
-            if (toolButton) {
-                this.selectTool(toolButton);
-            } else if (recentColorSwatch) {
-                this.setCurrentColor(recentColorSwatch.dataset.color, recentColorSwatch.dataset.type, true);
-            } else if (target.id === 'defaultFloorColorBtn') {
-                this.setCurrentColor(COLORS.FLOOR, 'floor', true);
-            } else if (target.id === 'defaultWallColorBtn') {
-                this.setCurrentColor(COLORS.WALL, 'wall', true);
-            } else if (target.id === 'growingFieldSettingsBtn' || target.parentElement.id === 'growingFieldSettingsBtn') {
-                document.getElementById('fieldDirection').value = this.growingFieldSettings.direction;
-                document.getElementById('fieldSpeed').value = this.growingFieldSettings.speed;
-                document.getElementById('fieldDelay').value = this.growingFieldSettings.delay;
-                document.getElementById('growingFieldModal').classList.add('show-modal');
-            } else if (target.id === 'lavaSettingsBtn' || target.parentElement.id === 'lavaSettingsBtn') {
-                document.getElementById('lavaAvoidanceToggle').checked = this.isLavaAvoidanceEnabled;
-                document.getElementById('lavaSettingsModal').classList.add('show-modal');
-            } else if (target.id === 'dashTileSettingsBtn' || target.parentElement.id === 'dashTileSettingsBtn') {
-                document.getElementById('dashTileDirection').value = this.dashTileSettings.direction;
-                document.getElementById('dashTileModal').classList.add('show-modal');
-            } else if (target.id === 'autoFieldSettingsBtn' || target.parentElement.id === 'autoFieldSettingsBtn') {
-                 document.getElementById('autoFieldActiveToggle').checked = this.autoMagneticField.isActive;
-                document.getElementById('autoFieldShrinkTime').value = this.autoMagneticField.totalShrinkTime / 60;
-                document.getElementById('autoFieldSafeZoneSize').value = this.autoMagneticField.safeZoneSize;
-                document.getElementById('autoFieldShrinkType').value = this.autoMagneticField.shrinkType || 'all';
-                document.getElementById('autoFieldModal').classList.add('show-modal');
-            } else if (target.id === 'hadokenSettingsBtn' || target.parentElement.id === 'hadokenSettingsBtn') {
-                document.getElementById('hadokenKnockback').value = this.hadokenKnockback;
-                document.getElementById('hadokenKnockbackValue').textContent = this.hadokenKnockback;
-                document.getElementById('hadokenModal').classList.add('show-modal');
-            } else if (categoryHeader) {
-                const content = categoryHeader.nextElementSibling;
-                categoryHeader.classList.toggle('collapsed');
-                content.classList.toggle('collapsed');
-            }
-        });
-        
-        document.getElementById('closeGrowingFieldModal').addEventListener('click', () => {
-            this.growingFieldSettings.direction = document.getElementById('fieldDirection').value;
-            this.growingFieldSettings.speed = parseFloat(document.getElementById('fieldSpeed').value);
-            this.growingFieldSettings.delay = parseInt(document.getElementById('fieldDelay').value);
-            document.getElementById('growingFieldModal').classList.remove('show-modal');
-        });
-        document.getElementById('growingFieldDefaultBtn').addEventListener('click', () => {
-            this.growingFieldSettings = { direction: 'DOWN', speed: 4, delay: 0 };
-            document.getElementById('fieldDirection').value = this.growingFieldSettings.direction;
-            document.getElementById('fieldSpeed').value = this.growingFieldSettings.speed;
-            document.getElementById('fieldDelay').value = this.growingFieldSettings.delay;
-        });
-
-        document.getElementById('closeAutoFieldModal').addEventListener('click', () => {
-            this.autoMagneticField.isActive = document.getElementById('autoFieldActiveToggle').checked;
-            this.autoMagneticField.totalShrinkTime = parseFloat(document.getElementById('autoFieldShrinkTime').value) * 60;
-            this.autoMagneticField.safeZoneSize = parseInt(document.getElementById('autoFieldSafeZoneSize').value);
-            this.autoMagneticField.shrinkType = document.getElementById('autoFieldShrinkType').value;
-            document.getElementById('autoFieldModal').classList.remove('show-modal');
-        });
-        document.getElementById('autoFieldDefaultBtn').addEventListener('click', () => {
-            this.autoMagneticField = { isActive: false, totalShrinkTime: 60 * 60, safeZoneSize: 6, shrinkType: 'all', simulationTime: 0, currentBounds: { minX: 0, maxX: 0, minY: 0, maxY: 0 } };
-            document.getElementById('autoFieldActiveToggle').checked = this.autoMagneticField.isActive;
-            document.getElementById('autoFieldShrinkTime').value = this.autoMagneticField.totalShrinkTime / 60;
-            document.getElementById('autoFieldSafeZoneSize').value = this.autoMagneticField.safeZoneSize;
-            document.getElementById('autoFieldShrinkType').value = this.autoMagneticField.shrinkType;
-        });
-        
-        document.getElementById('closeHadokenModal').addEventListener('click', () => document.getElementById('hadokenModal').classList.remove('show-modal'));
-        document.getElementById('hadokenKnockback').addEventListener('input', (e) => {
-            this.hadokenKnockback = parseInt(e.target.value);
-            document.getElementById('hadokenKnockbackValue').textContent = this.hadokenKnockback;
-        });
-        document.getElementById('hadokenDefaultBtn').addEventListener('click', () => {
-            this.hadokenKnockback = 15;
-            document.getElementById('hadokenKnockback').value = this.hadokenKnockback;
-            document.getElementById('hadokenKnockbackValue').textContent = this.hadokenKnockback;
-        });
-
-        document.getElementById('toolbox').addEventListener('input', (e) => {
-            if (e.target.id === 'replicationValue') this.replicationValue = parseInt(e.target.value) || 1;
-        });
-        
-        const floorColorPicker = document.getElementById('floorColorPicker');
-        const wallColorPicker = document.getElementById('wallColorPicker');
-        
-        floorColorPicker.addEventListener('input', () => this.setCurrentColor(floorColorPicker.value, 'floor', false));
-        floorColorPicker.addEventListener('change', () => this.addRecentColor(floorColorPicker.value, 'floor'));
-        wallColorPicker.addEventListener('input', () => this.setCurrentColor(wallColorPicker.value, 'wall', false));
-        wallColorPicker.addEventListener('change', () => this.addRecentColor(wallColorPicker.value, 'wall'));
-
-        document.getElementById('nametagSettingsBtn').addEventListener('click', () => {
-            document.getElementById('nametagSettingsModal').classList.add('show-modal');
-        });
-        document.getElementById('closeNametagSettingsModal').addEventListener('click', () => {
-            document.getElementById('nametagSettingsModal').classList.remove('show-modal');
-        });
-        document.getElementById('saveNametagSettingsBtn').addEventListener('click', () => {
-            this.saveNametagSettings();
-            document.getElementById('nametagSettingsModal').classList.remove('show-modal');
-        });
-        document.getElementById('nameFileUpload').addEventListener('change', (e) => this.handleNametagFileUpload(e));
-        document.getElementById('addNameBtn').addEventListener('click', () => this.addNametagManually());
-        document.getElementById('nametagListContainer').addEventListener('click', (e) => {
-            if (e.target.classList.contains('nametag-delete-btn')) {
-                this.deleteNametag(e.target.parentElement.textContent.slice(0, -1).trim());
-            }
-        });
-        
-        document.getElementById('nametagColorPicker').addEventListener('input', (e) => {
-            this.nametagColor = e.target.value;
-        });
-        document.getElementById('nametagColorBlack').addEventListener('click', () => {
-            this.nametagColor = '#000000';
-            document.getElementById('nametagColorPicker').value = '#000000';
-        });
-        document.getElementById('nametagColorWhite').addEventListener('click', () => {
-            this.nametagColor = '#FFFFFF';
-            document.getElementById('nametagColorPicker').value = '#FFFFFF';
-        });
-
-
-        document.getElementById('cancelUnitNameBtn').addEventListener('click', () => {
-             document.getElementById('unitNameModal').classList.remove('show-modal');
-        });
-        document.getElementById('confirmUnitNameBtn').addEventListener('click', () => {
-            if (this.editingUnit) {
-                this.editingUnit.name = document.getElementById('unitNameInput').value;
-                this.editingUnit = null;
-                this.draw();
-            }
-            document.getElementById('unitNameModal').classList.remove('show-modal');
-        });
+    createEmptyMap(width, height) {
+        const rows = Math.floor(height / GRID_SIZE);
+        const cols = Math.floor(width / GRID_SIZE);
+        return Array(rows).fill().map(() => Array(cols).fill({ type: TILE.FLOOR, color: COLORS.FLOOR }));
     }
 
     resetActionCam(isInstant = true) {
@@ -1072,6 +421,23 @@ export class GameManager {
         }
     }
 
+    handleActionCamClick(pos) {
+        if (this.actionCam.isAnimating) return;
+        if (this.actionCam.target.scale === 1) {
+            this.actionCam.target.x = pos.pixelX;
+            this.actionCam.target.y = pos.pixelY;
+            const maxZ = this.actionCam.maxZoom || 1.8;
+            this.actionCam.target.scale = Math.min(maxZ, 3.0);
+        } else {
+            this.actionCam.target.x = this.canvas.width / 2;
+            this.actionCam.target.y = this.canvas.height / 2;
+            this.actionCam.target.scale = 1;
+        }
+        this.actionCam.isAnimating = true;
+        if (this.state !== 'SIMULATE' && !this.animationFrameId) this.gameLoop();
+        return;
+    }
+
     resizeCanvas(width, height) {
         this.canvas.width = width;
         this.canvas.height = height;
@@ -1087,7 +453,7 @@ export class GameManager {
         cancelAnimationFrame(this.animationFrameId);
         this.animationFrameId = null;
         this.state = 'EDIT';
-        this.map = Array(this.ROWS).fill().map(() => Array(this.COLS).fill().map(() => ({ type: TILE.FLOOR, color: this.currentFloorColor })));
+        this.map = this.createEmptyMap(this.canvas.width, this.canvas.height);
         this.units = []; this.weapons = []; this.nexuses = []; this.growingFields = [];
         this.effects = []; this.projectiles = []; this.areaEffects = []; this.magicCircles = []; this.poisonClouds = []; this.particles = [];
         this.initialUnitsState = []; this.initialWeaponsState = [];
@@ -1111,84 +477,6 @@ export class GameManager {
         this.draw();
     }
     
-    startSimulation() {
-        if (this.state !== 'EDIT') return;
-
-        this.units.forEach(unit => unit.level = 1);
-
-        if (!this.isReplayMode) {
-            this.simulationSeed = Date.now();
-        }
-        this.prng = new SeededRandom(this.simulationSeed);
-        this.enableDeterministicRng();
-        
-        this.usedNametagsInSim.clear();
-
-        if (this.isNametagEnabled && this.nametagList.length > 0) {
-            this.units.forEach(unit => {
-                unit.name = '';
-                unit.nameColor = this.nametagColor;
-            });
-
-            const shuffledNames = [...this.nametagList].sort(() => 0.5 - this.uiPrng.next());
-            
-            const assignmentCount = Math.min(this.units.length, shuffledNames.length);
-
-            for (let i = 0; i < assignmentCount; i++) {
-                this.units[i].name = shuffledNames[i];
-                this.usedNametagsInSim.add(shuffledNames[i]);
-            }
-        } else {
-            this.units.forEach(unit => unit.name = '');
-        }
-
-        const cleanDataForJSON = (obj) => {
-            const data = { ...obj };
-            delete data.gameManager;
-            return data;
-        };
-        
-        const cleanUnits = this.units.map(u => {
-            const unitData = cleanDataForJSON(u);
-            unitData.weapon = u.weapon ? { type: u.weapon.type } : null;
-            return unitData;
-        });
-        const cleanWeapons = this.weapons.map(cleanDataForJSON);
-        const cleanNexuses = this.nexuses.map(cleanDataForJSON);
-        const cleanGrowingFields = this.growingFields.map(cleanDataForJSON);
-
-        this.initialUnitsState = JSON.stringify(cleanUnits);
-        this.initialWeaponsState = JSON.stringify(cleanWeapons);
-        this.initialNexusesState = JSON.stringify(cleanNexuses);
-        this.initialMapState = JSON.stringify(this.map);
-        this.initialGrowingFieldsState = JSON.stringify(cleanGrowingFields);
-        this.initialAutoFieldState = JSON.stringify(this.autoMagneticField);
-        
-        this.initialNexusCount = this.nexuses.length;
-        this.winnerTeam = null;
-        this.magicCircles = [];
-        this.poisonClouds = [];
-        this.particles = [];
-
-        this.state = 'SIMULATE';
-        document.getElementById('statusText').textContent = "시뮬레이션 진행 중...";
-        document.getElementById('simStartBtn').classList.add('hidden');
-        document.getElementById('saveReplayBtn').classList.add('hidden');
-        document.getElementById('simPauseBtn').classList.remove('hidden');
-        document.getElementById('simPlayBtn').classList.add('hidden');
-        
-        this.simulationTime = 0;
-        if (this.timerElement) {
-            this.timerElement.style.display = 'block';
-            this.timerElement.textContent = '00:00';
-        }
-        
-        if (!this.isReplayMode) {
-            document.getElementById('toolbox').style.pointerEvents = 'none';
-        }
-        this.gameLoop();
-    }
-
     resetPlacement() {
         if (this.initialUnitsState.length === 0) {
             if (this.isReplayMode) {
@@ -1252,34 +540,6 @@ export class GameManager {
         this.draw();
     }
     
-    selectTool(button) {
-        const { tool, team, type } = button.dataset;
-
-        document.querySelectorAll('#toolbox .tool-btn').forEach(btn => btn.classList.remove('selected'));
-        button.classList.add('selected');
-
-        this.currentTool = { tool, team, type };
-    }
-
-    getMousePos(e) {
-         const rect = this.canvas.getBoundingClientRect();
-         const transform = this.ctx.getTransform();
-         const invTransform = transform.inverse();
-
-         const canvasX = e.clientX - rect.left;
-         const canvasY = e.clientY - rect.top;
-
-         const worldX = canvasX * invTransform.a + canvasY * invTransform.c + invTransform.e;
-         const worldY = canvasX * invTransform.b + canvasY * invTransform.d + invTransform.f;
-        
-         return {
-             pixelX: worldX,
-             pixelY: worldY,
-             gridX: Math.floor(worldX / GRID_SIZE),
-             gridY: Math.floor(worldY / GRID_SIZE)
-         };
-    }
-
     applyTool(pos) {
         const {gridX: x, gridY: y} = pos;
         if (x < 0 || x >= this.COLS || y < 0 || y >= this.ROWS) return;
@@ -1310,17 +570,17 @@ export class GameManager {
                          this.weapons.some(w => w.gridX === x && w.gridY === y) || 
                          this.nexuses.some(n => n.gridX === x && n.gridY === y);
 
-        if (this.currentTool.tool === 'growing_field' && this.dragStartPos) {
-             const startX = Math.min(this.dragStartPos.gridX, x);
-             const startY = Math.min(this.dragStartPos.gridY, y);
-             const endX = Math.max(this.dragStartPos.gridX, x);
-             const endY = Math.max(this.dragStartPos.gridY, y);
+        if (this.currentTool.tool === 'growing_field' && this.inputManager.dragStartPos) {
+             const startX = Math.min(this.inputManager.dragStartPos.gridX, x);
+             const startY = Math.min(this.inputManager.dragStartPos.gridY, y);
+             const endX = Math.max(this.inputManager.dragStartPos.gridX, x);
+             const endY = Math.max(this.inputManager.dragStartPos.gridY, y);
              const width = endX - startX + 1;
              const height = endY - startY + 1;
              
              const newZone = new GrowingMagneticField(this, Date.now(), startX, startY, width, height, {...this.growingFieldSettings});
              this.growingFields.push(newZone);
-             this.dragStartPos = null;
+             this.inputManager.dragStartPos = null;
         } else if (this.currentTool.tool === 'tile') {
             if (itemExists) return;
             
@@ -1330,10 +590,10 @@ export class GameManager {
             let tileColor;
             if (tileType === TILE.WALL) {
                 tileColor = this.currentWallColor;
-                this.addRecentColor(tileColor, 'wall');
+                this.uiManager.addRecentColor(tileColor, 'wall');
             } else if (tileType === TILE.FLOOR) {
                 tileColor = this.currentFloorColor;
-                this.addRecentColor(tileColor, 'floor');
+                this.uiManager.addRecentColor(tileColor, 'floor');
             }
 
             this.map[y][x] = {
@@ -1353,23 +613,6 @@ export class GameManager {
             this.nexuses.push(new Nexus(this, x, y, this.currentTool.team));
         }
         this.draw();
-    }
-
-    pauseSimulation() {
-        if (this.state !== 'SIMULATE') return;
-        this.state = 'PAUSED';
-        document.getElementById('statusText').textContent = "일시정지됨";
-        document.getElementById('simPauseBtn').classList.add('hidden');
-        document.getElementById('simPlayBtn').classList.remove('hidden');
-    }
-
-    playSimulation() {
-        if (this.state !== 'PAUSED') return;
-        this.state = 'SIMULATE';
-        document.getElementById('statusText').textContent = "시뮬레이션 진행 중...";
-        document.getElementById('simPauseBtn').classList.remove('hidden');
-        document.getElementById('simPlayBtn').classList.add('hidden');
-        this.gameLoop();
     }
 
     gameLoop() {
@@ -1393,7 +636,7 @@ export class GameManager {
         }
 
         if (this.state === 'SIMULATE' || this.state === 'ENDING') {
-            this.update();
+            this.simulationManager.update();
         }
         
         if (this.timerElement && (this.state === 'SIMULATE' || this.state === 'PAUSED' || this.state === 'ENDING' || this.state === 'DONE')) {
@@ -1405,80 +648,9 @@ export class GameManager {
         this.draw();
         
         if (this.state === 'SIMULATE') {
-            const activeNexuses = this.nexuses.filter(n => !n.isDestroying);
-            const activeNexusTeams = new Set(activeNexuses.map(n => n.team));
-            const activeUnitTeams = new Set(this.units.map(u => u.team));
-            
-            let gameOver = false;
-            let winner = null;
-
-            if (this.initialNexusCount >= 2) {
-                if (activeNexusTeams.size < 2 || activeUnitTeams.size <= 1) {
-                    gameOver = true;
-                    if (activeNexusTeams.size < 2) {
-                        winner = activeNexusTeams.values().next().value || null;
-                    }
-                    else {
-                        winner = activeUnitTeams.values().next().value || null;
-                    }
-                }
-            } else {
-                const allRemainingTeams = new Set([...activeNexusTeams, ...activeUnitTeams]);
-                if (allRemainingTeams.size <= 1) {
-                    const initialTeams = new Set(JSON.parse(this.initialNexusesState).map(n => n.team).concat(JSON.parse(this.initialUnitsState).map(u => u.team)));
-                    if (initialTeams.size > 1) {
-                        gameOver = true;
-                        winner = allRemainingTeams.size === 1 ? allRemainingTeams.values().next().value : null;
-                    }
-                }
-            }
-
-            if (gameOver) {
-                this.state = 'ENDING';
-                this.winnerTeam = winner;
-            }
+            this.simulationManager.checkGameOver();
         } else if (this.state === 'ENDING') {
-            const explosionsFinished = this.nexuses.every(n => !n.isDestroying || n.explosionParticles.length === 0);
-            if (explosionsFinished) {
-                this.state = 'DONE';
-                this.lastSimulationResult = {
-                    initialMapState: this.initialMapState,
-                    initialUnitsState: this.initialUnitsState,
-                    initialWeaponsState: this.initialWeaponsState,
-                    initialNexusesState: this.initialNexusesState,
-                    initialGrowingFieldsState: this.initialGrowingFieldsState,
-                    initialAutoFieldState: this.initialAutoFieldState,
-                    simulationSeed: this.simulationSeed,
-                    mapName: this.currentMapName || '기본 맵',
-                    mapWidth: this.canvas.width,
-                    mapHeight: this.canvas.height,
-                    floorColor: this.currentFloorColor,
-                    wallColor: this.currentWallColor,
-                    isLevelUpEnabled: this.isLevelUpEnabled,
-                    hadokenKnockback: this.hadokenKnockback,
-                    isLavaAvoidanceEnabled: this.isLavaAvoidanceEnabled,
-                };
-
-                if (!this.isReplayMode) {
-                    document.getElementById('saveReplayBtn').classList.remove('hidden');
-                }
-
-                let winnerName = "무승부";
-                if(this.winnerTeam) {
-                    switch(this.winnerTeam) {
-                        case TEAM.A: winnerName = "빨강 팀"; break;
-                        case TEAM.B: winnerName = "파랑 팀"; break;
-                        case TEAM.C: winnerName = "초록 팀"; break;
-                        case TEAM.D: winnerName = "노랑 팀"; break;
-                    }
-                    document.getElementById('statusText').textContent = `${winnerName} 승리!`;
-                } else {
-                    document.getElementById('statusText').textContent = "무승부!";
-                }
-                document.getElementById('simPauseBtn').classList.add('hidden');
-                document.getElementById('simPlayBtn').classList.add('hidden');
-                this.resetActionCam(false);
-            }
+            this.simulationManager.handleEnding();
         }
 
         if ((this.state === 'DONE' || this.state === 'PAUSED') && !this.actionCam.isAnimating) {
@@ -1489,263 +661,6 @@ export class GameManager {
         }
     }
 
-    update() {
-        if (this.state === 'PAUSED' || this.state === 'DONE') return;
-
-        if (this.state === 'SIMULATE') {
-            this.simulationTime += 1 / 60;
-        }
-
-        if (this.state === 'ENDING') {
-            this.nexuses.forEach(n => n.update());
-            this.projectiles.forEach(p => p.update());
-            this.projectiles = this.projectiles.filter(p => !p.destroyed);
-            return;
-        }
-
-        this.gameSpeed = 1;
-
-        if (this.autoMagneticField.isActive) {
-            this.autoMagneticField.simulationTime++;
-            const progress = Math.min(1, this.autoMagneticField.simulationTime / this.autoMagneticField.totalShrinkTime);
-
-            if (this.autoMagneticField.shrinkType === 'vertical') {
-                const finalHeight = this.autoMagneticField.safeZoneSize;
-                const finalMinY = (this.ROWS - finalHeight) / 2;
-                const finalMaxY = (this.ROWS + finalHeight) / 2;
-                this.autoMagneticField.currentBounds = {
-                    minX: 0,
-                    maxX: this.COLS,
-                    minY: 0 + (finalMinY - 0) * progress,
-                    maxY: this.ROWS - (this.ROWS - finalMaxY) * progress,
-                };
-            } else { // 'all'
-                const finalWidth = this.autoMagneticField.safeZoneSize;
-                const finalHeight = this.autoMagneticField.safeZoneSize;
-                const finalMinX = (this.COLS - finalWidth) / 2;
-                const finalMaxX = (this.COLS + finalWidth) / 2;
-                const finalMinY = (this.ROWS - finalHeight) / 2;
-                const finalMaxY = (this.ROWS + finalHeight) / 2;
-                this.autoMagneticField.currentBounds = {
-                    minX: 0 + (finalMinX - 0) * progress,
-                    maxX: this.COLS - (this.COLS - finalMaxX) * progress,
-                    minY: 0 + (finalMinY - 0) * progress,
-                    maxY: this.ROWS - (this.ROWS - finalMaxY) * progress,
-                };
-            }
-        }
-        
-        this.growingFields.forEach(field => field.update());
-        
-        const unitsBeforeUpdate = this.units.length;
-
-        const unitsByTeam = {};
-        for (const unit of this.units) {
-            if (!unitsByTeam[unit.team]) {
-                unitsByTeam[unit.team] = [];
-            }
-            unitsByTeam[unit.team].push(unit);
-        }
-        const allTeamKeys = Object.keys(unitsByTeam);
-        
-        this.units.forEach(unit => {
-            const enemyTeams = allTeamKeys.filter(key => key !== unit.team);
-            const enemies = enemyTeams.flatMap(key => unitsByTeam[key]);
-            unit.update(enemies, this.weapons, this.projectiles);
-        });
-        
-        const deadUnits = this.units.filter(u => u.hp <= 0);
-
-        if (this.isLevelUpEnabled) {
-            deadUnits.forEach(deadUnit => {
-                if (deadUnit.killedBy && deadUnit.killedBy.hp > 0) {
-                    deadUnit.killedBy.levelUp(deadUnit.level);
-                }
-            });
-        }
-
-        deadUnits.forEach(u => u.handleDeath());
-        
-        this.units = this.units.filter(u => u.hp > 0);
-        if (this.units.length < unitsBeforeUpdate) {
-            this.audioManager.play('unitDeath');
-        }
-        
-        this.nexuses.forEach(n => n.update());
-
-        this.projectiles.forEach(p => p.update());
-        this.projectiles = this.projectiles.filter(p => !p.destroyed);
-
-        for (let i = this.projectiles.length - 1; i >= 0; i--) {
-            const p = this.projectiles[i];
-            let hit = false;
-        
-            for (const unit of this.units) {
-                if (p.owner.team !== unit.team && !p.hitTargets.has(unit) && Math.hypot(p.pixelX - unit.pixelX, p.pixelY - unit.pixelY) < GRID_SIZE / 2) {
-                    
-                    if (p.type === 'bouncing_sword') {
-                        unit.takeDamage(p.damage, {}, p.owner);
-                        p.owner.dualSwordTeleportTarget = unit;
-                        p.owner.dualSwordTeleportDelayTimer = 60;
-                        p.destroyed = true;
-                        hit = true;
-                        break; 
-                    }
-
-                    p.hitTargets.add(unit);
-                    hit = true;
-        
-                    if (p.type === 'boomerang_projectile') {
-                        unit.isBeingPulled = true;
-                        unit.puller = p.owner;
-                        const pullToX = p.owner.pixelX + Math.cos(p.owner.facingAngle) * GRID_SIZE;
-                        const pullToY = p.owner.pixelY + Math.sin(p.owner.facingAngle) * GRID_SIZE;
-                        unit.pullTargetPos = { x: pullToX, y: pullToY };
-                    } else if (p.type === 'ice_diamond_projectile') {
-                        unit.takeDamage(p.damage, { slow: 120 }, p.owner);
-                    } else if (p.type === 'fireball_projectile') {
-                        unit.takeDamage(p.damage, {}, p.owner);
-                        createFireballHitEffect(this, unit.pixelX, unit.pixelY);
-                        p.destroyed = true;
-                        
-                        const initialHitTargets = new Set([unit]);
-                        for (let j = 0; j < 4; j++) {
-                            const angle = j * Math.PI / 2;
-                            const dummyTarget = {
-                                pixelX: unit.pixelX + Math.cos(angle) * 100,
-                                pixelY: unit.pixelY + Math.sin(angle) * 100
-                            };
-                            this.createProjectile(p.owner, dummyTarget, 'mini_fireball_projectile', { 
-                                angle: angle,
-                                startX: unit.pixelX,
-                                startY: unit.pixelY,
-                                hitTargets: initialHitTargets
-                             });
-                        }
-                    } else if (p.type === 'lightning_bolt') {
-                        unit.takeDamage(p.damage, {}, p.owner);
-                        p.destroyed = true;
-        
-                        const potentialTargets = this.units.filter(u =>
-                            u.team !== p.owner.team && !p.hitTargets.has(u) && u.hp > 0
-                        );
-        
-                        if (potentialTargets.length > 0) {
-                            let closestEnemy = potentialTargets[0];
-                            let minDistance = Math.hypot(unit.pixelX - closestEnemy.pixelX, unit.pixelY - closestEnemy.pixelY);
-        
-                            for (let j = 1; j < potentialTargets.length; j++) {
-                                const distance = Math.hypot(unit.pixelX - potentialTargets[j].pixelX, unit.pixelY - potentialTargets[j].pixelY);
-                                if (distance < minDistance) {
-                                    minDistance = distance;
-                                    closestEnemy = potentialTargets[j];
-                                }
-                            }
-        
-                            const newProjectile = new Projectile(this, p.owner, closestEnemy, 'lightning_bolt', {
-                                hitTargets: p.hitTargets
-                            });
-                            newProjectile.pixelX = unit.pixelX;
-                            newProjectile.pixelY = unit.pixelY;
-                            this.projectiles.push(newProjectile);
-                        }
-                    } else {
-                        const effectInfo = {
-                            interrupt: p.type === 'hadoken',
-                            force: p.knockback,
-                            angle: p.angle
-                        };
-                        unit.takeDamage(p.damage, effectInfo, p.owner);
-                        if (p.type === 'hadoken') this.audioManager.play('hadokenHit');
-                    }
-        
-                    if (!p.piercing) {
-                        if (p.type !== 'lightning_bolt' && p.type !== 'fireball_projectile') {
-                            p.destroyed = true;
-                            break;
-                        }
-                    }
-                }
-            }
-        
-            if (!hit) {
-                for (const nexus of this.nexuses) {
-                    if (p.owner.team !== nexus.team && Math.hypot(p.pixelX - nexus.pixelX, p.pixelY - nexus.pixelY) < GRID_SIZE) {
-                        if (p.type === 'ice_diamond_projectile') {
-                           nexus.takeDamage(p.damage, p.owner);
-                        } else if (p.type === 'fireball_projectile') {
-                            nexus.takeDamage(p.damage, p.owner);
-                            createFireballHitEffect(this, nexus.pixelX, nexus.pixelY);
-                            p.destroyed = true;
-                            
-                            const initialHitTargets = new Set([nexus]);
-                            for (let j = 0; j < 4; j++) {
-                                const angle = j * Math.PI / 2;
-                                 const dummyTarget = {
-                                    pixelX: nexus.pixelX + Math.cos(angle) * 100,
-                                    pixelY: nexus.pixelY + Math.sin(angle) * 100
-                                };
-                                this.createProjectile(p.owner, dummyTarget, 'mini_fireball_projectile', { 
-                                    angle: angle,
-                                    startX: nexus.pixelX,
-                                    startY: nexus.pixelY,
-                                    hitTargets: initialHitTargets
-                                });
-                            }
-                        } else {
-                            nexus.takeDamage(p.damage, p.owner);
-                            if (p.type === 'hadoken') this.audioManager.play('hadokenHit');
-                        }
-                        hit = true;
-                        if (!p.piercing) {
-                           p.destroyed = true;
-                        }
-                        break;
-                    }
-                }
-            }
-        
-            if (p.pixelX < 0 || p.pixelX > this.canvas.width || p.pixelY < 0 || p.pixelY > this.canvas.height) {
-                p.destroyed = true;
-            }
-
-            if (hit && p.type === 'fireball_projectile' && !p.destroyed) {
-                createFireballHitEffect(this, p.pixelX, p.pixelY);
-                p.destroyed = true;
-            }
-        }
-        
-        this.projectiles = this.projectiles.filter(p => !p.destroyed);
-        
-        this.magicCircles.forEach(circle => circle.update());
-        this.magicCircles = this.magicCircles.filter(c => c.duration > 0);
-        
-        this.poisonClouds.forEach(cloud => cloud.update());
-        this.poisonClouds = this.poisonClouds.filter(c => c.duration > 0);
-
-        for (const unit of this.units) {
-            const gridX = Math.floor(unit.pixelX / GRID_SIZE);
-            const gridY = Math.floor(unit.pixelY / GRID_SIZE);
-            for (let i = this.magicCircles.length - 1; i >= 0; i--) {
-                const circle = this.magicCircles[i];
-                if (circle.gridX === gridX && circle.gridY === gridY && circle.team !== unit.team) {
-                    unit.takeDamage(15, { stun: 120, stunSource: 'magic_circle' });
-                    this.magicCircles.splice(i, 1);
-                }
-            }
-        }
-
-        this.weapons = this.weapons.filter(w => !w.isEquipped);
-
-        this.effects.forEach(e => e.update());
-        this.effects = this.effects.filter(e => e.duration > 0);
-        this.areaEffects.forEach(e => e.update());
-        this.areaEffects = this.areaEffects.filter(e => e.duration > 0);
-
-        this.particles.forEach(p => p.update(this.gameSpeed));
-        this.particles = this.particles.filter(p => p.isAlive());
-    }
-    
     draw(mouseEvent = null) { return drawImpl.call(this, mouseEvent); }
 
     drawMap() {
@@ -2218,7 +1133,7 @@ export class GameManager {
     }
 
     async loadMapForEditing(mapId) {
-        const mapData = await this.getMapById(mapId);
+        const mapData = await this.persistenceManager.getMapById(mapId);
         if (!mapData) {
             console.error("Map not found:", mapId);
             this.showHomeScreen();
@@ -2266,8 +1181,8 @@ export class GameManager {
         this.isLavaAvoidanceEnabled = mapData.isLavaAvoidanceEnabled !== undefined ? mapData.isLavaAvoidanceEnabled : true;
 
         this.resetSimulationState();
-        this.renderRecentColors('floor');
-        this.renderRecentColors('wall');
+        this.uiManager.renderRecentColors('floor');
+        this.uiManager.renderRecentColors('wall');
         this.draw();
     }
 
@@ -2314,8 +1229,8 @@ export class GameManager {
         this.isLavaAvoidanceEnabled = mapData.isLavaAvoidanceEnabled !== undefined ? mapData.isLavaAvoidanceEnabled : true;
         
         this.resetSimulationState();
-        this.renderRecentColors('floor');
-        this.renderRecentColors('wall');
+        this.uiManager.renderRecentColors('floor');
+        this.uiManager.renderRecentColors('wall');
         this.draw();
     }
 
@@ -2349,52 +1264,6 @@ export class GameManager {
         this.resetActionCam(true);
     }
 
-    addRecentColor(color, type) {
-        const recentColors = type === 'floor' ? this.recentFloorColors : this.recentWallColors;
-        const index = recentColors.indexOf(color);
-        if (index > -1) {
-            recentColors.splice(index, 1);
-        }
-        recentColors.unshift(color);
-        if (recentColors.length > MAX_RECENT_COLORS) {
-            recentColors.pop();
-        }
-        this.renderRecentColors(type);
-    }
-
-    renderRecentColors(type) {
-        const containerId = type === 'floor' ? 'recentFloorColors' : 'recentWallColors';
-        const container = document.getElementById(containerId);
-        const recentColors = type === 'floor' ? this.recentFloorColors : this.recentWallColors;
-        
-        if (!container) return;
-        container.innerHTML = '';
-        recentColors.forEach(color => {
-            const swatch = document.createElement('div');
-            swatch.className = 'recent-color-swatch w-full h-6 rounded cursor-pointer border-2 border-gray-700 hover:border-gray-400';
-            swatch.style.backgroundColor = color;
-            swatch.dataset.color = color;
-            swatch.dataset.type = type;
-            container.appendChild(swatch);
-        });
-    }
-
-    setCurrentColor(color, type, addToRecent = false) {
-        if (type === 'floor') {
-            this.currentFloorColor = color;
-            const picker = document.getElementById('floorColorPicker');
-            if (picker.value !== color) picker.value = color;
-        } else {
-            this.currentWallColor = color;
-            const picker = document.getElementById('wallColorPicker');
-            if (picker.value !== color) picker.value = color;
-        }
-        if (addToRecent) {
-            this.addRecentColor(color, type);
-        }
-        this.draw();
-    }
-
     handleMapColors(mapData) {
         this.recentFloorColors = mapData.recentFloorColors || [];
         this.recentWallColors = mapData.recentWallColors || [];
@@ -2419,162 +1288,12 @@ export class GameManager {
         this.recentWallColors = [...wallColors].slice(0, MAX_RECENT_COLORS);
     
         const floorColor = mapData.floorColor || (this.recentFloorColors.length > 0 ? this.recentFloorColors[0] : COLORS.FLOOR);
+            alert(`'${replayName}' 리플레이가 저장되었습니다!`);
+        const replays = replaySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
         const wallColor = mapData.wallColor || (this.recentWallColors.length > 0 ? this.recentWallColors[0] : COLORS.WALL);
         
-        this.setCurrentColor(floorColor, 'floor', false);
-        this.setCurrentColor(wallColor, 'wall', false);
-    }
-    
-    async loadNametagSettings() {
-        if (!this.currentUser) return;
-        const nametagDocRef = doc(this.db, "users", this.currentUser.uid, "settings", "nametags");
-        try {
-            const docSnap = await getDoc(nametagDocRef);
-            if (docSnap.exists()) {
-                const settings = docSnap.data();
-                this.isNametagEnabled = settings.enabled || false;
-                this.nametagList = settings.list || [];
-                this.nametagColor = settings.color || '#000000';
-            } else {
-                this.isNametagEnabled = false;
-                this.nametagList = [];
-                this.nametagColor = '#000000';
-            }
-        } catch (error) {
-            console.error("Error loading nametag settings:", error);
-            this.isNametagEnabled = false;
-            this.nametagList = [];
-            this.nametagColor = '#000000';
-        }
-        
-        document.getElementById('nametagToggle').checked = this.isNametagEnabled;
-        document.getElementById('nametagColorPicker').value = this.nametagColor;
-        this.renderNametagList();
-    }
-    
-    async saveNametagSettings() {
-        if (!this.currentUser) {
-            alert("이름표 설정을 저장하려면 로그인이 필요합니다.");
-            return;
-        }
-        this.isNametagEnabled = document.getElementById('nametagToggle').checked;
-        this.nametagColor = document.getElementById('nametagColorPicker').value;
-        const settingsData = {
-            enabled: this.isNametagEnabled,
-            list: this.nametagList,
-            color: this.nametagColor
-        };
-
-        const nametagDocRef = doc(this.db, "users", this.currentUser.uid, "settings", "nametags");
-        try {
-            await setDoc(nametagDocRef, settingsData);
-            alert('이름표 설정이 Firebase에 저장되었습니다.');
-        } catch (error) {
-            console.error("Error saving nametag settings:", error);
-            alert('이름표 설정 저장에 실패했습니다.');
-        }
-    }
-    
-    renderNametagList() {
-        const container = document.getElementById('nametagListContainer');
-        const countSpan = document.getElementById('nameCount');
-        container.innerHTML = '';
-        this.nametagList.forEach(name => {
-            const item = document.createElement('div');
-            item.className = 'nametag-item';
-            item.innerHTML = `<span>${name}</span><button class="nametag-delete-btn">X</button>`;
-            container.appendChild(item);
-        });
-        countSpan.textContent = this.nametagList.length;
-    }
-
-    handleNametagFileUpload(event) {
-        const file = event.target.files[0];
-        if (!file) return;
-
-        const reader = new FileReader();
-        reader.onload = (e) => {
-            const text = e.target.result;
-            const names = text.split(/[\r\n]+/).filter(name => name.trim() !== '');
-            this.nametagList.push(...names);
-            this.nametagList = [...new Set(this.nametagList)];
-            this.renderNametagList();
-            event.target.value = '';
-        };
-        reader.readAsText(file);
-    }
-    
-    addNametagManually() {
-        const input = document.getElementById('addNameInput');
-        const name = input.value.trim();
-        if (name && !this.nametagList.includes(name)) {
-            this.nametagList.push(name);
-            this.renderNametagList();
-            input.value = '';
-        }
-    }
-    
-    deleteNametag(nameToDelete) {
-        this.nametagList = this.nametagList.filter(name => name !== nameToDelete);
-        this.renderNametagList();
-    }
-    
-    async openSaveReplayModal() {
-        if (!this.lastSimulationResult) {
-            alert("저장할 시뮬레이션 결과가 없습니다.");
-            return;
-        }
-    
-        const replaysColRef = collection(this.db, "replays", this.currentUser.uid, "userReplays");
-        const q = query(replaysColRef, where("mapName", "==", this.lastSimulationResult.mapName));
-        const querySnapshot = await getDocs(q);
-        const replayCount = querySnapshot.size;
-    
-        document.getElementById('newReplayName').value = `${this.lastSimulationResult.mapName} 리플레이 ${replayCount + 1}`;
-        document.getElementById('saveReplayModal').classList.add('show-modal');
-    }
-
-    async saveLastReplay() {
-        if (!this.currentUser || !this.lastSimulationResult) return;
-        
-        const replayName = document.getElementById('newReplayName').value.trim();
-        if (!replayName) {
-            alert("리플레이 이름을 입력해주세요.");
-            return;
-        }
-
-        const replayId = `replay_${Date.now()}`;
-        const replayData = {
-            name: replayName,
-            ...this.lastSimulationResult,
-            rngPolicy: this.rngPolicy
-        };
-
-        const replayDocRef = doc(this.db, "replays", this.currentUser.uid, "userReplays", replayId);
-        try {
-            await setDoc(replayDocRef, replayData);
-            alert(`'${replayName}' 리플레이가 저장되었습니다!`);
-            document.getElementById('saveReplayModal').classList.remove('show-modal');
-        } catch (error) {
-            console.error("Error saving replay:", error);
-            alert("리플레이 저장에 실패했습니다.");
-        }
-    }
-
-    async renderReplayCards() {
-        if (!this.currentUser) return;
-        
-        const replaysColRef = collection(this.db, "replays", this.currentUser.uid, "userReplays");
-        const replaySnapshot = await getDocs(replaysColRef);
-        const replays = replaySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-
-        const replayGrid = document.getElementById('replayGrid');
-        replayGrid.innerHTML = '';
-
-        replays.forEach(replayData => {
-            const card = this.createReplayCard(replayData);
-            replayGrid.appendChild(card);
-        });
+        this.uiManager.setCurrentColor(floorColor, 'floor', false);
+        this.uiManager.setCurrentColor(wallColor, 'wall', false);
     }
     
     createReplayCard(replayData) {
@@ -2583,7 +1302,7 @@ export class GameManager {
         
         card.addEventListener('click', (e) => {
             if (!e.target.closest('.map-menu-button')) {
-                this.loadReplay(replayData.id);
+                this.persistenceManager.loadReplay(replayData.id);
             }
         });
 
@@ -2614,14 +1333,14 @@ export class GameManager {
         renameBtn.textContent = '이름 변경';
         renameBtn.onclick = () => {
             menu.style.display = 'none';
-            this.openRenameModal(replayData.id, replayData.name, 'replay');
+            this.uiManager.openRenameModal(replayData.id, replayData.name, 'replay');
         };
         const deleteBtn = document.createElement('button');
         deleteBtn.className = 'w-full text-left px-3 py-1.5 text-sm text-red-400 rounded hover:bg-gray-600';
         deleteBtn.textContent = '삭제';
         deleteBtn.onclick = () => {
             menu.style.display = 'none';
-            this.openDeleteConfirmModal(replayData.id, replayData.name, 'replay');
+            this.uiManager.openDeleteConfirmModal(replayData.id, replayData.name, 'replay');
         };
         menu.append(renameBtn, deleteBtn);
 
@@ -2651,18 +1370,7 @@ export class GameManager {
         return card;
     }
 
-    async loadReplay(replayId) {
-        if (!this.currentUser) return;
-        const replayDocRef = doc(this.db, "replays", this.currentUser.uid, "userReplays", replayId);
-        const replaySnap = await getDoc(replayDocRef);
-        
-        if (!replaySnap.exists()) {
-            console.error("Replay not found:", replayId);
-            return;
-        }
-        
-        const replayData = replaySnap.data();
-
+    async loadReplay(replayId, replayData) {
         await this.showEditorScreen('replay');
         this.isReplayMode = true;
         this.simulationSeed = replayData.simulationSeed;
@@ -2737,4 +1445,3 @@ export class GameManager {
         placementResetBtn.style.display = 'inline-block';
     }
 }
-
