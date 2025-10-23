@@ -46,7 +46,7 @@ export class Weapon {
 
             if (unit.attackCount >= 3) {
                 unit.attackCount = 0;
-                unit.isSpecialAttackReady = false; // [수정] 특수 공격 후 빛나는 효과를 끄기 위해 플래그를 false로 설정
+                unit.isSpecialAttackReady = false;
                 unit.swordSpecialAttackAnimationTimer = 30;
                 gameManager.createProjectile(unit, target, 'sword_wave');
                 gameManager.audioManager.play('Aurablade');
@@ -81,7 +81,7 @@ export class Weapon {
 
             if (unit.attackCount >= 3) {
                 unit.attackCount = 0;
-                unit.isSpecialAttackReady = false; // [수정] 특수 공격 후 빛나는 효과를 끄기 위해 플래그를 false로 설정
+                unit.isSpecialAttackReady = false;
                 const recoilAngle = unit.facingAngle + Math.PI;
                 const recoilForce = 4;
                 unit.knockbackX += Math.cos(recoilAngle) * recoilForce;
