@@ -316,39 +316,63 @@ export function drawPoisonPotion(ctx, scale = 1.0) {
 	ctx.scale(scale, scale);
 	const img = Assets.get('poison_potion');
 	if (img) {
-		const size = GRID_SIZE * 2.0;
+		const size = GRID_SIZE * 1.5; // 이미지 크기 조정
 		ctx.drawImage(img, -size / 2, -size / 2, size, size);
 		ctx.restore();
 		return;
 	}
-	ctx.fillStyle = 'rgba(173, 216, 230, 0.7)';
-	ctx.strokeStyle = '#4a5568';
-	ctx.lineWidth = 3 / scale;
+
+	// [수정] 독 포션 디자인 개선
+	ctx.lineWidth = 2 / scale;
+	ctx.strokeStyle = '#166534'; // green-800
+
+	// 독성 액체 (내부)
+	const liquidGradient = ctx.createRadialGradient(0, GRID_SIZE * 0.5, 0, 0, 0, GRID_SIZE * 1.2);
+	liquidGradient.addColorStop(0, '#a3e635'); // lime-500
+	liquidGradient.addColorStop(1, '#4d7c0f'); // lime-800
+	ctx.fillStyle = liquidGradient;
 	ctx.beginPath();
-	ctx.arc(0, GRID_SIZE * 0.2, GRID_SIZE * 1, 0, Math.PI * 2);
+	ctx.arc(0, GRID_SIZE * 0.3, GRID_SIZE * 0.9, 0, Math.PI * 2);
+	ctx.fill();
+
+	// 끓어오르는 기포 효과
+	const bubbleY = Math.sin(Date.now() * 0.005) * GRID_SIZE * 0.2;
+	ctx.fillStyle = 'rgba(190, 242, 100, 0.8)'; // lime-300 with opacity
+	ctx.beginPath();
+	ctx.arc(GRID_SIZE * 0.3, bubbleY, GRID_SIZE * 0.15, 0, Math.PI * 2);
+	ctx.arc(-GRID_SIZE * 0.4, -bubbleY, GRID_SIZE * 0.1, 0, Math.PI * 2);
+	ctx.fill();
+
+	// 유리병 몸체 (반투명)
+	ctx.fillStyle = 'rgba(209, 213, 219, 0.3)'; // gray-300 with opacity
+	ctx.beginPath();
+	ctx.arc(0, GRID_SIZE * 0.3, GRID_SIZE * 0.9, 0, Math.PI * 2);
 	ctx.fill();
 	ctx.stroke();
+
+	// 유리병 목
 	ctx.beginPath();
-	ctx.moveTo(-GRID_SIZE * 0.5, -GRID_SIZE * 0.5);
-	ctx.lineTo(-GRID_SIZE * 0.5, -GRID_SIZE * 1.2);
-	ctx.lineTo(GRID_SIZE * 0.5, -GRID_SIZE * 1.2);
-	ctx.lineTo(GRID_SIZE * 0.5, -GRID_SIZE * 0.5);
+	ctx.rect(-GRID_SIZE * 0.4, -GRID_SIZE * 0.6, GRID_SIZE * 0.8, GRID_SIZE);
 	ctx.fill();
 	ctx.stroke();
-	ctx.fillStyle = 'rgba(129, 207, 224, 0.8)';
+
+	// 코르크 마개
+	ctx.fillStyle = '#a16207'; // amber-700
+	ctx.strokeStyle = '#451a03'; // amber-950
 	ctx.beginPath();
-	ctx.rect(-GRID_SIZE * 0.6, -GRID_SIZE * 1.5, GRID_SIZE * 1.2, GRID_SIZE * 0.3);
+	ctx.ellipse(0, -GRID_SIZE * 0.6, GRID_SIZE * 0.5, GRID_SIZE * 0.2, 0, 0, Math.PI * 2);
 	ctx.fill();
 	ctx.stroke();
-	ctx.fillStyle = '#D2B48C';
-	ctx.strokeStyle = '#8B4513';
+
+	// 해골 장식
+	ctx.fillStyle = '#d1d5db'; // gray-300
+	ctx.strokeStyle = '#4b5563'; // gray-600
 	ctx.beginPath();
-	ctx.ellipse(0, -GRID_SIZE * 1.6, GRID_SIZE * 0.5, GRID_SIZE * 0.2, 0, 0, Math.PI * 2);
+	ctx.arc(0, -GRID_SIZE * 0.6, GRID_SIZE * 0.2, 0, Math.PI * 2); // 두개골
+	ctx.moveTo(-GRID_SIZE * 0.1, -GRID_SIZE * 0.5); ctx.arc(-GRID_SIZE * 0.1, -GRID_SIZE * 0.5, GRID_SIZE * 0.05, 0, Math.PI * 2); // 왼쪽 눈
+	ctx.moveTo(GRID_SIZE * 0.1, -GRID_SIZE * 0.5); ctx.arc(GRID_SIZE * 0.1, -GRID_SIZE * 0.5, GRID_SIZE * 0.05, 0, Math.PI * 2); // 오른쪽 눈
 	ctx.fill();
 	ctx.stroke();
-	ctx.fillStyle = '#84cc16';
-	ctx.beginPath();
-	ctx.arc(0, 0, GRID_SIZE * 0.9, 0, Math.PI * 2);
-	ctx.fill();
+
 	ctx.restore();
 }
