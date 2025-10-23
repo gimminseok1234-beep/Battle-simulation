@@ -186,15 +186,8 @@ export class Weapon {
             gameManager.audioManager.play('electricity');
             unit.attackCooldown = unit.cooldownTime;
         } else if (this.type === 'magic_spear') {
-            // [수정] 특수 공격 (쿨다운 기반)
-            if (unit.magicSpearSpecialCooldown <= 0) {
-                gameManager.createProjectile(unit, target, 'magic_spear_special');
-                gameManager.audioManager.play('spear');
-                // [수정] 쿨다운 설정 로직을 unit.js로 일원화하여 중복 제거
-            } else { // 일반 공격
-                gameManager.createProjectile(unit, target, 'magic_spear_normal');
-                gameManager.audioManager.play('punch');
-            }
+            gameManager.createProjectile(unit, target, 'magic_spear_special');
+            gameManager.audioManager.play('spear');
             unit.attackCooldown = unit.cooldownTime;
         } else if (this.type === 'boomerang') {
             gameManager.createProjectile(unit, target, 'boomerang_normal_projectile');
