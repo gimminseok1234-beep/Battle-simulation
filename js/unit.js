@@ -1526,8 +1526,8 @@ export class Unit {
         const healthBarIsVisible = this.hpBarAlpha > 0;
         const normalAttackIsVisible = (this.isCasting && this.weapon?.type === 'poison_potion') || (this.attackCooldown > 0);
         const kingSpawnBarIsVisible = this.isKing && this.spawnCooldown > 0;
-        let specialSkillIsVisible =
-            (this.weapon?.type === 'poison_potion' && this.poisonPotionCooldown > 0) || (this.weapon?.type === 'magic_dagger' && this.magicDaggerSkillCooldown > 0) ||
+        let specialSkillIsVisible = // [수정] 독 포션은 원형 특수 공격 게이지에서 제외
+            (this.weapon?.type === 'magic_dagger' && this.magicDaggerSkillCooldown > 0) ||
             (this.weapon?.type === 'axe' && this.axeSkillCooldown > 0) ||
             (this.weapon?.type === 'ice_diamond' && this.iceDiamondChargeTimer > 0 && this.iceDiamondCharges < 5) || (this.weapon?.type === 'magic_spear' && this.magicSpearSpecialCooldown > 0) ||
             (this.weapon?.type === 'boomerang' && this.boomerangCooldown > 0) ||
@@ -1639,10 +1639,6 @@ export class Unit {
                     case 'shuriken':
                         fgColor = '#94a3b8'; // 회색
                         progress = 300 - this.shurikenSkillCooldown; max = 300;
-                        break;
-                    case 'poison_potion':
-                        fgColor = '#84cc16'; // 라임색
-                        progress = 300 - this.poisonPotionCooldown; max = 300;
                         break;
                     case 'magic_dagger':
                         fgColor = '#94a3b8'; // 회색 (기본값)
