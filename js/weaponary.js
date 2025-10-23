@@ -1449,6 +1449,51 @@ export class Projectile {
             ctx.fill();
             ctx.stroke();
             ctx.restore();
+        } else if (this.type === 'poison_potion_projectile') {
+            // [신규] 독 포션 투사체 그리기
+            ctx.save();
+            ctx.translate(this.pixelX, this.pixelY);
+            ctx.rotate(this.angle + Math.PI / 2); // 병이 위를 향하도록
+            const scale = 0.5;
+            ctx.scale(scale, scale);
+
+            // 병 몸체 (초록색 액체)
+            ctx.fillStyle = 'rgba(74, 222, 128, 0.8)'; // lime-400 with opacity
+            ctx.strokeStyle = '#166534'; // green-800
+            ctx.lineWidth = 2 / scale;
+            ctx.beginPath();
+            ctx.arc(0, 0, GRID_SIZE * 0.6, 0, Math.PI);
+            ctx.lineTo(-GRID_SIZE * 0.6, -GRID_SIZE * 0.5);
+            ctx.lineTo(GRID_SIZE * 0.6, -GRID_SIZE * 0.5);
+            ctx.closePath();
+            ctx.fill();
+            ctx.stroke();
+
+            // 병 목
+            ctx.fillStyle = '#a3e635'; // lime-500
+            ctx.fillRect(-GRID_SIZE * 0.2, -GRID_SIZE * 0.5, GRID_SIZE * 0.4, -GRID_SIZE * 0.3);
+            ctx.strokeRect(-GRID_SIZE * 0.2, -GRID_SIZE * 0.5, GRID_SIZE * 0.4, -GRID_SIZE * 0.3);
+
+            // 병뚜껑
+            ctx.fillStyle = '#4d7c0f'; // lime-800
+            ctx.fillRect(-GRID_SIZE * 0.3, -GRID_SIZE * 0.8, GRID_SIZE * 0.6, -GRID_SIZE * 0.1);
+            ctx.strokeRect(-GRID_SIZE * 0.3, -GRID_SIZE * 0.8, GRID_SIZE * 0.6, -GRID_SIZE * 0.1);
+
+            ctx.restore();
+
+            // 파티클 효과
+            if (this.gameManager.random() > 0.3) {
+                this.gameManager.addParticle({
+                    x: this.pixelX,
+                    y: this.pixelY,
+                    vx: (this.gameManager.random() - 0.5) * 1.5,
+                    vy: (this.gameManager.random() - 0.5) * 1.5,
+                    life: 0.6,
+                    color: ['#86efac', '#4ade80', '#22c55e'][Math.floor(this.gameManager.random() * 3)],
+                    size: this.gameManager.random() * 2 + 1.5,
+                    gravity: -0.02
+                });
+            }
         } else if (this.type === 'fireball_projectile' || this.type === 'mini_fireball_projectile') {
             const size = this.type === 'fireball_projectile' ? GRID_SIZE / 1.67 : GRID_SIZE / 4;
             for (let i = 0; i < this.trail.length; i++) {
