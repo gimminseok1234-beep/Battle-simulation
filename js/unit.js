@@ -38,7 +38,7 @@ export class Unit {
         this.isInMagneticField = false;
         this.evasionCooldown = 0;
         this.attackAnimationTimer = 0;
-        this.magicCircleCooldown = 0;
+        this.magicSpearSpecialCooldown = 0; // [수정] 마법창 특수 공격 쿨다운
         this.boomerangCooldown = 0;
         this.shurikenSkillCooldown = 0;
         this.isStunned = 0;
@@ -67,6 +67,7 @@ export class Unit {
         this.fireStaffSpecialCooldown = 0;
         this.isSlowed = 0;
         this.attackCount = 0;
+        this.hasUsedBlink = false; // [신규] 마법창 비전 이동 사용 여부
         this.swordSpecialAttackAnimationTimer = 0;
         this.isSpecialAttackReady = false; // [추가] 특수 공격 준비 상태
 
@@ -552,6 +553,9 @@ export class Unit {
                 case 'dual_swords':
                     this.isSpecialAttackReady = (this.dualSwordSkillCooldown <= 0);
                     break;
+                case 'magic_spear': // [신규] 마법창 특수 공격 준비 상태
+                    this.isSpecialAttackReady = (this.magicSpearSpecialCooldown <= 0);
+                    break;
                 default:
                     this.isSpecialAttackReady = false;
             }
@@ -711,6 +715,28 @@ export class Unit {
             }
             this.applyPhysics();
             return;
+        }
+
+        // [신규] 마법창 비전 이동 로직
+        if (this.weapon?.type === 'magic_spear' && !this.hasUsedBlink && this.hp < this.maxHp * 0.3) {
+            this.hasUsedBlink = true;
+            const blinkAngle = this.facingAngle + Math.PI; // 현재 방향의 반대로
+            const blinkDistance = GRID_SIZE * 6;
+            const targetX = this.pixelX + Math.cos(blinkAngle) * blinkDistance;
+            const targetY = this.pixelY + Math.sin(blinkAngle) * blinkDistance;
+
+            // 이펙트 생성
+            for (let i = 0; i < 25; i++) {
+                const angle = gameManager.random() * Math.PI * 2;
+                const speed = 2 + gameManager.random() * 4;
+                gameManager.addParticle({ x: this.pixelX, y: this.pixelY, vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed, life: 1.0, color: ['#a855f7', '#d8b4fe', '#ffffff'][Math.floor(gameManager.random() * 3)], size: gameManager.random() * 2.5 + 1, gravity: 0 });
+            }
+            gameManager.audioManager.play('teleport');
+
+            this.pixelX = targetX;
+            this.pixelY = targetY;
+            this.knockbackX = 0;
+            this.knockbackY = 0;
         }
 
         if (this.isStunned > 0) {
@@ -906,12 +932,7 @@ export class Unit {
             }
         }
 
-        if (this.weapon && this.weapon.type === 'magic_spear') {
-            if (this.magicCircleCooldown <= 0) {
-                gameManager.spawnMagicCircle(this.team); // 마법진 생성
-                this.magicCircleCooldown = 300; // 5초 쿨다운
-            }
-        } else if (this.weapon && this.weapon.type === 'boomerang' && this.boomerangCooldown <= 0) {
+        if (this.weapon && this.weapon.type === 'boomerang' && this.boomerangCooldown <= 0) {
             const { item: closestEnemy } = this.findClosest(enemies);
             if (closestEnemy && gameManager.hasLineOfSight(this, closestEnemy)) {
                 const dist = Math.hypot(this.pixelX - closestEnemy.pixelX, this.pixelY - closestEnemy.pixelY);
@@ -1047,7 +1068,8 @@ export class Unit {
 
 
         if (this.state !== newState && newState !== 'IDLE' && newState !== 'FLEEING_FIELD' && newState !== 'FLEEING_LAVA') {
-            if (!(this.weapon && this.weapon.type === 'magic_spear' && this.target instanceof Unit && this.target.stunnedByMagicCircle)) {
+            // [수정] 마법진 관련 로직 제거
+            if (this.alertedCounter <= 0) {
                 this.alertedCounter = 60;
             }
         }
@@ -1090,11 +1112,12 @@ export class Unit {
                 if (this.target) {
                     if (this.weapon && this.weapon.type === 'fire_staff' && this.fireStaffSpecialCooldown <= 0) {
                         const distanceToTarget = Math.hypot(this.pixelX - this.target.pixelX, this.pixelY - this.target.pixelY);
-                    // [NEW] 마법창 특수 공격 로직 추가
-                    } else if (this.weapon && this.weapon.type === 'magic_spear' && this.target.isStunned > 0 && this.target.stunnedByMagicCircle) {
+                    // [신규] 마법창 특수 공격 발동 로직
+                    } else if (this.weapon?.type === 'magic_spear' && this.magicSpearSpecialCooldown <= 0) {
                         this.moveTarget = null;
-                        this.attack(this.target); // 기절한 적을 즉시 공격
+                        this.attack(this.target);
                         this.facingAngle = Math.atan2(this.target.pixelY - this.pixelY, this.target.pixelX - this.pixelX);
+                        this.magicSpearSpecialCooldown = 420; // 7초 쿨다운
                         break;
                     } else if (this.weapon && this.weapon.type === 'fire_staff' && this.fireStaffSpecialCooldown <= 0) {
                         if (distanceToTarget <= this.attackRange && gameManager.hasLineOfSight(this, this.target)) {
