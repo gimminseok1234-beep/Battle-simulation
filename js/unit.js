@@ -333,7 +333,7 @@ export class Unit {
         if (!gameManager) return;
 
         // [NEW] A* 길찾기 로직 적용
-        if (this.path.length > 0) {
+        if (this.path.length > 0 && this.stuckTimer > 30) {
             const nextNode = this.path[0];
             const targetPixelX = nextNode.x * GRID_SIZE + GRID_SIZE / 2;
             const targetPixelY = nextNode.y * GRID_SIZE + GRID_SIZE / 2;
@@ -344,7 +344,10 @@ export class Unit {
             const currentSpeed = this.speed * gameManager.gameSpeed;
 
             if (distance < currentSpeed) {
-                this.path.shift(); // 다음 노드로 이동
+                this.path.shift();
+                if (this.path.length === 0) {
+                    this.stuckTimer = 0; // 경로 완료 후 stuckTimer 초기화
+                }
             }
 
             const angle = Math.atan2(dy, dx);
@@ -413,10 +416,13 @@ export class Unit {
                 if (collidedTile.type === TILE.CRACKED_WALL) {
                     gameManager.damageTile(nextGridX, nextGridY, 999);
                 }
-                const bounceAngle = this.facingAngle + Math.PI + (gameManager.random() - 0.5);
-                this.knockbackX += Math.cos(bounceAngle) * 1.5;
-                this.knockbackY += Math.sin(bounceAngle) * 1.5;
-                this.moveTarget = null;
+                // [수정] A*를 사용하지 않을 때만 튕겨나가도록 수정
+                if (this.path.length === 0) {
+                    const bounceAngle = this.facingAngle + Math.PI + (gameManager.random() - 0.5);
+                    this.knockbackX += Math.cos(bounceAngle) * 1.5;
+                    this.knockbackY += Math.sin(bounceAngle) * 1.5;
+                    this.moveTarget = null;
+                }
                 return;
             }
         }
@@ -1059,13 +1065,13 @@ export class Unit {
 
         switch (this.state) {
             case 'FLEEING_FIELD':
-                this.updatePathTo(gameManager.findClosestSafeSpot(this.pixelX, this.pixelY));
+                this.moveTarget = gameManager.findClosestSafeSpot(this.pixelX, this.pixelY); // A* 사용 안함
                 break;
             case 'FLEEING_LAVA':
-                this.updatePathTo(gameManager.findClosestSafeSpotFromLava(this.pixelX, this.pixelY));
+                this.moveTarget = gameManager.findClosestSafeSpotFromLava(this.pixelX, this.pixelY); // A* 사용 안함
                 break;
             case 'FLEEING':
-                if (this.target) { // 도망칠 때는 직선 이동
+                if (this.target) {
                     const fleeAngle = Math.atan2(this.pixelY - this.target.pixelY, this.pixelX - this.target.pixelX);
                     this.moveTarget = { x: this.pixelX + Math.cos(fleeAngle) * GRID_SIZE * 5, y: this.pixelY + Math.sin(fleeAngle) * GRID_SIZE * 5 };
                 }
@@ -1083,8 +1089,8 @@ export class Unit {
                         this.equipWeapon(this.target.type);
                         this.target.isEquipped = true;
                         this.target = null;
-                    } else {
-                        this.updatePathTo(this.target);
+                    } else { // [수정] 무기를 주으러 갈 때도 일단 직선 이동
+                        this.moveTarget = { x: this.target.pixelX, y: this.target.pixelY };
                     }
                 }
                 break;
@@ -1136,18 +1142,13 @@ export class Unit {
                         this.attack(this.target);
                         this.facingAngle = Math.atan2(this.target.pixelY - this.pixelY, this.target.pixelX - this.pixelX);
                     } else { this.moveTarget = { x: this.target.pixelX, y: this.target.pixelY }; }
-
-                    if (this.moveTarget) {
-                        this.updatePathTo(this.moveTarget);
-                    } else {
-                        this.path = []; // 공격 시 경로 초기화
-                    }
                 }
                 break;
             case 'IDLE': default:
-                if (this.path.length === 0 && this.pathUpdateCooldown <= 0) {
+                // [수정] A* 경로가 없고, 이동 목표도 없을 때만 새로운 목표 설정
+                if (!this.moveTarget || Math.hypot(this.pixelX - this.moveTarget.x, this.pixelY - this.moveTarget.y) < GRID_SIZE) {
                     const angle = gameManager.random() * Math.PI * 2;
-                    this.updatePathTo({ x: this.pixelX + Math.cos(angle) * GRID_SIZE * 8, y: this.pixelY + Math.sin(angle) * GRID_SIZE * 8 });
+                    this.moveTarget = { x: this.pixelX + Math.cos(angle) * GRID_SIZE * 8, y: this.pixelY + Math.sin(angle) * GRID_SIZE * 8 };
                 }
                 break;
         }
@@ -1165,21 +1166,14 @@ export class Unit {
             }
 
             if (this.stuckTimer > 30) {
-                const angle = gameManager.random() * Math.PI * 2;
-                const radius = GRID_SIZE * 3;
-                const newTargetX = this.pixelX + Math.cos(angle) * radius;
-                const newTargetY = this.pixelY + Math.sin(angle) * radius;
-
-                const gridX = Math.floor(newTargetX / GRID_SIZE);
-                const gridY = Math.floor(newTargetY / GRID_SIZE);
-
-                if (gridY >= 0 && gridY < gameManager.ROWS && gridX >= 0 && gridX < gameManager.COLS &&
-                    gameManager.map[gridY][gridX].type !== TILE.WALL &&
-                    gameManager.map[gridY][gridX].type !== TILE.CRACKED_WALL) {
-                    this.moveTarget = { x: newTargetX, y: newTargetY };
+                // [수정] 막혔을 때만 A* 경로 탐색
+                if (this.path.length === 0) {
+                    this.updatePathTo(this.moveTarget);
+                } else {
+                    // A* 경로를 따라가는데도 막혔다면, 경로를 초기화하고 다시 탐색 유도
+                    this.path = [];
+                    this.stuckTimer = 0;
                 }
-
-                this.stuckTimer = 0;
             }
         } else {
             this.stuckTimer = 0;
