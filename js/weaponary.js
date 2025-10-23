@@ -900,13 +900,22 @@ export class Projectile {
 
     // [NEW] 장풍 파티클 효과
     handleHadokenTrail() {
-        if (this.gameManager.random() > 0.3) {
+        if (this.gameManager.random() > 0.3 && this.owner) {
+            let particleColor1, particleColor2;
+            switch(this.owner.team) {
+                case TEAM.A: particleColor1 = '#fca5a5'; particleColor2 = '#ef4444'; break; // Red
+                case TEAM.B: particleColor1 = '#93c5fd'; particleColor2 = '#60a5fa'; break; // Blue
+                case TEAM.C: particleColor1 = '#6ee7b7'; particleColor2 = '#34d399'; break; // Green
+                case TEAM.D: particleColor1 = '#fde047'; particleColor2 = '#facc15'; break; // Yellow
+                default:     particleColor1 = '#d1d5db'; particleColor2 = '#9ca3af'; break; // Gray
+            }
+
             this.gameManager.addParticle({
                 x: this.pixelX, y: this.pixelY,
                 vx: (this.gameManager.random() - 0.5) * 2,
                 vy: (this.gameManager.random() - 0.5) * 2,
                 life: 0.5,
-                color: this.gameManager.random() > 0.5 ? '#60a5fa' : '#bfdbfe', // 푸른색 계열
+                color: this.gameManager.random() > 0.5 ? particleColor1 : particleColor2,
                 size: this.gameManager.random() * 2.5 + 1,
                 gravity: 0
             });
@@ -1222,7 +1231,7 @@ export class Projectile {
         } else if (this.type === 'hadoken') {
             // [MODIFIED] 장풍 투사체에 유닛 색상 반영
             ctx.save();
-            const radius = GRID_SIZE / 1.8;
+            const radius = GRID_SIZE / 1.6;
             
             let teamColorRgb = '59, 130, 246'; // Default blue
             let shadowColor = 'rgba(96, 165, 250, 1)';
@@ -1236,9 +1245,9 @@ export class Projectile {
             }
 
             const grad = ctx.createRadialGradient(this.pixelX, this.pixelY, radius * 0.2, this.pixelX, this.pixelY, radius);
-            grad.addColorStop(0, 'rgba(255, 255, 255, 0.9)');
-            grad.addColorStop(0.5, `rgba(${teamColorRgb}, 0.8)`);
-            grad.addColorStop(1, `rgba(${teamColorRgb}, 0.4)`);
+            grad.addColorStop(0, 'rgba(255, 255, 255, 1.0)');
+            grad.addColorStop(0.5, `rgba(${teamColorRgb}, 0.9)`);
+            grad.addColorStop(1, `rgba(${teamColorRgb}, 0.5)`);
 
             ctx.fillStyle = grad;
             ctx.shadowColor = shadowColor;
