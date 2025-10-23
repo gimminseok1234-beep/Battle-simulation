@@ -360,6 +360,20 @@ export class SimulationManager {
                         unit.takeDamage(p.damage, effectInfo, p.owner);
                         if (p.type === 'hadoken') gm.audioManager.play('hadokenHit');
                     }
+
+                    // [신규] 마법창 특수 공격 적중 시 파편 생성 및 기절
+                    if (p.type === 'magic_spear_special') {
+                        unit.takeDamage(p.damage, { stun: 120 }, p.owner);
+                        
+                        const baseAngle = p.angle;
+                        const spread = Math.PI / 4; // 45도
+                        const angles = [baseAngle - spread, baseAngle, baseAngle + spread];
+
+                        angles.forEach(angle => {
+                            const dummyTarget = { pixelX: unit.pixelX + Math.cos(angle) * 100, pixelY: unit.pixelY + Math.sin(angle) * 100 };
+                            gm.createProjectile(p.owner, dummyTarget, 'magic_spear_fragment', { startX: unit.pixelX, startY: unit.pixelY, angle: angle });
+                        });
+                    }
         
                     if (!p.piercing) {
                         if (p.type !== 'lightning_bolt' && p.type !== 'fireball_projectile') {
