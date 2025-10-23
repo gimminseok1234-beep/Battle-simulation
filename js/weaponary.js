@@ -185,18 +185,14 @@ export class Weapon {
             gameManager.createProjectile(unit, target, 'lightning_bolt');
             gameManager.audioManager.play('electricity');
             unit.attackCooldown = unit.cooldownTime;
-        } else if (this.type === 'magic_spear') { // [수정] 마법창 공격 로직
-            // 특수 공격 (기절한 적 대상)
-            if (target.isStunned > 0 && target.stunnedByMagicCircle) {
+        } else if (this.type === 'magic_spear') {
+            // [수정] 특수 공격 (쿨다운 기반)
+            if (unit.magicSpearSpecialCooldown <= 0) {
                 gameManager.createProjectile(unit, target, 'magic_spear_special');
                 gameManager.audioManager.play('spear');
-                // 특수 공격 시 화려한 파티클 효과 추가
-                for (let i = 0; i < 20; i++) {
-                    gameManager.addParticle({ x: unit.pixelX, y: unit.pixelY, vx: (gameManager.random() - 0.5) * 4, vy: (gameManager.random() - 0.5) * 4, life: 0.8, color: ['#a855f7', '#d8b4fe', '#ffffff'][Math.floor(gameManager.random() * 3)], size: gameManager.random() * 2 + 1, gravity: 0.02 });
-                }
             } else { // 일반 공격
-            gameManager.createProjectile(unit, target, 'magic_spear_normal');
-            gameManager.audioManager.play('punch');
+                gameManager.createProjectile(unit, target, 'magic_spear_normal');
+                gameManager.audioManager.play('punch');
             }
             unit.attackCooldown = unit.cooldownTime;
         } else if (this.type === 'boomerang') {
@@ -794,6 +790,9 @@ export class Projectile {
             case 'magic_spear_special':
                 this.damage = baseSpecialDamage + 15;
                 break;
+            case 'magic_spear_fragment': // [신규] 파편 데미지
+                this.damage = 15;
+                break;
             case 'ice_diamond_projectile':
                 this.damage = baseSpecialDamage + 15;
                 break;
@@ -1344,6 +1343,21 @@ export class Projectile {
             ctx.moveTo(spearLength, 0);
             ctx.lineTo(0, -spearWidth);
             ctx.lineTo(0, spearWidth);
+            ctx.closePath();
+            ctx.fill();
+            ctx.restore();
+        } else if (this.type === 'magic_spear_fragment') {
+            // [신규] 마법창 파편 그리기
+            ctx.save();
+            ctx.translate(this.pixelX, this.pixelY);
+            ctx.rotate(this.angle);
+            ctx.fillStyle = '#d8b4fe';
+            ctx.shadowColor = '#a855f7';
+            ctx.shadowBlur = 8;
+            ctx.beginPath();
+            ctx.moveTo(GRID_SIZE * 0.5, 0);
+            ctx.lineTo(-GRID_SIZE * 0.2, -GRID_SIZE * 0.15);
+            ctx.lineTo(-GRID_SIZE * 0.2, GRID_SIZE * 0.15);
             ctx.closePath();
             ctx.fill();
             
