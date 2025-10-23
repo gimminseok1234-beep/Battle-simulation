@@ -239,40 +239,43 @@ export function drawMagicSpear(ctx, scale = 1.0, rotation = 0) {
 	ctx.shadowColor = 'rgba(192, 132, 252, 0.8)';
 	ctx.shadowBlur = 15 / scale;
 	const shaftLength = GRID_SIZE * 2.5;
-	const shaftWidth = GRID_SIZE * 0.15;
-	ctx.fillStyle = '#5b21b6';
-	ctx.strokeStyle = '#2e1065';
+	const shaftWidth = GRID_SIZE * 0.2;
+	// [수정] 몸통 부분을 검은색으로 변경
+	ctx.fillStyle = '#1f2937';
+	ctx.strokeStyle = '#000000';
 	ctx.lineWidth = 1.5 / scale;
 	ctx.fillRect(-shaftLength / 2, -shaftWidth, shaftLength, shaftWidth * 2);
 	ctx.strokeRect(-shaftLength / 2, -shaftWidth, shaftLength, shaftWidth * 2);
+
+	// [수정] 창날 디자인 및 색상 변경
 	const headLength = GRID_SIZE * 0.8;
 	const headWidth = GRID_SIZE * 0.4;
 	const headBaseX = shaftLength / 2;
 	const grad = ctx.createLinearGradient(headBaseX, 0, headBaseX + headLength, 0);
-	grad.addColorStop(0, '#e9d5ff');
-	grad.addColorStop(1, '#a855f7');
+	grad.addColorStop(0, '#d8b4fe'); // 연한 보라
+	grad.addColorStop(1, '#7e22ce'); // 진한 보라
 	ctx.fillStyle = grad;
-	ctx.strokeStyle = '#c084fc';
+	ctx.strokeStyle = '#581c87'; // 더 어두운 보라색 테두리
 	ctx.lineWidth = 2 / scale;
 	ctx.beginPath();
 	ctx.moveTo(headBaseX, -headWidth);
 	ctx.lineTo(headBaseX + headLength, 0);
 	ctx.lineTo(headBaseX, headWidth);
-	ctx.quadraticCurveTo(headBaseX - headLength * 0.2, 0, headBaseX, -headWidth);
+	ctx.quadraticCurveTo(headBaseX - headLength * 0.3, 0, headBaseX, -headWidth); // 곡선을 더 완만하게
 	ctx.closePath();
 	ctx.fill();
 	ctx.stroke();
-	const gemX = -GRID_SIZE * 0.4;
-	const gemRadius = GRID_SIZE * 0.25;
+
+	// [수정] 중앙 보석 디자인 변경
+	const gemX = -GRID_SIZE * 0.5;
+	const gemRadius = GRID_SIZE * 0.3;
 	const gemGrad = ctx.createRadialGradient(gemX, 0, gemRadius * 0.1, gemX, 0, gemRadius);
-	gemGrad.addColorStop(0, '#f5d0fe');
-	gemGrad.addColorStop(1, '#9333ea');
+	gemGrad.addColorStop(0, '#f3e8ff');
+	gemGrad.addColorStop(1, '#a855f7');
 	ctx.fillStyle = gemGrad;
 	ctx.beginPath();
 	ctx.arc(gemX, 0, gemRadius, 0, Math.PI * 2);
 	ctx.fill();
-	ctx.strokeStyle = '#d8b4fe';
-	ctx.stroke();
 	ctx.restore();
 }
 
@@ -349,5 +352,3 @@ export function drawPoisonPotion(ctx, scale = 1.0) {
 	ctx.fill();
 	ctx.restore();
 }
-
-
