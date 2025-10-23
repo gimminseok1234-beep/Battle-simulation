@@ -1112,7 +1112,12 @@ export class Unit {
                 if (this.target) {
                     if (this.weapon && this.weapon.type === 'fire_staff' && this.fireStaffSpecialCooldown <= 0) {
                         const distanceToTarget = Math.hypot(this.pixelX - this.target.pixelX, this.pixelY - this.target.pixelY);
-                        if (distanceToTarget <= this.attackRange && gameManager.hasLineOfSight(this, this.target)) { // ...
+                        if (distanceToTarget <= this.attackRange && gameManager.hasLineOfSight(this, this.target)) {
+                            gameManager.createProjectile(this, this.target, 'fireball_projectile');
+                            gameManager.audioManager.play('fireball');
+                            this.fireStaffSpecialCooldown = 240;
+                            this.attackCooldown = 60;
+                            break;
                         }
                     }
 
@@ -1125,6 +1130,25 @@ export class Unit {
                         break;
                     }
 
+                    // [신규] 다른 충전식 무기들의 특수 공격 로직을 독립적인 if문으로 분리
+                    if (this.weapon?.type === 'shuriken' && this.shurikenSkillCooldown <= 0) {
+                        this.attack(this.target); // use 메서드에서 3방향 표창 발사
+                        this.attackCooldown = 60;
+                        break;
+                    }
+
+                    if (this.weapon?.type === 'axe' && this.axeSkillCooldown <= 0) {
+                        const { item: closestEnemy } = this.findClosest(enemies);
+                        if (closestEnemy && Math.hypot(this.pixelX - closestEnemy.pixelX, this.pixelY - closestEnemy.pixelY) < GRID_SIZE * 3) {
+                            this.axeSkillCooldown = 240;
+                            this.spinAnimationTimer = 30;
+                            gameManager.audioManager.play('axe');
+                            gameManager.createEffect('axe_spin_effect', this.pixelX, this.pixelY, this);
+                            // ... (이하 파티클 및 데미지 로직은 기존과 동일)
+                            break;
+                        }
+                    }
+
                     if (this.weapon && this.weapon.type === 'dual_swords' && this.dualSwordSkillCooldown <= 0) {
                         const distanceToTarget = Math.hypot(this.pixelX - this.target.pixelX, this.pixelY - this.target.pixelY);
                         if (distanceToTarget <= this.detectionRange && gameManager.hasLineOfSight(this, this.target)) {
@@ -1134,20 +1158,6 @@ export class Unit {
                             this.attackCooldown = 60;
                             this.moveTarget = null;
                             this.facingAngle = Math.atan2(this.target.pixelY - this.pixelY, this.target.pixelX - this.pixelX);
-
-                            // [MODIFIED] 쌍검 특수 공격 이펙트 강화
-                            gameManager.createEffect('axe_spin_effect', this.pixelX, this.pixelY, this, {
-                                color: 'rgba(156, 163, 175, 0.7)', maxRadius: GRID_SIZE * 2, duration: 15, lineWidth: 4
-                            });
-                            for (let i = 0; i < 20; i++) {
-                                const angle = gameManager.random() * Math.PI * 2;
-                                const speed = 1 + gameManager.random() * 2.5;
-                                gameManager.addParticle({
-                                    x: this.pixelX, y: this.pixelY,
-                                    vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed,
-                                    life: 0.6, color: '#6b7280', size: gameManager.random() * 2 + 1, gravity: 0.04
-                                });
-                            }
                             break;
                         }
                     }
