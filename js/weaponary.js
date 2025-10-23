@@ -80,7 +80,7 @@ export class Weapon {
 
             if (unit.attackCount >= 3) {
                 unit.attackCount = 0;
-                
+                unit.isSpecialAttackReady = false;
                 const recoilAngle = unit.facingAngle + Math.PI;
                 const recoilForce = 4;
                 unit.knockbackX += Math.cos(recoilAngle) * recoilForce;
