@@ -1121,10 +1121,20 @@ export class Unit {
                         }
                     }
 
+                    // [수정] 표창 특수 공격 로직을 다른 무기들과 동일한 구조로 수정
                     if (this.weapon?.type === 'shuriken' && this.shurikenSkillCooldown <= 0) {
-                        this.attack(this.target); // use 메서드에서 3방향 표창 발사
-                        this.attackCooldown = 60;
-                        break;
+                        const distanceToTarget = Math.hypot(this.pixelX - this.target.pixelX, this.pixelY - this.target.pixelY);
+                        if (distanceToTarget <= this.attackRange && gameManager.hasLineOfSight(this, this.target)) {
+                            const angleToTarget = Math.atan2(this.target.pixelY - this.pixelY, this.target.pixelX - this.pixelX);
+                            const spread = 0.3;
+                            const angles = [angleToTarget - spread, angleToTarget, angleToTarget + spread];
+                            angles.forEach(angle => {
+                                gameManager.createProjectile(this, this.target, 'returning_shuriken', { angle: angle, state: 'MOVING_OUT', maxDistance: GRID_SIZE * 8 });
+                            });
+                            this.shurikenSkillCooldown = 480; // 8초 쿨다운
+                            this.attackCooldown = this.cooldownTime;
+                            break;
+                        }
                     }
 
                     if (this.weapon?.type === 'axe' && this.axeSkillCooldown <= 0) {
