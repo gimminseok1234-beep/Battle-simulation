@@ -157,8 +157,13 @@ export class Weapon {
             gameManager.audioManager.play('punch');
             unit.attackCooldown = unit.cooldownTime;
         } else if (this.type === 'shuriken') {
-            // [수정] use 메서드는 일반 공격만 처리하도록 단순화
-            gameManager.createProjectile(unit, target, 'shuriken');
+            // [수정] isSpecialAttackReady 플래그가 정상 작동하도록 쿨다운 확인 로직 복원
+            if (unit.shurikenSkillCooldown <= 0) {
+                // 이 블록은 unit.js의 특수 공격 로직이 우선적으로 실행되므로 실제로는 호출되지 않지만,
+                // isSpecialAttackReady 상태를 올바르게 판단하기 위해 남겨둡니다.
+            } else {
+                gameManager.createProjectile(unit, target, 'shuriken');
+            }
             gameManager.audioManager.play('shurikenShoot');
             unit.attackCooldown = unit.cooldownTime;
         } else if (this.type === 'hadoken') {
