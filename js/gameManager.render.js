@@ -17,6 +17,7 @@ export function drawImpl(mouseEvent) {
     this.drawMap();
     this.magicCircles.forEach(c => c.draw(this.ctx));
     this.poisonClouds.forEach(c => c.draw(this.ctx));
+    this.poisonPuddles.forEach(p => p.draw(this.ctx)); // [신규] 독 장판 그리기
     
     if (this.state === 'SIMULATE' || this.state === 'PAUSED' || this.state === 'ENDING') {
         if (this.autoMagneticField.isActive) {
