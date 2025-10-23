@@ -239,17 +239,17 @@ export function drawMagicSpear(ctx, scale = 1.0, rotation = 0) {
 	ctx.shadowColor = 'rgba(192, 132, 252, 0.8)';
 	ctx.shadowBlur = 15 / scale;
 	const shaftLength = GRID_SIZE * 2.5;
-	const shaftWidth = GRID_SIZE * 0.2;
+	const shaftWidth = GRID_SIZE * 0.12; // [수정] 몸통 두께를 줄여 더 날렵하게
 	// [수정] 몸통 부분을 검은색으로 변경
 	ctx.fillStyle = '#1f2937';
 	ctx.strokeStyle = '#000000';
 	ctx.lineWidth = 1.5 / scale;
-	ctx.fillRect(-shaftLength / 2, -shaftWidth, shaftLength, shaftWidth * 2);
-	ctx.strokeRect(-shaftLength / 2, -shaftWidth, shaftLength, shaftWidth * 2);
+	ctx.fillRect(-shaftLength / 2, -shaftWidth / 2, shaftLength, shaftWidth);
+	ctx.strokeRect(-shaftLength / 2, -shaftWidth / 2, shaftLength, shaftWidth);
 
 	// [수정] 창날 디자인 및 색상 변경
-	const headLength = GRID_SIZE * 0.8;
-	const headWidth = GRID_SIZE * 0.4;
+	const headLength = GRID_SIZE * 1.1; // [수정] 창날 길이를 늘림
+	const headWidth = GRID_SIZE * 0.35; // [수정] 창날 폭을 약간 줄여 뾰족하게
 	const headBaseX = shaftLength / 2;
 	const grad = ctx.createLinearGradient(headBaseX, 0, headBaseX + headLength, 0);
 	grad.addColorStop(0, '#d8b4fe'); // 연한 보라
@@ -261,7 +261,7 @@ export function drawMagicSpear(ctx, scale = 1.0, rotation = 0) {
 	ctx.moveTo(headBaseX, -headWidth);
 	ctx.lineTo(headBaseX + headLength, 0);
 	ctx.lineTo(headBaseX, headWidth);
-	ctx.quadraticCurveTo(headBaseX - headLength * 0.3, 0, headBaseX, -headWidth); // 곡선을 더 완만하게
+	ctx.quadraticCurveTo(headBaseX - headLength * 0.2, 0, headBaseX, -headWidth);
 	ctx.closePath();
 	ctx.fill();
 	ctx.stroke();
