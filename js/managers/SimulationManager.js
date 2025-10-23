@@ -294,6 +294,14 @@ export class SimulationManager {
                         break; 
                     }
 
+                    // [신규] 독 포션 투사체 적중 시 독 장판 생성
+                    if (p.type === 'poison_potion_projectile') {
+                        const gridX = Math.floor(unit.pixelX / GRID_SIZE);
+                        const gridY = Math.floor(unit.pixelY / GRID_SIZE);
+                        gm.addPoisonPuddle(gridX, gridY);
+                        p.destroyed = true;
+                    }
+
                     p.hitTargets.add(unit);
                     hit = true;
         
