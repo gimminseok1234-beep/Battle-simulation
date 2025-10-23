@@ -32,7 +32,8 @@ export class Weapon {
         const gameManager = this.gameManager;
         if (!gameManager) return;
 
-        if (['sword', 'dual_swords', 'boomerang', 'poison_potion', 'magic_dagger', 'axe', 'bow'].includes(this.type)) {
+        // [수정] magic_spear에도 공격 애니메이션 타이머 적용
+        if (['sword', 'dual_swords', 'boomerang', 'poison_potion', 'magic_dagger', 'axe', 'bow', 'magic_spear'].includes(this.type)) {
             unit.attackAnimationTimer = 12; // [MODIFIED] 공격 애니메이션 속도 증가 (15 -> 12)
         }
 
@@ -184,9 +185,19 @@ export class Weapon {
             gameManager.createProjectile(unit, target, 'lightning_bolt');
             gameManager.audioManager.play('electricity');
             unit.attackCooldown = unit.cooldownTime;
-        } else if (this.type === 'magic_spear') {
+        } else if (this.type === 'magic_spear') { // [수정] 마법창 공격 로직
+            // 특수 공격 (기절한 적 대상)
+            if (target.isStunned > 0 && target.stunnedByMagicCircle) {
+                gameManager.createProjectile(unit, target, 'magic_spear_special');
+                gameManager.audioManager.play('spear');
+                // 특수 공격 시 화려한 파티클 효과 추가
+                for (let i = 0; i < 20; i++) {
+                    gameManager.addParticle({ x: unit.pixelX, y: unit.pixelY, vx: (gameManager.random() - 0.5) * 4, vy: (gameManager.random() - 0.5) * 4, life: 0.8, color: ['#a855f7', '#d8b4fe', '#ffffff'][Math.floor(gameManager.random() * 3)], size: gameManager.random() * 2 + 1, gravity: 0.02 });
+                }
+            } else { // 일반 공격
             gameManager.createProjectile(unit, target, 'magic_spear_normal');
             gameManager.audioManager.play('punch');
+            }
             unit.attackCooldown = unit.cooldownTime;
         } else if (this.type === 'boomerang') {
             gameManager.createProjectile(unit, target, 'boomerang_normal_projectile');
@@ -486,8 +497,18 @@ export class Weapon {
                 ctx.restore();
             }
         } else if (this.type === 'magic_spear') {
-            ctx.translate(GRID_SIZE * 0.2, GRID_SIZE * 0.4);
-            this.drawMagicSpear(ctx, 0.5, -Math.PI / 8 + Math.PI);
+            // [수정] 공격 애니메이션 추가 및 방향 수정
+            let spearX = GRID_SIZE * 0.2;
+            const spearY = GRID_SIZE * 0.4;
+
+            if (unit.attackAnimationTimer > 0) {
+                const duration = 12;
+                const progress = (duration - unit.attackAnimationTimer) / duration;
+                // 뒤로 당겼다가 앞으로 나가는 모션 (sin 곡선 활용)
+                spearX -= Math.sin(progress * Math.PI) * GRID_SIZE * 1.2;
+            }
+            ctx.translate(spearX, spearY);
+            this.drawMagicSpear(ctx, 0.5, -Math.PI / 8); // +Math.PI 제거하여 정방향으로 수정
         } else if (this.type === 'boomerang') {
             ctx.translate(0, -GRID_SIZE * 0.5); 
             this.drawBoomerang(ctx, 0.5);
