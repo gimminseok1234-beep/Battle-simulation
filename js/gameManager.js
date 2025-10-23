@@ -165,6 +165,7 @@ export class GameManager {
     showHomeScreen() {
         this.state = 'HOME';
         this.currentMapId = null;
+        this.isReplayMode = false;
         this.currentMapName = null;
         document.getElementById('homeScreen').style.display = 'block';
         document.getElementById('editorScreen').style.display = 'none';
@@ -195,7 +196,7 @@ export class GameManager {
     async showEditorScreen(mapId) {
         this.state = 'EDIT';
         this.currentMapId = mapId;
-        this.isReplayMode = false;
+        this.isReplayMode = (mapId === 'replay');
         document.getElementById('homeScreen').style.display = 'none';
         document.getElementById('defaultMapsScreen').style.display = 'none';
         document.getElementById('replayScreen').style.display = 'none';
@@ -1372,7 +1373,6 @@ export class GameManager {
 
     async loadReplay(replayId, replayData) {
         await this.showEditorScreen('replay');
-        this.isReplayMode = true;
         this.simulationSeed = replayData.simulationSeed;
         this.rngPolicy = replayData.rngPolicy || 'legacy';
         this.currentMapId = replayId; 
