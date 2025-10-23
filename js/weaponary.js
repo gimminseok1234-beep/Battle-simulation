@@ -1462,7 +1462,7 @@ export class Projectile {
             ctx.save();
             ctx.translate(this.pixelX, this.pixelY);
             ctx.rotate(this.angle + Math.PI / 2); // 병이 위를 향하도록
-            const scale = 0.5;
+            const scale = 0.6; // [수정] 크기를 20% 키움 (0.5 -> 0.6)
             ctx.scale(scale, scale);
 
             // 병 몸체 (초록색 액체)
