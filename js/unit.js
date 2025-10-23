@@ -1594,13 +1594,7 @@ export class Unit {
         if (specialSkillIsVisible) {
             let fgColor, progress = 0, max = 1;
 
-            if (this.weapon?.type === 'fire_staff') {
-                fgColor = '#ef4444';
-                progress = 240 - this.fireStaffSpecialCooldown; max = 240;
-            } else if (['boomerang', 'shuriken', 'poison_potion', 'magic_dagger', 'axe', 'dual_swords'].includes(this.weapon?.type)) {
-                fgColor = '#94a3b8';
-                if(this.weapon.type === 'boomerang') {
-            // [수정] 모든 충전식 무기의 게이지 색상을 회색으로 통일
+            // [수정] 모든 충전식 무기의 게이지 로직을 단일 if 블록으로 통합하여 문법 오류 해결
             const specialAttackWeapons = ['fire_staff', 'boomerang', 'shuriken', 'poison_potion', 'magic_dagger', 'axe', 'dual_swords', 'magic_spear', 'ice_diamond'];
             if (specialAttackWeapons.includes(this.weapon?.type)) {
                 fgColor = '#facc15'; // 특수 공격 게이지 색상을 노란색으로 변경
@@ -1609,20 +1603,20 @@ export class Unit {
                     progress = 240 - this.fireStaffSpecialCooldown; max = 240;
                 } else if (this.weapon.type === 'boomerang') {
                     progress = 480 - this.boomerangCooldown; max = 480;
-                } else if (this.weapon.type === 'magic_spear') {
-                    progress = 420 - this.magicSpearSpecialCooldown; max = 420;
-                } else if (this.weapon.type === 'ice_diamond') {
-                    progress = this.iceDiamondChargeTimer; max = 240;
-                } else if (this.weapon.type === 'poison_potion') { // Casting bar
-                    progress = this.castingProgress; max = this.castDuration;
                 } else if (this.weapon.type === 'shuriken') {
                     progress = 300 - this.shurikenSkillCooldown; max = 300;
+                } else if (this.weapon.type === 'poison_potion') { // Casting bar
+                    progress = this.castingProgress; max = this.castDuration;
                 } else if (this.weapon.type === 'magic_dagger') {
                     progress = 420 - this.magicDaggerSkillCooldown; max = 420;
                 } else if (this.weapon.type === 'axe') {
                     progress = 240 - this.axeSkillCooldown; max = 240;
                 } else if (this.weapon.type === 'dual_swords') {
                     progress = 300 - this.dualSwordSkillCooldown; max = 300;
+                } else if (this.weapon.type === 'magic_spear') {
+                    progress = 420 - this.magicSpearSpecialCooldown; max = 420;
+                } else if (this.weapon.type === 'ice_diamond') {
+                    progress = this.iceDiamondChargeTimer; max = 240;
                 }
             }
 
