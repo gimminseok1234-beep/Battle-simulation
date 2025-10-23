@@ -365,13 +365,15 @@ export class SimulationManager {
                     if (p.type === 'magic_spear_special') {
                         unit.takeDamage(p.damage, { stun: 120 }, p.owner);
                         
+                        // [수정] 파편이 최초 대상을 다시 공격하지 않도록, 최초 대상을 hitTargets에 추가
+                        const initialHitTargets = new Set([unit]);
                         const baseAngle = p.angle;
                         const spread = Math.PI / 4; // 45도
                         const angles = [baseAngle - spread, baseAngle, baseAngle + spread];
 
                         angles.forEach(angle => {
                             const dummyTarget = { pixelX: unit.pixelX + Math.cos(angle) * 100, pixelY: unit.pixelY + Math.sin(angle) * 100 };
-                            gm.createProjectile(p.owner, dummyTarget, 'magic_spear_fragment', { startX: unit.pixelX, startY: unit.pixelY, angle: angle });
+                            gm.createProjectile(p.owner, dummyTarget, 'magic_spear_fragment', { startX: unit.pixelX, startY: unit.pixelY, angle: angle, hitTargets: initialHitTargets });
                         });
                     }
         
