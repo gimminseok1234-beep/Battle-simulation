@@ -387,6 +387,19 @@ export class SimulationManager {
             }
         
             if (!hit) {
+                // [신규] 독 포션 투사체의 벽 충돌 처리
+                const gridX = Math.floor(p.pixelX / GRID_SIZE);
+                const gridY = Math.floor(p.pixelY / GRID_SIZE);
+                if (gridY >= 0 && gridY < gm.ROWS && gridX >= 0 && gridX < gm.COLS) {
+                    const tile = gm.map[gridY][gridX];
+                    if (p.type === 'poison_potion_projectile' && (tile.type === 'WALL' || tile.type === 'CRACKED_WALL')) {
+                        if (tile.type === 'CRACKED_WALL') {
+                            gm.damageTile(gridX, gridY, p.damage);
+                        }
+                        gm.addPoisonPuddle(gridX, gridY);
+                        p.destroyed = true;
+                    }
+                }
                 for (const nexus of gm.nexuses) {
                     if (p.owner.team !== nexus.team && Math.hypot(p.pixelX - nexus.pixelX, p.pixelY - nexus.pixelY) < GRID_SIZE) {
                         if (p.type === 'ice_diamond_projectile') {
