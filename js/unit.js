@@ -1522,9 +1522,9 @@ export class Unit {
         const barHeight = 4;
         const barGap = 1;
         const barX = this.pixelX - barWidth / 2;
-        
+
         const healthBarIsVisible = this.hpBarAlpha > 0;
-        const normalAttackIsVisible = (this.isCasting && this.weapon?.type === 'poison_potion') || (this.attackCooldown > 0);
+        const normalAttackIsVisible = (this.weapon?.type === 'poison_potion' && this.poisonPotionCooldown > 0) || (this.weapon?.type !== 'poison_potion' && this.attackCooldown > 0);
         const kingSpawnBarIsVisible = this.isKing && this.spawnCooldown > 0;
         let specialSkillIsVisible = // [수정] 독 포션은 원형 특수 공격 게이지에서 제외
             (this.weapon?.type === 'magic_dagger' && this.magicDaggerSkillCooldown > 0) ||
@@ -1534,7 +1534,7 @@ export class Unit {
             (this.weapon?.type === 'shuriken' && this.shurikenSkillCooldown > 0) ||
             (this.weapon?.type === 'fire_staff' && this.fireStaffSpecialCooldown > 0) ||
             (this.weapon?.type === 'dual_swords' && this.dualSwordSkillCooldown > 0) ||
-            (this.isCasting);
+            (this.isCasting && this.weapon?.type !== 'poison_potion');
 
         if (this.attackCooldown > 0 && !this.isCasting) {
             specialSkillIsVisible = false;
@@ -1555,13 +1555,15 @@ export class Unit {
             if (normalAttackIsVisible) {
                 ctx.fillStyle = '#0c4a6e';
                 ctx.fillRect(barX, currentBarY, barWidth, barHeight);
-                let progress = 0;
-                if (this.isCasting && this.weapon?.type === 'poison_potion') {
-                    progress = this.castingProgress / this.castDuration;
+                let progress, fgColor;
+                if (this.weapon?.type === 'poison_potion') {
+                    progress = 1 - (this.poisonPotionCooldown / 300);
+                    fgColor = '#38bdf8'; // 하늘색
                 } else {
                     progress = Math.max(0, 1 - (this.attackCooldown / this.cooldownTime));
+                    fgColor = '#38bdf8';
                 }
-                ctx.fillStyle = '#38bdf8';
+                ctx.fillStyle = fgColor;
                 ctx.fillRect(barX, currentBarY, barWidth * progress, barHeight);
                 currentBarY += barHeight + barGap;
             }
