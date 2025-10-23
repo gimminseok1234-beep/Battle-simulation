@@ -261,7 +261,7 @@ export function drawMagicSpear(ctx, scale = 1.0, rotation = 0) {
 	ctx.moveTo(headBaseX, -headWidth);
 	ctx.lineTo(headBaseX + headLength, 0);
 	ctx.lineTo(headBaseX, headWidth);
-	ctx.quadraticCurveTo(headBaseX - headLength * 0.2, 0, headBaseX, -headWidth);
+	ctx.lineTo(headBaseX - headLength * 0.2, 0); // [수정] 곡선을 직선으로 변경하여 다이아몬드 형태로
 	ctx.closePath();
 	ctx.fill();
 	ctx.stroke();
