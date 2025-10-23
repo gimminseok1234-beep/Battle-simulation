@@ -544,26 +544,30 @@ export class Weapon {
      * @param {number} rotation - The rotation angle.
      */
     drawBow(ctx, scale, isEquipped, unit, rotation) {
-        ctx.save();
-        
         if (isEquipped) {
-            // [수정] unit 객체에 월드 좌표가 없을 경우를 대비한 방어 코드 추가
-            const unitWorldX = unit.worldPixelX ?? unit.pixelX;
-            const unitWorldY = unit.worldPixelY ?? unit.pixelY;
-
             let bowAngle;
             // 공격 대상이 있으면 대상을 향하고, 없으면 유닛이 바라보는 방향의 옆에 위치합니다.
             if (unit.target && (unit.state === 'AGGRESSIVE' || unit.state === 'ATTACKING_NEXUS')) {
                 // [수정] 유닛의 월드 좌표를 기준으로 타겟과의 각도를 정확히 계산합니다.
-                bowAngle = Math.atan2(unit.target.pixelY - unitWorldY, unit.target.pixelX - unitWorldX);
+                bowAngle = Math.atan2(unit.target.pixelY - unit.pixelY, unit.target.pixelX - unit.pixelX);
             } else {
-                // 기본적으로 유닛이 바라보는 방향의 약간 옆에 활을 위치시킵니다.
-                bowAngle = unit.facingAngle - Math.PI / 4;
+                // [수정] 기본 방향: 화살촉이 아래를 향하도록 (90도)
+                bowAngle = Math.PI / 2;
             }
 
-            const orbitRadius = GRID_SIZE * 0.7;
-            const bowX = Math.cos(bowAngle) * orbitRadius;
-            const bowY = Math.sin(bowAngle) * orbitRadius;
+            // [수정] 활 위치를 유닛의 정중앙 아래로 고정
+            const orbitRadius = GRID_SIZE * 0.8;
+            let bowX, bowY;
+
+            if (unit.target && (unit.state === 'AGGRESSIVE' || unit.state === 'ATTACKING_NEXUS')) {
+                // 적이 있을 경우, 적 방향으로 위치 조정
+                bowX = Math.cos(bowAngle) * orbitRadius;
+                bowY = Math.sin(bowAngle) * orbitRadius;
+            } else {
+                // 평상시에는 유닛 아래쪽에 위치
+                bowX = 0;
+                bowY = orbitRadius;
+            }
 
             ctx.translate(bowX, bowY); // 유닛 중심으로부터 계산된 위치로 이동
             ctx.rotate(bowAngle);      // 활의 방향을 위치 각도와 일치시켜 화살촉이 바깥을 향하게 함
@@ -571,11 +575,11 @@ export class Weapon {
             ctx.rotate(rotation);      // 바닥에 놓일 때의 기본 각도
         }
         ctx.scale(scale, scale);
+        ctx.rotate(-Math.PI / 2); // [수정] 활의 기본 방향을 화살촉이 아래로 향하도록 회전
 
         // 1. Draw Bow Body
         ctx.strokeStyle = 'black';
-        ctx.lineWidth = 6 / scale;
-        ctx.lineWidth = 5 / scale; // 선 두께를 약간 줄여 더 날렵하게 보이도록 수정
+        ctx.lineWidth = 5 / scale;
         ctx.beginPath();
         ctx.arc(0, 0, GRID_SIZE * 0.8, -Math.PI / 2.2, Math.PI / 2.2);
         ctx.stroke();
@@ -591,7 +595,7 @@ export class Weapon {
         const bowstringY2 = Math.sin(arcAngle) * arcRadius;
         const bowstringX = Math.cos(arcAngle) * arcRadius;
         
-        let pullBack = -GRID_SIZE * 0.3; // 활시위 당김 기본 위치 조정
+        let pullBack = -GRID_SIZE * 0.4;
         if (isEquipped && unit && unit.attackAnimationTimer > 0) {
             const pullProgress = Math.sin((15 - unit.attackAnimationTimer) / 15 * Math.PI);
             pullBack -= pullProgress * GRID_SIZE * 0.5;
@@ -622,8 +626,6 @@ export class Weapon {
             ctx.fill();
             ctx.stroke();
         }
-
-        ctx.restore();
     }
 }
 
