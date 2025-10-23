@@ -1140,6 +1140,28 @@ export class Unit {
                         }
                     }
 
+                    // [수정] 누락된 마법창 및 쌍검 특수 공격 로직 추가
+                    if (this.weapon?.type === 'magic_spear' && this.magicSpearSpecialCooldown <= 0) {
+                        this.moveTarget = null;
+                        this.attack(this.target);
+                        this.facingAngle = Math.atan2(this.target.pixelY - this.pixelY, this.target.pixelX - this.pixelX);
+                        this.magicSpearSpecialCooldown = 420; // 7초 쿨다운
+                        break;
+                    }
+
+                    if (this.weapon && this.weapon.type === 'dual_swords' && this.dualSwordSkillCooldown <= 0) {
+                        const distanceToTarget = Math.hypot(this.pixelX - this.target.pixelX, this.pixelY - this.target.pixelY);
+                        if (distanceToTarget <= this.detectionRange && gameManager.hasLineOfSight(this, this.target)) {
+                            gameManager.audioManager.play('shurikenShoot');
+                            gameManager.createProjectile(this, this.target, 'bouncing_sword');
+                            this.dualSwordSkillCooldown = 300;
+                            this.attackCooldown = 60;
+                            this.moveTarget = null;
+                            this.facingAngle = Math.atan2(this.target.pixelY - this.pixelY, this.target.pixelX - this.pixelX);
+                            break;
+                        }
+                    }
+
                     let attackDistance = this.attackRange;
                     if (this.weapon && this.weapon.type === 'poison_potion') {
                         attackDistance = this.baseAttackRange;
@@ -1581,38 +1603,27 @@ export class Unit {
             // [수정] 모든 충전식 무기의 게이지 색상을 회색으로 통일
             const specialAttackWeapons = ['fire_staff', 'boomerang', 'shuriken', 'poison_potion', 'magic_dagger', 'axe', 'dual_swords', 'magic_spear', 'ice_diamond'];
             if (specialAttackWeapons.includes(this.weapon?.type)) {
-                fgColor = '#facc15'; // [수정] 특수 공격 게이지 색상을 노란색으로 변경
+                fgColor = '#facc15'; // 특수 공격 게이지 색상을 노란색으로 변경
 
                 if (this.weapon.type === 'fire_staff') {
                     progress = 240 - this.fireStaffSpecialCooldown; max = 240;
                 } else if (this.weapon.type === 'boomerang') {
                     progress = 480 - this.boomerangCooldown; max = 480;
-                } else if(this.weapon.type === 'shuriken') {
-                } else if (this.weapon.type === 'shuriken') {
-                    progress = 300 - this.shurikenSkillCooldown; max = 300;
-                } else if(this.weapon.type === 'magic_dagger') {
-                } else if (this.weapon.type === 'magic_dagger') {
-                    progress = 420 - this.magicDaggerSkillCooldown; max = 420;
-                } else if(this.weapon.type === 'axe') {
-                } else if (this.weapon.type === 'axe') {
-                    progress = 240 - this.axeSkillCooldown; max = 240;
-                } else if(this.weapon.type === 'dual_swords') {
-                } else if (this.weapon.type === 'dual_swords') {
-                    progress = 300 - this.dualSwordSkillCooldown; max = 300;
-                } else {
                 } else if (this.weapon.type === 'magic_spear') {
                     progress = 420 - this.magicSpearSpecialCooldown; max = 420;
                 } else if (this.weapon.type === 'ice_diamond') {
                     progress = this.iceDiamondChargeTimer; max = 240;
                 } else if (this.weapon.type === 'poison_potion') { // Casting bar
                     progress = this.castingProgress; max = this.castDuration;
+                } else if (this.weapon.type === 'shuriken') {
+                    progress = 300 - this.shurikenSkillCooldown; max = 300;
+                } else if (this.weapon.type === 'magic_dagger') {
+                    progress = 420 - this.magicDaggerSkillCooldown; max = 420;
+                } else if (this.weapon.type === 'axe') {
+                    progress = 240 - this.axeSkillCooldown; max = 240;
+                } else if (this.weapon.type === 'dual_swords') {
+                    progress = 300 - this.dualSwordSkillCooldown; max = 300;
                 }
-            } else if (this.weapon?.type === 'ice_diamond') {
-                fgColor = '#38bdf8';
-                progress = this.iceDiamondChargeTimer; max = 240;
-            } else if (this.weapon?.type === 'magic_spear') {
-                fgColor = '#a855f7'; // 보라색
-                progress = 420 - this.magicSpearSpecialCooldown; max = 420;
             }
 
             if (fgColor) {
