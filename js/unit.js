@@ -473,7 +473,7 @@ export class Unit {
             this.killedBy = attacker;
 
             // [NEW] 공격받았을 때 기본 넉백 효과 추가
-            if (!effectInfo.force && damage > 0 && !effectInfo.isTileDamage) {
+            if (!effectInfo.force && damage > 0 && !effectInfo.isTileDamage && !effectInfo.noKnockback) {
                 const angle = Math.atan2(this.pixelY - attacker.pixelY, this.pixelX - attacker.pixelX);
                 const force = 1.5; // 기본 넉백 강도
                 this.knockbackX += Math.cos(angle) * force;
