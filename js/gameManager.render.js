@@ -57,12 +57,12 @@ export function drawImpl(mouseEvent) {
     this.areaEffects.forEach(e => e.draw(this.ctx));
     this.particles.forEach(p => p.draw(this.ctx));
 
-    if (this.state === 'EDIT' && this.currentTool.tool === 'growing_field' && this.dragStartPos && this.isPainting && mouseEvent) {
-        const currentPos = this.getMousePos(mouseEvent);
-        const x = Math.min(this.dragStartPos.gridX, currentPos.gridX) * GRID_SIZE;
-        const y = Math.min(this.dragStartPos.gridY, currentPos.gridY) * GRID_SIZE;
-        const width = (Math.abs(this.dragStartPos.gridX - currentPos.gridX) + 1) * GRID_SIZE;
-        const height = (Math.abs(this.dragStartPos.gridY - currentPos.gridY) + 1) * GRID_SIZE;
+    if (this.state === 'EDIT' && this.currentTool.tool === 'growing_field' && this.inputManager.dragStartPos && this.inputManager.isPainting && mouseEvent) {
+        const currentPos = this.inputManager.getMousePos(mouseEvent);
+        const x = Math.min(this.inputManager.dragStartPos.gridX, currentPos.gridX) * GRID_SIZE;
+        const y = Math.min(this.inputManager.dragStartPos.gridY, currentPos.gridY) * GRID_SIZE;
+        const width = (Math.abs(this.inputManager.dragStartPos.gridX - currentPos.gridX) + 1) * GRID_SIZE;
+        const height = (Math.abs(this.inputManager.dragStartPos.gridY - currentPos.gridY) + 1) * GRID_SIZE;
         
         this.ctx.fillStyle = 'rgba(168, 85, 247, 0.3)';
         this.ctx.fillRect(x, y, width, height);
