@@ -44,6 +44,8 @@ export class Unit {
         this.isStunned = 0;
         this.stunnedByMagicCircle = false;
         this.poisonEffect = { active: false, duration: 0, damage: 0 };
+        this.poisonPotionCooldown = 0; // [신규] 독 포션 공격 쿨다운
+        this.poisonPuddleDamageCooldown = 0; // [신규] 독 장판 중복 데미지 방지 쿨다운
         this.isBeingPulled = false;
         this.puller = null;
         this.pullTargetPos = null;
@@ -514,11 +516,7 @@ export class Unit {
 
     handleDeath() {
         const gameManager = this.gameManager;
-        if (!gameManager) return;
-
-        if (this.weapon && this.weapon.type === 'poison_potion') {
-            gameManager.castAreaSpell({ x: this.pixelX, y: this.pixelY }, 'poison_cloud', this.team, this.specialAttackLevelBonus);
-        }
+        if (!gameManager) return; // [수정] 독 포션 자폭 로직 제거
     }
 
     update(enemies, weapons, projectiles) {
@@ -767,6 +765,7 @@ export class Unit {
         if (this.boomerangCooldown > 0) this.boomerangCooldown -= gameManager.gameSpeed;
         if (this.shurikenSkillCooldown > 0) this.shurikenSkillCooldown -= gameManager.gameSpeed;
         if (this.fireStaffSpecialCooldown > 0) this.fireStaffSpecialCooldown -= gameManager.gameSpeed;
+        if (this.poisonPotionCooldown > 0) this.poisonPotionCooldown -= gameManager.gameSpeed; // [신규] 독 포션 쿨다운 감소
         if (this.fleeingCooldown > 0) this.fleeingCooldown -= gameManager.gameSpeed;
 
         if (this.pathUpdateCooldown > 0) this.pathUpdateCooldown -= gameManager.gameSpeed;
@@ -821,19 +820,7 @@ export class Unit {
             gameManager.spawnUnit(this, false);
         }
 
-        if (this.isCasting) {
-            this.castingProgress += gameManager.gameSpeed;
-            if (!this.target || (this.target instanceof Unit && this.target.hp <= 0)) {
-                this.isCasting = false; this.castingProgress = 0; return;
-            }
-            if (this.castingProgress >= this.castDuration) {
-                this.isCasting = false; this.castingProgress = 0;
-
-                if (this.weapon.type === 'poison_potion') {
-                    gameManager.audioManager.play('poison');
-                    this.hp = 0;
-                }
-            }
+        if (this.isCasting) { // [수정] 독 포션 캐스팅 로직 제거
             this.applyPhysics();
             return;
         }
@@ -949,6 +936,17 @@ export class Unit {
             }
         }
 
+        // [신규] 독 포션 공격 로직
+        if (this.weapon?.type === 'poison_potion' && this.poisonPotionCooldown <= 0) {
+            const { item: closestEnemy } = this.findClosest(enemies);
+            if (closestEnemy) {
+                this.poisonPotionCooldown = 300; // 5초 쿨다운
+                this.attack(closestEnemy);
+                this.facingAngle = Math.atan2(closestEnemy.pixelY - this.pixelY, closestEnemy.pixelX - this.pixelX);
+            }
+        }
+
+
 
         let newState = 'IDLE';
         let newTarget = null;
@@ -982,6 +980,9 @@ export class Unit {
                     break;
                 case 'magic_spear':
                     this.isSpecialAttackReady = (this.magicSpearSpecialCooldown <= 0);
+                    break;
+                case 'poison_potion':
+                    this.isSpecialAttackReady = (this.poisonPotionCooldown <= 0);
                     break;
                 default:
                     this.isSpecialAttackReady = false;
@@ -1175,10 +1176,7 @@ export class Unit {
                             break;
                         }
                     }
-                    let attackDistance = this.attackRange;
-                    if (this.weapon && this.weapon.type === 'poison_potion') {
-                        attackDistance = this.baseAttackRange;
-                    }
+                    let attackDistance = this.attackRange; // [수정] 독 포션 관련 로직 제거
                     if (Math.hypot(this.pixelX - this.target.pixelX, this.pixelY - this.target.pixelY) <= attackDistance) {
                         this.moveTarget = null;
                         this.attack(this.target);
@@ -1228,6 +1226,19 @@ export class Unit {
 
         if (this.isInMagneticField) {
             this.takeDamage(0.3 * gameManager.gameSpeed, { isTileDamage: true });
+        }
+
+        // [신규] 독 장판 데미지 처리
+        if (this.poisonPuddleDamageCooldown > 0) {
+            this.poisonPuddleDamageCooldown -= gameManager.gameSpeed;
+        }
+        const isOnPuddle = gameManager.isPosInPoisonPuddle(finalGridX, finalGridY);
+        if (isOnPuddle && this.poisonPuddleDamageCooldown <= 0) {
+            this.takeDamage(1, { isTileDamage: true }); // 0.5초마다 1의 데미지
+            this.poisonEffect.active = true; // 독 이펙트(속도 감소 등) 활성화
+            this.poisonEffect.duration = 120; // 2초간 유지
+            this.poisonEffect.damage = 0; // 장판 자체 데미지만 적용
+            this.poisonPuddleDamageCooldown = 30; // 0.5초 쿨다운
         }
 
         if (finalGridY >= 0 && finalGridY < gameManager.ROWS && finalGridX >= 0 && finalGridX < gameManager.COLS) {
@@ -1510,7 +1521,7 @@ export class Unit {
         const normalAttackIsVisible = (this.isCasting && this.weapon?.type === 'poison_potion') || (this.attackCooldown > 0);
         const kingSpawnBarIsVisible = this.isKing && this.spawnCooldown > 0;
         let specialSkillIsVisible =
-            (this.weapon?.type === 'magic_dagger' && this.magicDaggerSkillCooldown > 0) ||
+            (this.weapon?.type === 'poison_potion' && this.poisonPotionCooldown > 0) || (this.weapon?.type === 'magic_dagger' && this.magicDaggerSkillCooldown > 0) ||
             (this.weapon?.type === 'axe' && this.axeSkillCooldown > 0) ||
             (this.weapon?.type === 'ice_diamond' && this.iceDiamondChargeTimer > 0 && this.iceDiamondCharges < 5) || (this.weapon?.type === 'magic_spear' && this.magicSpearSpecialCooldown > 0) ||
             (this.weapon?.type === 'boomerang' && this.boomerangCooldown > 0) ||
@@ -1623,9 +1634,9 @@ export class Unit {
                         fgColor = '#94a3b8'; // 회색
                         progress = 300 - this.shurikenSkillCooldown; max = 300;
                         break;
-                    case 'poison_potion': // Casting bar
-                        fgColor = '#94a3b8'; // 회색 (기본값)
-                        progress = this.castingProgress; max = this.castDuration;
+                    case 'poison_potion':
+                        fgColor = '#84cc16'; // 라임색
+                        progress = 300 - this.poisonPotionCooldown; max = 300;
                         break;
                     case 'magic_dagger':
                         fgColor = '#94a3b8'; // 회색 (기본값)
