@@ -190,6 +190,7 @@ export class Weapon {
             if (unit.magicSpearSpecialCooldown <= 0) {
                 gameManager.createProjectile(unit, target, 'magic_spear_special');
                 gameManager.audioManager.play('spear');
+                // [수정] 쿨다운 설정 로직을 unit.js로 일원화하여 중복 제거
             } else { // 일반 공격
                 gameManager.createProjectile(unit, target, 'magic_spear_normal');
                 gameManager.audioManager.play('punch');
