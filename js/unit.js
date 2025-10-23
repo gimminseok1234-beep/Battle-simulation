@@ -1176,12 +1176,18 @@ export class Unit {
                             break;
                         }
                     }
-                    let attackDistance = this.attackRange; // [수정] 독 포션 관련 로직 제거
-                    if (Math.hypot(this.pixelX - this.target.pixelX, this.pixelY - this.target.pixelY) <= attackDistance) {
-                        this.moveTarget = null;
-                        this.attack(this.target);
-                        this.facingAngle = Math.atan2(this.target.pixelY - this.pixelY, this.target.pixelX - this.pixelX);
-                    } else { this.moveTarget = { x: this.target.pixelX, y: this.target.pixelY }; }
+                    // [수정] 독 포션 유닛은 5초 쿨다운 공격만 하므로, 일반 근접 공격 로직에서 제외합니다.
+                    if (this.weapon?.type === 'poison_potion') {
+                        // 독 포션 유닛은 원거리 공격만 하므로, 적에게 다가가기만 합니다.
+                        this.moveTarget = { x: this.target.pixelX, y: this.target.pixelY };
+                    } else {
+                        let attackDistance = this.attackRange;
+                        if (Math.hypot(this.pixelX - this.target.pixelX, this.pixelY - this.target.pixelY) <= attackDistance) {
+                            this.moveTarget = null;
+                            this.attack(this.target);
+                            this.facingAngle = Math.atan2(this.target.pixelY - this.pixelY, this.target.pixelX - this.pixelX);
+                        } else { this.moveTarget = { x: this.target.pixelX, y: this.target.pixelY }; }
+                    }
                 }
                 break;
             case 'IDLE': default:
