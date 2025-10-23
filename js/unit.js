@@ -1171,6 +1171,10 @@ export class Unit {
                         this.moveTarget = null;
                         this.attack(this.target);
                         this.facingAngle = Math.atan2(this.target.pixelY - this.pixelY, this.target.pixelX - this.pixelX);
+                    } else if (this.weapon?.type === 'magic_spear' && this.magicSpearSpecialCooldown > 0) {
+                        // [수정] 특수 공격 쿨다운 중일 때 일반 공격을 위해 추가
+                        this.weapon.use = (unit, target) => gameManager.createProjectile(unit, target, 'magic_spear_normal');
+                        this.attack(this.target);
                     } else { this.moveTarget = { x: this.target.pixelX, y: this.target.pixelY }; }
                 }
                 break;
