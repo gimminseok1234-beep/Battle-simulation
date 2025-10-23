@@ -527,42 +527,6 @@ export class Unit {
             return;
         }
 
-        // [수정] isSpecialAttackReady 업데이트 로직을 최상단으로 이동하여 매 프레임마다 상태가 정확히 갱신되도록 합니다.
-        if (this.weapon) {
-            switch (this.weapon.type) {
-                case 'sword':
-                case 'bow':
-                    // 3타마다 특수 공격이므로, 2번 공격하면 다음 공격이 특수 공격임
-                    this.isSpecialAttackReady = (this.attackCount === 2);
-                    break;
-                case 'shuriken':
-                    this.isSpecialAttackReady = (this.shurikenSkillCooldown <= 0);
-                    break;
-                case 'axe':
-                    this.isSpecialAttackReady = (this.axeSkillCooldown <= 0);
-                    break;
-                case 'fire_staff':
-                    this.isSpecialAttackReady = (this.fireStaffSpecialCooldown <= 0);
-                    break;
-                case 'boomerang':
-                    this.isSpecialAttackReady = (this.boomerangCooldown <= 0);
-                    break;
-                case 'magic_dagger':
-                    this.isSpecialAttackReady = (this.magicDaggerSkillCooldown <= 0 && !this.isAimingMagicDagger);
-                    break;
-                case 'dual_swords':
-                    this.isSpecialAttackReady = (this.dualSwordSkillCooldown <= 0);
-                    break;
-                case 'magic_spear':
-                    this.isSpecialAttackReady = (this.magicSpearSpecialCooldown <= 0);
-                    break;
-                default:
-                    this.isSpecialAttackReady = false;
-            }
-        } else {
-            this.isSpecialAttackReady = false;
-        }
-
         // [추가] 부드러운 체력바 감소 및 피격 효과 처리
         if (this.displayHp > this.hp) {
             // 현재 체력과 표시 체력의 차이에 비례하여 빠르게 감소 (0.1은 속도 조절 계수)
@@ -989,6 +953,42 @@ export class Unit {
         let newState = 'IDLE';
         let newTarget = null;
         let targetEnemyForAlert = null;
+
+        // [수정] isSpecialAttackReady 업데이트 로직을 상태 결정 로직 이전으로 이동하여 매 프레임마다 상태가 정확히 갱신되도록 합니다.
+        if (this.weapon) {
+            switch (this.weapon.type) {
+                case 'sword':
+                case 'bow':
+                    // 3타마다 특수 공격이므로, 2번 공격하면 다음 공격이 특수 공격임
+                    this.isSpecialAttackReady = (this.attackCount === 2);
+                    break;
+                case 'shuriken':
+                    this.isSpecialAttackReady = (this.shurikenSkillCooldown <= 0);
+                    break;
+                case 'axe':
+                    this.isSpecialAttackReady = (this.axeSkillCooldown <= 0);
+                    break;
+                case 'fire_staff':
+                    this.isSpecialAttackReady = (this.fireStaffSpecialCooldown <= 0);
+                    break;
+                case 'boomerang':
+                    this.isSpecialAttackReady = (this.boomerangCooldown <= 0);
+                    break;
+                case 'magic_dagger':
+                    this.isSpecialAttackReady = (this.magicDaggerSkillCooldown <= 0 && !this.isAimingMagicDagger);
+                    break;
+                case 'dual_swords':
+                    this.isSpecialAttackReady = (this.dualSwordSkillCooldown <= 0);
+                    break;
+                case 'magic_spear':
+                    this.isSpecialAttackReady = (this.magicSpearSpecialCooldown <= 0);
+                    break;
+                default:
+                    this.isSpecialAttackReady = false;
+            }
+        } else {
+            this.isSpecialAttackReady = false;
+        }
 
         const currentGridXBeforeMove = Math.floor(this.pixelX / GRID_SIZE);
         const currentGridYBeforeMove = Math.floor(this.pixelY / GRID_SIZE);
