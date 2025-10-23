@@ -181,12 +181,9 @@ export class Weapon {
             gameManager.createProjectile(unit, target, 'magic_spear_normal');
             gameManager.audioManager.play('punch');
             unit.attackCooldown = unit.cooldownTime;
-        } else if (this.type === 'boomerang') {
+        } else if (this.type === 'boomerang' || this.type === 'poison_potion') { // [수정] 독 포션 공격 로직 추가
             gameManager.createProjectile(unit, target, 'boomerang_normal_projectile');
-            gameManager.audioManager.play('punch');
-            unit.attackCooldown = unit.cooldownTime;
-        } else if (this.type === 'poison_potion') {
-            target.takeDamage(15, {}, unit);
+            gameManager.audioManager.play('shurikenShoot'); // [수정] 효과음 변경
             unit.attackCooldown = unit.cooldownTime;
         }
     }
@@ -793,6 +790,10 @@ export class Projectile {
                 break;
             case 'boomerang_projectile': 
                 this.damage = 0; 
+                break;
+            case 'poison_potion_projectile': // [신규] 독 포션 투사체
+                this.damage = 10 + baseSpecialDamage;
+                this.speed = 4;
                 break;
 
             // --- 일반 공격력 기반 ---
