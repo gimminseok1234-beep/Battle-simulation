@@ -501,10 +501,10 @@ export class Weapon {
             const orbitRadius = GRID_SIZE * 0.8;
             const weaponX = Math.cos(revolutionAngle) * orbitRadius;
             const weaponY = Math.sin(revolutionAngle) * orbitRadius;
-            
+
             ctx.save();
             ctx.translate(weaponX, weaponY);
-            this.drawPoisonPotion(ctx, 0.4); // 크기를 약간 키워 가시성 확보
+            this.drawPoisonPotion(ctx, 0.4);
             ctx.restore();
         } else if (this.type === 'hadoken') {
             ctx.translate(GRID_SIZE * 0.5, 0);
