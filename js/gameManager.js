@@ -156,6 +156,8 @@ export class GameManager {
 
     async init() {
         if (!this.currentUser) return;
+        this.uiManager.init();
+        this.inputManager.setupEventListeners();
         this.showHomeScreen();
         await this.persistenceManager.loadNametagSettings();
     }
