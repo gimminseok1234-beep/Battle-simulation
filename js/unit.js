@@ -795,11 +795,11 @@ export class Unit {
         if (this.dualSwordSpinAttackTimer > 0) this.dualSwordSpinAttackTimer -= gameManager.gameSpeed;
         if (this.attackCooldown > 0) this.attackCooldown -= gameManager.gameSpeed;
         if (this.teleportCooldown > 0) this.teleportCooldown -= gameManager.gameSpeed;
-        if (this.alertedCounter > 0) this.alertedCounter -= gameManager.gameSpeed;
+        if (this.alertedCounter > 0) this.alertedCounter -= gameManager.gameSpeed; // [수정] 마법창 특수 공격 쿨다운
         if (this.isKing && this.spawnCooldown > 0) this.spawnCooldown -= gameManager.gameSpeed;
         if (this.evasionCooldown > 0) this.evasionCooldown -= gameManager.gameSpeed;
         if (this.attackAnimationTimer > 0) this.attackAnimationTimer -= gameManager.gameSpeed;
-        if (this.magicCircleCooldown > 0) this.magicCircleCooldown -= gameManager.gameSpeed;
+        if (this.magicSpearSpecialCooldown > 0) this.magicSpearSpecialCooldown -= gameManager.gameSpeed;
         if (this.boomerangCooldown > 0) this.boomerangCooldown -= gameManager.gameSpeed;
         if (this.shurikenSkillCooldown > 0) this.shurikenSkillCooldown -= gameManager.gameSpeed;
         if (this.fireStaffSpecialCooldown > 0) this.fireStaffSpecialCooldown -= gameManager.gameSpeed;
