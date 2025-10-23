@@ -143,19 +143,25 @@ function drawSpecialAttackGlows() {
         if (unit.weapon && GLOWING_WEAPON_TYPES.has(unit.weapon.type) && unit.isSpecialAttackReady) {
             const teamColor = COLORS[`TEAM_${unit.team}`];
             if (teamColor) {
+                this.ctx.save();
+                // drawEquipped는 (0,0)을 기준으로 그리므로 유닛의 실제 위치로 이동해야 합니다.
+                this.ctx.translate(unit.pixelX, unit.pixelY);
+
                 const pulse = Math.sin(this.animationFrameCounter * 0.15) * 0.5 + 0.5;
 
                 // [MODIFIED] 1. 넓고 부드러운 외부 광원 효과 (밝기 재조정)
                 this.ctx.globalAlpha = pulse * 0.3; // 투명도 (0.4 -> 0.3)
                 this.ctx.shadowBlur = 20; // 빛 번짐 효과 (15 -> 20)
                 this.ctx.shadowColor = teamColor;
-                unit.weapon.drawEquipped(this.ctx, unit);
+                unit.weapon.drawEquipped(this.ctx, { ...unit, pixelX: 0, pixelY: 0 });
 
                 // [MODIFIED] 2. 밝고 선명한 내부 광원 효과 (밝기 재조정)
                 this.ctx.globalAlpha = pulse * 0.4; // 투명도 (0.5 -> 0.4)
                 this.ctx.shadowBlur = 10; // 내부 빛 번짐 효과 (8 -> 10)
                 this.ctx.shadowColor = teamColor;
-                unit.weapon.drawEquipped(this.ctx, unit);
+                unit.weapon.drawEquipped(this.ctx, { ...unit, pixelX: 0, pixelY: 0 });
+
+                this.ctx.restore();
             }
         }
     }
