@@ -1,5 +1,5 @@
 import { Unit } from './unit.js';
-import { Weapon, Projectile, AreaEffect, Effect, MagicDaggerDashEffect, createFireballHitEffect, Particle } from './weaponary.js';
+import { Weapon, Projectile, AreaEffect, Effect, MagicDaggerDashEffect, createFireballHitEffect, Particle, VampiricScythe, VampiricSlashEffect } from './weaponary.js';
 import { Nexus, GrowingMagneticField, MagicCircle, PoisonCloud } from './entities.js';
 import { AudioManager } from './audioManager.js';
 import { TILE, TEAM, COLORS, GRID_SIZE } from './constants.js';
@@ -100,6 +100,7 @@ export class GameManager {
         this.isLevelUpEnabled = false;
         
         this.isNametagEnabled = false;
+        this.vampiricStateTimer = 0; // 유닛 상태
         this.nametagList = [];
         this.nametagColor = '#000000'; 
         this.usedNametagsInSim = new Set();
