@@ -1,7 +1,7 @@
 import { TILE, COLORS, GRID_SIZE } from './constants.js';
 
 const GLOWING_WEAPON_TYPES = new Set([
-    'sword', 'bow', 'shuriken', 'axe', 'fire_staff', 'boomerang', 'magic_dagger', 'dual_swords', 'magic_spear'
+    'sword', 'bow', 'shuriken', 'axe', 'fire_staff', 'boomerang', 'magic_dagger', 'dual_swords', 'magic_spear', 'vampiric_scythe'
 ]);
 
 export function drawImpl(mouseEvent) {
