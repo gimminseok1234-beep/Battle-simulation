@@ -1,5 +1,5 @@
 import { TILE, TEAM, COLORS, GRID_SIZE, DEEP_COLORS } from './constants.js';
-import { Weapon, MagicDaggerDashEffect, createPhysicalHitEffect } from './weaponary.js';
+import { Weapon, MagicDaggerDashEffect, createPhysicalHitEffect, VampiricSlashEffect } from './weaponary.js';
 import { astar } from './astar.js';
 import { Nexus } from './entities.js';
 
@@ -77,6 +77,7 @@ export class Unit {
         this.dualSwordTeleportTarget = null;
         this.dualSwordTeleportDelayTimer = 0;
         this.dualSwordSpinAttackTimer = 0;
+        this.vampiricStateTimer = 0;
         this.isMarkedByDualSword = { active: false, timer: 0 };
 
         this.isInLava = false;
@@ -815,6 +816,22 @@ export class Unit {
             }
         }
 
+        // 흡혈 낫 특수 공격 상태 처리
+        if (this.vampiricStateTimer > 0) {
+            this.vampiricStateTimer -= gameManager.gameSpeed;
+
+            // 흡혈 상태에서는 1초마다 광역 공격
+            if (this.vampiricStateTimer % 60 === 0) {
+                const slashEffect = new VampiricSlashEffect(this.gameManager, this.pixelX, this.pixelY, this);
+                this.gameManager.areaEffects.push(slashEffect);
+            }
+
+            if (this.vampiricStateTimer <= 0) {
+                this.vampiricStateTimer = 0;
+                // 상태 종료 시 특별한 처리 필요 시 여기에 추가
+            }
+        }
+
         if (this.isKing && this.spawnCooldown <= 0) {
             this.spawnCooldown = this.spawnInterval;
             gameManager.spawnUnit(this, false);
@@ -981,6 +998,9 @@ export class Unit {
                 case 'magic_spear':
                     this.isSpecialAttackReady = (this.magicSpearSpecialCooldown <= 0);
                     break;
+                case 'vampiric_scythe':
+                    this.isSpecialAttackReady = (this.weapon.specialAttackCooldown <= 0);
+                    break;
                 case 'poison_potion':
                     this.isSpecialAttackReady = (this.poisonPotionCooldown <= 0);
                     break;
@@ -1146,6 +1166,17 @@ export class Unit {
                             gameManager.audioManager.play('axe');
                             gameManager.createEffect('axe_spin_effect', this.pixelX, this.pixelY, this);
                             // ... (이하 파티클 및 데미지 로직은 기존과 동일)
+                            break;
+                        }
+                    }
+
+                    if (this.weapon?.type === 'vampiric_scythe' && this.isSpecialAttackReady) {
+                        const distanceToTarget = Math.hypot(this.pixelX - this.target.pixelX, this.pixelY - this.target.pixelY);
+                        if (distanceToTarget <= this.detectionRange && gameManager.hasLineOfSight(this, this.target)) {
+                            this.weapon.specialAttack(this);
+                            this.weapon.specialAttackCooldown = 420; // 7초 쿨다운 시작
+                            this.attackCooldown = 60; // 후딜레이
+                            this.moveTarget = { x: this.target.pixelX, y: this.target.pixelY }; // 적에게 돌진
                             break;
                         }
                     }
