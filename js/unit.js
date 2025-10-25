@@ -1207,11 +1207,21 @@ export class Unit {
                             break;
                         }
                     }
+
                     // [수정] 독 포션 유닛은 5초 쿨다운 공격만 하므로, 일반 근접 공격 로직에서 제외합니다.
                     if (this.weapon?.type === 'poison_potion') {
                         // 독 포션 유닛은 원거리 공격만 하므로, 적에게 다가가기만 합니다.
                         this.moveTarget = { x: this.target.pixelX, y: this.target.pixelY };
-                    } else {
+                    } else if (this.weapon?.type === 'vampiric_scythe') {
+                        // 흡혈 낫 근접 공격 로직
+                        if (Math.hypot(this.pixelX - this.target.pixelX, this.pixelY - this.target.pixelY) <= this.attackRange) {
+                            this.moveTarget = null;
+                            this.attack(this.target);
+                            this.facingAngle = Math.atan2(this.target.pixelY - this.pixelY, this.target.pixelX - this.pixelX);
+                        } else {
+                            this.moveTarget = { x: this.target.pixelX, y: this.target.pixelY };
+                        }
+                    } else { // 그 외 모든 무기 및 맨손 공격
                         let attackDistance = this.attackRange;
                         if (Math.hypot(this.pixelX - this.target.pixelX, this.pixelY - this.target.pixelY) <= attackDistance) {
                             this.moveTarget = null;
