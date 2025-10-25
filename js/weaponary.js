@@ -1810,8 +1810,22 @@ export class VampiricScythe extends Weapon {
 
     drawEquipped(ctx, unit) {
         // 유닛이 장착했을 때의 모습
-        const color = unit.vampiricStateTimer > 0 ? '#e74c3c' : '#bdc3c7'; // 흡혈 모드일 때 빨간색
-        this.drawScythe(ctx, color, unit.attackAngle);
+        // [수정] 다른 무기들과 동일하게 공격 애니메이션이 적용되도록 Weapon의 drawEquipped 로직을 활용합니다.
+        const gameManager = this.gameManager;
+        if (!gameManager) return;
+
+        ctx.save();
+        ctx.translate(unit.pixelX, unit.pixelY);
+
+        let rotation = unit.facingAngle;
+        if (unit.attackAnimationTimer > 0) {
+            const duration = 12;
+            const progress = (duration - unit.attackAnimationTimer) / duration;
+            const swingProgress = 1 - Math.pow(1 - progress, 3);
+            rotation += swingProgress * (Math.PI / 2);
+        }
+        this.drawScythe(ctx, unit.vampiricStateTimer > 0 ? '#e74c3c' : '#bdc3c7', rotation);
+        ctx.restore();
     }
 
     // 낫 모양을 그리는 헬퍼 함수
