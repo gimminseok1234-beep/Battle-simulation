@@ -510,7 +510,7 @@ export class Weapon {
             ctx.save();
             ctx.translate(weaponX, weaponY);
             ctx.rotate(-unit.facingAngle); // [수정] 유닛의 회전값을 상쇄하여 항상 정방향을 유지하도록 함
-            this.drawPoisonPotion(ctx, 0.32); // [수정] 크기를 20% 줄임 (0.4 -> 0.32)
+            this.drawPoisonPotion(ctx, 0.64);
             ctx.restore();
         } else if (this.type === 'hadoken') {
             ctx.translate(GRID_SIZE * 0.5, 0);
@@ -1810,11 +1810,11 @@ export class VampiricScythe extends Weapon {
 
     drawEquipped(ctx, unit) {
         // 유닛이 장착했을 때의 모습
-        // [수정] 다른 무기들과 동일하게 공격 애니메이션이 적용되도록 Weapon의 drawEquipped 로직을 활용합니다.
         const gameManager = this.gameManager;
         if (!gameManager) return;
 
         ctx.save();
+        // 유닛의 월드 좌표로 이동
         ctx.translate(unit.pixelX, unit.pixelY);
 
         let rotation = unit.facingAngle;
@@ -1824,6 +1824,11 @@ export class VampiricScythe extends Weapon {
             const swingProgress = 1 - Math.pow(1 - progress, 3);
             rotation += swingProgress * (Math.PI / 2);
         }
+
+        // 유닛의 오른쪽에 위치하도록 좌표 조정
+        const orbitRadius = GRID_SIZE * 0.6;
+        ctx.translate(Math.cos(rotation + Math.PI / 2) * orbitRadius, Math.sin(rotation + Math.PI / 2) * orbitRadius);
+
         this.drawScythe(ctx, unit.vampiricStateTimer > 0 ? '#e74c3c' : '#bdc3c7', rotation);
         ctx.restore();
     }
@@ -1891,20 +1896,26 @@ export class VampiricSlashEffect extends AreaEffect {
     }
 
     update() {
-        super.update();
-        this.gameManager.units.forEach(unit => {
-            if (unit.team !== this.ownerTeam && !this.hitTargets.has(unit)) {
-                const distance = Math.hypot(this.x - unit.pixelX, this.y - unit.pixelY);
-                if (distance < this.radius) {
-                    unit.takeDamage(this.damage, {}, this.owner);
-                    
-                    // --- 흡혈 기능 ---
-                    const healAmount = this.damage * 0.1; // 입힌 데미지의 10%만큼 회복
-                    this.owner.hp = Math.min(this.owner.maxHp, this.owner.hp + healAmount);
+        // [수정] 데미지 및 흡혈 로직을 unit.js로 이전했습니다.
+        // 이 클래스는 이제 시각/음향 효과만 담당합니다.
+        this.duration -= this.gameManager.gameSpeed;
+    }
 
-                    this.hitTargets.add(unit);
-                }
-            }
-        });
+    draw(ctx) {
+        // [추가] 특수 공격 시 붉은 궤적 이펙트
+        if (this.duration <= 0) return;
+
+        const progress = 1 - (this.duration / 20);
+        const radius = this.radius * progress;
+        const opacity = 1 - progress;
+
+        ctx.save();
+        ctx.globalAlpha = opacity * 0.7;
+        ctx.strokeStyle = '#e74c3c';
+        ctx.lineWidth = 8 * (1 - progress);
+        ctx.beginPath();
+        ctx.arc(this.owner.pixelX, this.owner.pixelY, radius, this.angle - Math.PI / 2, this.angle + Math.PI / 2);
+        ctx.stroke();
+        ctx.restore();
     }
 }
