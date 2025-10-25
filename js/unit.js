@@ -118,8 +118,15 @@ export class Unit {
         if (this.weapon && this.weapon.type === 'dual_swords' && (this.state === 'AGGRESSIVE' || this.state === 'ATTACKING_NEXUS')) {
             combatSpeedBoost = 0.5;
         }
+
+        // 흡혈 낫 특수 공격 속도 증가
+        let vampiricSpeedBoost = 1.0;
+        if (this.vampiricStateTimer > 0) {
+            vampiricSpeedBoost = 1.5;
+        }
+
         let finalSpeed = (this.baseSpeed + (this.weapon ? this.weapon.speedBonus || 0 : 0) + combatSpeedBoost) + speedModifier;
-        finalSpeed *= (1 + (this.level - 1) * 0.06);
+        finalSpeed *= (1 + (this.level - 1) * 0.06) * vampiricSpeedBoost;
 
         return Math.max(0.1, finalSpeed);
     }
