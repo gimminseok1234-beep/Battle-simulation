@@ -94,6 +94,7 @@ export class UIManager {
                         <button id="hadokenSettingsBtn" class="p-2 rounded hover:bg-gray-600">⚙️</button>
                     </div>
                     <button class="tool-btn" data-tool="weapon" data-type="shuriken">표창</button>
+                    <button class="tool-btn" data-tool="weapon" data-type="vampiric_scythe">흡혈 낫</button>
                     <button class="tool-btn" data-tool="weapon" data-type="crown">왕관</button>
                 </div>
             </div>
