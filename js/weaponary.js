@@ -502,7 +502,7 @@ export class Weapon {
             this.drawBoomerang(ctx, 0.5);
         } else if (this.type === 'poison_potion') {
             // [신규] 번개 무기처럼 유닛 주위를 공전하도록 수정
-            const revolutionAngle = gameManager.animationFrameCounter * 0.05;
+            const revolutionAngle = gameManager.animationFrameCounter * 0.05; // [수정] 크기를 20% 줄임 (0.4 -> 0.32)
             const orbitRadius = GRID_SIZE * 0.8;
             const weaponX = Math.cos(revolutionAngle) * orbitRadius;
             const weaponY = Math.sin(revolutionAngle) * orbitRadius;
@@ -510,7 +510,7 @@ export class Weapon {
             ctx.save();
             ctx.translate(weaponX, weaponY);
             ctx.rotate(-unit.facingAngle); // [수정] 유닛의 회전값을 상쇄하여 항상 정방향을 유지하도록 함
-            this.drawPoisonPotion(ctx, 0.64);
+            this.drawPoisonPotion(ctx, 0.64); // [수정] 크기를 20% 줄임 (0.4 -> 0.32)
             ctx.restore();
         } else if (this.type === 'hadoken') {
             ctx.translate(GRID_SIZE * 0.5, 0);
@@ -1810,13 +1810,6 @@ export class VampiricScythe extends Weapon {
 
     drawEquipped(ctx, unit) {
         // 유닛이 장착했을 때의 모습
-        const gameManager = this.gameManager;
-        if (!gameManager) return;
-
-        ctx.save();
-        // 유닛의 월드 좌표로 이동
-        ctx.translate(unit.pixelX, unit.pixelY);
-
         let rotation = unit.facingAngle;
         if (unit.attackAnimationTimer > 0) {
             const duration = 12;
@@ -1824,13 +1817,13 @@ export class VampiricScythe extends Weapon {
             const swingProgress = 1 - Math.pow(1 - progress, 3);
             rotation += swingProgress * (Math.PI / 2);
         }
+        ctx.rotate(rotation);
 
         // 유닛의 오른쪽에 위치하도록 좌표 조정
         const orbitRadius = GRID_SIZE * 0.6;
         ctx.translate(Math.cos(rotation + Math.PI / 2) * orbitRadius, Math.sin(rotation + Math.PI / 2) * orbitRadius);
 
         this.drawScythe(ctx, unit.vampiricStateTimer > 0 ? '#e74c3c' : '#bdc3c7', rotation);
-        ctx.restore();
     }
 
     // 낫 모양을 그리는 헬퍼 함수
@@ -1902,19 +1895,17 @@ export class VampiricSlashEffect extends AreaEffect {
     }
 
     draw(ctx) {
-        // [추가] 특수 공격 시 붉은 궤적 이펙트
+        // [수정] 특수 공격 시 붉은색 반투명 원으로 공격 범위 표시
         if (this.duration <= 0) return;
 
         const progress = 1 - (this.duration / 20);
-        const radius = this.radius * progress;
-        const opacity = 1 - progress;
+        const opacity = Math.sin(progress * Math.PI) * 0.4; // 나타났다가 사라지는 효과
 
         ctx.save();
-        ctx.globalAlpha = opacity * 0.7;
-        ctx.strokeStyle = '#e74c3c';
-        ctx.lineWidth = 8 * (1 - progress);
+        ctx.globalAlpha = opacity;
+        ctx.fillStyle = '#e74c3c';
         ctx.beginPath();
-        ctx.arc(this.owner.pixelX, this.owner.pixelY, radius, this.angle - Math.PI / 2, this.angle + Math.PI / 2);
+        ctx.arc(this.pixelX, this.pixelY, this.radius, 0, Math.PI * 2);
         ctx.stroke();
         ctx.restore();
     }
