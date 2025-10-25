@@ -832,25 +832,24 @@ export class Unit {
             // 흡혈 상태에서는 1초마다 광역 공격
             if (this.vampiricStateTimer > 0 && this.vampiricStateTimer % 60 === 0) {
                 this.attackAnimationTimer = 12; // 낫을 휘두르는 애니메이션 발동
-                
-                // 시각 및 음향 효과만 담당하는 Effect 생성
-                const slashEffect = new VampiricSlashEffect(this.gameManager, this.pixelX, this.pixelY, this);
-                this.gameManager.areaEffects.push(slashEffect); // areaEffects에 추가하여 draw()만 호출되도록 함
 
-                // 주변의 적을 찾아 최대 3명까지 공격
+                // 시각/음향 효과 및 공격 범위 표시를 위한 Effect 생성
+                const slashEffect = new VampiricSlashEffect(this.gameManager, this.pixelX, this.pixelY, this);
+                this.gameManager.areaEffects.push(slashEffect);
+
+                // 이펙트 범위 내의 적을 최대 3명까지 찾아 공격
                 const enemies = this.gameManager.units.filter(u => u.team !== this.team && u.hp > 0);
-                const attackRadius = 80; // VampiricSlashEffect의 반경과 동일하게 설정
                 const targets = enemies
-                    .filter(enemy => Math.hypot(this.pixelX - enemy.pixelX, this.pixelY - enemy.pixelY) < attackRadius)
+                    .filter(enemy => Math.hypot(this.pixelX - enemy.pixelX, this.pixelY - enemy.pixelY) < slashEffect.radius)
                     .sort((a, b) => Math.hypot(this.pixelX - a.pixelX, this.pixelY - a.pixelY) - Math.hypot(this.pixelX - b.pixelX, this.pixelY - b.pixelY))
                     .slice(0, 3);
 
                 targets.forEach(target => {
-                    const damage = 15; // VampiricSlashEffect의 데미지와 동일하게 설정
+                    const damage = slashEffect.damage;
                     target.takeDamage(damage, {}, this);
 
                     // --- 흡혈 기능 ---
-                    const healAmount = damage * 0.1; // 입힌 데미지의 10%만큼 회복
+                    const healAmount = damage * 0.1;
                     this.hp = Math.min(this.maxHp, this.hp + healAmount);
                 });
             }
@@ -1584,14 +1583,8 @@ export class Unit {
             ctx.lineTo(-GRID_SIZE * 0.2, 0); ctx.closePath();
             ctx.fill(); ctx.stroke();
         } else if (this.weapon) {
-            // [수정] 흡혈 낫은 자체 drawEquipped 로직을 사용하므로 분기 처리
-            if (this.weapon.type === 'vampiric_scythe' && this.weapon.drawEquipped) {
-                // 컨텍스트를 유닛 위치로 옮기지 않고 직접 호출합니다.
-                // VampiricScythe.drawEquipped 내부에서 unit의 월드 좌표를 사용해 직접 translate을 처리합니다.
-                this.weapon.drawEquipped(ctx, this);
-            } else {
-                this.weapon.drawEquipped(ctx, { ...this, pixelX: 0, pixelY: 0 });
-            }
+            // [수정] 모든 무기가 동일한 방식으로 그려지도록 로직 통일
+            this.weapon.drawEquipped(ctx, { ...this, pixelX: 0, pixelY: 0 });
         }
         ctx.restore();
 
