@@ -1783,6 +1783,68 @@ export class AreaEffect {
         }
     }
 }
+
+// --- 1. 흡혈 낫(Vampiric Scythe) 무기 클래스 ---
+export class VampiricScythe extends Weapon {
+    constructor(gameManager, x, y) {
+        super(gameManager, x, y, 'vampiric_scythe');
+        this.attackPower = 15;
+        this.attackRange = 1.5 * GRID_SIZE;
+        this.attackCooldown = 180; // 3초
+        this.specialAttackCharge = 0;
+        this.specialAttackCooldown = 420; // 7초
+    }
+
+    draw(ctx) {
+        // 맵에 떨어져 있을 때의 모습
+        ctx.save();
+        ctx.translate(this.pixelX, this.pixelY);
+        this.drawScythe(ctx, '#bdc3c7'); // 은색
+        ctx.restore();
+    }
+
+    drawEquipped(ctx, unit) {
+        // 유닛이 장착했을 때의 모습
+        const color = unit.vampiricStateTimer > 0 ? '#e74c3c' : '#bdc3c7'; // 흡혈 모드일 때 빨간색
+        this.drawScythe(ctx, color, unit.attackAngle);
+    }
+
+    // 낫 모양을 그리는 헬퍼 함수
+    drawScythe(ctx, color, angle = -Math.PI / 2) {
+        ctx.save();
+        ctx.rotate(angle);
+        ctx.translate(5, 0);
+
+        // 낫 손잡이
+        ctx.fillStyle = '#59453C'; // 나무 색
+        ctx.beginPath();
+        ctx.rect(-15, -2, 25, 4);
+        ctx.fill();
+
+        // 낫 날
+        ctx.fillStyle = color;
+        ctx.beginPath();
+        ctx.moveTo(10, -2);
+        ctx.quadraticCurveTo(20, 0, 25, 15);
+        ctx.quadraticCurveTo(15, 5, 10, -2);
+        ctx.fill();
+
+        ctx.restore();
+    }
+
+    // 특수 공격 로직
+    specialAttack(unit) {
+        if (unit.vampiricStateTimer <= 0) {
+            unit.vampiricStateTimer = 300; // 5초간 흡혈 모드
+            unit.speed *= 1.5; // 빠르게 달려들기 위한 속도 증가
+            this.gameManager.audioManager.play('powerUp'); // 효과음
+            // 5초 후 속도 원래대로
+            setTimeout(() => {
+                if(unit) unit.speed /= 1.5;
+            }, 5000);
+        }
+    }
+}
 // --- 2. 흡혈 낫 광역 공격을 위한 AreaEffect ---
 export class VampiricSlashEffect extends AreaEffect {
     constructor(gameManager, x, y, owner) {
