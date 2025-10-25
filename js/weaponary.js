@@ -1801,6 +1801,7 @@ export class VampiricScythe extends Weapon {
     }
 
     draw(ctx) {
+        if (this.isEquipped) return;
         // 맵에 떨어져 있을 때의 모습
         ctx.save();
         ctx.translate(this.pixelX, this.pixelY);
@@ -1905,8 +1906,8 @@ export class VampiricSlashEffect extends AreaEffect {
         ctx.globalAlpha = opacity;
         ctx.fillStyle = '#e74c3c';
         ctx.beginPath();
-        ctx.arc(this.pixelX, this.pixelY, this.radius, 0, Math.PI * 2);
-        ctx.stroke();
+        ctx.arc(this.owner.pixelX, this.owner.pixelY, this.radius, 0, Math.PI * 2);
+        ctx.fill();
         ctx.restore();
     }
 }
