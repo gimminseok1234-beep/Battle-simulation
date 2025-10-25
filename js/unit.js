@@ -77,6 +77,7 @@ export class Unit {
         this.dualSwordTeleportTarget = null;
         this.dualSwordTeleportDelayTimer = 0;
         this.dualSwordSpinAttackTimer = 0;
+        this.vampiricScytheCooldown = 0;
         this.vampiricStateTimer = 0;
         this.isMarkedByDualSword = { active: false, timer: 0 };
 
@@ -756,6 +757,7 @@ export class Unit {
         if (this.dualSwordSkillCooldown > 0) this.dualSwordSkillCooldown -= gameManager.gameSpeed;
         if (this.dualSwordTeleportDelayTimer > 0) this.dualSwordTeleportDelayTimer -= gameManager.gameSpeed;
         if (this.dualSwordSpinAttackTimer > 0) this.dualSwordSpinAttackTimer -= gameManager.gameSpeed;
+        if (this.vampiricScytheCooldown > 0) this.vampiricScytheCooldown -= gameManager.gameSpeed;
         if (this.attackCooldown > 0) this.attackCooldown -= gameManager.gameSpeed;
         if (this.teleportCooldown > 0) this.teleportCooldown -= gameManager.gameSpeed;
         if (this.alertedCounter > 0) this.alertedCounter -= gameManager.gameSpeed; // [수정] 마법창 특수 공격 쿨다운
@@ -996,10 +998,10 @@ export class Unit {
                     this.isSpecialAttackReady = (this.dualSwordSkillCooldown <= 0);
                     break;
                 case 'magic_spear':
-                    this.isSpecialAttackReady = (this.magicSpearSpecialCooldown <= 0);
+                    this.isSpecialAttackReady = (this.magicSpearSpecialCooldown <= 0); // [수정] 중복된 로직 제거
                     break;
                 case 'vampiric_scythe':
-                    this.isSpecialAttackReady = (this.weapon.specialAttackCooldown <= 0);
+                    this.isSpecialAttackReady = (this.vampiricScytheCooldown <= 0);
                     break;
                 case 'poison_potion':
                     this.isSpecialAttackReady = (this.poisonPotionCooldown <= 0);
@@ -1173,8 +1175,8 @@ export class Unit {
                     if (this.weapon?.type === 'vampiric_scythe' && this.isSpecialAttackReady) {
                         const distanceToTarget = Math.hypot(this.pixelX - this.target.pixelX, this.pixelY - this.target.pixelY);
                         if (distanceToTarget <= this.detectionRange && gameManager.hasLineOfSight(this, this.target)) {
-                            this.weapon.specialAttack(this);
-                            this.weapon.specialAttackCooldown = 420; // 7초 쿨다운 시작
+                            this.weapon.specialAttack(this); // 특수 공격 발동
+                            this.vampiricScytheCooldown = 420; // 7초 쿨다운 시작
                             this.attackCooldown = 60; // 후딜레이
                             this.moveTarget = { x: this.target.pixelX, y: this.target.pixelY }; // 적에게 돌진
                             break;
@@ -1574,7 +1576,8 @@ export class Unit {
             (this.weapon?.type === 'boomerang' && this.boomerangCooldown > 0) ||
             (this.weapon?.type === 'shuriken' && this.shurikenSkillCooldown > 0) ||
             (this.weapon?.type === 'fire_staff' && this.fireStaffSpecialCooldown > 0) ||
-            (this.weapon?.type === 'dual_swords' && this.dualSwordSkillCooldown > 0) ||
+            (this.weapon?.type === 'dual_swords' && this.dualSwordSkillCooldown > 0) || 
+            (this.weapon?.type === 'vampiric_scythe' && this.vampiricScytheCooldown > 0) ||
             (this.isCasting && this.weapon?.type !== 'poison_potion');
 
         if (this.attackCooldown > 0 && !this.isCasting) {
@@ -1667,7 +1670,7 @@ export class Unit {
         if (specialSkillIsVisible) {
             let fgColor, progress = 0, max = 1;
 
-            // [수정] 무기 종류별 특수 공격 게이지 색상 설정 및 진행률 계산
+            // 무기 종류별 특수 공격 게이지 색상 설정 및 진행률 계산
             const specialAttackWeapons = ['fire_staff', 'boomerang', 'shuriken', 'poison_potion', 'magic_dagger', 'axe', 'dual_swords', 'magic_spear', 'ice_diamond'];
             if (specialAttackWeapons.includes(this.weapon?.type)) {
                 switch (this.weapon.type) {
@@ -1702,6 +1705,10 @@ export class Unit {
                     case 'ice_diamond':
                         fgColor = '#38bdf8'; // 파란색
                         progress = this.iceDiamondChargeTimer; max = 240;
+                        break;
+                    case 'vampiric_scythe':
+                        fgColor = '#9ca3af'; // 회색
+                        progress = 420 - this.vampiricScytheCooldown; max = 420;
                         break;
                     default:
                         fgColor = '#94a3b8'; // [수정] 기본값을 회색으로 변경
