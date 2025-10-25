@@ -1855,12 +1855,7 @@ export class VampiricScythe extends Weapon {
     specialAttack(unit) {
         if (unit.vampiricStateTimer <= 0) {
             unit.vampiricStateTimer = 300; // 5초간 흡혈 모드
-            unit.speed *= 1.5; // 빠르게 달려들기 위한 속도 증가
             this.gameManager.audioManager.play('powerUp'); // 효과음
-            // 5초 후 속도 원래대로
-            setTimeout(() => {
-                if(unit) unit.speed /= 1.5;
-            }, 5000);
         }
     }
 }
