@@ -510,7 +510,10 @@ export class GameManager {
             }
             return unit;
         });
-        this.weapons = JSON.parse(this.initialWeaponsState).map(wData => Object.assign(new Weapon(this, wData.gridX, wData.gridY, wData.type), wData));
+        this.weapons = JSON.parse(this.initialWeaponsState).map(wData => {
+            const weapon = this.createWeapon(wData.gridX, wData.gridY, wData.type);
+            return Object.assign(weapon, wData);
+        });
         this.nexuses = JSON.parse(this.initialNexusesState).map(nData => Object.assign(new Nexus(this, nData.gridX, nData.gridY, nData.team), nData));
         
         this.map = JSON.parse(this.initialMapState);
