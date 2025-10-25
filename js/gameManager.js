@@ -510,10 +510,7 @@ export class GameManager {
             }
             return unit;
         });
-        this.weapons = JSON.parse(this.initialWeaponsState).map(wData => {
-            const weapon = this.createWeapon(wData.gridX, wData.gridY, wData.type);
-            return Object.assign(weapon, wData);
-        });
+        this.weapons = JSON.parse(this.initialWeaponsState).map(wData => Object.assign(new Weapon(this, wData.gridX, wData.gridY, wData.type), wData));
         this.nexuses = JSON.parse(this.initialNexusesState).map(nData => Object.assign(new Nexus(this, nData.gridX, nData.gridY, nData.team), nData));
         
         this.map = JSON.parse(this.initialMapState);
@@ -1213,8 +1210,14 @@ export class GameManager {
             this.map = Array(this.ROWS).fill().map(() => Array(this.COLS).fill({ type: TILE.FLOOR, color: this.currentFloorColor }));
         }
         
-        this.units = (mapData.units || []).map(uData => Object.assign(new Unit(this, uData.gridX, uData.gridY, uData.team), uData));
-        this.weapons = (mapData.weapons || []).map(wData => Object.assign(new Weapon(this, wData.gridX, wData.gridY, wData.type), wData));
+        this.units = (mapData.units || []).map(uData => {
+            const unit = Object.assign(new Unit(this, uData.gridX, uData.gridY, uData.team), uData);
+            if (uData.weapon && uData.weapon.type) {
+                unit.equipWeapon(uData.weapon.type, unit.isKing);
+            }
+            return unit;
+        });
+        this.weapons = (mapData.weapons || []).map(wData => Object.assign(this.createWeapon(wData.gridX, wData.gridY, wData.type), wData));
         this.nexuses = (mapData.nexuses || []).map(nData => Object.assign(new Nexus(this, nData.gridX, nData.gridY, nData.team), nData));
         
         this.growingFields = (mapData.growingFields || []).map(fieldData => {
@@ -1264,8 +1267,14 @@ export class GameManager {
 
         this.map = JSON.parse(mapData.map);
         
-        this.units = (mapData.units || []).map(uData => Object.assign(new Unit(this, uData.gridX, uData.gridY, uData.team), uData));
-        this.weapons = (mapData.weapons || []).map(wData => Object.assign(new Weapon(this, wData.gridX, wData.gridY, wData.type), wData));
+        this.units = (mapData.units || []).map(uData => {
+            const unit = Object.assign(new Unit(this, uData.gridX, uData.gridY, uData.team), uData);
+            if (uData.weapon && uData.weapon.type) {
+                unit.equipWeapon(uData.weapon.type, unit.isKing);
+            }
+            return unit;
+        });
+        this.weapons = (mapData.weapons || []).map(wData => Object.assign(this.createWeapon(wData.gridX, wData.gridY, wData.type), wData));
         this.nexuses = (mapData.nexuses || []).map(nData => Object.assign(new Nexus(this, nData.gridX, nData.gridY, nData.team), nData));
         
         this.growingFields = (mapData.growingFields || []).map(fieldData => {
