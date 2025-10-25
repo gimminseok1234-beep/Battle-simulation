@@ -32,8 +32,8 @@ export class Weapon {
         const gameManager = this.gameManager;
         if (!gameManager) return;
 
-        // [수정] magic_spear에도 공격 애니메이션 타이머 적용
-        if (['sword', 'dual_swords', 'boomerang', 'poison_potion', 'magic_dagger', 'axe', 'bow', 'magic_spear'].includes(this.type)) {
+        // [수정] vampiric_scythe에도 공격 애니메이션 타이머 적용
+        if (['sword', 'dual_swords', 'boomerang', 'poison_potion', 'magic_dagger', 'axe', 'bow', 'magic_spear', 'vampiric_scythe'].includes(this.type)) {
             unit.attackAnimationTimer = 12; // [MODIFIED] 공격 애니메이션 속도 증가 (15 -> 12)
         }
 
@@ -188,6 +188,11 @@ export class Weapon {
         } else if (this.type === 'poison_potion') { // [수정] 5초 쿨다운 공격으로만 작동하므로, 일반 공격 시에는 투사체를 생성합니다.
             gameManager.createProjectile(unit, target, 'poison_potion_projectile');
             gameManager.audioManager.play('shurikenShoot');
+            unit.attackCooldown = unit.cooldownTime;
+        } else if (this.type === 'vampiric_scythe') {
+            target.takeDamage(unit.attackPower, {}, unit);
+            gameManager.createEffect('slash', unit.pixelX, unit.pixelY, target);
+            gameManager.audioManager.play('swordHit');
             unit.attackCooldown = unit.cooldownTime;
         }
     }
