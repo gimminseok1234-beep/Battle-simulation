@@ -835,6 +835,9 @@ export class GameManager {
 
     createWeapon(x, y, type) {
         const weapon = new Weapon(this, x, y, type);
+        if (type === 'vampiric_scythe') {
+            return new VampiricScythe(this, x, y);
+        }
         if (type === 'sword') {
             weapon.attackPowerBonus = 15;
         } else if (type === 'bow') {
