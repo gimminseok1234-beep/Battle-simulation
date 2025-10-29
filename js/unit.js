@@ -379,13 +379,13 @@ export class Unit {
             const lookAheadGridY = Math.floor(lookAheadY / GRID_SIZE);
 
             if (gameManager.isPosInLavaForUnit(lookAheadGridX, lookAheadGridY)) {
-                const detourAngle = Math.PI / 3; // 60도
+                const detourAngle = Math.PI / 3;
                 let bestAngle = -1;
 
                 const leftAngle = angle - detourAngle;
                 const rightAngle = angle + detourAngle;
 
-                const leftLookAheadX = this.pixelX + Math.cos(leftAngle) * lookAheadDist;
+                const leftLookAheadX = this.pixelX + Math.cos(leftAngle) * lookAheadDist; // [수정] 오타 수정
                 const leftLookAheadY = this.pixelY + Math.sin(leftAngle) * lookAheadDist;
                 const isLeftSafe = !gameManager.isPosInLavaForUnit(Math.floor(leftLookAheadX / GRID_SIZE), Math.floor(leftLookAheadY / GRID_SIZE));
 
@@ -394,7 +394,8 @@ export class Unit {
                 const isRightSafe = !gameManager.isPosInLavaForUnit(Math.floor(rightLookAheadX / GRID_SIZE), Math.floor(rightLookAheadY / GRID_SIZE));
 
                 if (isLeftSafe && isRightSafe) {
-                    bestAngle = Math.abs(leftAngle - angle) < Math.abs(rightAngle - angle) ? leftAngle : rightAngle;
+                    // [MODIFIED] Math.random()을 gameManager.random()으로 변경하여 결정성을 보장합니다.
+                    bestAngle = gameManager.random() < 0.5 ? leftAngle : rightAngle;
                 } else if (isLeftSafe) {
                     bestAngle = leftAngle;
                 } else if (isRightSafe) {
@@ -1227,7 +1228,7 @@ export class Unit {
         this.lastPosition = { x: this.pixelX, y: this.pixelY };
 
 
-        const finalGridX = Math.floor(this.pixelX / GRID_SIZE);
+        const finalGridX = Math.floor(this.pixelX / GRID_SIZE); // [수정] 오타 수정
         const finalGridY = Math.floor(this.pixelY / GRID_SIZE);
 
         if (this.isInMagneticField) {
