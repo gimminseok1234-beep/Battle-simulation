@@ -683,10 +683,37 @@ export class Unit {
         // [신규] 마법창 비전 이동 로직
         if (this.weapon?.type === 'magic_spear' && !this.hasUsedBlink && this.hp < this.maxHp * 0.3) {
             this.hasUsedBlink = true;
-            const blinkAngle = this.facingAngle + Math.PI; // 현재 방향의 반대로
-            const blinkDistance = GRID_SIZE * 6;
-            const targetX = this.pixelX + Math.cos(blinkAngle) * blinkDistance;
-            const targetY = this.pixelY + Math.sin(blinkAngle) * blinkDistance;
+
+            let safeSpot = null;
+            const searchRadius = 8; // 타일 단위 검색 반경
+            const currentGridX = Math.floor(this.pixelX / GRID_SIZE);
+            const currentGridY = Math.floor(this.pixelY / GRID_SIZE);
+
+            // 현재 위치에서 점점 넓은 반경으로 안전한 위치 탐색
+            for (let r = 1; r <= searchRadius; r++) {
+                for (let dy = -r; dy <= r; dy++) {
+                    for (let dx = -r; dx <= r; dx++) {
+                        if (Math.abs(dx) !== r && Math.abs(dy) !== r) continue;
+
+                        const checkX = currentGridX + dx;
+                        const checkY = currentGridY + dy;
+
+                        if (checkY >= 0 && checkY < gameManager.ROWS && checkX >= 0 && checkX < gameManager.COLS) {
+                            const tile = gameManager.map[checkY][checkX];
+                            const isWall = tile.type === TILE.WALL || tile.type === TILE.CRACKED_WALL;
+                            const isInField = gameManager.isPosInAnyField(checkX, checkY);
+                            const isInLava = gameManager.isPosInLavaForUnit(checkX, checkY);
+
+                            if (!isWall && !isInField && !isInLava) {
+                                safeSpot = { x: checkX * GRID_SIZE + GRID_SIZE / 2, y: checkY * GRID_SIZE + GRID_SIZE / 2 };
+                                break;
+                            }
+                        }
+                    }
+                    if (safeSpot) break;
+                }
+                if (safeSpot) break;
+            }
 
             // 이펙트 생성
             for (let i = 0; i < 25; i++) {
@@ -696,8 +723,12 @@ export class Unit {
             }
             gameManager.audioManager.play('teleport');
 
-            this.pixelX = targetX;
-            this.pixelY = targetY;
+            if (safeSpot) {
+                this.pixelX = safeSpot.x;
+                this.pixelY = safeSpot.y;
+            }
+            // 안전한 장소를 못 찾으면 제자리에서 효과만 발생
+
             this.knockbackX = 0;
             this.knockbackY = 0;
         }
@@ -1037,7 +1068,10 @@ export class Unit {
                         pixelX: pos.x * GRID_SIZE + GRID_SIZE / 2,
                         pixelY: pos.y * GRID_SIZE + GRID_SIZE / 2
                     }));
-                    const { item: closestPack, distance: packDist } = this.findClosest(healPackPositions);
+
+                const visibleHealPacks = healPackPositions.filter(pack => gameManager.hasLineOfSight(this, pack));
+                const { item: closestPack, distance: packDist } = this.findClosest(visibleHealPacks);
+
                     if (closestPack && packDist < this.detectionRange * 1.5) {
                         newState = 'SEEKING_HEAL_PACK';
                         newTarget = closestPack;
