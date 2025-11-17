@@ -754,7 +754,8 @@ export class GameManager {
                 // 더 선명한 픽셀 렌더링을 위해 정수 좌표 사용
                 const pixelX = Math.round(x * GRID_SIZE);
                 const pixelY = Math.round(y * GRID_SIZE);
-                this.ctx.fillRect(pixelX, pixelY, GRID_SIZE, GRID_SIZE);
+                // [수정] 0.5px을 더 크게 그려 줌인 시 타일 사이의 미세한 틈(그리드 현상)을 제거합니다.
+                this.ctx.fillRect(pixelX, pixelY, GRID_SIZE + 0.5, GRID_SIZE + 0.5);
 
                 if(tile.type === TILE.LAVA) {
                     const flicker = Math.sin(this.animationFrameCounter * 0.1 + x + y) * 10 + 10;
@@ -1583,3 +1584,4 @@ export class GameManager {
         }
     }
 }
+
