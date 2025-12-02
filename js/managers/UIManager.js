@@ -191,7 +191,9 @@ export class UIManager {
         document.getElementById('cancelUnitNameBtn').addEventListener('click', () => this.closeModal('unitNameModal'));
         document.getElementById('confirmUnitNameBtn').addEventListener('click', () => {
             if (this.gameManager.editingUnit) {
-                this.gameManager.editingUnit.name = document.getElementById('unitNameInput').value;
+                const newName = document.getElementById('unitNameInput').value;
+                this.gameManager.editingUnit.name = newName;
+                this.gameManager.editingUnit.nameColor = this.gameManager.nametagColor;
                 this.gameManager.editingUnit = null;
                 this.gameManager.draw();
             }
