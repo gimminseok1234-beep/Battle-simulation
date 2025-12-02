@@ -1266,7 +1266,15 @@ export class GameManager {
             this.map = Array(this.ROWS).fill().map(() => Array(this.COLS).fill({ type: TILE.FLOOR, color: this.currentFloorColor }));
         }
         
-        this.units = (mapData.units || []).map(uData => Object.assign(new Unit(this, uData.gridX, uData.gridY, uData.team), uData));
+        this.units = (mapData.units || []).map(uData => {
+            // weapon 객체는 Object.assign으로 덮어쓰지 않도록 별도 처리합니다.
+            const { weapon, ...restOfUData } = uData;
+            const unit = Object.assign(new Unit(this, uData.gridX, uData.gridY, uData.team), restOfUData);
+            if (weapon && weapon.type) {
+                unit.equipWeapon(weapon.type, unit.isKing);
+            }
+            return unit;
+        });
         this.weapons = (mapData.weapons || []).map(wData => Object.assign(new Weapon(this, wData.gridX, wData.gridY, wData.type), wData));
         this.nexuses = (mapData.nexuses || []).map(nData => Object.assign(new Nexus(this, nData.gridX, nData.gridY, nData.team), nData));
         
@@ -1317,7 +1325,15 @@ export class GameManager {
 
         this.map = JSON.parse(mapData.map);
         
-        this.units = (mapData.units || []).map(uData => Object.assign(new Unit(this, uData.gridX, uData.gridY, uData.team), uData));
+        this.units = (mapData.units || []).map(uData => {
+            // weapon 객체는 Object.assign으로 덮어쓰지 않도록 별도 처리합니다.
+            const { weapon, ...restOfUData } = uData;
+            const unit = Object.assign(new Unit(this, uData.gridX, uData.gridY, uData.team), restOfUData);
+            if (weapon && weapon.type) {
+                unit.equipWeapon(weapon.type, unit.isKing);
+            }
+            return unit;
+        });
         this.weapons = (mapData.weapons || []).map(wData => Object.assign(new Weapon(this, wData.gridX, wData.gridY, wData.type), wData));
         this.nexuses = (mapData.nexuses || []).map(nData => Object.assign(new Nexus(this, nData.gridX, nData.gridY, nData.team), nData));
         
@@ -1584,4 +1600,3 @@ export class GameManager {
         }
     }
 }
-
