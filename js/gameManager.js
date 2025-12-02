@@ -517,6 +517,22 @@ export class GameManager {
         }
         this.enableDeterministicRng();
 
+        // [신규] 리플레이 모드에서 이름표를 수정한 경우, 초기화 시 변경사항을 유지합니다.
+        if (this.isReplayMode) {
+            const currentUnitNametags = new Map();
+            this.units.forEach(unit => {
+                currentUnitNametags.set(unit.id, { name: unit.name, nameColor: unit.nameColor });
+            });
+
+            this.initialUnitsState.forEach(unitData => {
+                if (currentUnitNametags.has(unitData.id)) {
+                    const updatedNametag = currentUnitNametags.get(unitData.id);
+                    unitData.name = updatedNametag.name;
+                    unitData.nameColor = updatedNametag.nameColor;
+                }
+            });
+        }
+
         cancelAnimationFrame(this.animationFrameId);
         this.animationFrameId = null;
         this.state = 'EDIT';

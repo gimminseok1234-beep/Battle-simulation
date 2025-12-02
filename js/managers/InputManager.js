@@ -60,17 +60,19 @@ export class InputManager {
             }
         }
 
-        if (gm.state === 'EDIT' && !gm.isReplayMode) {
-            if (e.button === 0) { // 좌클릭
-                if (gm.currentTool.tool === 'nametag') {
-                    const clickedUnit = this.getUnitUnderCursor(pos);
-                    if (clickedUnit) {
-                        gm.editingUnit = clickedUnit;
-                        document.getElementById('unitNameInput').value = clickedUnit.name || '';
-                        gm.uiManager.openModal('unitNameModal');
-                        return;
-                    }
+        if (gm.state === 'EDIT') {
+            // [수정] 리플레이 모드에서도 이름표 도구를 사용할 수 있도록 조건 변경
+            if (e.button === 0 && gm.currentTool.tool === 'nametag') {
+                const clickedUnit = this.getUnitUnderCursor(pos);
+                if (clickedUnit) {
+                    gm.editingUnit = clickedUnit;
+                    document.getElementById('unitNameInput').value = clickedUnit.name || '';
+                    gm.uiManager.openModal('unitNameModal');
+                    return;
                 }
+            }
+            // 리플레이 모드가 아닐 때만 일반 도구 사용
+            if (e.button === 0 && !gm.isReplayMode) {
                 this.isDragging = true;
                 this.dragStartPos = pos;
                 gm.applyTool(pos);
@@ -138,7 +140,8 @@ export class InputManager {
     handleRightClick(e) {
         e.preventDefault();
         const gm = this.gameManager;
-        if (gm.state !== 'EDIT' || gm.isReplayMode) return;
+        // [수정] 리플레이 모드에서도 이름표 수정을 위해 우클릭이 가능하도록 조건 변경
+        if (gm.state !== 'EDIT') return;
 
         const pos = this.getMousePos(e);
         const unit = this.getUnitUnderCursor(pos);

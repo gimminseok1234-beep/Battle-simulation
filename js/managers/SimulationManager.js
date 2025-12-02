@@ -30,16 +30,6 @@ export class SimulationManager {
             return data;
         };
 
-        // [수정] 리플레이 결정성을 위해, 이름표 할당 로직 전에 유닛의 '순수' 상태를 먼저 저장합니다.
-        const cleanUnits = gm.units.map(u => {
-            const unitData = cleanDataForJSON(u);
-            unitData.weapon = u.weapon ? { type: u.weapon.type } : null;
-            return unitData;
-        });
-        gm.initialUnitsState = cleanUnits;
-
-
-
         gm.usedNametagsInSim.clear(); // 이 줄은 if 문 밖에 둡니다.
 
         // [수정] 이 if 블록을 추가하여 리플레이 모드일 때 이름표 할당을 건너뛰도록 합니다.
@@ -81,6 +71,16 @@ export class SimulationManager {
             // 리플레이 모드에서는 gm.units의 이름표를 건드리지 않습니다.
             // 사용자가 바꾼 이름표가 그대로 유지되어야 합니다.
         }
+
+        // [수정] 이름표 할당이 끝난 후, 최종 유닛 상태를 저장해야 리플레이에 이름표가 포함됩니다.
+        const cleanUnits = gm.units.map(u => {
+            const unitData = cleanDataForJSON(u);
+            // weapon 객체는 메서드를 제외하고 순수 데이터만 저장합니다.
+            unitData.weapon = u.weapon ? { type: u.weapon.type } : null;
+            // name과 nameColor는 자동으로 포함됩니다.
+            return unitData;
+        });
+        gm.initialUnitsState = cleanUnits;
 
         const cleanWeapons = gm.weapons.map(cleanDataForJSON);
         const cleanNexuses = gm.nexuses.map(cleanDataForJSON);

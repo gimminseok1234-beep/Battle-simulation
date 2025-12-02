@@ -597,12 +597,14 @@ export class UIManager {
     // [신규] 리플레이 모드 UI 업데이트
     updateUIToReplayMode() {
         const toolbox = document.getElementById('toolbox');
-        toolbox.style.display = 'flex';
+        toolbox.style.display = 'flex'; // toolbox 자체는 보이도록
         toolbox.classList.add('replay-mode');
 
+        // [수정] 리플레이 모드에서 '기타' 카테고리가 기본적으로 열리도록 설정
         const utilsHeader = toolbox.querySelector('[data-target="category-utils"]');
         const utilsContent = document.getElementById('category-utils');
         if (utilsHeader && utilsContent) {
+            // 'collapsed' 클래스를 제거하여 카테고리를 펼칩니다.
             utilsHeader.classList.remove('collapsed');
             utilsContent.classList.remove('collapsed');
         }
